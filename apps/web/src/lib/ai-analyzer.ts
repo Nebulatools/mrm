@@ -54,7 +54,6 @@ export class AIAnalyzer {
     // Check for specific business rule violations
     const rotacionKPI = kpis.find(k => k.name.includes('Rotación'));
     const incidenciasKPI = kpis.find(k => k.name.includes('%incidencias'));
-    const activosKPI = kpis.find(k => k.name === 'Activos');
 
     // High turnover anomaly
     if (rotacionKPI && rotacionKPI.value > 15) {

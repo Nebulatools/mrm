@@ -1,9 +1,22 @@
 #!/usr/bin/env tsx
 
 import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
 
-const supabaseUrl = 'https://vnyzjdtqruvofefexaue.supabase.co';
-const serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZueXpqZHRxcnV2b2ZlZmV4YXVlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzIyODIyOSwiZXhwIjoyMDcyODA0MjI5fQ.JDedpFBfL5oDITavffmdYxbEaVk6dL-LPvH_9EidhF8';
+// Load environment variables
+dotenv.config({ path: '.env.local' });
+
+// SECURITY: Use environment variables instead of hardcoded secrets
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !serviceRoleKey) {
+  console.error('❌ Missing required environment variables:');
+  console.error('   NEXT_PUBLIC_SUPABASE_URL');  
+  console.error('   SUPABASE_SERVICE_ROLE_KEY');
+  console.error('Please add them to your .env.local file');
+  process.exit(1);
+}
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
@@ -12,7 +25,7 @@ async function setupDatabase() {
   
   try {
     // For now, let's just check if we can connect and prepare for manual table creation
-    const { data, error } = await supabaseAdmin.from('plantilla').select('id').limit(1);
+    const { error } = await supabaseAdmin.from('plantilla').select('id').limit(1);
     
     if (error && error.code === 'PGRST116') {
       console.log('⚠️ Las tablas no existen aún. Necesitas crearlas manualmente en Supabase SQL Editor:');
@@ -161,7 +174,13 @@ async function populateDatabase() {
     }
 
     // Generate activity for current month
-    const activities = [];
+    interface ActivityRecord {
+      emp_id: string;
+      fecha: string;
+      presente: boolean;
+    }
+    
+    const activities: ActivityRecord[] = [];
     const currentDateIter = new Date(startOfMonth);
     
     while (currentDateIter <= endOfMonth) {

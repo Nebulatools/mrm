@@ -40,11 +40,11 @@ export class KPICalculator {
       try {
         console.log('🗄️ Attempting Supabase database...');
         kpis = await this.calculateFromDatabase(filter);
-      } catch (dbError) {
+      } catch {
         console.log('⚠️ Supabase failed, trying SFTP...');
         try {
-          kpis = await this.calculateFromSFTP(filter);
-        } catch (sftpError) {
+          kpis = await this.calculateFromSFTP();
+        } catch {
           console.log('⚠️ SFTP failed, using fallback...');
           kpis = await this.calculateFromFallback(filter);
         }
@@ -358,7 +358,7 @@ export class KPICalculator {
     ];
   }
 
-  private async calculateFromSFTP(filter: TimeFilter): Promise<KPIResult[]> {
+  private async calculateFromSFTP(): Promise<KPIResult[]> {
     // This would implement SFTP data retrieval and processing
     // For now, falling back to mock data
     throw new Error('SFTP implementation pending');

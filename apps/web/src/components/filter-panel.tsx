@@ -50,11 +50,6 @@ export function FilterPanel({ selectedPeriod, onPeriodChange, onClose }: FilterP
 
   const periodOptions = generatePeriodOptions();
 
-  const handleApplyFilters = () => {
-    onPeriodChange(tempPeriod);
-    onClose();
-  };
-
   const handlePeriodSelect = (value: string) => {
     const option = periodOptions.find(opt => opt.value === value);
     if (option && option.date) {

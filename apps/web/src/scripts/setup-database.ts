@@ -1,10 +1,19 @@
 #!/usr/bin/env tsx
 
-// Manually set environment variables
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://vnyzjdtqruvofefexaue.supabase.co';
-process.env.SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZueXpqZHRxcnV2b2ZlZmV4YXVlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NzIyODIyOSwiZXhwIjoyMDcyODA0MjI5fQ.JDedpFBfL5oDITavffmdYxbEaVk6dL-LPvH_9EidhF8';
-
+import * as dotenv from 'dotenv';
 import { setupDatabase, populateDatabase } from '../lib/supabase-admin';
+
+// SECURITY FIX: Load from environment variables instead of hardcoded secrets
+dotenv.config({ path: '.env.local' });
+
+// Validate required environment variables
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('❌ Missing required environment variables:');
+  console.error('   NEXT_PUBLIC_SUPABASE_URL');  
+  console.error('   SUPABASE_SERVICE_ROLE_KEY');
+  console.error('Please add them to your .env.local file');
+  process.exit(1);
+}
 
 async function main() {
   console.log('🚀 Inicializando base de datos de RRHH...\n');

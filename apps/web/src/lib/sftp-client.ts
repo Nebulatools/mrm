@@ -7,14 +7,20 @@ export interface SFTPFile {
   size: number;
 }
 
+interface CacheEntry<T = unknown> {
+  data: T;
+  timestamp: number;
+  ttl: number;
+}
+
 export class SFTPClient {
   private baseUrl = '/api/sftp';
-  private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+  private cache = new Map<string, CacheEntry>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
-  private ongoingRequests = new Map<string, Promise<any>>();
+  private ongoingRequests = new Map<string, Promise<unknown>>();
 
   // Cache management
-  private getCacheKey(method: string, ...params: any[]): string {
+  private getCacheKey(method: string, ...params: unknown[]): string {
     return `${method}_${params.join('_')}`;
   }
 
@@ -99,9 +105,11 @@ export class SFTPClient {
       const result = await response.json();
       
       if (result.files && result.files.length > 0) {
-        return result.files.map((file: any) => ({
-          ...file,
-          lastModified: new Date(file.lastModified)
+        return result.files.map((file: Record<string, unknown>) => ({
+          name: String(file.name),
+          type: file.type as 'plantilla' | 'incidencias' | 'act',
+          lastModified: new Date(file.lastModified as string),
+          size: Number(file.size)
         }));
       }
       
@@ -117,11 +125,11 @@ export class SFTPClient {
   }
 
   // Download and parse CSV file from SFTP
-  async downloadFile(filename: string): Promise<any[]> {
+  async downloadFile(filename: string): Promise<Record<string, unknown>[]> {
     const cacheKey = this.getCacheKey('downloadFile', filename);
     
     // Check cache first
-    const cached = this.getCachedData<any[]>(cacheKey);
+    const cached = this.getCachedData<Record<string, unknown>[]>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -145,7 +153,7 @@ export class SFTPClient {
     }
   }
 
-  private async _downloadFileInternal(filename: string): Promise<any[]> {
+  private async _downloadFileInternal(filename: string): Promise<Record<string, unknown>[]> {
     try {
       console.log('Downloading file via API:', filename);
       
@@ -169,14 +177,18 @@ export class SFTPClient {
 
   // Sync all data from SFTP
   async syncAllData(): Promise<{
-    plantilla: any[];
-    incidencias: any[];
-    act: any[];
+    plantilla: Record<string, unknown>[];
+    incidencias: Record<string, unknown>[];
+    act: Record<string, unknown>[];
   }> {
     const cacheKey = this.getCacheKey('syncAllData');
     
     // Check cache first
-    const cached = this.getCachedData<{plantilla: any[], incidencias: any[], act: any[]}>(cacheKey);
+    const cached = this.getCachedData<{
+      plantilla: Record<string, unknown>[], 
+      incidencias: Record<string, unknown>[], 
+      act: Record<string, unknown>[]
+    }>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -202,17 +214,17 @@ export class SFTPClient {
   }
 
   private async _syncAllDataInternal(): Promise<{
-    plantilla: any[];
-    incidencias: any[];
-    act: any[];
+    plantilla: Record<string, unknown>[];
+    incidencias: Record<string, unknown>[];
+    act: Record<string, unknown>[];
   }> {
     try {
       const files = await this.listFiles();
       
       const results = {
-        plantilla: [] as any[],
-        incidencias: [] as any[],
-        act: [] as any[]
+        plantilla: [] as Record<string, unknown>[],
+        incidencias: [] as Record<string, unknown>[],
+        act: [] as Record<string, unknown>[]
       };
 
       // Process files in parallel for better performance
@@ -262,7 +274,7 @@ export class SFTPClient {
     ];
   }
 
-  private getMockDataByFilename(filename: string): any[] {
+  private getMockDataByFilename(filename: string): Record<string, unknown>[] {
     if (filename.includes('plantilla')) {
       return this.getMockPlantillaData();
     } else if (filename.includes('incidencias')) {
@@ -273,7 +285,7 @@ export class SFTPClient {
     return [];
   }
 
-  private getMockPlantillaData(): any[] {
+  private getMockPlantillaData(): Record<string, unknown>[] {
     return [
       {
         empleado_id: 'EMP001',
@@ -296,7 +308,7 @@ export class SFTPClient {
     ];
   }
 
-  private getMockIncidenciasData(): any[] {
+  private getMockIncidenciasData(): Record<string, unknown>[] {
     return [
       {
         incident_id: 'INC001',
@@ -313,7 +325,7 @@ export class SFTPClient {
     ];
   }
 
-  private getMockActData(): any[] {
+  private getMockActData(): Record<string, unknown>[] {
     const currentDate = new Date();
     const data = [];
     

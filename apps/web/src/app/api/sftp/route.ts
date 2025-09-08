@@ -95,7 +95,7 @@ class SFTPService {
   }
 
   // Download and parse CSV file from SFTP (mocked for now)
-  async downloadFile(filename: string): Promise<any[]> {
+  async downloadFile(filename: string): Promise<Record<string, unknown>[]> {
     try {
       console.log('Downloading file:', filename);
       
