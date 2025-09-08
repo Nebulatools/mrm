@@ -20,7 +20,7 @@ export function KPIChart({ data, type = 'line', height = 300, showAll = false }:
   }
 
   // Transform data for charts
-  const chartData = data.map((kpi, index) => ({
+  const chartData = data.map((kpi) => ({
     name: kpi.name,
     value: kpi.value,
     previous_value: kpi.previous_value || 0,
@@ -39,12 +39,12 @@ export function KPIChart({ data, type = 'line', height = 300, showAll = false }:
     return Math.round(value).toLocaleString('es-MX');
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: {active?: boolean, payload?: Array<{color: string, name: string, value: number}>, label?: string}) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border rounded-lg shadow-lg">
           <p className="font-medium">{`${label}`}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index: number) => (
             <div key={index} className="text-sm">
               <span style={{ color: entry.color }}>
                 {entry.name}: {formatValue(entry.value, label)}

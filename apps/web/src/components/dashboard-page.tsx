@@ -8,19 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Users, 
   UserMinus, 
-  UserPlus, 
-  DollarSign, 
   TrendingUp, 
   TrendingDown,
   Calendar,
-  BarChart3,
-  PieChart,
 } from "lucide-react";
 import { KPICard } from "./kpi-card";
 import { KPIChart } from "./kpi-chart";
 import { AIInsights } from "./ai-insights";
 import { RetroactiveAdjustment } from "./retroactive-adjustment";
-import { kpiCalculator, testFallbackData, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
+import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { format } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -38,7 +34,7 @@ export function DashboardPage() {
     lastUpdated: new Date(),
     loading: true
   });
-  const [selectedPeriod, setSelectedPeriod] = useState<Date>(new Date());
+  const [selectedPeriod] = useState<Date>(new Date());
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('monthly');
 
   const loadDashboardData = async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
@@ -88,7 +84,7 @@ export function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [timePeriod, selectedPeriod]); // Auto-update when these change
+  }, [timePeriod, selectedPeriod, loadDashboardData]); // Auto-update when these change
 
   // Initial load only once
   useEffect(() => {
@@ -111,7 +107,7 @@ export function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, []); // Only run once on mount
+  }, [loadDashboardData, selectedPeriod, timePeriod]); // Only run once on mount
 
   const getTrendIcon = (variance?: number) => {
     if (!variance || Math.abs(variance) < 1) return null;

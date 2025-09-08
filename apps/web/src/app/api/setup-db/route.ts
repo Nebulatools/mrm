@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
 // Sample employee data for RH department
@@ -36,7 +36,7 @@ const generateEmployeeData = () => {
 };
 
 // Generate incidents data
-const generateIncidentsData = (employees: any[]) => {
+const generateIncidentsData = (employees: Array<{empleado_id: string, first_name: string, last_name: string}>) => {
   const incidentTypes = ['Ausencia', 'Retraso', 'Falta', 'Permiso Personal', 'Incapacidad', 'Vacaciones no autorizadas'];
   const incidents = [];
   
