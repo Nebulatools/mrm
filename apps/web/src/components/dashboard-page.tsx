@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ export function DashboardPage() {
   const [selectedPeriod] = useState<Date>(new Date());
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('monthly');
 
-  const loadDashboardData = async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
+  const loadDashboardData = useCallback(async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
     try {
       setData(prev => ({ ...prev, loading: true }));
       
@@ -61,21 +61,21 @@ export function DashboardPage() {
       console.error('❌ Error in loadDashboardData:', error);
       setData(prev => ({ ...prev, loading: false }));
     }
-  };
+  }, [timePeriod, selectedPeriod]);
 
-  // Auto-update when period or date changes
+  // Load data when period or date changes
   useEffect(() => {
     let isMounted = true;
     
     const loadData = async () => {
       if (!isMounted) return;
       
-      console.log('🔄 Auto-loading data for period:', timePeriod, 'date:', selectedPeriod);
+      console.log('🔄 Loading data for period:', timePeriod, 'date:', selectedPeriod);
       
       try {
         await loadDashboardData({ period: timePeriod, date: selectedPeriod });
       } catch (error) {
-        console.error('❌ Auto-load error:', error);
+        console.error('❌ Load error:', error);
       }
     };
 
@@ -84,30 +84,7 @@ export function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [timePeriod, selectedPeriod, loadDashboardData]); // Auto-update when these change
-
-  // Initial load only once
-  useEffect(() => {
-    let isMounted = true;
-    
-    const initialLoad = async () => {
-      if (!isMounted) return;
-      
-      console.log('✅ Initial loading data');
-      
-      try {
-        await loadDashboardData({ period: timePeriod, date: selectedPeriod });
-      } catch (error) {
-        console.error('❌ Initial load error:', error);
-      }
-    };
-
-    initialLoad();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [loadDashboardData, selectedPeriod, timePeriod]); // Only run once on mount
+  }, [timePeriod, selectedPeriod, loadDashboardData]);
 
   const getTrendIcon = (variance?: number) => {
     if (!variance || Math.abs(variance) < 1) return null;
@@ -572,7 +549,7 @@ export function DashboardPage() {
           <TabsContent value="adjustments" className="space-y-6">
             <RetroactiveAdjustment 
               kpis={data.kpis} 
-              onAdjustmentMade={() => loadDashboardData(selectedPeriod, true)}
+              onAdjustmentMade={() => loadDashboardData({ period: timePeriod, date: selectedPeriod }, true)}
             />
           </TabsContent>
         </Tabs>
