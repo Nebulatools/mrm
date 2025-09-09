@@ -154,30 +154,56 @@ export function DashboardPage() {
       );
     }
     
-    // Filtrar por fecha (años y meses)
+    // Filtrar por fecha (años y meses) - versión corregida
     if (retentionFilters.years.length > 0 || retentionFilters.months.length > 0) {
       filteredData = filteredData.filter(emp => {
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
         
-        // Verificar si el empleado estuvo activo en algún momento en los periodos seleccionados
-        const yearMatch = retentionFilters.years.length === 0 || 
-          retentionFilters.years.some(year => {
-            return fechaIngreso.getFullYear() <= year && 
-                   (!fechaBaja || fechaBaja.getFullYear() >= year);
+        // Si hay filtros de año y mes, verificar combinaciones año-mes
+        if (retentionFilters.years.length > 0 && retentionFilters.months.length > 0) {
+          return retentionFilters.years.some(year => {
+            return retentionFilters.months.some(month => {
+              // Verificar si el empleado estuvo activo durante este año-mes específico
+              const startOfPeriod = new Date(year, month - 1, 1);
+              const endOfPeriod = new Date(year, month, 0);
+              
+              return (fechaIngreso <= endOfPeriod) && 
+                     (!fechaBaja || fechaBaja >= startOfPeriod);
+            });
           });
+        }
         
-        const monthMatch = retentionFilters.months.length === 0 ||
-          retentionFilters.months.some(month => {
-            // Verificar si el empleado estuvo activo en ese mes (cualquier año)
-            const startOfSelectedMonth = new Date(2024, month - 1, 1); // Usar 2024 como año base
-            const endOfSelectedMonth = new Date(2024, month, 0);
+        // Si solo hay filtros de año
+        if (retentionFilters.years.length > 0 && retentionFilters.months.length === 0) {
+          return retentionFilters.years.some(year => {
+            const startOfYear = new Date(year, 0, 1);
+            const endOfYear = new Date(year, 11, 31);
             
-            return (fechaIngreso <= endOfSelectedMonth) && 
-                   (!fechaBaja || fechaBaja >= startOfSelectedMonth);
+            return (fechaIngreso <= endOfYear) && 
+                   (!fechaBaja || fechaBaja >= startOfYear);
           });
+        }
         
-        return yearMatch && monthMatch;
+        // Si solo hay filtros de mes (cualquier año)
+        if (retentionFilters.months.length > 0 && retentionFilters.years.length === 0) {
+          return retentionFilters.months.some(month => {
+            // Verificar en cualquier año si el empleado estuvo activo en ese mes
+            const currentYear = new Date().getFullYear();
+            for (let year = 2024; year <= currentYear; year++) {
+              const startOfPeriod = new Date(year, month - 1, 1);
+              const endOfPeriod = new Date(year, month, 0);
+              
+              if ((fechaIngreso <= endOfPeriod) && 
+                  (!fechaBaja || fechaBaja >= startOfPeriod)) {
+                return true;
+              }
+            }
+            return false;
+          });
+        }
+        
+        return true;
       });
     }
     
@@ -188,24 +214,48 @@ export function DashboardPage() {
   const getFilteredRetentionKPIs = () => {
     const filteredPlantilla = applyRetentionFilters(data.plantilla);
     
+    console.log('🔍 Calculating filtered KPIs:');
+    console.log('📊 Filtered employees:', filteredPlantilla.length);
+    console.log('🎯 Active filters:', retentionFilters);
+    
     // Calcular Activos Promedio con filtros
     const activosActuales = filteredPlantilla.filter(emp => emp.activo).length;
     
-    // Calcular Bajas con filtros (mes actual)
-    const currentMonth = selectedPeriod.getMonth();
-    const currentYear = selectedPeriod.getFullYear();
-    const bajasDelMes = filteredPlantilla.filter(emp => {
-      if (!emp.fecha_baja || emp.activo) return false;
-      const fechaBaja = new Date(emp.fecha_baja);
-      return fechaBaja.getMonth() === currentMonth && fechaBaja.getFullYear() === currentYear;
-    }).length;
+    // Calcular Bajas usando los filtros en lugar de selectedPeriod
+    let bajasTotal = 0;
+    
+    if (retentionFilters.years.length > 0 && retentionFilters.months.length > 0) {
+      // Si hay filtros específicos de año y mes, calcular bajas para esas combinaciones
+      for (const year of retentionFilters.years) {
+        for (const month of retentionFilters.months) {
+          const bajasEnPeriodo = filteredPlantilla.filter(emp => {
+            if (!emp.fecha_baja || emp.activo) return false;
+            const fechaBaja = new Date(emp.fecha_baja);
+            return fechaBaja.getMonth() === (month - 1) && fechaBaja.getFullYear() === year;
+          }).length;
+          bajasTotal += bajasEnPeriodo;
+        }
+      }
+    } else {
+      // Si no hay filtros específicos, usar el período actual (comportamiento original)
+      const currentMonth = selectedPeriod.getMonth();
+      const currentYear = selectedPeriod.getFullYear();
+      bajasTotal = filteredPlantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaBaja = new Date(emp.fecha_baja);
+        return fechaBaja.getMonth() === currentMonth && fechaBaja.getFullYear() === currentYear;
+      }).length;
+    }
+    
+    console.log('📉 Bajas calculated:', bajasTotal);
+    console.log('👥 Activos calculated:', activosActuales);
     
     // Calcular Rotación Mensual con filtros
-    const rotacionMensual = activosActuales > 0 ? (bajasDelMes / activosActuales) * 100 : 0;
+    const rotacionMensual = activosActuales > 0 ? (bajasTotal / activosActuales) * 100 : 0;
     
     return {
       activosPromedio: activosActuales,
-      bajas: bajasDelMes,
+      bajas: bajasTotal,
       rotacionMensual: Number(rotacionMensual.toFixed(2))
     };
   };

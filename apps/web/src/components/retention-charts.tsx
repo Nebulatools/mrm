@@ -107,37 +107,65 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
     }
   };
 
+  /**
+   * Calcula la ROTACIÓN ACUMULADA de 12 meses móviles
+   * 
+   * FÓRMULA: (Total de Bajas en 12 meses / Promedio de Empleados Activos en 12 meses) × 100
+   * 
+   * EXPLICACIÓN:
+   * - Para cada punto en el tiempo, tomamos los 12 meses anteriores
+   * - Contamos todas las bajas en ese período
+   * - Calculamos el promedio de empleados activos (inicio + fin) / 2
+   * - La rotación nos dice qué % de la plantilla se renovó en los últimos 12 meses
+   * 
+   * EJEMPLO: Si en dic-2025 calculamos rotación acumulada:
+   * - Período: ene-2025 a dic-2025 (12 meses)
+   * - Bajas: todas las bajas en esos 12 meses
+   * - Activos promedio: (activos ene-2025 + activos dic-2025) / 2
+   * - Rotación: (bajas_12m / activos_prom) × 100
+   */
   const calculateRolling12MonthRotation = (monthsData: MonthlyRetentionData[], currentIndex: number, plantilla: any[], baseDate: Date): number => {
     try {
-      // Para rotación acumulada de 12 meses móviles, calcular desde el mes actual hacia atrás 12 meses
+      // 1. Definir el período de 12 meses hacia atrás desde el mes actual
       const currentMonthDate = subMonths(baseDate, 11 - currentIndex);
       const startDate12m = subMonths(currentMonthDate, 11);
       const endDate12m = endOfMonth(currentMonthDate);
 
-      // Calcular bajas totales en los últimos 12 meses
+      console.log(`📊 Calculating 12-month rolling rotation for ${format(currentMonthDate, 'MMM yyyy')}`);
+      console.log(`📅 Period: ${format(startDate12m, 'MMM yyyy')} to ${format(endDate12m, 'MMM yyyy')}`);
+
+      // 2. Contar todas las bajas en el período de 12 meses
       const bajasEn12Meses = plantilla.filter(emp => {
         if (!emp.fecha_baja || emp.activo) return false;
         const fechaBaja = new Date(emp.fecha_baja);
         return fechaBaja >= startDate12m && fechaBaja <= endDate12m;
       }).length;
 
-      // Calcular promedio de activos en el período de 12 meses
+      // 3. Calcular promedio de empleados activos en el período de 12 meses
+      // Empleados activos al INICIO del período (contratados antes del inicio, no dados de baja antes del inicio)
       const activosInicioRango = plantilla.filter(emp => {
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
         return fechaIngreso <= startDate12m && (!fechaBaja || fechaBaja > startDate12m);
       }).length;
 
+      // Empleados activos al FINAL del período (contratados antes del final, no dados de baja antes del final)  
       const activosFinRango = plantilla.filter(emp => {
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
         return fechaIngreso <= endDate12m && (!fechaBaja || fechaBaja > endDate12m);
       }).length;
 
+      // Promedio de empleados activos = (empleados_inicio + empleados_fin) / 2
       const promedioActivos12m = (activosInicioRango + activosFinRango) / 2;
       
-      // Rotación acumulada = (Bajas 12m / Promedio Activos 12m) * 100
+      console.log(`👥 Active employees start: ${activosInicioRango}, end: ${activosFinRango}, average: ${promedioActivos12m.toFixed(2)}`);
+      console.log(`📉 Terminations in 12 months: ${bajasEn12Meses}`);
+      
+      // 4. FÓRMULA FINAL: Rotación acumulada = (Bajas 12m / Promedio Activos 12m) × 100
       const rotacionAcumulada = promedioActivos12m > 0 ? (bajasEn12Meses / promedioActivos12m) * 100 : 0;
+      
+      console.log(`🎯 12-month rolling rotation: ${rotacionAcumulada.toFixed(2)}%`);
       
       return Number(rotacionAcumulada.toFixed(2));
     } catch (error) {
