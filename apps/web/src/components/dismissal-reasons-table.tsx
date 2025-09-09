@@ -90,56 +90,6 @@ export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps)
 
   return (
     <div className="space-y-6">
-      {/* Tabla de Bajas por Motivo con Semaforización */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            🚦 Bajas por Motivo
-            <Badge variant="outline" className="ml-2">
-              {empleadosBaja.length} total
-            </Badge>
-          </CardTitle>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Distribución de motivos de baja con semaforización visual
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Estado</TableHead>
-                <TableHead>Motivo de Baja</TableHead>
-                <TableHead className="text-right">Cantidad</TableHead>
-                <TableHead className="text-right">%</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {razones.map((razon, index) => (
-                <TableRow key={index}>
-                  <TableCell>
-                    <div className={`w-3 h-3 rounded-full ${MOTIVO_COLORS[razon.nivel].dot}`} />
-                  </TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant="outline" 
-                      className={`${MOTIVO_COLORS[razon.nivel].bg} ${MOTIVO_COLORS[razon.nivel].text} border-0`}
-                    >
-                      {razon.motivo}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {razon.cantidad}
-                  </TableCell>
-                  <TableCell className="text-right text-sm text-gray-600">
-                    {razon.porcentaje.toFixed(1)}%
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
       {/* Listado Detallado de Bajas Recientes */}
       <Card>
         <CardHeader>

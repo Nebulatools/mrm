@@ -57,20 +57,22 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
 
   const calculateMonthlyRetention = async (startDate: Date, endDate: Date): Promise<MonthlyRetentionData> => {
     try {
-      // Obtener datos de plantilla para el mes
-      const { data: plantilla } = await db
-        .from('plantilla')
-        .select('*')
-        .lte('fecha_ingreso', format(endDate, 'yyyy-MM-dd'));
+      // Obtener todos los datos de plantilla
+      const plantilla = await db.getPlantilla();
+
+      // Filtrar empleados que ingresaron antes o durante el mes
+      const plantillaFiltered = plantilla.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        return fechaIngreso <= endDate;
+      });
 
       // Obtener datos de actividad para el mes
-      const { data: actividad } = await db
-        .from('act')
-        .select('*')
-        .gte('fecha', format(startDate, 'yyyy-MM-dd'))
-        .lte('fecha', format(endDate, 'yyyy-MM-dd'));
+      const actividad = await db.getACT(
+        format(startDate, 'yyyy-MM-dd'),
+        format(endDate, 'yyyy-MM-dd')
+      );
 
-      if (!plantilla || !actividad) {
+      if (!plantillaFiltered || !actividad) {
         throw new Error('No data found');
       }
 
@@ -84,7 +86,7 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
       const activosProm = uniqueEmployeesInACT / (uniqueDays || 1);
       
       // Bajas totales en el mes
-      const bajas = plantilla.filter(p => {
+      const bajas = plantillaFiltered.filter(p => {
         if (!p.fecha_baja || p.activo) return false;
         const fechaBaja = new Date(p.fecha_baja);
         return fechaBaja >= startDate && fechaBaja <= endDate;
@@ -94,7 +96,7 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
       const rotacionPorcentaje = (bajas / (activosProm || 1)) * 100;
 
       // Calcular bajas por temporalidad (fecha_baja - fecha_ingreso)
-      const bajasEnMes = plantilla.filter(p => {
+      const bajasEnMes = plantillaFiltered.filter(p => {
         if (!p.fecha_baja || p.activo) return false;
         const fechaBaja = new Date(p.fecha_baja);
         return fechaBaja >= startDate && fechaBaja <= endDate;

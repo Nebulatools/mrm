@@ -29,7 +29,7 @@ interface DashboardData {
   loading: boolean;
 }
 
-type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'annual' | 'last12months';
+type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'annual' | 'last12months' | 'alltime';
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData>({
@@ -39,7 +39,7 @@ export function DashboardPage() {
     loading: true
   });
   const [selectedPeriod] = useState<Date>(new Date());
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>('monthly');
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('alltime');
 
   const loadDashboardData = useCallback(async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
     try {
@@ -144,33 +144,7 @@ export function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Simple Time Filter */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Período:
-              </label>
-              <Select 
-                value={timePeriod} 
-                onValueChange={(value: TimePeriod) => {
-                  console.log('📅 Period changed to:', value);
-                  setTimePeriod(value);
-                  // Auto-trigger reload with new period
-                  loadDashboardData({ period: value, date: selectedPeriod });
-                }}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Diario</SelectItem>
-                  <SelectItem value="weekly">Semanal</SelectItem>
-                  <SelectItem value="monthly">Mensual</SelectItem>
-                  <SelectItem value="annual">Anual</SelectItem>
-                  <SelectItem value="last12months">Últimos 12M</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
+            {/* Información del dashboard sin filtros */}
           </div>
         </div>
       </div>

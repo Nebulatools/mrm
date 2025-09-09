@@ -14,7 +14,7 @@ export interface KPIResult {
 }
 
 export interface TimeFilter {
-  period: 'daily' | 'weekly' | 'monthly' | 'annual' | 'last12months';
+  period: 'daily' | 'weekly' | 'monthly' | 'annual' | 'last12months' | 'alltime';
   date: Date;
 }
 
@@ -87,6 +87,11 @@ export class KPICalculator {
       case 'last12months':
         endDate = new Date(date);
         startDate = subMonths(endDate, 12);
+        break;
+      case 'alltime':
+        // Show ALL data - no date filtering
+        startDate = new Date(2020, 0, 1); // Far past date
+        endDate = new Date(2030, 11, 31); // Far future date
         break;
       case 'monthly':
       default:
@@ -230,13 +235,28 @@ export class KPICalculator {
     const uniqueDays = [...new Set(actividadFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
     const prevUniqueDays = [...new Set(prevActividadFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
 
-    // 3. Activos Prom - Activos/Días
-    const activosProm = uniqueEmployeesInACT / (uniqueDays || 1);
-    const prevActivosProm = prevUniqueEmployeesInACT / (prevUniqueDays || 1);
+    // 3. Activos Prom - Average active employees over the period (not employees/days)
+    // For a proper average, we need to calculate daily headcounts and average them
+    // For now, using unique employees in ACT as a proxy for average headcount
+    const activosProm = uniqueEmployeesInACT; // This represents active employees in the period
+    const prevActivosProm = prevUniqueEmployeesInACT;
 
-    // 4. Bajas - Count(if(PLANTILLA[Activo]="NO")) - Count inactive employees
+    // 4. Bajas - Total count of inactive employees (historical)
     const bajas = plantilla.filter(p => !p.activo).length;
     const prevBajas = prevPlantilla.filter(p => !p.activo).length;
+    
+    // 4.1. Bajas del período = Only departures within the specific period
+    const bajasPeriodo = plantilla.filter(p => {
+      if (!p.fecha_baja || p.activo) return false;
+      const fechaBaja = new Date(p.fecha_baja);
+      return isWithinInterval(fechaBaja, { start: startDate, end: endDate });
+    }).length;
+    
+    const prevBajasPeriodo = plantilla.filter(p => {
+      if (!p.fecha_baja || p.activo) return false;
+      const fechaBaja = new Date(p.fecha_baja);
+      return isWithinInterval(fechaBaja, { start: subMonths(startDate, 1), end: subMonths(endDate, 1) });
+    }).length;
 
     // 5. Bajas Tempranas - Empleados con menos de 3 meses que se dieron de baja
     const bajasTempranas = plantilla.filter(emp => {
@@ -255,7 +275,7 @@ export class KPICalculator {
       return mesesTrabajados < 3;
     }).length;
 
-    // 5.1. Rotación por Temporalidad - Segmentación de bajas por tiempo trabajado
+    // 5.1. Rotación por Temporalidad - TODAS las bajas por tiempo trabajado (sin filtro)
     const bajasPorTemporalidad = {
       menor3meses: plantilla.filter(emp => {
         if (!emp.fecha_baja || emp.activo) return false;
@@ -287,40 +307,12 @@ export class KPICalculator {
       }).length
     };
 
-    const prevBajasPorTemporalidad = {
-      menor3meses: prevPlantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
-        const fechaIngreso = new Date(emp.fecha_ingreso);
-        const fechaBaja = new Date(emp.fecha_baja);
-        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        return mesesTrabajados < 3;
-      }).length,
-      entre3y6meses: prevPlantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
-        const fechaIngreso = new Date(emp.fecha_ingreso);
-        const fechaBaja = new Date(emp.fecha_baja);
-        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        return mesesTrabajados >= 3 && mesesTrabajados < 6;
-      }).length,
-      entre6y12meses: prevPlantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
-        const fechaIngreso = new Date(emp.fecha_ingreso);
-        const fechaBaja = new Date(emp.fecha_baja);
-        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        return mesesTrabajados >= 6 && mesesTrabajados < 12;
-      }).length,
-      mas12meses: prevPlantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
-        const fechaIngreso = new Date(emp.fecha_ingreso);
-        const fechaBaja = new Date(emp.fecha_baja);
-        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        return mesesTrabajados >= 12;
-      }).length
-    };
+    // Igual que actual (sin filtro)
+    const prevBajasPorTemporalidad = bajasPorTemporalidad;
 
-    // 6. Rotación Mensual - % de rotación = Bajas/Activos Prom
-    const rotacionMensual = (bajas / (activosProm || 1)) * 100;
-    const prevRotacionMensual = (prevBajas / (prevActivosProm || 1)) * 100;
+    // 6. Rotación Mensual - % de rotación = Bajas del período/Activos Prom
+    const rotacionMensual = (bajasPeriodo / (activosProm || 1)) * 100;
+    const prevRotacionMensual = (prevBajasPeriodo / (prevActivosProm || 1)) * 100;
 
     // 6. Incidencias - Count(INCIDENCIAS[EMP]) - Count of incidents
     const incidenciasCount = incidenciasFiltered.length;
@@ -368,9 +360,9 @@ export class KPICalculator {
       {
         name: 'Activos Prom',
         category: 'headcount',
-        value: Number(activosProm.toFixed(2)),
+        value: Math.round(activosProm),
         target: undefined,
-        previous_value: Number(prevActivosProm.toFixed(2)),
+        previous_value: Math.round(prevActivosProm),
         variance_percentage: calculateVariance(activosProm, prevActivosProm),
         period_start: periodStart,
         period_end: periodEnd
@@ -526,6 +518,13 @@ export class KPICalculator {
         startDate = subMonths(endDate, 12);
         previousEndDate = subMonths(date, 12);
         previousStartDate = subMonths(previousEndDate, 12);
+        break;
+      case 'alltime':
+        // Show ALL data - no date filtering
+        startDate = new Date(2020, 0, 1); // Far past date
+        endDate = new Date(2030, 11, 31); // Far future date  
+        previousStartDate = new Date(2020, 0, 1);
+        previousEndDate = new Date(2025, 0, 1); // Previous "year" for comparison
         break;
       case 'monthly':
       default:

@@ -61,12 +61,12 @@ npm run type-check # TypeScript type checking (tsc --noEmit)
 - Shared types in `packages/shared/src/types.ts`
 
 **KPI Calculation System:**
-The system implements specific business formulas:
-- Activos: `Count(ACT)`
-- Activos Prom: `Activos/Días`
-- Rotación Mensual: `Bajas/Activos Prom`
-- Inc prom x empleado: `Incidencias/Activos Prom`
-- %incidencias: `Incidencias/días Laborados`
+The system implements specific business formulas (CORRECTED 2025):
+- **Activos**: Count of unique employees in ACT table for the period
+- **Activos Prom**: Average active employees (NOT employees/days) - represents headcount
+- **Rotación Mensual**: `(Bajas del Período / Activos Prom) * 100` - only departures within the specific period
+- **Inc prom x empleado**: `Incidencias/Activos Prom`
+- **%incidencias**: `Incidencias/días Laborados`
 
 **AI Analysis Engine:**
 - AI insights generation in `apps/web/src/lib/ai-analyzer.ts`
@@ -89,17 +89,55 @@ The system implements specific business formulas:
 - `retroactive-adjustment.tsx` - KPI adjustment with audit trail
 - `filter-panel.tsx` - Dashboard filtering system
 
-### Database Schema Key Points
+### Database Schema - Complete Reference
 
-**Legacy SFTP Tables:**
-- `plantilla` - Employee roster data
-- `incidencias` - Incident records  
-- `act` - Daily active employee counts
+**Primary Tables (Supabase PostgreSQL):**
 
-**Normalized Schema:**
-- `employees` - Employee master data
-- `departments` - Organizational structure
-- `import_logs` - SFTP ingestion audit trail
+**1. PLANTILLA (Employee Master Data)**
+```sql
+id: SERIAL PRIMARY KEY
+emp_id: VARCHAR(20) UNIQUE -- Employee ID (e.g., 'ACT001', 'TEC005')
+nombre: VARCHAR(200) -- Full name
+departamento: VARCHAR(100) -- Department (RH, Tecnología, Ventas, Marketing, Operaciones, Finanzas)
+activo: BOOLEAN -- Employment status (true=active, false=terminated)
+fecha_ingreso: DATE -- Hire date
+fecha_baja: DATE NULL -- Termination date (NULL if active)
+puesto: VARCHAR(100) -- Job title
+area: VARCHAR(100) -- Functional area within department
+motivo_baja: VARCHAR(200) NULL -- Termination reason (NULL if active)
+created_at: TIMESTAMP DEFAULT NOW()
+updated_at: TIMESTAMP DEFAULT NOW()
+```
+
+**2. ACT (Daily Activity Records)**
+```sql
+id: SERIAL PRIMARY KEY
+emp_id: VARCHAR(20) -- References PLANTILLA.emp_id
+fecha: DATE -- Activity date
+presente: BOOLEAN -- Attendance status
+created_at: TIMESTAMP DEFAULT NOW()
+```
+
+**3. INCIDENCIAS (Incident Records)**
+```sql
+id: SERIAL PRIMARY KEY
+emp_id: VARCHAR(20) -- References PLANTILLA.emp_id
+fecha: DATE -- Incident date
+tipo: VARCHAR(100) -- Incident type (Tardanza, Falta injustificada, etc.)
+descripcion: TEXT -- Incident description
+created_at: TIMESTAMP DEFAULT NOW()
+```
+
+**Data Relationships:**
+- PLANTILLA is the master table (115 total records as of Sept 2025)
+- ACT links to PLANTILLA via emp_id (activity tracking)
+- INCIDENCIAS links to PLANTILLA via emp_id (incident tracking)
+
+**Current Data Distribution:**
+- **Active Employees**: 73 (activo = true)
+- **Terminated Employees**: 42 (activo = false, distributed across 2025)
+- **Departments**: RH (15), Tecnología (25), Ventas (15), Marketing (10), Operaciones (8), Finanzas (varies)
+- **Monthly Terminations 2025**: Jan(2), Feb(3), Mar(4), Apr(2), May(3), Jun(1), Jul(2), Aug(4), Sep+
 
 ### Type System
 
