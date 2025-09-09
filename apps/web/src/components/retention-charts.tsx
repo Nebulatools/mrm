@@ -371,10 +371,10 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
         </ResponsiveContainer>
       </div>
 
-      {/* Gráfico 2: Rotación 12 Meses Móviles (Múltiples Líneas) */}
+      {/* Gráfico 2: Rotación Mensual (Múltiples Líneas) */}
       <div className="bg-white p-4 rounded-lg border">
-        <h3 className="text-base font-semibold mb-2">Rotación 12 Meses Móviles</h3>
-        <p className="text-sm text-gray-600 mb-4">Rotación %, bajas y activos</p>
+        <h3 className="text-base font-semibold mb-2">Rotación Mensual</h3>
+        <p className="text-sm text-gray-600 mb-4">Rotación mensual %, bajas y activos por mes</p>
         <ResponsiveContainer width="100%" height={250}>
           <LineChart data={monthlyData}>
             <CartesianGrid strokeDasharray="3 3" />

@@ -69,7 +69,29 @@ Rotación_Mensual = (8 / 83) * 100 = 9.64%
 
 **📝 Nota**: Esta es la fórmula estándar de RRHH. Valores normales: 2-15% mensual.
 
-### 6. **Bajas Tempranas**
+### 6. **Rotación Acumulada 12 Meses Móviles** ⭐⭐
+```javascript
+// VENTANA MÓVIL: Cada mes calcula con los últimos 12 meses
+// Ejemplo: Para marzo 2025, usa datos de abril 2024 → marzo 2025
+
+Rotación_Acumulada_12m = (Bajas_en_12_meses / Promedio_Activos_12m) * 100
+
+Donde:
+- Bajas_en_12_meses = Count(empleados WHERE fecha_baja BETWEEN (mes_actual - 12) AND mes_actual)
+- Promedio_Activos_12m = (Activos_inicio_12m + Activos_fin_12m) / 2
+
+// Ejemplo marzo 2025:
+// Período: abril 2024 → marzo 2025
+// Bajas_12m = 15 empleados dados de baja en esos 12 meses
+// Activos_inicio = 85 empleados (abril 2024)  
+// Activos_fin = 79 empleados (marzo 2025)
+// Promedio = (85 + 79) / 2 = 82
+// Rotación = (15 / 82) * 100 = 18.29%
+```
+
+**📝 ¿Por qué "móviles"?**: Porque la ventana de 12 meses se desplaza cada mes. En abril 2025, calculará mayo 2024 → abril 2025, y así sucesivamente.
+
+### 7. **Bajas Tempranas**
 ```javascript
 // Empleados que trabajaron menos de 3 meses
 Bajas_Tempranas = Count(empleados WHERE 
@@ -78,7 +100,7 @@ Bajas_Tempranas = Count(empleados WHERE
 )
 ```
 
-### 7. **Bajas por Temporalidad**
+### 8. **Bajas por Temporalidad**
 ```javascript
 // Clasificación por tiempo trabajado
 Bajas_<3m = empleados con (fecha_baja - fecha_ingreso) < 3 meses
@@ -229,8 +251,11 @@ Porcentaje_Incidencias = (41 / 68) * 100 = 60.29%
 
 ### **Tab Retención**
 - KPIs de rotación y bajas
-- Análisis por temporalidad
-- Gráficos de 12 meses móviles
+- Análisis por temporalidad  
+- **3 gráficas especializadas:**
+  1. **Rotación Acumulada (12 meses móviles)**: Ventana móvil de 12 meses
+  2. **Rotación Mensual**: Rotación mes por mes (NO es 12 meses móviles)
+  3. **Rotación por Temporalidad**: Bajas clasificadas por tiempo trabajado
 
 ### **Tab Tendencias**
 - Proyecciones y análisis predictivo
@@ -258,6 +283,9 @@ Porcentaje_Incidencias = (41 / 68) * 100 = 60.29%
 3. ✅ Removidas metas hardcodeadas 
 4. ✅ Cambiado período por defecto de 'alltime' a 'monthly'
 5. ✅ Gráficos usan headcount de PLANTILLA en lugar de tabla ACT
+6. ✅ **CORRECCIÓN IMPORTANTE**: Gráfica 2 en Tab Retención renombrada de "Rotación 12 Meses Móviles" a "Rotación Mensual" (la fórmula era correcta, solo el nombre estaba mal)
+7. ✅ Documentada fórmula de "Rotación Acumulada 12 Meses Móviles" (ventana deslizante)
+8. ✅ Corregidos filtros para usar combinaciones año-mes específicas en lugar de selectedPeriod
 
 ### **Diferencias Importantes:**
 - **Antes**: Rotación de 200-800% (incorrecta)  
