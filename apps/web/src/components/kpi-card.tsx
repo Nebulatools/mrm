@@ -73,26 +73,6 @@ export function KPICard({ kpi, icon }: KPICardProps) {
           )}
         </div>
 
-        {/* Progress bar for targets */}
-        {kpi.target && (
-          <div className="mt-3">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Progreso</span>
-              <span>{((kpi.value / kpi.target) * 100).toFixed(0)}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
-              <div 
-                className={`h-1.5 rounded-full ${
-                  (kpi.value / kpi.target) >= 1 ? 'bg-green-600' : 
-                  (kpi.value / kpi.target) >= 0.8 ? 'bg-yellow-500' : 'bg-red-500'
-                }`}
-                style={{ 
-                  width: `${Math.min(100, (kpi.value / kpi.target) * 100)}%` 
-                }}
-              ></div>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

@@ -35,6 +35,12 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
     try {
       setLoading(true);
       
+      // Cargar plantilla una sola vez para todos los meses (optimización)
+      const plantilla = await db.getPlantilla();
+      if (!plantilla) {
+        throw new Error('No plantilla data found');
+      }
+      
       // Obtener datos de los últimos 12 meses
       const monthsData: MonthlyRetentionData[] = [];
       
@@ -43,7 +49,7 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
         const startDate = startOfMonth(monthDate);
         const endDate = endOfMonth(monthDate);
         
-        const monthData = await calculateMonthlyRetention(startDate, endDate);
+        const monthData = await calculateMonthlyRetention(startDate, endDate, plantilla);
         monthsData.push(monthData);
       }
       
@@ -55,10 +61,8 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
     }
   };
 
-  const calculateMonthlyRetention = async (startDate: Date, endDate: Date): Promise<MonthlyRetentionData> => {
+  const calculateMonthlyRetention = async (startDate: Date, endDate: Date, plantilla: any[]): Promise<MonthlyRetentionData> => {
     try {
-      // Obtener todos los datos de plantilla
-      const plantilla = await db.getPlantilla();
 
       // Filtrar empleados que ingresaron antes o durante el mes
       const plantillaFiltered = plantilla.filter(emp => {
