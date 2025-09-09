@@ -155,21 +155,54 @@ El dashboard estará disponible en `http://localhost:3000`
 - Historial completo con auditoría
 - Clasificación por impacto del cambio
 
-## 🔍 Fórmulas de KPIs
+## 🔍 KPIs y Métricas
 
-El sistema implementa las fórmulas exactas del negocio:
+El sistema implementa las fórmulas específicas de RRHH con cálculos corregidos (Septiembre 2025):
 
-| KPI | Fórmula | Descripción |
-|-----|---------|-------------|
-| **Activos** | `Count(ACT)` | Conteo de empleados activos |
-| **Días** | `Count(ACT[Fecha])` | Días en el período seleccionado |
-| **Activos Prom** | `Activos/Días` | Promedio de activos por día |
-| **Bajas** | `Count(if(PLANTILLA[Activo]="NO"))` | Empleados dados de baja |
-| **Rotación Mensual** | `Bajas/Activos Prom` | % de rotación mensual |
-| **Incidencias** | `Count(INCIDENCIAS[EMP])` | Total de incidencias |
-| **Inc prom x empleado** | `Incidencias/Activos Prom` | Incidencias por empleado |
-| **Días Laborados** | `((Activos)/7)*6` | Días laborales estimados |
-| **%incidencias** | `Incidencias/días Laborados` | % de incidencias |
+### 📊 Métricas Principales
+
+| KPI | Fórmula Correcta | Descripción |
+|-----|------------------|-------------|
+| **Activos** | `Count(empleados al final del período)` | Headcount al final del período |
+| **Activos Promedio** | `(Empleados_Inicio + Empleados_Fin) / 2` | Promedio real del período (para rotación) |
+| **Días** | `Count(DISTINCT fechas ACT)` | Días únicos con actividad registrada |
+| **Bajas** | `Count(empleados con fecha_baja en período)` | Empleados dados de baja en el período |
+| **Rotación Mensual** | `(Bajas / Activos_Promedio) × 100` | % rotación estándar RRHH |
+
+### ⚠️ Métricas de Incidencias
+
+| KPI | Fórmula | Rango Normal |
+|-----|---------|--------------|
+| **Incidencias** | `Count(INCIDENCIAS en período)` | Variable por empresa |
+| **Inc prom x empleado** | `Incidencias / Activos_Promedio` | <0.5 por empleado |
+| **Días Laborados** | `(Activos / 7) × 6` | Estimación semanal |
+| **%incidencias** | `(Incidencias / Días_Laborados) × 100` | <5% mensual |
+
+### 🔄 Interpretación de Rotación
+
+- **2-5%**: Rotación saludable
+- **5-10%**: Rotación normal para industria
+- **10-15%**: Alta, requiere atención
+- **>15%**: Crítica, acción inmediata
+
+### 📈 Diferencias Entre Vistas
+
+| Componente | Activos | Propósito |
+|------------|---------|-----------|
+| **Cards KPI** | Activos Promedio (ej: 83) | Cálculos precisos de rotación |
+| **Gráficos** | Activos al final (ej: 79) | Tendencias y visualización |
+
+### 📋 Dashboard Tabs
+
+1. **Resumen**: KPIs principales con vista general mensual
+2. **Personal**: Evolución de headcount y crecimiento  
+3. **Incidencias**: Análisis de ausentismo y comportamiento
+4. **Retención**: Rotación por temporalidad y tendencias
+5. **Tendencias**: Análisis histórico y proyecciones
+6. **IA Generativa**: Insights automáticos y recomendaciones
+7. **Ajustes**: Modificaciones retroactivas con auditoría
+
+Ver documentación completa: `docs/KPI_FORMULAS.md` y `docs/DASHBOARD_TABS.md`
 
 ## 🔮 IA Generativa - Análisis Automático
 

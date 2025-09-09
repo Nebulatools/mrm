@@ -172,8 +172,104 @@ FROM "PLANTILLA"
 WHERE activo = true
 CROSS JOIN generate_series(0, 22);
 
--- Continue for remaining months...
--- For brevity, I'll provide the pattern above
+-- FEBRUARY 2025 (73 active employees * 20 working days)
+INSERT INTO "ACT" (id, emp_id, fecha, presente)
+SELECT 
+    ROW_NUMBER() OVER() + 40000,
+    emp_id,
+    DATE('2025-02-01') + (generate_series(0, 19) || ' days')::interval,
+    CASE WHEN random() < 0.95 THEN true ELSE false END
+FROM "PLANTILLA" 
+WHERE activo = true
+CROSS JOIN generate_series(0, 19);
+
+-- MARCH 2025 (73 active employees * 21 working days)
+INSERT INTO "ACT" (id, emp_id, fecha, presente)
+SELECT 
+    ROW_NUMBER() OVER() + 50000,
+    emp_id,
+    DATE('2025-03-01') + (generate_series(0, 20) || ' days')::interval,
+    CASE WHEN random() < 0.95 THEN true ELSE false END
+FROM "PLANTILLA" 
+WHERE activo = true
+CROSS JOIN generate_series(0, 20);
+
+-- APRIL 2025 (73 active employees * 22 working days)
+INSERT INTO "ACT" (id, emp_id, fecha, presente)
+SELECT 
+    ROW_NUMBER() OVER() + 60000,
+    emp_id,
+    DATE('2025-04-01') + (generate_series(0, 21) || ' days')::interval,
+    CASE WHEN random() < 0.95 THEN true ELSE false END
+FROM "PLANTILLA" 
+WHERE activo = true
+CROSS JOIN generate_series(0, 21);
+
+-- MAY 2025 (73 active employees * 22 working days)
+INSERT INTO "ACT" (id, emp_id, fecha, presente)
+SELECT 
+    ROW_NUMBER() OVER() + 70000,
+    emp_id,
+    DATE('2025-05-01') + (generate_series(0, 21) || ' days')::interval,
+    CASE WHEN random() < 0.95 THEN true ELSE false END
+FROM "PLANTILLA" 
+WHERE activo = true
+CROSS JOIN generate_series(0, 21);
+
+-- JUNE 2025 (73 active employees * 21 working days)
+INSERT INTO "ACT" (id, emp_id, fecha, presente)
+SELECT 
+    ROW_NUMBER() OVER() + 80000,
+    emp_id,
+    DATE('2025-06-01') + (generate_series(0, 20) || ' days')::interval,
+    CASE WHEN random() < 0.95 THEN true ELSE false END
+FROM "PLANTILLA" 
+WHERE activo = true
+CROSS JOIN generate_series(0, 20);
+
+-- JULY 2025 (73 active employees * 23 working days)
+INSERT INTO "ACT" (id, emp_id, fecha, presente)
+SELECT 
+    ROW_NUMBER() OVER() + 90000,
+    emp_id,
+    DATE('2025-07-01') + (generate_series(0, 22) || ' days')::interval,
+    CASE WHEN random() < 0.95 THEN true ELSE false END
+FROM "PLANTILLA" 
+WHERE activo = true
+CROSS JOIN generate_series(0, 22);
+
+-- AUGUST 2025 (73 active employees * 21 working days)
+INSERT INTO "ACT" (id, emp_id, fecha, presente)
+SELECT 
+    ROW_NUMBER() OVER() + 100000,
+    emp_id,
+    DATE('2025-08-01') + (generate_series(0, 20) || ' days')::interval,
+    CASE WHEN random() < 0.95 THEN true ELSE false END
+FROM "PLANTILLA" 
+WHERE activo = true
+CROSS JOIN generate_series(0, 20);
+
+-- SEPTEMBER 2025 (73 active employees * 22 working days)
+INSERT INTO "ACT" (id, emp_id, fecha, presente)
+SELECT 
+    ROW_NUMBER() OVER() + 110000,
+    emp_id,
+    DATE('2025-09-01') + (generate_series(0, 21) || ' days')::interval,
+    CASE WHEN random() < 0.95 THEN true ELSE false END
+FROM "PLANTILLA" 
+WHERE activo = true
+CROSS JOIN generate_series(0, 21);
+
+-- OCTOBER 2025 (73 active employees * 23 working days)
+INSERT INTO "ACT" (id, emp_id, fecha, presente)
+SELECT 
+    ROW_NUMBER() OVER() + 120000,
+    emp_id,
+    DATE('2025-10-01') + (generate_series(0, 22) || ' days')::interval,
+    CASE WHEN random() < 0.95 THEN true ELSE false END
+FROM "PLANTILLA" 
+WHERE activo = true
+CROSS JOIN generate_series(0, 22);
 
 -- ======================================
 -- 5. INCIDENTS DATA (INCIDENCIAS)

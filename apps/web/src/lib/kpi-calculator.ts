@@ -235,11 +235,49 @@ export class KPICalculator {
     const uniqueDays = [...new Set(actividadFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
     const prevUniqueDays = [...new Set(prevActividadFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
 
-    // 3. Activos Prom - Average active employees over the period (not employees/days)
-    // For a proper average, we need to calculate daily headcounts and average them
-    // For now, using unique employees in ACT as a proxy for average headcount
-    const activosProm = uniqueEmployeesInACT; // This represents active employees in the period
-    const prevActivosProm = prevUniqueEmployeesInACT;
+    // 3. Activos Prom - Correct average headcount calculation
+    // Calculate employees at start and end of period, then average them
+    
+    // Employees at start of period
+    const empleadosInicioPeriodo = plantilla.filter(emp => {
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      
+      return fechaIngreso <= startDate && 
+             (!fechaBaja || fechaBaja > startDate);
+    }).length;
+    
+    // Employees at end of period
+    const empleadosFinPeriodo = plantilla.filter(emp => {
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      
+      return fechaIngreso <= endDate && 
+             (!fechaBaja || fechaBaja > endDate);
+    }).length;
+    
+    const activosProm = (empleadosInicioPeriodo + empleadosFinPeriodo) / 2;
+    
+    // Previous period calculations
+    const prevEmployeesStart = prevPlantilla.filter(emp => {
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      const prevStartDate = subMonths(startDate, 1);
+      
+      return fechaIngreso <= prevStartDate && 
+             (!fechaBaja || fechaBaja > prevStartDate);
+    }).length;
+    
+    const prevEmployeesEnd = prevPlantilla.filter(emp => {
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      const prevEndDate = subMonths(endDate, 1);
+      
+      return fechaIngreso <= prevEndDate && 
+             (!fechaBaja || fechaBaja > prevEndDate);
+    }).length;
+    
+    const prevActivosProm = (prevEmployeesStart + prevEmployeesEnd) / 2;
 
     // 4. Bajas - Total count of inactive employees (historical)
     const bajas = plantilla.filter(p => !p.activo).length;
@@ -371,7 +409,7 @@ export class KPICalculator {
         name: 'Bajas',
         category: 'retention',
         value: bajas,
-        target: 2,
+        target: undefined,
         previous_value: prevBajas,
         variance_percentage: calculateVariance(bajas, prevBajas),
         period_start: periodStart,
@@ -381,7 +419,7 @@ export class KPICalculator {
         name: 'Bajas Tempranas',
         category: 'retention',
         value: bajasTempranas,
-        target: 1,
+        target: undefined,
         previous_value: prevBajasTempranas,
         variance_percentage: calculateVariance(bajasTempranas, prevBajasTempranas),
         period_start: periodStart,
@@ -431,7 +469,7 @@ export class KPICalculator {
         name: 'Rotación Mensual',
         category: 'retention',
         value: Number(rotacionMensual.toFixed(2)),
-        target: 8.0,
+        target: undefined,
         previous_value: Number(prevRotacionMensual.toFixed(2)),
         variance_percentage: calculateVariance(rotacionMensual, prevRotacionMensual),
         period_start: periodStart,
@@ -441,7 +479,7 @@ export class KPICalculator {
         name: 'Incidencias',
         category: 'incidents',
         value: incidenciasCount,
-        target: 12,
+        target: undefined,
         previous_value: prevIncidenciasCount,
         variance_percentage: calculateVariance(incidenciasCount, prevIncidenciasCount),
         period_start: periodStart,

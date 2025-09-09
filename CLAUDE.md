@@ -60,13 +60,36 @@ npm run type-check # TypeScript type checking (tsc --noEmit)
 - Business logic in `apps/web/src/lib/`
 - Shared types in `packages/shared/src/types.ts`
 
-**KPI Calculation System:**
-The system implements specific business formulas (CORRECTED 2025):
-- **Activos**: Count of unique employees in ACT table for the period
-- **Activos Prom**: Average active employees (NOT employees/days) - represents headcount
-- **Rotación Mensual**: `(Bajas del Período / Activos Prom) * 100` - only departures within the specific period
-- **Inc prom x empleado**: `Incidencias/Activos Prom`
-- **%incidencias**: `Incidencias/días Laborados`
+**KPI Calculation System (Corrected September 2025):**
+The system implements HR-specific formulas with accurate calculations:
+
+**Core Formulas:**
+- **Activos**: Count(empleados al final del período) - Uses PLANTILLA table for headcount
+- **Activos Promedio**: (Empleados_Inicio_Período + Empleados_Fin_Período) / 2 - Correct average for rotation calculations
+- **Rotación Mensual**: (Bajas_del_Período / Activos_Promedio) × 100 - Standard HR rotation formula
+- **Días**: Count(DISTINCT fechas from ACT table) - Unique activity days
+- **Bajas**: Count(empleados with fecha_baja in period) - Terminations in specific period
+- **Incidencias**: Count(INCIDENCIAS records in period) - Total incidents
+- **Inc prom x empleado**: Incidencias / Activos_Promedio - Incidents per employee
+- **Días Laborados**: (Activos / 7) × 6 - Estimated work days (6 days/week)
+- **%incidencias**: (Incidencias / Días_Laborados) × 100 - Incident percentage
+
+**Key Corrections Made:**
+- Changed Activos Promedio from employees/days to proper headcount average
+- Fixed rotation to use only period-specific terminations, not cumulative
+- Updated charts to use PLANTILLA data instead of ACT table for employee counts
+- Changed default period from 'alltime' to 'monthly'
+- Removed hardcoded targets/metas from KPI cards
+
+**Realistic Value Ranges:**
+- Activos Promedio: 70-85 employees (not 6)
+- Rotación Mensual: 5-15% (not 200-800%)
+- Inc prom x empleado: 0.3-0.7 incidents
+- %incidencias: 3-8% monthly
+
+**Documentation References:**
+- Complete formulas: `docs/KPI_FORMULAS.md`
+- Dashboard tabs: `docs/DASHBOARD_TABS.md`
 
 **AI Analysis Engine:**
 - AI insights generation in `apps/web/src/lib/ai-analyzer.ts`

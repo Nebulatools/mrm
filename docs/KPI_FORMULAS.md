@@ -1,0 +1,271 @@
+# 📊 KPI Formulas & Calculations - HR Dashboard
+
+Documentación completa de todas las fórmulas de KPIs utilizadas en el Dashboard MRM de RRHH.
+
+## 📋 Índice
+
+1. [KPIs Principales](#kpis-principales)
+2. [KPIs de Retención](#kpis-de-retención)
+3. [KPIs de Incidencias](#kpis-de-incidencias)
+4. [Diferencias Entre Componentes](#diferencias-entre-componentes)
+5. [Fuentes de Datos](#fuentes-de-datos)
+6. [Ejemplos Prácticos](#ejemplos-prácticos)
+
+---
+
+## 📈 KPIs Principales
+
+### 1. **Activos**
+```javascript
+// En gráficos (headcount al final del período)
+Activos = Count(empleados donde fecha_ingreso <= fin_período AND (fecha_baja IS NULL OR fecha_baja > fin_período))
+
+// Ejemplo: Empleados activos al 30 de septiembre de 2025
+Activos = 79 empleados
+```
+
+### 2. **Activos Promedio** 
+```javascript
+// En cards KPI (promedio del período)
+Activos_Promedio = (Empleados_Inicio_Período + Empleados_Fin_Período) / 2
+
+// Ejemplo septiembre 2025:
+// Inicio: 87 empleados, Fin: 79 empleados
+Activos_Promedio = (87 + 79) / 2 = 83 empleados
+```
+
+**❓ ¿Por qué son diferentes?**
+- **Activos (79)**: Empleados al final del mes (para visualización de tendencias)
+- **Activos Promedio (83)**: Promedio del período (para cálculos de rotación precisos)
+
+### 3. **Días**
+```javascript
+// Días únicos con actividad registrada en tabla ACT
+Días = Count(DISTINCT fecha FROM ACT WHERE fecha BETWEEN inicio_período AND fin_período)
+
+// Ejemplo: 22 días laborables en septiembre
+```
+
+---
+
+## 🔄 KPIs de Retención
+
+### 4. **Bajas**
+```javascript
+// Empleados terminados dentro del período específico
+Bajas = Count(empleados WHERE fecha_baja BETWEEN inicio_período AND fin_período)
+
+// Ejemplo septiembre 2025: 8 bajas
+```
+
+### 5. **Rotación Mensual** ⭐
+```javascript
+// Fórmula corregida (2025)
+Rotación_Mensual = (Bajas_del_Período / Activos_Promedio) * 100
+
+// Ejemplo septiembre 2025:
+Rotación_Mensual = (8 / 83) * 100 = 9.64%
+```
+
+**📝 Nota**: Esta es la fórmula estándar de RRHH. Valores normales: 2-15% mensual.
+
+### 6. **Bajas Tempranas**
+```javascript
+// Empleados que trabajaron menos de 3 meses
+Bajas_Tempranas = Count(empleados WHERE 
+    fecha_baja BETWEEN inicio_período AND fin_período 
+    AND DATEDIFF(fecha_baja, fecha_ingreso) < 90 días
+)
+```
+
+### 7. **Bajas por Temporalidad**
+```javascript
+// Clasificación por tiempo trabajado
+Bajas_<3m = empleados con (fecha_baja - fecha_ingreso) < 3 meses
+Bajas_3-6m = empleados con 3 ≤ (fecha_baja - fecha_ingreso) < 6 meses  
+Bajas_6-12m = empleados con 6 ≤ (fecha_baja - fecha_ingreso) < 12 meses
+Bajas_+12m = empleados con (fecha_baja - fecha_ingreso) ≥ 12 meses
+```
+
+---
+
+## ⚠️ KPIs de Incidencias
+
+### 8. **Incidencias**
+```javascript
+// Total de incidencias en el período
+Incidencias = Count(INCIDENCIAS WHERE fecha BETWEEN inicio_período AND fin_período)
+```
+
+### 9. **Inc prom x empleado**
+```javascript
+// Incidencias promedio por empleado
+Inc_Prom_x_Empleado = Incidencias / Activos_Promedio
+
+// Ejemplo: 41 incidencias / 83 empleados = 0.49 incidencias por empleado
+```
+
+### 10. **Días Laborados**
+```javascript
+// Estimación de días trabajados
+Días_Laborados = (Activos / 7) * 6  // 6 días laborables por semana
+
+// Ejemplo: (79 / 7) * 6 = 67.7 ≈ 68 días laborados
+```
+
+### 11. **% Incidencias**
+```javascript
+// Porcentaje de incidencias sobre días laborados
+Porcentaje_Incidencias = (Incidencias / Días_Laborados) * 100
+
+// Ejemplo: (41 / 68) * 100 = 60.29%
+```
+
+---
+
+## 🔍 Diferencias Entre Componentes
+
+### **Cards KPI vs Gráficos**
+
+| Componente | Cards KPI | Gráficos Retención |
+|------------|-----------|-------------------|
+| **Activos** | `Activos Promedio` (83) | `Activos` (79) |
+| **Período** | Mensual por defecto | 12 meses históricos |
+| **Propósito** | Cálculos precisos | Visualización de tendencias |
+| **Fuente** | kpi-calculator.ts | retention-charts.tsx |
+
+### **¿Cuándo usar cada uno?**
+- **Cards**: Para reportes oficiales y KPIs corporativos
+- **Gráficos**: Para análisis de tendencias y evolución temporal
+
+---
+
+## 💾 Fuentes de Datos
+
+### **Tabla PLANTILLA** (Master Data)
+```sql
+- emp_id: ID único del empleado
+- nombre: Nombre completo
+- departamento: RH, Tecnología, Ventas, etc.
+- activo: true/false (estado actual)
+- fecha_ingreso: Fecha de contratación
+- fecha_baja: Fecha de terminación (NULL si activo)
+- puesto: Cargo actual
+- area: Área funcional
+- motivo_baja: Razón de terminación
+```
+
+### **Tabla ACT** (Actividad Diaria)
+```sql
+- emp_id: Referencia a PLANTILLA
+- fecha: Fecha de la actividad
+- presente: true/false (asistencia)
+```
+
+### **Tabla INCIDENCIAS** (Incidentes)
+```sql
+- emp_id: Referencia a PLANTILLA  
+- fecha: Fecha del incidente
+- tipo: Tardanza, Falta, etc.
+- descripcion: Detalles del incidente
+```
+
+---
+
+## 🧮 Ejemplos Prácticos
+
+### **Caso: Septiembre 2025**
+
+**Datos de entrada:**
+- Empleados activos al 1 sep: 87
+- Empleados activos al 30 sep: 79
+- Bajas en septiembre: 8
+- Incidencias en septiembre: 41
+- Días laborables: 22
+
+**Cálculos resultantes:**
+
+```javascript
+// KPIs Principales
+Activos = 79                                    // Final del mes
+Activos_Promedio = (87 + 79) / 2 = 83         // Para rotación
+Días = 22                                       // Días laborables
+
+// Retención  
+Bajas = 8                                       // Solo de septiembre
+Rotación_Mensual = (8 / 83) * 100 = 9.64%     // Normal para industria
+Bajas_Tempranas = 2                            // Ejemplo
+
+// Incidencias
+Incidencias = 41                               // Total del mes
+Inc_Prom_x_Empleado = 41 / 83 = 0.49          // Por empleado
+Días_Laborados = (79 / 7) * 6 = 68            // Estimación
+Porcentaje_Incidencias = (41 / 68) * 100 = 60.29%
+```
+
+**Interpretación:**
+- ✅ **Rotación 9.64%**: Normal (rango típico 5-15% mensual)
+- ⚠️ **60.29% incidencias**: Alto (requiere atención)
+- ✅ **83 activos promedio**: Headcount estable
+
+---
+
+## 📊 Fórmulas por Tab del Dashboard
+
+### **Tab Resumen**
+- Muestra KPIs principales con vista general
+- Usa cálculos de `kpi-calculator.ts`
+- Período: Mensual por defecto
+
+### **Tab Personal** 
+- Enfoque en headcount y activos
+- Gráficos de evolución de personal
+- Métricas de crecimiento
+
+### **Tab Incidencias**
+- KPIs de incidencias y ausentismo
+- Análisis de tipos de incidentes
+- Tendencias de comportamiento
+
+### **Tab Retención**
+- KPIs de rotación y bajas
+- Análisis por temporalidad
+- Gráficos de 12 meses móviles
+
+### **Tab Tendencias**
+- Proyecciones y análisis predictivo
+- Tendencias históricas
+- Análisis de patrones
+
+---
+
+## 🔧 Archivos Clave del Código
+
+| Archivo | Responsabilidad |
+|---------|----------------|
+| `kpi-calculator.ts` | Cálculos principales de KPIs |
+| `retention-charts.tsx` | Gráficos de retención |
+| `dashboard-page.tsx` | Orchestración principal |
+| `kpi-card.tsx` | Visualización de KPIs individuales |
+
+---
+
+## 📝 Notas de Desarrollo
+
+### **Cambios Recientes (Septiembre 2025):**
+1. ✅ Corregida fórmula de "Activos Promedio" (antes: Activos/Días, ahora: promedio real)
+2. ✅ Corregida "Rotación Mensual" para usar solo bajas del período
+3. ✅ Removidas metas hardcodeadas 
+4. ✅ Cambiado período por defecto de 'alltime' a 'monthly'
+5. ✅ Gráficos usan headcount de PLANTILLA en lugar de tabla ACT
+
+### **Diferencias Importantes:**
+- **Antes**: Rotación de 200-800% (incorrecta)  
+- **Ahora**: Rotación de 2-15% (realista)
+- **Antes**: Activos Promedio = 6 (sin sentido)
+- **Ahora**: Activos Promedio = 70-85 (correcto)
+
+---
+
+*Documentación actualizada: Septiembre 2025*
+*Para dudas técnicas, consultar: `apps/web/src/lib/kpi-calculator.ts`*

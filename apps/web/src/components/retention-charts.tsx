@@ -76,14 +76,31 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
         throw new Error('No data found');
       }
 
-      // Calcular activos únicos en el mes
+      // Calculate correct average headcount using employees at start and end of month
+      
+      // Employees at start of month (hired before or on start date, not terminated before start date)
+      const empleadosInicioMes = plantillaFiltered.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        
+        return fechaIngreso <= startDate && 
+               (!fechaBaja || fechaBaja > startDate);
+      }).length;
+      
+      // Employees at end of month (hired before or on end date, not terminated before end date)
+      const empleadosFinMes = plantillaFiltered.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        
+        return fechaIngreso <= endDate && 
+               (!fechaBaja || fechaBaja > endDate);
+      }).length;
+      
+      // Correct average headcount = (start + end) / 2
+      const activosProm = (empleadosInicioMes + empleadosFinMes) / 2;
+      
+      // For reporting: unique employees in ACT (for comparison)
       const uniqueEmployeesInACT = [...new Set(actividad.map(a => a.emp_id))].length;
-      
-      // Calcular días únicos en el mes
-      const uniqueDays = [...new Set(actividad.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
-      
-      // Activos promedio = Activos/Días
-      const activosProm = uniqueEmployeesInACT / (uniqueDays || 1);
       
       // Bajas totales en el mes
       const bajas = plantillaFiltered.filter(p => {
@@ -134,7 +151,7 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
         mes: format(startDate, 'MMM yyyy'),
         rotacionPorcentaje: Number(rotacionPorcentaje.toFixed(2)),
         bajas,
-        activos: uniqueEmployeesInACT,
+        activos: empleadosFinMes, // Use actual headcount at end of month, not ACT table
         activosProm: Number(activosProm.toFixed(2)),
         bajasMenor3m,
         bajas3a6m,
@@ -143,12 +160,21 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
       };
     } catch (error) {
       console.error('Error calculating monthly retention:', error);
+      // Calculate basic headcount even if ACT data is missing
+      const empleadosFinMesError = plantillaFiltered.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        
+        return fechaIngreso <= endDate && 
+               (!fechaBaja || fechaBaja > endDate);
+      }).length;
+      
       return {
         mes: format(startDate, 'MMM yyyy'),
         rotacionPorcentaje: 0,
         bajas: 0,
-        activos: 0,
-        activosProm: 0,
+        activos: empleadosFinMesError, // Use actual headcount even in error case
+        activosProm: empleadosFinMesError,
         bajasMenor3m: 0,
         bajas3a6m: 0,
         bajas6a12m: 0,

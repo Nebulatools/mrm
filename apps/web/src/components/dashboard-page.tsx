@@ -39,7 +39,7 @@ export function DashboardPage() {
     loading: true
   });
   const [selectedPeriod] = useState<Date>(new Date());
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>('alltime');
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('monthly');
 
   const loadDashboardData = useCallback(async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
     try {
