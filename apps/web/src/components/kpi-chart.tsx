@@ -49,9 +49,9 @@ export function KPIChart({ data, type = 'line', height = 300, showAll = false }:
               <span style={{ color: entry.color }}>
                 {entry.name}: {formatValue(entry.value, label)}
               </span>
-              {entry.name === 'value' && entry.payload.target && (
+              {entry.name === 'value' && (entry as any).payload?.target && (
                 <div className="text-xs text-gray-500">
-                  Meta: {formatValue(entry.payload.target, label)}
+                  Meta: {formatValue((entry as any).payload.target, label)}
                 </div>
               )}
             </div>

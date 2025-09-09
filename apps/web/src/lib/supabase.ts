@@ -14,6 +14,9 @@ export interface PlantillaRecord {
   activo: boolean
   fecha_ingreso: string // Date string in ISO format
   fecha_baja: string | null
+  puesto?: string
+  motivo_baja?: string | null
+  area?: string | null
   created_at: string
   updated_at: string
 }

@@ -238,7 +238,87 @@ export class KPICalculator {
     const bajas = plantilla.filter(p => !p.activo).length;
     const prevBajas = prevPlantilla.filter(p => !p.activo).length;
 
-    // 5. Rotación Mensual - % de rotación = Bajas/Activos Prom
+    // 5. Bajas Tempranas - Empleados con menos de 3 meses que se dieron de baja
+    const bajasTempranas = plantilla.filter(emp => {
+      if (!emp.fecha_baja || emp.activo) return false;
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = new Date(emp.fecha_baja);
+      const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+      return mesesTrabajados < 3;
+    }).length;
+
+    const prevBajasTempranas = prevPlantilla.filter(emp => {
+      if (!emp.fecha_baja || emp.activo) return false;
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = new Date(emp.fecha_baja);
+      const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+      return mesesTrabajados < 3;
+    }).length;
+
+    // 5.1. Rotación por Temporalidad - Segmentación de bajas por tiempo trabajado
+    const bajasPorTemporalidad = {
+      menor3meses: plantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = new Date(emp.fecha_baja);
+        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        return mesesTrabajados < 3;
+      }).length,
+      entre3y6meses: plantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = new Date(emp.fecha_baja);
+        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        return mesesTrabajados >= 3 && mesesTrabajados < 6;
+      }).length,
+      entre6y12meses: plantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = new Date(emp.fecha_baja);
+        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        return mesesTrabajados >= 6 && mesesTrabajados < 12;
+      }).length,
+      mas12meses: plantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = new Date(emp.fecha_baja);
+        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        return mesesTrabajados >= 12;
+      }).length
+    };
+
+    const prevBajasPorTemporalidad = {
+      menor3meses: prevPlantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = new Date(emp.fecha_baja);
+        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        return mesesTrabajados < 3;
+      }).length,
+      entre3y6meses: prevPlantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = new Date(emp.fecha_baja);
+        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        return mesesTrabajados >= 3 && mesesTrabajados < 6;
+      }).length,
+      entre6y12meses: prevPlantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = new Date(emp.fecha_baja);
+        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        return mesesTrabajados >= 6 && mesesTrabajados < 12;
+      }).length,
+      mas12meses: prevPlantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = new Date(emp.fecha_baja);
+        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        return mesesTrabajados >= 12;
+      }).length
+    };
+
+    // 6. Rotación Mensual - % de rotación = Bajas/Activos Prom
     const rotacionMensual = (bajas / (activosProm || 1)) * 100;
     const prevRotacionMensual = (prevBajas / (prevActivosProm || 1)) * 100;
 
@@ -302,6 +382,56 @@ export class KPICalculator {
         target: 2,
         previous_value: prevBajas,
         variance_percentage: calculateVariance(bajas, prevBajas),
+        period_start: periodStart,
+        period_end: periodEnd
+      },
+      {
+        name: 'Bajas Tempranas',
+        category: 'retention',
+        value: bajasTempranas,
+        target: 1,
+        previous_value: prevBajasTempranas,
+        variance_percentage: calculateVariance(bajasTempranas, prevBajasTempranas),
+        period_start: periodStart,
+        period_end: periodEnd
+      },
+      {
+        name: 'Bajas < 3 meses',
+        category: 'retention',
+        value: bajasPorTemporalidad.menor3meses,
+        target: undefined,
+        previous_value: prevBajasPorTemporalidad.menor3meses,
+        variance_percentage: calculateVariance(bajasPorTemporalidad.menor3meses, prevBajasPorTemporalidad.menor3meses),
+        period_start: periodStart,
+        period_end: periodEnd
+      },
+      {
+        name: 'Bajas 3-6 meses',
+        category: 'retention',
+        value: bajasPorTemporalidad.entre3y6meses,
+        target: undefined,
+        previous_value: prevBajasPorTemporalidad.entre3y6meses,
+        variance_percentage: calculateVariance(bajasPorTemporalidad.entre3y6meses, prevBajasPorTemporalidad.entre3y6meses),
+        period_start: periodStart,
+        period_end: periodEnd
+      },
+      {
+        name: 'Bajas 6-12 meses',
+        category: 'retention',
+        value: bajasPorTemporalidad.entre6y12meses,
+        target: undefined,
+        previous_value: prevBajasPorTemporalidad.entre6y12meses,
+        variance_percentage: calculateVariance(bajasPorTemporalidad.entre6y12meses, prevBajasPorTemporalidad.entre6y12meses),
+        period_start: periodStart,
+        period_end: periodEnd
+      },
+      {
+        name: 'Bajas +12 meses',
+        category: 'retention',
+        value: bajasPorTemporalidad.mas12meses,
+        target: undefined,
+        previous_value: prevBajasPorTemporalidad.mas12meses,
+        variance_percentage: calculateVariance(bajasPorTemporalidad.mas12meses, prevBajasPorTemporalidad.mas12meses),
         period_start: periodStart,
         period_end: periodEnd
       },

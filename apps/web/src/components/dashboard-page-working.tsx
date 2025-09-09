@@ -15,16 +15,12 @@ import { KPICard } from "./kpi-card";
 import { KPIChart } from "./kpi-chart";
 import { AIInsights } from "./ai-insights";
 import { RetroactiveAdjustment } from "./retroactive-adjustment";
-import { DismissalReasonsTable } from "./dismissal-reasons-table";
-import { RetentionCharts } from "./retention-charts";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
-import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface DashboardData {
   kpis: KPIResult[];
-  plantilla: any[];
   lastUpdated: Date;
   loading: boolean;
 }
@@ -34,7 +30,6 @@ type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'annual' | 'last12months';
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData>({
     kpis: [],
-    plantilla: [],
     lastUpdated: new Date(),
     loading: true
   });
@@ -54,19 +49,8 @@ export function DashboardPage() {
       console.log('📊 Loading KPIs for filter:', filter);
       const kpis = await kpiCalculator.calculateAllKPIs(filter);
       
-      // Load plantilla data for dismissal analysis
-      console.log('👥 Loading plantilla data...');
-      const { data: plantilla, error: plantillaError } = await supabase
-        .from('PLANTILLA')
-        .select('*');
-        
-      if (plantillaError) {
-        console.warn('⚠️ Error loading plantilla:', plantillaError);
-      }
-      
       setData({
         kpis: kpis.length > 0 ? kpis : [],
-        plantilla: plantilla || [],
         lastUpdated: new Date(),
         loading: false
       });
@@ -74,7 +58,7 @@ export function DashboardPage() {
       console.log('✅ Dashboard data loaded successfully');
     } catch (error) {
       console.error('❌ Error in loadDashboardData:', error);
-      setData(prev => ({ ...prev, plantilla: [], loading: false }));
+      setData(prev => ({ ...prev, loading: false }));
     }
   }, [timePeriod, selectedPeriod]);
 
@@ -479,9 +463,9 @@ export function DashboardPage() {
 
           {/* Retention Tab */}
           <TabsContent value="retention" className="space-y-6">
-            {/* 4 KPIs Principales de Retención: Activos Prom, Bajas, Bajas Tempranas, Rotación Mensual */}
+            {/* 4 KPIs Principales de Retención */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              {/* Activos Promedio */}
+              {/* Mostrar Activos Prom */}
               {categorized.headcount
                 .filter(kpi => kpi.name === 'Activos Prom')
                 .map((kpi) => (
@@ -492,27 +476,79 @@ export function DashboardPage() {
                   />
                 ))}
               
-              {/* KPIs de Retención: Bajas, Bajas Tempranas, Rotación Mensual */}
-              {categorized.retention
-                .filter(kpi => 
-                  kpi.name === 'Bajas' || 
-                  kpi.name === 'Bajas Tempranas' || 
-                  kpi.name === 'Rotación Mensual'
-                )
-                .map((kpi) => (
-                  <KPICard 
-                    key={kpi.name} 
-                    kpi={kpi} 
-                    icon={<UserMinus className="h-6 w-6" />}
-                  />
-                ))}
+              {/* Mostrar KPIs de Retención */}
+              {categorized.retention.map((kpi) => (
+                <KPICard 
+                  key={kpi.name} 
+                  kpi={kpi} 
+                  icon={<UserMinus className="h-6 w-6" />}
+                />
+              ))}
             </div>
             
-            {/* 3 Gráficas Especializadas de Retención */}
-            <RetentionCharts currentDate={selectedPeriod} />
+            {/* 3 Gráficas Principales según las notas */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 1. Rotación Mensual Comparativo (Líneas) */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    📈 Rotación Mensual
+                    <Badge variant="outline" className="text-xs">Comparativo</Badge>
+                  </CardTitle>
+                  <p className="text-sm text-gray-600">Evolución mes a mes</p>
+                </CardHeader>
+                <CardContent>
+                  <KPIChart 
+                    data={categorized.retention.filter(kpi => kpi.name === 'Rotación Mensual')} 
+                    type="line" 
+                    height={300}
+                  />
+                </CardContent>
+              </Card>
 
-            {/* Tabla de Bajas por Motivo y Listado Detallado */}
-            <DismissalReasonsTable plantilla={data.plantilla || []} />
+              {/* 2. Rotación 12 Meses Móviles (Líneas) */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    📊 Rotación 12 Meses Móviles
+                    <Badge variant="outline" className="text-xs">% Rotación, Bajas, Activos</Badge>
+                  </CardTitle>
+                  <p className="text-sm text-gray-600">Tendencia anual móvil</p>
+                </CardHeader>
+                <CardContent>
+                  <KPIChart 
+                    data={[
+                      ...categorized.retention.filter(kpi => kpi.name === 'Rotación Mensual'),
+                      ...categorized.retention.filter(kpi => kpi.name === 'Bajas'),
+                      ...categorized.headcount.filter(kpi => kpi.name === 'Activos')
+                    ]} 
+                    type="line" 
+                    height={300}
+                    showAll={true}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 3. Rotación por Temporalidad (Barras Acumuladas) */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  📊 Rotación por Temporalidad
+                  <Badge variant="outline" className="text-xs">< 3m, 3-6m, 6-12m, >12m</Badge>
+                </CardTitle>
+                <p className="text-sm text-gray-600">
+                  Distribución de bajas por tiempo de permanencia en la empresa
+                </p>
+              </CardHeader>
+              <CardContent>
+                <KPIChart 
+                  data={categorized.retention} 
+                  type="stacked-bar" 
+                  height={350}
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Trends Tab */}
