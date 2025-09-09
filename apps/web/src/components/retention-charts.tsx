@@ -8,6 +8,7 @@ import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 interface MonthlyRetentionData {
   mes: string;
   rotacionPorcentaje: number;
+  rotacionAcumulada12m: number;
   bajas: number;
   activos: number;
   activosProm: number;
@@ -34,30 +35,114 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
   const loadMonthlyRetentionData = async () => {
     try {
       setLoading(true);
+      console.log('🔄 RetentionCharts: Loading monthly retention data...');
       
       // Cargar plantilla una sola vez para todos los meses (optimización)
       const plantilla = await db.getPlantilla();
+      console.log('👥 Plantilla loaded:', plantilla?.length, 'records');
       if (!plantilla) {
         throw new Error('No plantilla data found');
       }
       
-      // Obtener datos de los últimos 12 meses
+      // Cargar ACT para referencia (pero no dependemos de él para los meses)
+      const actMonths = await db.getACT();
+      console.log('📊 ACT data loaded:', actMonths?.length, 'records');
+      
+      if (actMonths && actMonths.length > 0) {
+        const allDates = [...new Set(actMonths.map(record => record.fecha))].sort();
+        console.log('📅 All unique dates in ACT:', allDates);
+      }
+      
+      // Obtener meses basados en fechas de ingreso y baja de PLANTILLA
+      const allEmployeeDates = [];
+      plantilla.forEach(emp => {
+        // Fecha de ingreso
+        allEmployeeDates.push(emp.fecha_ingreso);
+        // Fecha de baja si existe
+        if (emp.fecha_baja) {
+          allEmployeeDates.push(emp.fecha_baja);
+        }
+      });
+      
+      // Obtener meses únicos desde la fecha más antigua hasta hoy
+      const earliestDate = new Date(Math.min(...allEmployeeDates.map(d => new Date(d).getTime())));
+      const latestDate = new Date(); // Hoy
+      
+      const realMonths = [];
+      let currentDate = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
+      
+      while (currentDate <= latestDate) {
+        realMonths.push(format(currentDate, 'yyyy-MM'));
+        currentDate.setMonth(currentDate.getMonth() + 1);
+      }
+
+      console.log('📊 Real months with data:', realMonths);
+
+      // Solo calcular para los meses que realmente tienen información
       const monthsData: MonthlyRetentionData[] = [];
       
-      for (let i = 11; i >= 0; i--) {
-        const monthDate = subMonths(currentDate, i);
-        const startDate = startOfMonth(monthDate);
-        const endDate = endOfMonth(monthDate);
+      for (const yearMonth of realMonths) {
+        const [year, month] = yearMonth.split('-');
+        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const endDate = new Date(parseInt(year), parseInt(month), 0);
         
         const monthData = await calculateMonthlyRetention(startDate, endDate, plantilla);
         monthsData.push(monthData);
       }
       
+      // Calcular rotación acumulada de 12 meses móviles para cada punto
+      for (let i = 0; i < monthsData.length; i++) {
+        const currentMonthDate = new Date(monthsData[i].mes + ' 1');
+        const rotacionAcumulada12m = calculateRolling12MonthRotation(monthsData, i, plantilla, currentMonthDate);
+        monthsData[i].rotacionAcumulada12m = rotacionAcumulada12m;
+      }
+      
+      console.log('✅ Final monthsData:', monthsData.length, 'months loaded');
+      console.log('📊 Sample data:', monthsData[0]);
       setMonthlyData(monthsData);
     } catch (error) {
       console.error('Error loading monthly retention data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const calculateRolling12MonthRotation = (monthsData: MonthlyRetentionData[], currentIndex: number, plantilla: any[], baseDate: Date): number => {
+    try {
+      // Para rotación acumulada de 12 meses móviles, calcular desde el mes actual hacia atrás 12 meses
+      const currentMonthDate = subMonths(baseDate, 11 - currentIndex);
+      const startDate12m = subMonths(currentMonthDate, 11);
+      const endDate12m = endOfMonth(currentMonthDate);
+
+      // Calcular bajas totales en los últimos 12 meses
+      const bajasEn12Meses = plantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaBaja = new Date(emp.fecha_baja);
+        return fechaBaja >= startDate12m && fechaBaja <= endDate12m;
+      }).length;
+
+      // Calcular promedio de activos en el período de 12 meses
+      const activosInicioRango = plantilla.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        return fechaIngreso <= startDate12m && (!fechaBaja || fechaBaja > startDate12m);
+      }).length;
+
+      const activosFinRango = plantilla.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        return fechaIngreso <= endDate12m && (!fechaBaja || fechaBaja > endDate12m);
+      }).length;
+
+      const promedioActivos12m = (activosInicioRango + activosFinRango) / 2;
+      
+      // Rotación acumulada = (Bajas 12m / Promedio Activos 12m) * 100
+      const rotacionAcumulada = promedioActivos12m > 0 ? (bajasEn12Meses / promedioActivos12m) * 100 : 0;
+      
+      return Number(rotacionAcumulada.toFixed(2));
+    } catch (error) {
+      console.error('Error calculating rolling 12-month rotation:', error);
+      return 0;
     }
   };
 
@@ -154,6 +239,7 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
       return {
         mes: format(startDate, 'MMM yyyy'),
         rotacionPorcentaje: Number(rotacionPorcentaje.toFixed(2)),
+        rotacionAcumulada12m: 0, // Se calculará después en el loop principal
         bajas,
         activos: empleadosFinMes, // Use actual headcount at end of month, not ACT table
         activosProm: Number(activosProm.toFixed(2)),
@@ -176,6 +262,7 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
       return {
         mes: format(startDate, 'MMM yyyy'),
         rotacionPorcentaje: 0,
+        rotacionAcumulada12m: 0,
         bajas: 0,
         activos: empleadosFinMesError, // Use actual headcount even in error case
         activosProm: empleadosFinMesError,
@@ -221,12 +308,14 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
     );
   }
 
+  console.log('🎨 RetentionCharts rendering with data:', monthlyData.length, 'months');
+  
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      {/* Gráfico 1: Rotación Mensual por Mes (Líneas) */}
+      {/* Gráfico 1: Rotación Acumulada (12 meses móviles) */}
       <div className="bg-white p-4 rounded-lg border">
-        <h3 className="text-base font-semibold mb-2">Rotación Mensual por Mes</h3>
-        <p className="text-sm text-gray-600 mb-4">Evolución de rotación % por mes</p>
+        <h3 className="text-base font-semibold mb-2">Rotación Acumulada (12 meses móviles)</h3>
+        <p className="text-sm text-gray-600 mb-4">Rotación acumulada de los últimos 12 meses</p>
         <ResponsiveContainer width="100%" height={250}>
           <LineChart data={monthlyData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -244,10 +333,10 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
             <Tooltip content={<CustomTooltip />} />
             <Line 
               type="monotone" 
-              dataKey="rotacionPorcentaje" 
+              dataKey="rotacionAcumulada12m" 
               stroke="#ef4444" 
               strokeWidth={2}
-              name="Rotación %"
+              name="Rotación Acumulada 12m %"
               dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
             />
           </LineChart>

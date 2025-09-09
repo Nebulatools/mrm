@@ -10,6 +10,7 @@ import {
   TrendingUp, 
   TrendingDown,
   Calendar,
+  Filter,
 } from "lucide-react";
 import { KPICard } from "./kpi-card";
 import { KPIChart } from "./kpi-chart";
@@ -17,6 +18,7 @@ import { AIInsights } from "./ai-insights";
 import { RetroactiveAdjustment } from "./retroactive-adjustment";
 import { DismissalReasonsTable } from "./dismissal-reasons-table";
 import { RetentionCharts } from "./retention-charts";
+import { RetentionFilterPanel, type RetentionFilterOptions } from "./retention-filter-panel";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
@@ -40,6 +42,12 @@ export function DashboardPage() {
   });
   const [selectedPeriod] = useState<Date>(new Date());
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('monthly');
+  const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
+    years: [],
+    months: [],
+    departments: [],
+    areas: []
+  });
 
   const loadDashboardData = useCallback(async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
     try {
@@ -125,6 +133,85 @@ export function DashboardPage() {
 
   const categorized = categorizeKPIs(data.kpis);
 
+  // Función para filtrar datos basado en los filtros de retención
+  const applyRetentionFilters = (plantillaData: any[]) => {
+    if (!plantillaData) return [];
+    
+    let filteredData = [...plantillaData];
+    
+    // Filtrar por departamento
+    if (retentionFilters.departments.length > 0) {
+      filteredData = filteredData.filter(emp => 
+        retentionFilters.departments.includes(emp.departamento)
+      );
+    }
+    
+    
+    // Filtrar por área
+    if (retentionFilters.areas.length > 0) {
+      filteredData = filteredData.filter(emp => 
+        retentionFilters.areas.includes(emp.area)
+      );
+    }
+    
+    // Filtrar por fecha (años y meses)
+    if (retentionFilters.years.length > 0 || retentionFilters.months.length > 0) {
+      filteredData = filteredData.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        
+        // Verificar si el empleado estuvo activo en algún momento en los periodos seleccionados
+        const yearMatch = retentionFilters.years.length === 0 || 
+          retentionFilters.years.some(year => {
+            return fechaIngreso.getFullYear() <= year && 
+                   (!fechaBaja || fechaBaja.getFullYear() >= year);
+          });
+        
+        const monthMatch = retentionFilters.months.length === 0 ||
+          retentionFilters.months.some(month => {
+            // Verificar si el empleado estuvo activo en ese mes (cualquier año)
+            const startOfSelectedMonth = new Date(2024, month - 1, 1); // Usar 2024 como año base
+            const endOfSelectedMonth = new Date(2024, month, 0);
+            
+            return (fechaIngreso <= endOfSelectedMonth) && 
+                   (!fechaBaja || fechaBaja >= startOfSelectedMonth);
+          });
+        
+        return yearMatch && monthMatch;
+      });
+    }
+    
+    return filteredData;
+  };
+
+  // Función para calcular KPIs filtrados para retención
+  const getFilteredRetentionKPIs = () => {
+    const filteredPlantilla = applyRetentionFilters(data.plantilla);
+    
+    // Calcular Activos Promedio con filtros
+    const activosActuales = filteredPlantilla.filter(emp => emp.activo).length;
+    
+    // Calcular Bajas con filtros (mes actual)
+    const currentMonth = selectedPeriod.getMonth();
+    const currentYear = selectedPeriod.getFullYear();
+    const bajasDelMes = filteredPlantilla.filter(emp => {
+      if (!emp.fecha_baja || emp.activo) return false;
+      const fechaBaja = new Date(emp.fecha_baja);
+      return fechaBaja.getMonth() === currentMonth && fechaBaja.getFullYear() === currentYear;
+    }).length;
+    
+    // Calcular Rotación Mensual con filtros
+    const rotacionMensual = activosActuales > 0 ? (bajasDelMes / activosActuales) * 100 : 0;
+    
+    return {
+      activosPromedio: activosActuales,
+      bajas: bajasDelMes,
+      rotacionMensual: Number(rotacionMensual.toFixed(2))
+    };
+  };
+
+  const filteredRetentionKPIs = getFilteredRetentionKPIs();
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -144,11 +231,17 @@ export function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Información del dashboard sin filtros */}
+            {/* Información del dashboard - filtros van abajo */}
           </div>
         </div>
       </div>
 
+      {/* Filtros debajo del header */}
+      <div className="px-6 pb-2">
+        <RetentionFilterPanel 
+          onFiltersChange={setRetentionFilters}
+        />
+      </div>
 
       <div className="p-6">
         <Tabs defaultValue="overview" className="space-y-6">
@@ -453,26 +546,83 @@ export function DashboardPage() {
 
           {/* Retention Tab */}
           <TabsContent value="retention" className="space-y-6">
-            {/* 4 KPIs Principales de Retención: Activos Prom, Bajas, Bajas Tempranas, Rotación Mensual */}
+            {/* Mostrar filtros aplicados */}
+            {(retentionFilters.years.length > 0 || retentionFilters.months.length > 0 || 
+              retentionFilters.departments.length > 0 || retentionFilters.areas.length > 0) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-sm text-blue-700">
+                  <Filter className="h-4 w-4" />
+                  <span className="font-medium">Filtros aplicados:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {retentionFilters.years.map(year => (
+                      <span key={year} className="bg-blue-100 px-2 py-1 rounded text-xs">{year}</span>
+                    ))}
+                    {retentionFilters.months.map(month => (
+                      <span key={month} className="bg-blue-100 px-2 py-1 rounded text-xs">
+                        {['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][month-1]}
+                      </span>
+                    ))}
+                    {retentionFilters.departments.map(dept => (
+                      <span key={dept} className="bg-green-100 px-2 py-1 rounded text-xs">{dept}</span>
+                    ))}
+                    {retentionFilters.areas.map(area => (
+                      <span key={area} className="bg-orange-100 px-2 py-1 rounded text-xs">{area}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 4 KPIs Principales de Retención con filtros aplicados */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              {/* Activos Promedio */}
-              {categorized.headcount
-                .filter(kpi => kpi.name === 'Activos Prom')
-                .map((kpi) => (
-                  <KPICard 
-                    key={kpi.name} 
-                    kpi={kpi} 
-                    icon={<Users className="h-6 w-6" />}
-                  />
-                ))}
+              {/* Activos Promedio Filtrado */}
+              <KPICard 
+                kpi={{
+                  id: 'activos-prom-filtered',
+                  name: 'Activos Prom',
+                  category: 'headcount',
+                  value: filteredRetentionKPIs.activosPromedio,
+                  unit: 'empleados',
+                  period: timePeriod,
+                  date: selectedPeriod,
+                  description: 'Empleados activos promedio (con filtros)'
+                }} 
+                icon={<Users className="h-6 w-6" />}
+              />
               
-              {/* KPIs de Retención: Bajas, Bajas Tempranas, Rotación Mensual */}
+              {/* Bajas Filtradas */}
+              <KPICard 
+                kpi={{
+                  id: 'bajas-filtered',
+                  name: 'Bajas',
+                  category: 'retention',
+                  value: filteredRetentionKPIs.bajas,
+                  unit: 'empleados',
+                  period: timePeriod,
+                  date: selectedPeriod,
+                  description: 'Bajas del período (con filtros)'
+                }} 
+                icon={<UserMinus className="h-6 w-6" />}
+              />
+
+              {/* Rotación Mensual Filtrada */}
+              <KPICard 
+                kpi={{
+                  id: 'rotacion-filtered',
+                  name: 'Rotación Mensual',
+                  category: 'retention',
+                  value: filteredRetentionKPIs.rotacionMensual,
+                  unit: '%',
+                  period: timePeriod,
+                  date: selectedPeriod,
+                  description: 'Rotación mensual (con filtros)'
+                }} 
+                icon={<UserMinus className="h-6 w-6" />}
+              />
+
+              {/* Bajas Tempranas (original) */}
               {categorized.retention
-                .filter(kpi => 
-                  kpi.name === 'Bajas' || 
-                  kpi.name === 'Bajas Tempranas' || 
-                  kpi.name === 'Rotación Mensual'
-                )
+                .filter(kpi => kpi.name === 'Bajas Tempranas')
                 .map((kpi) => (
                   <KPICard 
                     key={kpi.name} 
@@ -486,7 +636,7 @@ export function DashboardPage() {
             <RetentionCharts currentDate={selectedPeriod} />
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
-            <DismissalReasonsTable plantilla={data.plantilla || []} />
+            <DismissalReasonsTable plantilla={applyRetentionFilters(data.plantilla || [])} />
           </TabsContent>
 
           {/* Trends Tab */}
