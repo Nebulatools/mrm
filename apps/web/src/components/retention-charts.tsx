@@ -26,12 +26,7 @@ interface MonthlyRetentionData {
 
 interface YearlyComparisonData {
   mes: string;
-  rotacion2024?: number;
-  rotacion2025?: number;
-  bajas2024?: number;
-  bajas2025?: number;
-  activos2024?: number;
-  activos2025?: number;
+  [key: string]: any; // Para soportar años dinámicos
 }
 
 interface RetentionFilters {
@@ -50,6 +45,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
   const [monthlyData, setMonthlyData] = useState<MonthlyRetentionData[]>([]);
   const [yearlyComparison, setYearlyComparison] = useState<YearlyComparisonData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
 
   useEffect(() => {
     loadMonthlyRetentionData();
@@ -60,16 +56,30 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
       setLoading(true);
       console.log('🔄 RetentionCharts: Loading monthly retention data...');
       
-      // Cargar plantilla una sola vez para todos los meses (optimización)
-      const plantilla = await db.getPlantilla();
-      console.log('👥 Plantilla loaded:', plantilla?.length, 'records');
+      // Cargar empleados SFTP una sola vez para todos los meses (optimización)
+      const plantilla = await db.getEmpleadosSFTP();
+      console.log('👥 Empleados SFTP loaded:', plantilla?.length, 'records');
       if (!plantilla) {
         throw new Error('No plantilla data found');
       }
       
-      // Generar datos para 2024 y 2025
+      // Detectar el rango de años con datos reales de bajas
+      const bajasConFecha = plantilla.filter(emp => emp.fecha_baja);
+      const años = new Set<number>();
+      
+      bajasConFecha.forEach(emp => {
+        const año = new Date(emp.fecha_baja).getFullYear();
+        if (año >= 2022 && año <= 2025) {
+          años.add(año);
+        }
+      });
+      
+      // Si no hay bajas, usar años por defecto
+      const years = años.size > 0 ? Array.from(años).sort() : [2024, 2025];
+      console.log('📅 Years with dismissal data:', years);
+      
+      // Generar datos para todos los años con bajas
       const allMonthsData: MonthlyRetentionData[] = [];
-      const years = [2024, 2025];
       
       for (const year of years) {
         for (let month = 0; month < 12; month++) {
@@ -121,25 +131,32 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
         });
       }
       
-      // Preparar datos para comparación por año
+      // Preparar datos para comparación por año (últimos 2 años con datos)
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const uniqueYears = [...new Set(allMonthsData.map(d => d.year))].sort();
+      const lastTwoYears = uniqueYears.slice(-2); // Tomar los últimos 2 años
+      
       const comparisonData: YearlyComparisonData[] = monthNames.map((monthName, index) => {
-        const month2024 = allMonthsData.find(d => d.year === 2024 && d.month === index + 1);
-        const month2025 = allMonthsData.find(d => d.year === 2025 && d.month === index + 1);
-        
-        return {
-          mes: monthName,
-          rotacion2024: month2024?.rotacionAcumulada12m,
-          rotacion2025: month2025?.rotacionAcumulada12m,
-          bajas2024: month2024?.bajas,
-          bajas2025: month2025?.bajas,
-          activos2024: month2024?.activos,
-          activos2025: month2025?.activos
+        const dataByYear: any = {
+          mes: monthName
         };
+        
+        // Agregar datos para cada año disponible
+        lastTwoYears.forEach(year => {
+          const monthData = allMonthsData.find(d => d.year === year && d.month === index + 1);
+          if (monthData) {
+            dataByYear[`rotacion${year}`] = monthData.rotacionAcumulada12m;
+            dataByYear[`bajas${year}`] = monthData.bajas;
+            dataByYear[`activos${year}`] = monthData.activos;
+          }
+        });
+        
+        return dataByYear;
       });
       
       setMonthlyData(filteredMonthsData);
       setYearlyComparison(comparisonData);
+      setAvailableYears(lastTwoYears);
     } catch (error) {
       console.error('Error loading monthly retention data:', error);
     } finally {
@@ -321,10 +338,14 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
     <div className="space-y-6">
       {/* Primera fila de gráficas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Gráfico 1: Rotación Acumulada (12 meses móviles) con comparación 2024/2025 */}
+        {/* Gráfico 1: Rotación Acumulada (12 meses móviles) con comparación anual */}
         <div className="bg-white p-4 rounded-lg border">
           <h3 className="text-base font-semibold mb-2">Rotación Acumulada (12 meses móviles)</h3>
-          <p className="text-sm text-gray-600 mb-4">Comparación 2024 vs 2025</p>
+          <p className="text-sm text-gray-600 mb-4">
+            {availableYears.length > 0 
+              ? `Comparación ${availableYears[0]} vs ${availableYears[availableYears.length - 1]}`
+              : 'Comparación anual'}
+          </p>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={yearlyComparison}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -338,22 +359,17 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="rotacion2024" 
-                stroke="#3b82f6" 
-                strokeWidth={2}
-                name="2024"
-                dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="rotacion2025" 
-                stroke="#ef4444" 
-                strokeWidth={2}
-                name="2025"
-                dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
-              />
+              {availableYears.map((year, index) => (
+                <Line 
+                  key={year}
+                  type="monotone" 
+                  dataKey={`rotacion${year}`} 
+                  stroke={index === 0 ? "#3b82f6" : "#ef4444"} 
+                  strokeWidth={2}
+                  name={year.toString()}
+                  dot={{ fill: index === 0 ? '#3b82f6' : '#ef4444', strokeWidth: 2, r: 4 }}
+                />
+              ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -363,7 +379,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
           <h3 className="text-base font-semibold mb-2">Rotación Mensual</h3>
           <p className="text-sm text-gray-600 mb-4">Rotación mensual %, bajas y activos por mes</p>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={monthlyData.filter(d => d.year === 2025)}>
+            <LineChart data={monthlyData.filter(d => d.year === (availableYears[availableYears.length - 1] || 2025))}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="mes" 
@@ -422,7 +438,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
           <h3 className="text-base font-semibold mb-2">Rotación por Temporalidad</h3>
           <p className="text-sm text-gray-600 mb-4">Bajas por tiempo trabajado por mes</p>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={monthlyData.filter(d => d.year === 2025)}>
+            <BarChart data={monthlyData.filter(d => d.year === (availableYears[availableYears.length - 1] || 2025))}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="mes" 
@@ -457,24 +473,26 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-4">Mes</th>
-                  <th className="text-center py-2 px-4 bg-blue-50">2024</th>
-                  <th className="text-center py-2 px-4 bg-red-50">2025</th>
+                  <th className="text-center py-2 px-4 bg-blue-50">{availableYears[0] || 2024}</th>
+                  <th className="text-center py-2 px-4 bg-red-50">{availableYears[availableYears.length - 1] || 2025}</th>
                   <th className="text-center py-2 px-4">Variación</th>
                 </tr>
               </thead>
               <tbody>
                 {yearlyComparison.map((row, index) => {
-                  const variation = row.rotacion2025 && row.rotacion2024 
-                    ? ((row.rotacion2025 - row.rotacion2024) / row.rotacion2024 * 100).toFixed(1)
+                  const year1 = availableYears[0];
+                  const year2 = availableYears[availableYears.length - 1];
+                  const variation = row[`rotacion${year2}`] && row[`rotacion${year1}`] 
+                    ? ((row[`rotacion${year2}`] - row[`rotacion${year1}`]) / row[`rotacion${year1}`] * 100).toFixed(1)
                     : null;
                   return (
                     <tr key={row.mes} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
                       <td className="py-2 px-4 font-medium">{row.mes}</td>
                       <td className="py-2 px-4 text-center">
-                        {row.rotacion2024 ? `${row.rotacion2024.toFixed(2)}%` : '-'}
+                        {row[`rotacion${year1}`] ? `${row[`rotacion${year1}`].toFixed(2)}%` : '-'}
                       </td>
                       <td className="py-2 px-4 text-center">
-                        {row.rotacion2025 ? `${row.rotacion2025.toFixed(2)}%` : '-'}
+                        {row[`rotacion${year2}`] ? `${row[`rotacion${year2}`].toFixed(2)}%` : '-'}
                       </td>
                       <td className="py-2 px-4 text-center">
                         {variation && (
@@ -503,8 +521,8 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-3" rowSpan={2}>Mes</th>
-                  <th className="text-center py-2 px-3 bg-blue-50" colSpan={3}>2024</th>
-                  <th className="text-center py-2 px-3 bg-red-50" colSpan={3}>2025</th>
+                  <th className="text-center py-2 px-3 bg-blue-50" colSpan={3}>{availableYears[0] || 2024}</th>
+                  <th className="text-center py-2 px-3 bg-red-50" colSpan={3}>{availableYears[availableYears.length - 1] || 2025}</th>
                 </tr>
                 <tr className="border-b">
                   <th className="text-center py-2 px-3 bg-blue-50 text-xs">% Rotación</th>
@@ -517,29 +535,31 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
               </thead>
               <tbody>
                 {monthNames.map((monthName, index) => {
-                  const month2024 = monthlyData.find(d => d.year === 2024 && d.month === index + 1);
-                  const month2025 = monthlyData.find(d => d.year === 2025 && d.month === index + 1);
+                  const year1 = availableYears[0] || 2024;
+                  const year2 = availableYears[availableYears.length - 1] || 2025;
+                  const monthYear1 = monthlyData.find(d => d.year === year1 && d.month === index + 1);
+                  const monthYear2 = monthlyData.find(d => d.year === year2 && d.month === index + 1);
                   
                   return (
                     <tr key={monthName} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
                       <td className="py-2 px-3 font-medium">{monthName}</td>
                       <td className="py-2 px-3 text-center text-xs">
-                        {month2024?.rotacionPorcentaje ? `${month2024.rotacionPorcentaje.toFixed(1)}%` : '-'}
+                        {monthYear1?.rotacionPorcentaje ? `${monthYear1.rotacionPorcentaje.toFixed(1)}%` : '-'}
                       </td>
                       <td className="py-2 px-3 text-center text-xs">
-                        {month2024?.bajas ?? '-'}
+                        {monthYear1?.bajas ?? '-'}
                       </td>
                       <td className="py-2 px-3 text-center text-xs">
-                        {month2024?.activos ?? '-'}
+                        {monthYear1?.activos ?? '-'}
                       </td>
                       <td className="py-2 px-3 text-center text-xs">
-                        {month2025?.rotacionPorcentaje ? `${month2025.rotacionPorcentaje.toFixed(1)}%` : '-'}
+                        {monthYear2?.rotacionPorcentaje ? `${monthYear2.rotacionPorcentaje.toFixed(1)}%` : '-'}
                       </td>
                       <td className="py-2 px-3 text-center text-xs">
-                        {month2025?.bajas ?? '-'}
+                        {monthYear2?.bajas ?? '-'}
                       </td>
                       <td className="py-2 px-3 text-center text-xs">
-                        {month2025?.activos ?? '-'}
+                        {monthYear2?.activos ?? '-'}
                       </td>
                     </tr>
                   );

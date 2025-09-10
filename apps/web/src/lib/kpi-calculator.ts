@@ -38,19 +38,13 @@ export class KPICalculator {
       let kpis: KPIResult[] = [];
       
       try {
-        console.log('🗄️ Attempting Supabase database...');
+        console.log('🗄️ Using Supabase database with SFTP tables...');
         kpis = await this.calculateFromDatabase(filter);
-        console.log('✅ Supabase data loaded successfully:', kpis.length, 'KPIs');
+        console.log('✅ SFTP data loaded successfully:', kpis.length, 'KPIs');
       } catch (error) {
-        console.error('❌ Supabase failed with error:', error);
-        console.log('⚠️ Supabase failed, trying SFTP...');
-        try {
-          kpis = await this.calculateFromSFTP();
-        } catch (sftpError) {
-          console.error('❌ SFTP failed with error:', sftpError);
-          console.log('⚠️ SFTP failed, using fallback...');
-          kpis = await this.calculateFromFallback(filter);
-        }
+        console.error('❌ Database error:', error);
+        console.log('⚠️ Using fallback data...');
+        kpis = await this.calculateFromFallback(filter);
       }
 
       // Cache the results
@@ -203,11 +197,11 @@ export class KPICalculator {
 
   private calculateKPIsFromData(
     plantilla: PlantillaRecord[],
-    incidencias: IncidenciaRecord[],
-    actividad: ActividadRecord[],
+    incidencias: any[], // AsistenciaDiariaRecord with horas_incidencia > 0
+    asistencia: any[], // All AsistenciaDiariaRecord
     prevPlantilla: PlantillaRecord[],
-    prevIncidencias: IncidenciaRecord[],
-    prevActividad: ActividadRecord[],
+    prevIncidencias: any[], // Previous AsistenciaDiariaRecord with horas_incidencia > 0
+    prevAsistencia: any[], // All previous AsistenciaDiariaRecord
     startDate: Date,
     endDate: Date
   ): KPIResult[] {
@@ -215,7 +209,7 @@ export class KPICalculator {
     const periodEnd = format(endDate, 'yyyy-MM-dd');
 
     // Filter data for the current period
-    const actividadFiltered = actividad.filter(a => 
+    const asistenciaFiltered = asistencia.filter(a => 
       isWithinInterval(a.fecha, { start: startDate, end: endDate })
     );
     const incidenciasFiltered = incidencias.filter(i => 
@@ -223,20 +217,20 @@ export class KPICalculator {
     );
 
     // Previous period calculations
-    const prevActividadFiltered = prevActividad.filter(a => 
+    const prevAsistenciaFiltered = prevAsistencia.filter(a => 
       isWithinInterval(a.fecha, { start: subMonths(startDate, 1), end: subMonths(endDate, 1) })
     );
     const prevIncidenciasFiltered = prevIncidencias.filter(i => 
       isWithinInterval(i.fecha, { start: subMonths(startDate, 1), end: subMonths(endDate, 1) })
     );
 
-    // 1. Activos - Count(ACT) - Count of employees in ACT table
-    const uniqueEmployeesInACT = [...new Set(actividadFiltered.map(a => a.emp_id))].length;
-    const prevUniqueEmployeesInACT = [...new Set(prevActividadFiltered.map(a => a.emp_id))].length;
+    // 1. Activos - Count distinct employees in asistencia_diaria
+    const uniqueEmployeesInACT = [...new Set(asistenciaFiltered.map(a => a.numero_empleado))].length;
+    const prevUniqueEmployeesInACT = [...new Set(prevAsistenciaFiltered.map(a => a.numero_empleado))].length;
 
-    // 2. Días - CountD(ACT[Fecha]) - Count distinct dates in ACT table
-    const uniqueDays = [...new Set(actividadFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
-    const prevUniqueDays = [...new Set(prevActividadFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
+    // 2. Días - Count distinct dates in asistencia_diaria
+    const uniqueDays = [...new Set(asistenciaFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
+    const prevUniqueDays = [...new Set(prevAsistenciaFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
 
     // 3. Activos Prom - Correct average headcount calculation
     // Calculate employees at start and end of period, then average them
@@ -481,12 +475,12 @@ export class KPICalculator {
       {
         name: 'Rotación Acumulada',
         category: 'retention',
-        value: this.calculateRotacionAcumulada(plantilla, periodEnd),
+        value: this.calculateRotacionAcumulada(plantilla, endDate),
         target: undefined,
-        previous_value: this.calculateRotacionAcumulada(prevPlantilla, prevPeriodEnd),
+        previous_value: this.calculateRotacionAcumulada(prevPlantilla, subMonths(endDate, 1)),
         variance_percentage: calculateVariance(
-          this.calculateRotacionAcumulada(plantilla, periodEnd),
-          this.calculateRotacionAcumulada(prevPlantilla, prevPeriodEnd)
+          this.calculateRotacionAcumulada(plantilla, endDate),
+          this.calculateRotacionAcumulada(prevPlantilla, subMonths(endDate, 1))
         ),
         period_start: periodStart,
         period_end: periodEnd
@@ -534,11 +528,6 @@ export class KPICalculator {
     ];
   }
 
-  private async calculateFromSFTP(): Promise<KPIResult[]> {
-    // This would implement SFTP data retrieval and processing
-    // For now, falling back to mock data
-    throw new Error('SFTP implementation pending');
-  }
 
   private async calculateFromDatabase(filter: TimeFilter): Promise<KPIResult[]> {
     console.log('🗄️ Calculating KPIs from Supabase database');
@@ -591,56 +580,56 @@ export class KPICalculator {
     }
 
     try {
-      // Fetch data from Supabase using our db interface
-      const [plantilla, incidencias, act] = await Promise.all([
-        db.getPlantilla(),
-        db.getIncidencias(format(previousStartDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd')),
-        db.getACT(format(previousStartDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd'))
+      // Fetch data from Supabase SFTP tables
+      const [empleados, asistencia, bajas] = await Promise.all([
+        db.getEmpleadosSFTP(),
+        db.getAsistenciaDiaria(format(previousStartDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd')),
+        db.getMotivosBaja()
       ]);
 
-      // Transform string dates to Date objects for calculations
-      const plantillaWithDates: PlantillaRecord[] = plantilla.map(p => ({
-        ...p,
-        fecha_ingreso: new Date(p.fecha_ingreso),
-        fecha_baja: p.fecha_baja ? new Date(p.fecha_baja) : null
-      }));
+      // Transform empleados to include fecha_baja from motivos_baja
+      const plantillaWithDates: PlantillaRecord[] = empleados.map((emp: any) => {
+        const baja = bajas.find((b: any) => b.numero_empleado === emp.numero_empleado);
+        return {
+          ...emp,
+          fecha_ingreso: emp.fecha_ingreso || '2024-01-01',
+          fecha_baja: baja ? baja.fecha_baja : null,
+          activo: !baja || (baja.fecha_baja > format(endDate, 'yyyy-MM-dd'))
+        };
+      });
 
-      const incidenciasWithDates: IncidenciaRecord[] = incidencias.map(i => ({
-        ...i,
-        fecha: new Date(i.fecha)
-      }));
-
-      const actWithDates: ActividadRecord[] = act.map(a => ({
+      // Transform asistencia dates for calculations
+      const asistenciaWithDates = asistencia.map(a => ({
         ...a,
         fecha: new Date(a.fecha)
       }));
 
-      // Filter for current period
-      const currentIncidencias = incidenciasWithDates.filter(i => 
-        isWithinInterval(i.fecha, { start: startDate, end: endDate })
-      );
-      const currentActividad = actWithDates.filter(a => 
+      // Filter asistencia for current period
+      const currentAsistencia = asistenciaWithDates.filter(a => 
         isWithinInterval(a.fecha, { start: startDate, end: endDate })
       );
+      
+      // Get incidencias (records with horas_incidencia > 0)
+      const currentIncidencias = currentAsistencia.filter(a => (a.horas_incidencia || 0) > 0);
 
-      // Filter for previous period
-      const previousIncidencias = incidenciasWithDates.filter(i => 
-        isWithinInterval(i.fecha, { start: previousStartDate, end: previousEndDate })
-      );
-      const previousActividad = actWithDates.filter(a => 
+      // Filter asistencia for previous period
+      const previousAsistencia = asistenciaWithDates.filter(a => 
         isWithinInterval(a.fecha, { start: previousStartDate, end: previousEndDate })
       );
+      
+      // Get previous incidencias
+      const previousIncidencias = previousAsistencia.filter(a => (a.horas_incidencia || 0) > 0);
 
-      console.log(`📊 Database data loaded: ${plantillaWithDates.length} employees, ${currentIncidencias.length} current incidents, ${currentActividad.length} current activity records`);
+      console.log(`📊 Database data loaded: ${plantillaWithDates.length} employees, ${currentIncidencias.length} current incidents, ${currentAsistencia.length} current attendance records`);
 
-      // Use the same calculation logic
+      // Use the same calculation logic with asistencia data
       return this.calculateKPIsFromData(
         plantillaWithDates,
         currentIncidencias,
-        currentActividad,
+        currentAsistencia,
         plantillaWithDates, // Same plantilla for previous period
         previousIncidencias,
-        previousActividad,
+        previousAsistencia,
         startDate,
         endDate
       );

@@ -103,41 +103,60 @@ export const db = {
   // EMPLEADOS_SFTP operations (new main employee table)
   async getEmpleadosSFTP() {
     console.log('🗄️ Fetching empleados_sftp data...');
-    const { data, error } = await supabase
+    
+    // Obtener empleados
+    const { data: empleados, error: empleadosError } = await supabase
       .from('empleados_sftp')
-      .select(`
-        *,
-        motivos_baja (
-          fecha_baja,
-          tipo,
-          motivo,
-          descripcion
-        )
-      `)
+      .select('*')
       .order('numero_empleado')
     
-    if (error) {
-      console.error('❌ Error fetching empleados_sftp:', error);
-      throw error;
+    if (empleadosError) {
+      console.error('❌ Error fetching empleados_sftp:', empleadosError);
+      throw empleadosError;
     }
     
+    // Obtener motivos de baja
+    const { data: motivos, error: motivosError } = await supabase
+      .from('motivos_baja')
+      .select('*')
+    
+    if (motivosError) {
+      console.error('❌ Error fetching motivos_baja:', motivosError);
+      throw motivosError;
+    }
+    
+    // Crear un mapa de motivos por número de empleado
+    const motivosMap = new Map();
+    (motivos || []).forEach(motivo => {
+      if (!motivosMap.has(motivo.numero_empleado)) {
+        motivosMap.set(motivo.numero_empleado, []);
+      }
+      motivosMap.get(motivo.numero_empleado).push(motivo);
+    });
+    
     // Transform to PlantillaRecord format for compatibility
-    const transformed = (data || []).map(emp => ({
-      id: emp.id,
-      emp_id: String(emp.numero_empleado),
-      nombre: emp.nombre_completo || `${emp.nombres} ${emp.apellidos}`,
-      departamento: emp.departamento || 'Sin Departamento',
-      activo: emp.activo,
-      fecha_ingreso: emp.fecha_ingreso || emp.fecha_creacion || new Date().toISOString(),
-      fecha_baja: emp.motivos_baja?.[0]?.fecha_baja || null,
-      puesto: emp.puesto || null,
-      motivo_baja: emp.motivos_baja?.[0]?.motivo || null,
-      area: emp.area || null,
-      created_at: emp.fecha_creacion || new Date().toISOString(),
-      updated_at: emp.fecha_actualizacion || new Date().toISOString()
-    }));
+    const transformed = (empleados || []).map(emp => {
+      const motivosEmpleado = motivosMap.get(emp.numero_empleado) || [];
+      const ultimoMotivo = motivosEmpleado.length > 0 ? motivosEmpleado[0] : null;
+      
+      return {
+        id: emp.id,
+        emp_id: String(emp.numero_empleado),
+        nombre: emp.nombre_completo || `${emp.nombres} ${emp.apellidos}`,
+        departamento: emp.departamento || 'Sin Departamento',
+        activo: emp.activo,
+        fecha_ingreso: emp.fecha_ingreso || emp.fecha_creacion || new Date().toISOString(),
+        fecha_baja: ultimoMotivo?.fecha_baja || null,
+        puesto: emp.puesto || null,
+        motivo_baja: ultimoMotivo?.motivo || null,
+        area: emp.area || null,
+        created_at: emp.fecha_creacion || new Date().toISOString(),
+        updated_at: emp.fecha_actualizacion || new Date().toISOString()
+      };
+    });
     
     console.log('✅ empleados_sftp data loaded:', transformed.length, 'records');
+    console.log('✅ motivos_baja data loaded:', motivos?.length, 'records');
     return transformed as PlantillaRecord[];
   },
 
@@ -229,12 +248,13 @@ export const db = {
     return (data || []) as PlantillaRecord[]
   },
 
-  // INCIDENCIAS operations
-  async getIncidencias(startDate?: string, endDate?: string) {
-    console.log('🗄️ Fetching incidencias data...', { startDate, endDate });
+  // Get incidencias from asistencia_diaria (where horas_incidencia > 0)
+  async getIncidenciasFromAsistencia(startDate?: string, endDate?: string) {
+    console.log('🗄️ Fetching incidencias from asistencia_diaria...', { startDate, endDate });
     let query = supabase
-      .from('incidencias')
+      .from('asistencia_diaria')
       .select('*')
+      .gt('horas_incidencia', 0) // Solo registros con incidencias
       .order('fecha', { ascending: false })
 
     if (startDate) {
@@ -246,85 +266,30 @@ export const db = {
 
     const { data, error } = await query
     if (error) {
-      console.error('❌ Error fetching incidencias:', error);
+      console.error('❌ Error fetching incidencias from asistencia:', error);
       throw error;
     }
-    console.log('✅ incidencias data loaded:', data?.length, 'records');
-    return (data || []) as IncidenciaRecord[]
+    console.log('✅ incidencias from asistencia loaded:', data?.length, 'records');
+    return (data || []) as AsistenciaDiariaRecord[]
   },
 
-  async addIncidencia(incidencia: Omit<IncidenciaRecord, 'id' | 'created_at'>) {
-    const { data, error } = await supabase
-      .from('incidencias')
-      .insert([incidencia])
-      .select()
+  // Stats operations
+  async getKPIStats(period: string = 'monthly') {
+    const [empleados, asistencia, bajas] = await Promise.all([
+      this.getEmpleadosSFTP(),
+      this.getAsistenciaDiaria(),
+      this.getMotivosBaja()
+    ])
 
-    if (error) throw error
-    return data?.[0] as IncidenciaRecord
-  },
+    // Contar incidencias (registros con horas_incidencia > 0)
+    const incidencias = asistencia.filter((a: AsistenciaDiariaRecord) => (a.horas_incidencia || 0) > 0)
 
-  // ACT operations (actividad diaria)
-  async getACT(startDate?: string, endDate?: string) {
-    console.log('🗄️ Fetching act data...', { startDate, endDate });
-    let query = supabase
-      .from('act')
-      .select('*')
-      .order('fecha', { ascending: false })
-
-    if (startDate) {
-      query = query.gte('fecha', startDate)
+    return {
+      totalEmployees: empleados.length,
+      activeEmployees: empleados.filter((e: PlantillaRecord) => e.activo).length,
+      totalIncidents: incidencias.length,
+      totalActiveDays: [...new Set(asistencia.map((a: AsistenciaDiariaRecord) => a.fecha))].length,
+      totalTerminations: bajas.length
     }
-    if (endDate) {
-      query = query.lte('fecha', endDate)
-    }
-
-    const { data, error } = await query
-    if (error) {
-      console.error('❌ Error fetching act:', error);
-      throw error;
-    }
-    console.log('✅ act data loaded:', data?.length, 'records');
-    return (data || []) as ActividadRecord[]
-  },
-
-  async addACT(actividad: Omit<ActividadRecord, 'id' | 'created_at'>) {
-    const { data, error } = await supabase
-      .from('act')
-      .insert([actividad])
-      .select()
-
-    if (error) throw error
-    return data?.[0] as ActividadRecord
-  },
-
-  // Bulk operations for adding multiple records
-  async addMultipleEmployees(employees: Omit<PlantillaRecord, 'id' | 'created_at' | 'updated_at'>[]) {
-    const { data, error } = await supabase
-      .from('plantilla')
-      .insert(employees)
-      .select()
-
-    if (error) throw error
-    return data as PlantillaRecord[]
-  },
-
-  async addMultipleIncidencias(incidencias: Omit<IncidenciaRecord, 'id' | 'created_at'>[]) {
-    const { data, error } = await supabase
-      .from('incidencias')
-      .insert(incidencias)
-      .select()
-
-    if (error) throw error
-    return data as IncidenciaRecord[]
-  },
-
-  async addMultipleACT(actividades: Omit<ActividadRecord, 'id' | 'created_at'>[]) {
-    const { data, error } = await supabase
-      .from('act')
-      .insert(actividades)
-      .select()
-
-    if (error) throw error
-    return data as ActividadRecord[]
   }
 }

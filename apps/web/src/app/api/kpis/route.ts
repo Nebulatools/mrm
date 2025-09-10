@@ -18,7 +18,7 @@ export async function GET(request: Request) {
         period: period as any, 
         date: new Date(dateParam) 
       }),
-      db.getPlantilla()
+      db.getEmpleadosSFTP()
     ])
     
     console.log('✅ API KPIs loaded:', {

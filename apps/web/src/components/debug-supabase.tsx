@@ -11,27 +11,27 @@ export function DebugSupabase() {
       console.log('🔥 TESTING SUPABASE CONNECTION...')
       
       try {
-        // Test PLANTILLA
-        const plantilla = await db.getPlantilla()
-        console.log('✅ PLANTILLA test result:', plantilla?.length, 'records')
+        // Test EMPLEADOS SFTP
+        const empleados = await db.getEmpleadosSFTP()
+        console.log('✅ EMPLEADOS SFTP test result:', empleados?.length, 'records')
         
-        // Test INCIDENCIAS  
-        const incidencias = await db.getIncidencias()
-        console.log('✅ INCIDENCIAS test result:', incidencias?.length, 'records')
+        // Test ASISTENCIA DIARIA  
+        const asistencia = await db.getAsistenciaDiaria()
+        console.log('✅ ASISTENCIA DIARIA test result:', asistencia?.length, 'records')
         
-        // Test ACT
-        const act = await db.getACT()
-        console.log('✅ ACT test result:', act?.length, 'records')
+        // Test MOTIVOS BAJA
+        const bajas = await db.getMotivosBaja()
+        console.log('✅ MOTIVOS BAJA test result:', bajas?.length, 'records')
 
         setDebug({
-          plantilla: plantilla?.length || 0,
-          incidencias: incidencias?.length || 0,
-          act: act?.length || 0,
-          plantillaData: plantilla?.slice(0, 3) // First 3 records
+          empleados: empleados?.length || 0,
+          asistencia: asistencia?.length || 0,
+          bajas: bajas?.length || 0,
+          empleadosData: empleados?.slice(0, 3) // First 3 records
         })
       } catch (error) {
         console.error('❌ SUPABASE TEST ERROR:', error)
-        setDebug({ error: error.message })
+        setDebug({ error: (error as Error).message })
       }
     }
 

@@ -63,18 +63,18 @@ export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps)
     }))
     .sort((a, b) => b.cantidad - a.cantidad);
 
-  // Lista detallada de empleados
+  // Lista detallada de empleados - ordenar primero y luego tomar los últimos 10
   const empleadosDetalle: Employee[] = empleadosBaja
+    .sort((a, b) => new Date(b.fecha_baja).getTime() - new Date(a.fecha_baja).getTime())
     .slice(0, 10) // Mostrar últimos 10
     .map(emp => ({
-      id: emp.id || emp.numero_empleado || 'N/A',
+      id: emp.emp_id || emp.numero_empleado || emp.id || 'N/A',
       nombre: emp.nombre || 'N/A',
-      puesto: emp.puesto || 'N/A',
+      puesto: emp.puesto || 'Sin puesto',
       fecha_baja: emp.fecha_baja,
       motivo_baja: emp.motivo_baja || 'No especificado',
-      area: emp.area || 'N/A'
-    }))
-    .sort((a, b) => new Date(b.fecha_baja).getTime() - new Date(a.fecha_baja).getTime());
+      area: emp.area || emp.departamento || 'Sin área'
+    }));
 
   const formatDate = (dateString: string) => {
     try {

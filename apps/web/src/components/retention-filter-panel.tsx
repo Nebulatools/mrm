@@ -44,35 +44,37 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
 
   const loadAvailableOptions = async () => {
     try {
-      // Try to get from empleados_sftp first, fallback to plantilla
-      let empleados = [];
-      try {
-        const { data: empleadosSFTP } = await supabase
-          .from('empleados_sftp')
-          .select('*');
-        
-        if (empleadosSFTP && empleadosSFTP.length > 0) {
-          empleados = empleadosSFTP;
-        }
-      } catch (e) {
-        // Fallback to plantilla
-        const { data: plantilla } = await supabase
-          .from('plantilla')
-          .select('*');
-        empleados = plantilla || [];
-      }
-
-      // Get motivos_baja for dates
-      const { data: motivosBaja } = await supabase
-        .from('motivos_baja')
-        .select('fecha_baja');
-
-      // Extract all dates
+      // Get empleados_sftp data 
+      const { data: empleadosSFTP } = await supabase
+        .from('empleados_sftp')
+        .select('fecha_baja, departamento, area, puesto');
+      
+      // Extract all dates from fecha_baja
       const allDates = [];
-      if (motivosBaja) {
-        motivosBaja.forEach(baja => {
-          if (baja.fecha_baja) {
-            allDates.push(baja.fecha_baja);
+      const departamentosSet = new Set<string>();
+      const areasSet = new Set<string>();
+      const puestosSet = new Set<string>();
+      
+      if (empleadosSFTP) {
+        empleadosSFTP.forEach(emp => {
+          // Collect dates
+          if (emp.fecha_baja) {
+            allDates.push(emp.fecha_baja);
+          }
+          
+          // Collect unique departamentos
+          if (emp.departamento && emp.departamento !== 'null' && emp.departamento !== '') {
+            departamentosSet.add(emp.departamento);
+          }
+          
+          // Collect unique areas
+          if (emp.area && emp.area !== 'null' && emp.area !== '') {
+            areasSet.add(emp.area);
+          }
+          
+          // Collect unique puestos
+          if (emp.puesto && emp.puesto !== 'null' && emp.puesto !== '') {
+            puestosSet.add(emp.puesto);
           }
         });
       }
@@ -81,16 +83,22 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       const currentYear = new Date().getFullYear();
       allDates.push(new Date().toISOString());
       
-      // Extract unique years
-      const uniqueYears = [...new Set(allDates.map(dateStr => 
-        new Date(dateStr).getFullYear()
-      ))].sort((a, b) => b - a);
+      // Extract unique years from dates (2022-2025 range)
+      const uniqueYears = [...new Set(allDates.map(dateStr => {
+        const year = new Date(dateStr).getFullYear();
+        return year >= 2022 && year <= 2025 ? year : null;
+      }).filter(year => year !== null))] as number[];
+      uniqueYears.sort((a, b) => b - a);
 
       // All months
       const uniqueMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
       
-      // Mock departamentos and areas (since the fields don't exist yet in empleados_sftp)
-      const departamentos = [
+      // Convert sets to sorted arrays
+      const departamentos = Array.from(departamentosSet).sort();
+      const areas = Array.from(areasSet).sort();
+      
+      // If no departamentos/areas found, use default values
+      const finalDepartamentos = departamentos.length > 0 ? departamentos : [
         'Recursos Humanos',
         'Tecnología',
         'Ventas',
@@ -99,7 +107,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
         'Finanzas'
       ];
       
-      const areas = [
+      const finalAreas = areas.length > 0 ? areas : [
         'Desarrollo',
         'Soporte',
         'Gestión',
@@ -111,8 +119,8 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       setAvailableOptions({
         years: uniqueYears,
         months: uniqueMonths,
-        departamentos: departamentos,
-        areas: areas
+        departamentos: finalDepartamentos,
+        areas: finalAreas
       });
     } catch (error) {
       console.error('Error loading available options:', error);
