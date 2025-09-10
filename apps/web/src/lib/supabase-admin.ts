@@ -7,6 +7,7 @@ const supabaseAdmin = createClient(
 );
 
 export { supabaseAdmin };
+export const supabase = supabaseAdmin; // Backward compatibility alias
 
 // Database setup functions
 export async function setupDatabase() {

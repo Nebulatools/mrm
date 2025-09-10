@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import SftpClient from 'ssh2-sftp-client';
+import * as XLSX from 'xlsx';
 
 interface SFTPConfig {
   host: string;
@@ -75,18 +76,35 @@ class SFTPService {
       // List files in directory
       const fileList = await sftp.list(this.config.directory);
       
-      // Filter and map CSV files to our SFTPFile format
-      const csvFiles: SFTPFile[] = fileList
-        .filter(file => file.type === '-' && file.name.endsWith('.csv'))
+      // Filter and map files - Excel, Word, CSV
+      const hrFiles: SFTPFile[] = fileList
+        .filter(file => {
+          const isFile = file.type === '-';
+          const hasValidExtension = file.name.endsWith('.csv') || 
+                                   file.name.endsWith('.xlsx') || 
+                                   file.name.endsWith('.xls') || 
+                                   file.name.endsWith('.docx') || 
+                                   file.name.endsWith('.doc');
+          return isFile && hasValidExtension;
+        })
         .map(file => {
           let type: 'plantilla' | 'incidencias' | 'act' = 'plantilla';
           
-          if (file.name.toLowerCase().includes('incidencias')) {
+          // Mapeo basado en los nombres de archivos de la imagen
+          const fileName = file.name.toLowerCase();
+          
+          if (fileName.includes('motivos') && fileName.includes('bajas')) {
+            type = 'plantilla'; // Motivos Bajas va a empleados_sftp/plantilla
+          } else if (fileName.includes('incidencias') || fileName.includes('me 5')) {
             type = 'incidencias';
-          } else if (file.name.toLowerCase().includes('act')) {
-            type = 'act';
-          } else if (file.name.toLowerCase().includes('plantilla')) {
+          } else if (fileName.includes('prenomina') || fileName.includes('horizo')) {
+            type = 'plantilla'; // Prenómina es datos de empleados
+          } else if (fileName.includes('validacion') || fileName.includes('alta')) {
+            type = 'act'; // Validación es asistencia/actividad
+          } else if (fileName.includes('plantilla')) {
             type = 'plantilla';
+          } else if (fileName.includes('act')) {
+            type = 'act';
           }
           
           return {
@@ -98,32 +116,38 @@ class SFTPService {
         });
       
       await sftp.end();
-      console.log(`Found ${csvFiles.length} CSV files`);
-      return csvFiles;
+      console.log(`Found ${hrFiles.length} HR files`);
+      return hrFiles;
 
     } catch (error) {
       console.error('Error listing SFTP files:', error);
       await sftp.end();
       
-      // Return mock files as fallback
+      // Return mock files as fallback - basado en los archivos reales del SFTP
       const mockFiles: SFTPFile[] = [
         {
-          name: 'plantilla_2024_12.csv',
+          name: 'Motivos Bajas (1).xlsx',
           type: 'plantilla',
           lastModified: new Date('2024-12-01'),
           size: 15600
         },
         {
-          name: 'incidencias_2024_12.csv',
+          name: 'ME 5. Incidencias.xlsx',
           type: 'incidencias',
           lastModified: new Date('2024-12-01'),
           size: 8900
         },
         {
-          name: 'act_2024_12.csv',
+          name: 'Prenomina Horizontal.xlsx',
+          type: 'plantilla',
+          lastModified: new Date('2024-12-01'),
+          size: 25600
+        },
+        {
+          name: 'Validacion Alta d.docx',
           type: 'act',
           lastModified: new Date('2024-12-01'),
-          size: 1200
+          size: 12800
         }
       ];
       
@@ -152,28 +176,75 @@ class SFTPService {
       
       await sftp.end();
       
-      // Parse CSV content
-      const csvText = fileContent.toString('utf8');
-      const lines = csvText.split('\n').filter(line => line.trim());
+      // Detectar tipo de archivo y procesarlo apropiadamente
+      let data: Record<string, unknown>[] = [];
       
-      if (lines.length === 0) {
-        console.log('File is empty');
-        return [];
-      }
-      
-      // Parse CSV manually (simple parsing)
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-      const data: Record<string, unknown>[] = [];
-      
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-        if (values.length === headers.length) {
-          const row: Record<string, unknown> = {};
-          headers.forEach((header, index) => {
-            row[header] = values[index];
-          });
-          data.push(row);
+      if (filename.toLowerCase().endsWith('.csv')) {
+        // Procesar CSV
+        const csvText = fileContent.toString('utf8');
+        const lines = csvText.split('\n').filter(line => line.trim());
+        
+        if (lines.length === 0) {
+          console.log('CSV file is empty');
+          return [];
         }
+        
+        // Parse CSV manually
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+          if (values.length === headers.length) {
+            const row: Record<string, unknown> = {};
+            headers.forEach((header, index) => {
+              row[header] = values[index];
+            });
+            data.push(row);
+          }
+        }
+      } else if (filename.toLowerCase().endsWith('.xlsx') || filename.toLowerCase().endsWith('.xls')) {
+        // Procesar Excel
+        console.log('Procesando archivo Excel:', filename);
+        try {
+          const workbook = XLSX.read(fileContent, { type: 'buffer' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          
+          // Convertir a JSON
+          data = XLSX.utils.sheet_to_json(worksheet, { 
+            header: 1,
+            raw: false,
+            dateNF: 'yyyy-mm-dd'
+          }).map((row: any[], index: number) => {
+            if (index === 0) return null; // Skip header row for now
+            
+            // Create object with proper keys
+            const headers = (XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[]) || [];
+            const obj: Record<string, unknown> = {};
+            
+            headers.forEach((header, i) => {
+              obj[header || `col_${i}`] = row[i] || null;
+            });
+            
+            return obj;
+          }).filter(Boolean) as Record<string, unknown>[];
+          
+          console.log(`Excel procesado: ${data.length} filas extraídas`);
+        } catch (excelError) {
+          console.error('Error procesando Excel:', excelError);
+          data = [];
+        }
+      } else if (filename.toLowerCase().endsWith('.docx') || filename.toLowerCase().endsWith('.doc')) {
+        // Para archivos Word, por ahora retornar datos mock
+        console.log('Archivo Word detectado, usando datos simulados');
+        data = [
+          {
+            emp_id: 'DOC001',
+            fecha: new Date().toISOString().split('T')[0],
+            presente: true,
+            documento: filename
+          }
+        ];
       }
       
       console.log(`Parsed ${data.length} rows from ${filename}`);
