@@ -20,17 +20,23 @@ interface MonthlyRetentionData {
   bajasMas12m: number;
 }
 
-interface RetentionChartsProps {
-  currentDate?: Date;
+interface RetentionFilters {
+  years: number[];
+  months: number[];
 }
 
-export function RetentionCharts({ currentDate = new Date() }: RetentionChartsProps) {
+interface RetentionChartsProps {
+  currentDate?: Date;
+  filters?: RetentionFilters;
+}
+
+export function RetentionCharts({ currentDate = new Date(), filters }: RetentionChartsProps) {
   const [monthlyData, setMonthlyData] = useState<MonthlyRetentionData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadMonthlyRetentionData();
-  }, [currentDate]);
+  }, [currentDate, filters]);
 
   const loadMonthlyRetentionData = async () => {
     try {
@@ -53,30 +59,18 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
         console.log('📅 All unique dates in ACT:', allDates);
       }
       
-      // Obtener meses basados en fechas de ingreso y baja de PLANTILLA
-      const allEmployeeDates = [];
-      plantilla.forEach(emp => {
-        // Fecha de ingreso
-        allEmployeeDates.push(emp.fecha_ingreso);
-        // Fecha de baja si existe
-        if (emp.fecha_baja) {
-          allEmployeeDates.push(emp.fecha_baja);
-        }
-      });
-      
-      // Obtener meses únicos desde la fecha más antigua hasta hoy
-      const earliestDate = new Date(Math.min(...allEmployeeDates.map(d => new Date(d).getTime())));
-      const latestDate = new Date(); // Hoy
-      
+      // Generar datos para los últimos 12 meses desde hoy
+      const today = new Date();
       const realMonths = [];
-      let currentDate = new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1);
       
-      while (currentDate <= latestDate) {
-        realMonths.push(format(currentDate, 'yyyy-MM'));
-        currentDate.setMonth(currentDate.getMonth() + 1);
+      // Comenzar desde 11 meses atrás hasta el mes actual
+      for (let i = 11; i >= 0; i--) {
+        const monthDate = subMonths(today, i);
+        const yearMonth = format(monthDate, 'yyyy-MM');
+        realMonths.push(yearMonth);
       }
 
-      console.log('📊 Real months with data:', realMonths);
+      console.log('📊 Last 12 months for charts:', realMonths);
 
       // Solo calcular para los meses que realmente tienen información
       const monthsData: MonthlyRetentionData[] = [];
@@ -99,7 +93,40 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
       
       console.log('✅ Final monthsData:', monthsData.length, 'months loaded');
       console.log('📊 Sample data:', monthsData[0]);
-      setMonthlyData(monthsData);
+      
+      // Aplicar filtros si están definidos
+      let filteredMonthsData = monthsData;
+      
+      if (filters && (filters.years.length > 0 || filters.months.length > 0)) {
+        console.log('🎯 Applying filters to retention charts:', filters);
+        
+        filteredMonthsData = monthsData.filter(monthData => {
+          const monthDate = new Date(monthData.mes + ' 1');
+          const year = monthDate.getFullYear();
+          const month = monthDate.getMonth() + 1; // 1-based month
+          
+          // Si hay filtros de año y mes, ambos deben coincidir
+          if (filters.years.length > 0 && filters.months.length > 0) {
+            return filters.years.includes(year) && filters.months.includes(month);
+          }
+          
+          // Si solo hay filtros de año
+          if (filters.years.length > 0 && filters.months.length === 0) {
+            return filters.years.includes(year);
+          }
+          
+          // Si solo hay filtros de mes
+          if (filters.months.length > 0 && filters.years.length === 0) {
+            return filters.months.includes(month);
+          }
+          
+          return true;
+        });
+        
+        console.log('✅ Filtered monthsData:', filteredMonthsData.length, 'months after filtering');
+      }
+      
+      setMonthlyData(filteredMonthsData);
     } catch (error) {
       console.error('Error loading monthly retention data:', error);
     } finally {
@@ -127,7 +154,12 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
   const calculateRolling12MonthRotation = (monthsData: MonthlyRetentionData[], currentIndex: number, plantilla: any[], baseDate: Date): number => {
     try {
       // 1. Definir el período de 12 meses hacia atrás desde el mes actual
-      const currentMonthDate = subMonths(baseDate, 11 - currentIndex);
+      // Para el mes en currentIndex, obtener la fecha correspondiente de los monthsData
+      const currentMonthString = monthsData[currentIndex]?.mes;
+      if (!currentMonthString) return 0;
+      
+      // Parsear el mes actual del formato "MMM yyyy" 
+      const currentMonthDate = new Date(currentMonthString + ' 1');
       const startDate12m = subMonths(currentMonthDate, 11);
       const endDate12m = endOfMonth(currentMonthDate);
 
@@ -176,21 +208,26 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
 
   const calculateMonthlyRetention = async (startDate: Date, endDate: Date, plantilla: any[]): Promise<MonthlyRetentionData> => {
     try {
-
       // Filtrar empleados que ingresaron antes o durante el mes
       const plantillaFiltered = plantilla.filter(emp => {
         const fechaIngreso = new Date(emp.fecha_ingreso);
         return fechaIngreso <= endDate;
       });
 
-      // Obtener datos de actividad para el mes
-      const actividad = await db.getACT(
-        format(startDate, 'yyyy-MM-dd'),
-        format(endDate, 'yyyy-MM-dd')
-      );
+      // Obtener datos de actividad para el mes (opcional - puede estar vacío para algunos meses)
+      let actividad = [];
+      try {
+        actividad = await db.getACT(
+          format(startDate, 'yyyy-MM-dd'),
+          format(endDate, 'yyyy-MM-dd')
+        ) || [];
+      } catch (actError) {
+        console.log(`⚠️ No ACT data for ${format(startDate, 'MMM yyyy')}, using plantilla data only`);
+        actividad = [];
+      }
 
-      if (!plantillaFiltered || !actividad) {
-        throw new Error('No data found');
+      if (!plantillaFiltered) {
+        throw new Error('No plantilla data found');
       }
 
       // Calculate correct average headcount using employees at start and end of month
@@ -279,7 +316,12 @@ export function RetentionCharts({ currentDate = new Date() }: RetentionChartsPro
     } catch (error) {
       console.error('Error calculating monthly retention:', error);
       // Calculate basic headcount even if ACT data is missing
-      const empleadosFinMesError = plantillaFiltered.filter(emp => {
+      const plantillaForError = plantilla.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        return fechaIngreso <= endDate;
+      });
+      
+      const empleadosFinMesError = plantillaForError.filter(emp => {
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
         

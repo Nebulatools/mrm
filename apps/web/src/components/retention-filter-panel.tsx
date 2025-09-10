@@ -12,8 +12,6 @@ import { supabase } from "@/lib/supabase";
 export interface RetentionFilterOptions {
   years: number[];
   months: number[];
-  departments: string[];
-  areas: string[];
 }
 
 interface RetentionFilterPanelProps {
@@ -25,16 +23,12 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
   const [isExpanded, setIsExpanded] = useState(false);
   const [filters, setFilters] = useState<RetentionFilterOptions>({
     years: [],
-    months: [],
-    departments: [],
-    areas: []
+    months: []
   });
   
   const [availableOptions, setAvailableOptions] = useState({
     years: [] as number[],
-    months: [] as number[],
-    departments: [] as string[],
-    areas: [] as string[]
+    months: [] as number[]
   });
 
   // Cargar opciones disponibles desde la base de datos
@@ -44,13 +38,13 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
 
   const loadAvailableOptions = async () => {
     try {
-      // Obtener datos de PLANTILLA para departamentos y areas
+      // Obtener datos de plantilla (minúscula corregida)
       const { data: plantilla } = await supabase
-        .from('PLANTILLA')
-        .select('departamento, area, fecha_ingreso, fecha_baja');
+        .from('plantilla')
+        .select('fecha_ingreso, fecha_baja');
 
       if (plantilla) {
-        // Obtener todas las fechas de PLANTILLA (ingreso y baja)
+        // Obtener todas las fechas de plantilla (ingreso y baja)
         const allEmployeeDates = [];
         plantilla.forEach(emp => {
           // Fecha de ingreso
@@ -61,7 +55,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
           }
         });
 
-        // Extraer años únicos de fechas de PLANTILLA
+        // Extraer años únicos de fechas de plantilla
         const uniqueYears = [...new Set(allEmployeeDates.map(dateStr => 
           new Date(dateStr).getFullYear()
         ))].sort((a, b) => b - a); // Más recientes primero
@@ -69,22 +63,9 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
         // Generar todos los meses (1-12) para que el usuario pueda filtrar cualquier mes
         const uniqueMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-        // Extraer opciones únicas de PLANTILLA
-        const uniqueDepartments = [...new Set(plantilla
-          .map(emp => emp.departamento)
-          .filter(Boolean)
-        )].sort();
-
-        const uniqueAreas = [...new Set(plantilla
-          .map(emp => emp.area)
-          .filter(Boolean)
-        )].sort();
-
         setAvailableOptions({
           years: uniqueYears,
-          months: uniqueMonths,
-          departments: uniqueDepartments,
-          areas: uniqueAreas
+          months: uniqueMonths
         });
       }
     } catch (error) {
@@ -104,8 +85,6 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       newFilters.years = selectedValues.map(v => parseInt(v));
     } else if (filterType === 'months') {
       newFilters.months = selectedValues.map(v => parseInt(v));
-    } else {
-      (newFilters[filterType] as string[]) = selectedValues;
     }
     
     setFilters(newFilters);
@@ -115,9 +94,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
   const clearAllFilters = () => {
     const emptyFilters = {
       years: [],
-      months: [],
-      departments: [],
-      areas: []
+      months: []
     };
     setFilters(emptyFilters);
     onFiltersChange(emptyFilters);
@@ -135,12 +112,6 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
     }
     if (filters.months.length > 0) {
       parts.push(`${filters.months.length} mes${filters.months.length !== 1 ? 'es' : ''}`);
-    }
-    if (filters.departments.length > 0) {
-      parts.push(`${filters.departments.length} depto${filters.departments.length !== 1 ? 's' : ''}`);
-    }
-    if (filters.areas.length > 0) {
-      parts.push(`${filters.areas.length} área${filters.areas.length !== 1 ? 's' : ''}`);
     }
     
     return parts.join(', ');
@@ -297,8 +268,8 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
             </div>
           )}
 
-          {/* Layout horizontal de dropdowns */}
-          <div className="grid grid-cols-4 gap-4">
+          {/* Layout horizontal de dropdowns - solo Año y Mes */}
+          <div className="grid grid-cols-2 gap-4 max-w-md">
             {/* Años */}
             <MultiSelectDropdown
               label="Año"
@@ -315,24 +286,6 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
               selectedValues={filters.months}
               onSelectionChange={(values) => handleMultiSelectChange('months', values)}
               renderOption={(option) => monthNames[parseInt(option.toString()) - 1]}
-            />
-
-            {/* Departamentos */}
-            <MultiSelectDropdown
-              label="Departamento"
-              options={availableOptions.departments}
-              selectedValues={filters.departments}
-              onSelectionChange={(values) => handleMultiSelectChange('departments', values)}
-              renderOption={(option) => option.toString()}
-            />
-
-            {/* Áreas */}
-            <MultiSelectDropdown
-              label="Área"
-              options={availableOptions.areas}
-              selectedValues={filters.areas}
-              onSelectionChange={(values) => handleMultiSelectChange('areas', values)}
-              renderOption={(option) => option.toString()}
             />
           </div>
         </div>

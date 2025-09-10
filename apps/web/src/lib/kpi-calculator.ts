@@ -22,7 +22,7 @@ export class KPICalculator {
   private cache = new Map<string, { data: KPIResult[]; timestamp: number }>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
-  async calculateAllKPIs(filter: TimeFilter = { period: 'monthly', date: new Date() }): Promise<KPIResult[]> {
+  async calculateAllKPIs(filter: TimeFilter = { period: 'alltime', date: new Date() }): Promise<KPIResult[]> {
     console.log('🎯 calculateAllKPIs called for filter:', filter);
     
     const cacheKey = `${filter.period}-${format(filter.date, 'yyyy-MM-dd')}`;
@@ -40,11 +40,14 @@ export class KPICalculator {
       try {
         console.log('🗄️ Attempting Supabase database...');
         kpis = await this.calculateFromDatabase(filter);
-      } catch {
+        console.log('✅ Supabase data loaded successfully:', kpis.length, 'KPIs');
+      } catch (error) {
+        console.error('❌ Supabase failed with error:', error);
         console.log('⚠️ Supabase failed, trying SFTP...');
         try {
           kpis = await this.calculateFromSFTP();
-        } catch {
+        } catch (sftpError) {
+          console.error('❌ SFTP failed with error:', sftpError);
           console.log('⚠️ SFTP failed, using fallback...');
           kpis = await this.calculateFromFallback(filter);
         }
@@ -637,7 +640,8 @@ export class KPICalculator {
 
   // Clear cache when user manually refreshes
   public clearCache(): void {
-    console.log('Cache cleared');
+    console.log('🧹 Cache cleared');
+    this.cache.clear(); // Clear internal cache too
     sftpClient.clearCache();
   }
 }

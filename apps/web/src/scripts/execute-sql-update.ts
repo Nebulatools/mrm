@@ -8,7 +8,7 @@ async function executeSchemaUpdate() {
   try {
     // Test connection first
     const { data, error } = await supabase
-      .from('PLANTILLA')
+      .from('plantilla')
       .select('COUNT(*)')
       .limit(1);
 
@@ -50,7 +50,7 @@ async function executeSchemaUpdate() {
 
     // Verify the new columns exist
     const { data: existingData } = await supabase
-      .from('PLANTILLA')
+      .from('plantilla')
       .select('*')
       .limit(1);
 

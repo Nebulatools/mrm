@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
+console.log('🔑 Supabase config:', {
+  url: supabaseUrl ? '✅ Configured' : '❌ Missing',
+  key: supabaseAnonKey ? '✅ Configured' : '❌ Missing'
+});
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Database types based on your actual Supabase schema
@@ -42,13 +47,18 @@ export interface ActividadRecord {
 export const db = {
   // PLANTILLA operations
   async getPlantilla() {
+    console.log('🗄️ Fetching plantilla data...');
     const { data, error } = await supabase
       .from('plantilla')
       .select('*')
       .order('emp_id')
     
-    if (error) throw error
-    return data as PlantillaRecord[]
+    if (error) {
+      console.error('❌ Error fetching plantilla:', error);
+      throw error;
+    }
+    console.log('✅ plantilla data loaded:', data?.length, 'records');
+    return (data || []) as PlantillaRecord[]
   },
 
   async getActiveEmployees() {
@@ -59,11 +69,12 @@ export const db = {
       .order('emp_id')
     
     if (error) throw error
-    return data as PlantillaRecord[]
+    return (data || []) as PlantillaRecord[]
   },
 
   // INCIDENCIAS operations
   async getIncidencias(startDate?: string, endDate?: string) {
+    console.log('🗄️ Fetching incidencias data...', { startDate, endDate });
     let query = supabase
       .from('incidencias')
       .select('*')
@@ -77,8 +88,12 @@ export const db = {
     }
 
     const { data, error } = await query
-    if (error) throw error
-    return data as IncidenciaRecord[]
+    if (error) {
+      console.error('❌ Error fetching incidencias:', error);
+      throw error;
+    }
+    console.log('✅ incidencias data loaded:', data?.length, 'records');
+    return (data || []) as IncidenciaRecord[]
   },
 
   async addIncidencia(incidencia: Omit<IncidenciaRecord, 'id' | 'created_at'>) {
@@ -88,11 +103,12 @@ export const db = {
       .select()
 
     if (error) throw error
-    return data[0] as IncidenciaRecord
+    return data?.[0] as IncidenciaRecord
   },
 
   // ACT operations (actividad diaria)
   async getACT(startDate?: string, endDate?: string) {
+    console.log('🗄️ Fetching act data...', { startDate, endDate });
     let query = supabase
       .from('act')
       .select('*')
@@ -106,8 +122,12 @@ export const db = {
     }
 
     const { data, error } = await query
-    if (error) throw error
-    return data as ActividadRecord[]
+    if (error) {
+      console.error('❌ Error fetching act:', error);
+      throw error;
+    }
+    console.log('✅ act data loaded:', data?.length, 'records');
+    return (data || []) as ActividadRecord[]
   },
 
   async addACT(actividad: Omit<ActividadRecord, 'id' | 'created_at'>) {
@@ -117,7 +137,7 @@ export const db = {
       .select()
 
     if (error) throw error
-    return data[0] as ActividadRecord
+    return data?.[0] as ActividadRecord
   },
 
   // Bulk operations for adding multiple records

@@ -41,16 +41,51 @@ export function DashboardPage() {
     loading: true
   });
   const [selectedPeriod] = useState<Date>(new Date());
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>('monthly');
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('alltime');
+  
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const response = await fetch(`/api/kpis?period=${timePeriod}&date=${selectedPeriod.toISOString()}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          setData({
+            kpis: result.data.kpis || [],
+            plantilla: result.data.plantilla || [],
+            lastUpdated: new Date(result.data.lastUpdated),
+            loading: false
+          });
+        } else {
+          throw new Error(result.error || 'API failed');
+        }
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        setData(prev => ({ ...prev, loading: false }));
+      }
+    };
+    
+    loadData();
+  }, [timePeriod, selectedPeriod]);
+  
+  
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
     years: [],
-    months: [],
-    departments: [],
-    areas: []
+    months: []
   });
 
   const loadDashboardData = useCallback(async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
+    console.log('🔥 loadDashboardData CALLED! Filter:', filter);
+    
+    // Apply retention filters if they are selected
+    let effectiveFilter = { ...filter };
+    if (retentionFilters.years.length > 0 || retentionFilters.months.length > 0) {
+      console.log('🎯 Applying retention filters:', retentionFilters);
+      effectiveFilter = { period: 'alltime', date: new Date() }; // Use all data when custom filters applied
+    }
+    
     try {
+      console.log('🚀 Starting loadDashboardData with effective filter:', effectiveFilter);
       setData(prev => ({ ...prev, loading: true }));
       
       // Clear cache if user manually refreshes
@@ -59,13 +94,14 @@ export function DashboardPage() {
         kpiCalculator.clearCache();
       }
       
-      console.log('📊 Loading KPIs for filter:', filter);
-      const kpis = await kpiCalculator.calculateAllKPIs(filter);
+      console.log('📊 Loading KPIs for filter:', effectiveFilter);
+      const kpis = await kpiCalculator.calculateAllKPIs(effectiveFilter);
+      console.log('📈 KPIs received:', kpis?.length, 'items');
       
       // Load plantilla data for dismissal analysis
       console.log('👥 Loading plantilla data...');
       const { data: plantilla, error: plantillaError } = await supabase
-        .from('PLANTILLA')
+        .from('plantilla')
         .select('*');
         
       if (plantillaError) {
@@ -84,30 +120,9 @@ export function DashboardPage() {
       console.error('❌ Error in loadDashboardData:', error);
       setData(prev => ({ ...prev, plantilla: [], loading: false }));
     }
-  }, [timePeriod, selectedPeriod]);
+  }, [timePeriod, selectedPeriod, retentionFilters]); // Added retentionFilters to dependencies
 
-  // Load data when period or date changes
-  useEffect(() => {
-    let isMounted = true;
-    
-    const loadData = async () => {
-      if (!isMounted) return;
-      
-      console.log('🔄 Loading data for period:', timePeriod, 'date:', selectedPeriod);
-      
-      try {
-        await loadDashboardData({ period: timePeriod, date: selectedPeriod });
-      } catch (error) {
-        console.error('❌ Load error:', error);
-      }
-    };
-
-    loadData();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [timePeriod, selectedPeriod, loadDashboardData]);
+  // REMOVED: Duplicated useEffect moved up
 
   const getTrendIcon = (variance?: number) => {
     if (!variance || Math.abs(variance) < 1) return null;
@@ -139,19 +154,26 @@ export function DashboardPage() {
     
     let filteredData = [...plantillaData];
     
-    // Filtrar por departamento
-    if (retentionFilters.departments.length > 0) {
-      filteredData = filteredData.filter(emp => 
-        retentionFilters.departments.includes(emp.departamento)
-      );
+    // Filtrar por año (fecha de ingreso o fecha de baja)
+    if (retentionFilters.years.length > 0) {
+      filteredData = filteredData.filter(emp => {
+        const ingresoYear = new Date(emp.fecha_ingreso).getFullYear();
+        const bajaYear = emp.fecha_baja ? new Date(emp.fecha_baja).getFullYear() : null;
+        
+        return retentionFilters.years.includes(ingresoYear) || 
+               (bajaYear && retentionFilters.years.includes(bajaYear));
+      });
     }
     
-    
-    // Filtrar por área
-    if (retentionFilters.areas.length > 0) {
-      filteredData = filteredData.filter(emp => 
-        retentionFilters.areas.includes(emp.area)
-      );
+    // Filtrar por mes (fecha de ingreso o fecha de baja)
+    if (retentionFilters.months.length > 0) {
+      filteredData = filteredData.filter(emp => {
+        const ingresoMonth = new Date(emp.fecha_ingreso).getMonth() + 1;
+        const bajaMonth = emp.fecha_baja ? new Date(emp.fecha_baja).getMonth() + 1 : null;
+        
+        return retentionFilters.months.includes(ingresoMonth) || 
+               (bajaMonth && retentionFilters.months.includes(bajaMonth));
+      });
     }
     
     // Filtrar por fecha (años y meses) - versión corregida
@@ -212,9 +234,20 @@ export function DashboardPage() {
 
   // Función para calcular KPIs filtrados para retención
   const getFilteredRetentionKPIs = () => {
+    // Solo calcular si tenemos datos de plantilla cargados
+    if (!data.plantilla || data.plantilla.length === 0) {
+      console.log('🔍 No plantilla data available yet, returning empty KPIs');
+      return {
+        activosPromedio: 0,
+        bajas: 0,
+        rotacionMensual: 0
+      };
+    }
+    
     const filteredPlantilla = applyRetentionFilters(data.plantilla);
     
     console.log('🔍 Calculating filtered KPIs:');
+    console.log('📊 Total employees in plantilla:', data.plantilla.length);
     console.log('📊 Filtered employees:', filteredPlantilla.length);
     console.log('🎯 Active filters:', retentionFilters);
     
@@ -270,12 +303,18 @@ export function DashboardPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               Dashboard MRM - KPIs de RRHH
+              {data.loading && (
+                <span className="ml-3 text-sm px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                  Cargando datos...
+                </span>
+              )}
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Período: {format(selectedPeriod, 'MMMM yyyy')}
+              Período: {timePeriod === 'alltime' ? 'Todos los períodos' : format(selectedPeriod, 'MMMM yyyy')}
               {!data.loading && (
                 <span className="ml-2">
                   • Actualizado: {format(data.lastUpdated, 'dd/MM/yyyy HH:mm')}
+                  • {data.kpis.length} KPIs • {data.plantilla.length} empleados
                 </span>
               )}
             </p>
@@ -292,6 +331,7 @@ export function DashboardPage() {
           onFiltersChange={setRetentionFilters}
         />
       </div>
+
 
       <div className="p-6">
         <Tabs defaultValue="overview" className="space-y-6">
@@ -597,8 +637,7 @@ export function DashboardPage() {
           {/* Retention Tab */}
           <TabsContent value="retention" className="space-y-6">
             {/* Mostrar filtros aplicados */}
-            {(retentionFilters.years.length > 0 || retentionFilters.months.length > 0 || 
-              retentionFilters.departments.length > 0 || retentionFilters.areas.length > 0) && (
+            {(retentionFilters.years.length > 0 || retentionFilters.months.length > 0) && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <Filter className="h-4 w-4" />
@@ -611,12 +650,6 @@ export function DashboardPage() {
                       <span key={month} className="bg-blue-100 px-2 py-1 rounded text-xs">
                         {['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][month-1]}
                       </span>
-                    ))}
-                    {retentionFilters.departments.map(dept => (
-                      <span key={dept} className="bg-green-100 px-2 py-1 rounded text-xs">{dept}</span>
-                    ))}
-                    {retentionFilters.areas.map(area => (
-                      <span key={area} className="bg-orange-100 px-2 py-1 rounded text-xs">{area}</span>
                     ))}
                   </div>
                 </div>
@@ -683,7 +716,7 @@ export function DashboardPage() {
             </div>
             
             {/* 3 Gráficas Especializadas de Retención */}
-            <RetentionCharts currentDate={selectedPeriod} />
+            <RetentionCharts currentDate={selectedPeriod} filters={retentionFilters} />
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
             <DismissalReasonsTable plantilla={applyRetentionFilters(data.plantilla || [])} />
