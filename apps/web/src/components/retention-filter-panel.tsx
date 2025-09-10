@@ -12,6 +12,8 @@ import { supabase } from "@/lib/supabase";
 export interface RetentionFilterOptions {
   years: number[];
   months: number[];
+  departamentos: string[];
+  areas: string[];
 }
 
 interface RetentionFilterPanelProps {
@@ -23,12 +25,16 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
   const [isExpanded, setIsExpanded] = useState(false);
   const [filters, setFilters] = useState<RetentionFilterOptions>({
     years: [],
-    months: []
+    months: [],
+    departamentos: [],
+    areas: []
   });
   
   const [availableOptions, setAvailableOptions] = useState({
     years: [] as number[],
-    months: [] as number[]
+    months: [] as number[],
+    departamentos: [] as string[],
+    areas: [] as string[]
   });
 
   // Cargar opciones disponibles desde la base de datos
@@ -38,36 +44,76 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
 
   const loadAvailableOptions = async () => {
     try {
-      // Obtener datos de plantilla (minúscula corregida)
-      const { data: plantilla } = await supabase
-        .from('plantilla')
-        .select('fecha_ingreso, fecha_baja');
+      // Try to get from empleados_sftp first, fallback to plantilla
+      let empleados = [];
+      try {
+        const { data: empleadosSFTP } = await supabase
+          .from('empleados_sftp')
+          .select('*');
+        
+        if (empleadosSFTP && empleadosSFTP.length > 0) {
+          empleados = empleadosSFTP;
+        }
+      } catch (e) {
+        // Fallback to plantilla
+        const { data: plantilla } = await supabase
+          .from('plantilla')
+          .select('*');
+        empleados = plantilla || [];
+      }
 
-      if (plantilla) {
-        // Obtener todas las fechas de plantilla (ingreso y baja)
-        const allEmployeeDates = [];
-        plantilla.forEach(emp => {
-          // Fecha de ingreso
-          allEmployeeDates.push(emp.fecha_ingreso);
-          // Fecha de baja si existe
-          if (emp.fecha_baja) {
-            allEmployeeDates.push(emp.fecha_baja);
+      // Get motivos_baja for dates
+      const { data: motivosBaja } = await supabase
+        .from('motivos_baja')
+        .select('fecha_baja');
+
+      // Extract all dates
+      const allDates = [];
+      if (motivosBaja) {
+        motivosBaja.forEach(baja => {
+          if (baja.fecha_baja) {
+            allDates.push(baja.fecha_baja);
           }
         });
-
-        // Extraer años únicos de fechas de plantilla
-        const uniqueYears = [...new Set(allEmployeeDates.map(dateStr => 
-          new Date(dateStr).getFullYear()
-        ))].sort((a, b) => b - a); // Más recientes primero
-
-        // Generar todos los meses (1-12) para que el usuario pueda filtrar cualquier mes
-        const uniqueMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-
-        setAvailableOptions({
-          years: uniqueYears,
-          months: uniqueMonths
-        });
       }
+      
+      // Add current year if not present
+      const currentYear = new Date().getFullYear();
+      allDates.push(new Date().toISOString());
+      
+      // Extract unique years
+      const uniqueYears = [...new Set(allDates.map(dateStr => 
+        new Date(dateStr).getFullYear()
+      ))].sort((a, b) => b - a);
+
+      // All months
+      const uniqueMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+      
+      // Mock departamentos and areas (since the fields don't exist yet in empleados_sftp)
+      const departamentos = [
+        'Recursos Humanos',
+        'Tecnología',
+        'Ventas',
+        'Marketing',
+        'Operaciones',
+        'Finanzas'
+      ];
+      
+      const areas = [
+        'Desarrollo',
+        'Soporte',
+        'Gestión',
+        'Análisis',
+        'Diseño',
+        'Calidad'
+      ];
+
+      setAvailableOptions({
+        years: uniqueYears,
+        months: uniqueMonths,
+        departamentos: departamentos,
+        areas: areas
+      });
     } catch (error) {
       console.error('Error loading available options:', error);
     }
@@ -85,6 +131,10 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       newFilters.years = selectedValues.map(v => parseInt(v));
     } else if (filterType === 'months') {
       newFilters.months = selectedValues.map(v => parseInt(v));
+    } else if (filterType === 'departamentos') {
+      newFilters.departamentos = selectedValues;
+    } else if (filterType === 'areas') {
+      newFilters.areas = selectedValues;
     }
     
     setFilters(newFilters);
@@ -94,7 +144,9 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
   const clearAllFilters = () => {
     const emptyFilters = {
       years: [],
-      months: []
+      months: [],
+      departamentos: [],
+      areas: []
     };
     setFilters(emptyFilters);
     onFiltersChange(emptyFilters);
@@ -112,6 +164,12 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
     }
     if (filters.months.length > 0) {
       parts.push(`${filters.months.length} mes${filters.months.length !== 1 ? 'es' : ''}`);
+    }
+    if (filters.departamentos.length > 0) {
+      parts.push(`${filters.departamentos.length} depto${filters.departamentos.length !== 1 ? 's' : ''}`);
+    }
+    if (filters.areas.length > 0) {
+      parts.push(`${filters.areas.length} área${filters.areas.length !== 1 ? 's' : ''}`);
     }
     
     return parts.join(', ');
@@ -268,8 +326,8 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
             </div>
           )}
 
-          {/* Layout horizontal de dropdowns - solo Año y Mes */}
-          <div className="grid grid-cols-2 gap-4 max-w-md">
+          {/* Layout de dropdowns - Año, Mes, Departamento y Área */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Años */}
             <MultiSelectDropdown
               label="Año"
@@ -286,6 +344,24 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
               selectedValues={filters.months}
               onSelectionChange={(values) => handleMultiSelectChange('months', values)}
               renderOption={(option) => monthNames[parseInt(option.toString()) - 1]}
+            />
+            
+            {/* Departamentos */}
+            <MultiSelectDropdown
+              label="Departamento"
+              options={availableOptions.departamentos}
+              selectedValues={filters.departamentos}
+              onSelectionChange={(values) => handleMultiSelectChange('departamentos', values)}
+              renderOption={(option) => option.toString()}
+            />
+            
+            {/* Áreas */}
+            <MultiSelectDropdown
+              label="Área"
+              options={availableOptions.areas}
+              selectedValues={filters.areas}
+              onSelectionChange={(values) => handleMultiSelectChange('areas', values)}
+              renderOption={(option) => option.toString()}
             />
           </div>
         </div>

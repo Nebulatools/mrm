@@ -656,24 +656,24 @@ export function DashboardPage() {
               </div>
             )}
 
-            {/* 4 KPIs Principales de Retención con filtros aplicados */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              {/* Activos Promedio Filtrado */}
+            {/* 5 KPIs Principales de Retención con filtros aplicados */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+              {/* Activos Promedio */}
               <KPICard 
                 kpi={{
                   id: 'activos-prom-filtered',
-                  name: 'Activos Prom',
+                  name: 'Activos Promedio',
                   category: 'headcount',
                   value: filteredRetentionKPIs.activosPromedio,
                   unit: 'empleados',
                   period: timePeriod,
                   date: selectedPeriod,
-                  description: 'Empleados activos promedio (con filtros)'
+                  description: 'Promedio de empleados activos'
                 }} 
                 icon={<Users className="h-6 w-6" />}
               />
               
-              {/* Bajas Filtradas */}
+              {/* Bajas */}
               <KPICard 
                 kpi={{
                   id: 'bajas-filtered',
@@ -683,12 +683,27 @@ export function DashboardPage() {
                   unit: 'empleados',
                   period: timePeriod,
                   date: selectedPeriod,
-                  description: 'Bajas del período (con filtros)'
+                  description: 'Total de bajas en el período'
+                }} 
+                icon={<UserMinus className="h-6 w-6" />}
+              />
+              
+              {/* Bajas Tempranas */}
+              <KPICard 
+                kpi={{
+                  id: 'bajas-tempranas-filtered',
+                  name: 'Bajas Tempranas',
+                  category: 'retention',
+                  value: categorized.retention.find(k => k.name === 'Bajas Tempranas')?.value || 0,
+                  unit: 'empleados',
+                  period: timePeriod,
+                  date: selectedPeriod,
+                  description: 'Bajas con menos de 3 meses'
                 }} 
                 icon={<UserMinus className="h-6 w-6" />}
               />
 
-              {/* Rotación Mensual Filtrada */}
+              {/* Rotación Mensual */}
               <KPICard 
                 kpi={{
                   id: 'rotacion-filtered',
@@ -698,21 +713,25 @@ export function DashboardPage() {
                   unit: '%',
                   period: timePeriod,
                   date: selectedPeriod,
-                  description: 'Rotación mensual (con filtros)'
+                  description: 'Porcentaje de rotación mensual'
                 }} 
-                icon={<UserMinus className="h-6 w-6" />}
+                icon={<TrendingUp className="h-6 w-6" />}
               />
-
-              {/* Bajas Tempranas (original) */}
-              {categorized.retention
-                .filter(kpi => kpi.name === 'Bajas Tempranas')
-                .map((kpi) => (
-                  <KPICard 
-                    key={kpi.name} 
-                    kpi={kpi} 
-                    icon={<UserMinus className="h-6 w-6" />}
-                  />
-                ))}
+              
+              {/* Rotación Acumulada */}
+              <KPICard 
+                kpi={{
+                  id: 'rotacion-acumulada-filtered',
+                  name: 'Rotación Acumulada',
+                  category: 'retention',
+                  value: data.kpis.find(k => k.name === 'Rotación Acumulada')?.value || 0,
+                  unit: '%',
+                  period: '12 meses',
+                  date: selectedPeriod,
+                  description: 'Rotación últimos 12 meses'
+                }} 
+                icon={<TrendingDown className="h-6 w-6" />}
+              />
             </div>
             
             {/* 3 Gráficas Especializadas de Retención */}

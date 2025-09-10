@@ -479,6 +479,19 @@ export class KPICalculator {
         period_end: periodEnd
       },
       {
+        name: 'Rotación Acumulada',
+        category: 'retention',
+        value: this.calculateRotacionAcumulada(plantilla, periodEnd),
+        target: undefined,
+        previous_value: this.calculateRotacionAcumulada(prevPlantilla, prevPeriodEnd),
+        variance_percentage: calculateVariance(
+          this.calculateRotacionAcumulada(plantilla, periodEnd),
+          this.calculateRotacionAcumulada(prevPlantilla, prevPeriodEnd)
+        ),
+        period_start: periodStart,
+        period_end: periodEnd
+      },
+      {
         name: 'Incidencias',
         category: 'incidents',
         value: incidenciasCount,
@@ -643,6 +656,45 @@ export class KPICalculator {
     console.log('🧹 Cache cleared');
     this.cache.clear(); // Clear internal cache too
     sftpClient.clearCache();
+  }
+
+  private calculateRotacionAcumulada(plantilla: any[], endDate: Date): number {
+    try {
+      // Calculate 12-month rolling turnover
+      const startDate12m = new Date(endDate);
+      startDate12m.setMonth(startDate12m.getMonth() - 11);
+      startDate12m.setDate(1);
+      
+      // Count terminations in the 12-month period
+      const bajasEn12Meses = plantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaBaja = new Date(emp.fecha_baja);
+        return fechaBaja >= startDate12m && fechaBaja <= endDate;
+      }).length;
+
+      // Calculate average headcount for the period
+      const activosInicio = plantilla.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        return fechaIngreso <= startDate12m && (!fechaBaja || fechaBaja > startDate12m);
+      }).length;
+
+      const activosFin = plantilla.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        return fechaIngreso <= endDate && (!fechaBaja || fechaBaja > endDate);
+      }).length;
+
+      const promedioActivos12m = (activosInicio + activosFin) / 2;
+      
+      // Calculate accumulated rotation percentage
+      const rotacionAcumulada = promedioActivos12m > 0 ? (bajasEn12Meses / promedioActivos12m) * 100 : 0;
+      
+      return Number(rotacionAcumulada.toFixed(2));
+    } catch (error) {
+      console.error('Error calculating rotación acumulada:', error);
+      return 0;
+    }
   }
 }
 
