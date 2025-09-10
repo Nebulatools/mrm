@@ -13,7 +13,8 @@ export interface RetentionFilterOptions {
   years: number[];
   months: number[];
   departamentos: string[];
-  areas: string[];
+  puestos: string[]; // Cambiado de areas a puestos
+  clasificaciones: string[]; // CONFIANZA, SINDICALIZADO, etc.
 }
 
 interface RetentionFilterPanelProps {
@@ -27,14 +28,16 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
     years: [],
     months: [],
     departamentos: [],
-    areas: []
+    puestos: [], // Cambiado de areas a puestos
+    clasificaciones: []
   });
   
   const [availableOptions, setAvailableOptions] = useState({
     years: [] as number[],
     months: [] as number[],
     departamentos: [] as string[],
-    areas: [] as string[]
+    puestos: [] as string[], // Cambiado de areas a puestos
+    clasificaciones: [] as string[]
   });
 
   // Cargar opciones disponibles desde la base de datos
@@ -47,16 +50,24 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       // Get empleados_sftp data 
       const { data: empleadosSFTP } = await supabase
         .from('empleados_sftp')
-        .select('fecha_baja, departamento, area, puesto');
+        .select('fecha_baja, departamento, puesto, clasificacion'); // Agregado clasificacion
       
       // Extract all dates from fecha_baja
       const allDates = [];
       const departamentosSet = new Set<string>();
-      const areasSet = new Set<string>();
-      const puestosSet = new Set<string>();
+      const puestosSet = new Set<string>(); // Cambiado de areasSet a puestosSet
+      const clasificacionesSet = new Set<string>();
       
       if (empleadosSFTP) {
         empleadosSFTP.forEach(emp => {
+          // DEBUG: Imprimir un empleado para ver la estructura
+          if (departamentosSet.size === 0) {
+            console.log('🔍 EMPLEADO EJEMPLO:', emp);
+            console.log('🔍 Departamento:', emp.departamento);
+            console.log('🔍 Puesto:', emp.puesto);  
+            console.log('🔍 Clasificación:', emp.clasificacion);
+          }
+          
           // Collect dates
           if (emp.fecha_baja) {
             allDates.push(emp.fecha_baja);
@@ -67,14 +78,14 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
             departamentosSet.add(emp.departamento);
           }
           
-          // Collect unique areas
-          if (emp.area && emp.area !== 'null' && emp.area !== '') {
-            areasSet.add(emp.area);
-          }
-          
           // Collect unique puestos
           if (emp.puesto && emp.puesto !== 'null' && emp.puesto !== '') {
             puestosSet.add(emp.puesto);
+          }
+          
+          // Collect unique clasificaciones
+          if (emp.clasificacion && emp.clasificacion !== 'null' && emp.clasificacion !== '') {
+            clasificacionesSet.add(emp.clasificacion);
           }
         });
       }
@@ -95,9 +106,10 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       
       // Convert sets to sorted arrays
       const departamentos = Array.from(departamentosSet).sort();
-      const areas = Array.from(areasSet).sort();
+      const puestos = Array.from(puestosSet).sort(); // Cambiado de areas a puestos
+      const clasificaciones = Array.from(clasificacionesSet).sort();
       
-      // If no departamentos/areas found, use default values
+      // If no departamentos/puestos found, use default values
       const finalDepartamentos = departamentos.length > 0 ? departamentos : [
         'Recursos Humanos',
         'Tecnología',
@@ -107,20 +119,28 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
         'Finanzas'
       ];
       
-      const finalAreas = areas.length > 0 ? areas : [
-        'Desarrollo',
-        'Soporte',
-        'Gestión',
-        'Análisis',
-        'Diseño',
-        'Calidad'
+      const finalPuestos = puestos.length > 0 ? puestos : [
+        'Analista',
+        'Desarrollador',
+        'Supervisor',
+        'Gerente',
+        'Coordinador',
+        'Especialista'
+      ];
+      
+      const finalClasificaciones = clasificaciones.length > 0 ? clasificaciones : [
+        'CONFIANZA',
+        'SINDICALIZADO',
+        'HONORARIOS',
+        'EVENTUAL'
       ];
 
       setAvailableOptions({
         years: uniqueYears,
         months: uniqueMonths,
         departamentos: finalDepartamentos,
-        areas: finalAreas
+        puestos: finalPuestos, // Cambiado de areas a puestos
+        clasificaciones: finalClasificaciones
       });
     } catch (error) {
       console.error('Error loading available options:', error);
@@ -141,8 +161,10 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       newFilters.months = selectedValues.map(v => parseInt(v));
     } else if (filterType === 'departamentos') {
       newFilters.departamentos = selectedValues;
-    } else if (filterType === 'areas') {
-      newFilters.areas = selectedValues;
+    } else if (filterType === 'puestos') {
+      newFilters.puestos = selectedValues; // Cambiado de areas a puestos
+    } else if (filterType === 'clasificaciones') {
+      newFilters.clasificaciones = selectedValues;
     }
     
     setFilters(newFilters);
@@ -154,7 +176,8 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       years: [],
       months: [],
       departamentos: [],
-      areas: []
+      puestos: [], // Cambiado de areas a puestos
+      clasificaciones: []
     };
     setFilters(emptyFilters);
     onFiltersChange(emptyFilters);
@@ -176,8 +199,11 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
     if (filters.departamentos.length > 0) {
       parts.push(`${filters.departamentos.length} depto${filters.departamentos.length !== 1 ? 's' : ''}`);
     }
-    if (filters.areas.length > 0) {
-      parts.push(`${filters.areas.length} área${filters.areas.length !== 1 ? 's' : ''}`);
+    if (filters.puestos.length > 0) {
+      parts.push(`${filters.puestos.length} puesto${filters.puestos.length !== 1 ? 's' : ''}`);
+    }
+    if (filters.clasificaciones.length > 0) {
+      parts.push(`${filters.clasificaciones.length} clasificación${filters.clasificaciones.length !== 1 ? 'es' : ''}`);
     }
     
     return parts.join(', ');
@@ -334,8 +360,8 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
             </div>
           )}
 
-          {/* Layout de dropdowns - Año, Mes, Departamento y Área */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Layout de dropdowns - Año, Mes, Departamento, Área y Clasificación */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {/* Años */}
             <MultiSelectDropdown
               label="Año"
@@ -363,12 +389,21 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
               renderOption={(option) => option.toString()}
             />
             
-            {/* Áreas */}
+            {/* Puestos */}
             <MultiSelectDropdown
-              label="Área"
-              options={availableOptions.areas}
-              selectedValues={filters.areas}
-              onSelectionChange={(values) => handleMultiSelectChange('areas', values)}
+              label="Puesto"
+              options={availableOptions.puestos}
+              selectedValues={filters.puestos}
+              onSelectionChange={(values) => handleMultiSelectChange('puestos', values)}
+              renderOption={(option) => option.toString()}
+            />
+            
+            {/* Clasificaciones */}
+            <MultiSelectDropdown
+              label="Clasificación"
+              options={availableOptions.clasificaciones}
+              selectedValues={filters.clasificaciones}
+              onSelectionChange={(values) => handleMultiSelectChange('clasificaciones', values)}
               renderOption={(option) => option.toString()}
             />
           </div>

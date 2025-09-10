@@ -224,33 +224,35 @@ export class KPICalculator {
       isWithinInterval(i.fecha, { start: subMonths(startDate, 1), end: subMonths(endDate, 1) })
     );
 
-    // 1. Activos - Count distinct employees in asistencia_diaria
-    const uniqueEmployeesInACT = [...new Set(asistenciaFiltered.map(a => a.numero_empleado))].length;
-    const prevUniqueEmployeesInACT = [...new Set(prevAsistenciaFiltered.map(a => a.numero_empleado))].length;
+    // 1. Activos - Contar empleados con activo = TRUE
+    const activosActuales = plantilla.filter(emp => emp.activo === true).length;
+    const prevActivosActuales = prevPlantilla.filter(emp => emp.activo === true).length;
 
     // 2. Días - Count distinct dates in asistencia_diaria
     const uniqueDays = [...new Set(asistenciaFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
     const prevUniqueDays = [...new Set(prevAsistenciaFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
 
-    // 3. Activos Prom - Correct average headcount calculation
-    // Calculate employees at start and end of period, then average them
-    
-    // Employees at start of period
+    // 3. Activos Prom - Promedio de activos al inicio y fin del periodo
+    // Empleados activos al inicio del periodo
     const empleadosInicioPeriodo = plantilla.filter(emp => {
       const fechaIngreso = new Date(emp.fecha_ingreso);
-      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-      
-      return fechaIngreso <= startDate && 
-             (!fechaBaja || fechaBaja > startDate);
+      // Activo al inicio = ingresó antes del inicio Y (no tiene fecha_baja O fecha_baja es después del inicio)
+      if (emp.fecha_baja) {
+        const fechaBaja = new Date(emp.fecha_baja);
+        return fechaIngreso <= startDate && fechaBaja > startDate;
+      }
+      return fechaIngreso <= startDate && emp.activo === true;
     }).length;
     
-    // Employees at end of period
+    // Empleados activos al final del periodo
     const empleadosFinPeriodo = plantilla.filter(emp => {
       const fechaIngreso = new Date(emp.fecha_ingreso);
-      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-      
-      return fechaIngreso <= endDate && 
-             (!fechaBaja || fechaBaja > endDate);
+      // Activo al final = ingresó antes del fin Y (no tiene fecha_baja O fecha_baja es después del fin)
+      if (emp.fecha_baja) {
+        const fechaBaja = new Date(emp.fecha_baja);
+        return fechaIngreso <= endDate && fechaBaja > endDate;
+      }
+      return fechaIngreso <= endDate && emp.activo === true;
     }).length;
     
     const activosProm = (empleadosInicioPeriodo + empleadosFinPeriodo) / 2;
@@ -276,9 +278,9 @@ export class KPICalculator {
     
     const prevActivosProm = (prevEmployeesStart + prevEmployeesEnd) / 2;
 
-    // 4. Bajas - Total count of inactive employees (historical)
-    const bajas = plantilla.filter(p => !p.activo).length;
-    const prevBajas = prevPlantilla.filter(p => !p.activo).length;
+    // 4. Bajas - TOTAL de empleados con fecha_baja (TODAS las bajas históricas)
+    const bajas = plantilla.filter(p => p.fecha_baja !== null && p.fecha_baja !== undefined).length;
+    const prevBajas = prevPlantilla.filter(p => p.fecha_baja !== null && p.fecha_baja !== undefined).length;
     
     // 4.1. Bajas del período = Only departures within the specific period
     const bajasPeriodo = plantilla.filter(p => {
@@ -358,8 +360,8 @@ export class KPICalculator {
     const prevIncPromXEmpleado = prevIncidenciasCount / (prevActivosProm || 1);
 
     // 8. Días Laborados - ((Activos)/7)*6 
-    const diasLaborados = Math.round((uniqueEmployeesInACT / 7) * 6);
-    const prevDiasLaborados = Math.round((prevUniqueEmployeesInACT / 7) * 6);
+    const diasLaborados = Math.round((activosActuales / 7) * 6);
+    const prevDiasLaborados = Math.round((prevActivosActuales / 7) * 6);
 
     // 9. %incidencias - Incidencias/días Laborados
     const porcentajeIncidencias = (incidenciasCount / (diasLaborados || 1)) * 100;
@@ -375,10 +377,10 @@ export class KPICalculator {
       {
         name: 'Activos',
         category: 'headcount',
-        value: uniqueEmployeesInACT,
+        value: activosActuales,
         target: undefined,
-        previous_value: prevUniqueEmployeesInACT,
-        variance_percentage: calculateVariance(uniqueEmployeesInACT, prevUniqueEmployeesInACT),
+        previous_value: prevActivosActuales,
+        variance_percentage: calculateVariance(activosActuales, prevActivosActuales),
         period_start: periodStart,
         period_end: periodEnd
       },
@@ -580,21 +582,27 @@ export class KPICalculator {
     }
 
     try {
-      // Fetch data from Supabase SFTP tables
-      const [empleados, asistencia, bajas] = await Promise.all([
+      // Fetch data from Supabase - SOLO empleados_sftp tiene TODO lo que necesitamos
+      const [empleados, asistencia] = await Promise.all([
         db.getEmpleadosSFTP(),
-        db.getAsistenciaDiaria(format(previousStartDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd')),
-        db.getMotivosBaja()
+        db.getAsistenciaDiaria(format(previousStartDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd'))
       ]);
 
-      // Transform empleados to include fecha_baja from motivos_baja
+      // Transform empleados - USAR EL CAMPO ACTIVO DE LA TABLA!
       const plantillaWithDates: PlantillaRecord[] = empleados.map((emp: any) => {
-        const baja = bajas.find((b: any) => b.numero_empleado === emp.numero_empleado);
         return {
           ...emp,
-          fecha_ingreso: emp.fecha_ingreso || '2024-01-01',
-          fecha_baja: baja ? baja.fecha_baja : null,
-          activo: !baja || (baja.fecha_baja > format(endDate, 'yyyy-MM-dd'))
+          emp_id: emp.numero_empleado, // Add emp_id for compatibility
+          nombre: `${emp.nombres || ''} ${emp.apellidos || ''}`.trim() || emp.nombre_completo || 'Sin Nombre',
+          fecha_ingreso: emp.fecha_ingreso || emp.fecha_antiguedad || '2024-01-01',
+          fecha_baja: emp.fecha_baja || null,
+          motivo_baja: emp.motivo_baja || null,
+          puesto: emp.puesto || 'Sin puesto',
+          departamento: emp.departamento || 'Sin departamento',
+          area: emp.area || 'Sin área',
+          clasificacion: emp.clasificacion || 'No especificado',
+          // USAR EL CAMPO ACTIVO DIRECTAMENTE DE LA TABLA!
+          activo: emp.activo === true || emp.activo === 'true' || emp.activo === 1
         };
       });
 
@@ -644,6 +652,13 @@ export class KPICalculator {
   public clearCache(): void {
     console.log('🧹 Cache cleared');
     this.cache.clear(); // Clear internal cache too
+    sftpClient.clearCache();
+  }
+  
+  // Force refresh - clear cache and load fresh data
+  public forceRefresh(): void {
+    console.log('🔄 FORCE REFRESH - Clearing all caches');
+    this.cache.clear();
     sftpClient.clearCache();
   }
 

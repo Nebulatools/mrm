@@ -17,11 +17,11 @@ Documentación completa de todas las fórmulas de KPIs utilizadas en el Dashboar
 
 ### 1. **Activos**
 ```javascript
-// En gráficos (headcount al final del período)
-Activos = Count(empleados donde fecha_ingreso <= fin_período AND (fecha_baja IS NULL OR fecha_baja > fin_período))
+// Usando el campo 'activo' de empleados_sftp
+Activos = Count(empleados WHERE activo = TRUE)
 
-// Ejemplo: Empleados activos al 30 de septiembre de 2025
-Activos = 79 empleados
+// Ejemplo: Empleados activos en septiembre 2025
+Activos = Empleados con campo activo = TRUE
 ```
 
 ### 2. **Activos Promedio** 
@@ -40,8 +40,8 @@ Activos_Promedio = (87 + 79) / 2 = 83 empleados
 
 ### 3. **Días**
 ```javascript
-// Días únicos con actividad registrada en tabla ACT
-Días = Count(DISTINCT fecha FROM ACT WHERE fecha BETWEEN inicio_período AND fin_período)
+// Días únicos con actividad registrada en asistencia_diaria
+Días = Count(DISTINCT fecha FROM asistencia_diaria WHERE fecha BETWEEN inicio_período AND fin_período)
 
 // Ejemplo: 22 días laborables en septiembre
 ```
@@ -52,10 +52,13 @@ Días = Count(DISTINCT fecha FROM ACT WHERE fecha BETWEEN inicio_período AND fi
 
 ### 4. **Bajas**
 ```javascript
-// Empleados terminados dentro del período específico
-Bajas = Count(empleados WHERE fecha_baja BETWEEN inicio_período AND fin_período)
+// TOTAL de empleados con fecha_baja (histórico)
+Bajas_Totales = Count(empleados WHERE fecha_baja IS NOT NULL)
 
-// Ejemplo septiembre 2025: 8 bajas
+// Bajas del período específico
+Bajas_Periodo = Count(empleados WHERE fecha_baja BETWEEN inicio_período AND fin_período)
+
+// Ejemplo: Total histórico vs bajas de septiembre 2025
 ```
 
 ### 5. **Rotación Mensual** ⭐
@@ -115,8 +118,8 @@ Bajas_+12m = empleados con (fecha_baja - fecha_ingreso) ≥ 12 meses
 
 ### 8. **Incidencias**
 ```javascript
-// Total de incidencias en el período
-Incidencias = Count(INCIDENCIAS WHERE fecha BETWEEN inicio_período AND fin_período)
+// Total de incidencias desde asistencia_diaria
+Incidencias = Count(asistencia_diaria WHERE horas_incidencia > 0 AND fecha BETWEEN inicio_período AND fin_período)
 ```
 
 ### 9. **Inc prom x empleado**
@@ -164,32 +167,38 @@ Porcentaje_Incidencias = (Incidencias / Días_Laborados) * 100
 
 ## 💾 Fuentes de Datos
 
-### **Tabla PLANTILLA** (Master Data)
+### **Tabla EMPLEADOS_SFTP** (Datos principales desde SFTP)
 ```sql
-- emp_id: ID único del empleado
-- nombre: Nombre completo
+- numero_empleado: ID único del empleado
+- nombres: Nombres del empleado
+- apellidos: Apellidos del empleado
 - departamento: RH, Tecnología, Ventas, etc.
-- activo: true/false (estado actual)
-- fecha_ingreso: Fecha de contratación
-- fecha_baja: Fecha de terminación (NULL si activo)
 - puesto: Cargo actual
 - area: Área funcional
+- clasificacion: CONFIANZA, SINDICALIZADO, HONORARIOS, EVENTUAL
+- activo: true/false (estado actual directo de la tabla)
+- fecha_ingreso: Fecha de contratación
+- fecha_antiguedad: Fecha de antigüedad (alternativa)
+- fecha_baja: Fecha de terminación (NULL si activo)
 - motivo_baja: Razón de terminación
 ```
 
-### **Tabla ACT** (Actividad Diaria)
+### **Tabla ASISTENCIA_DIARIA** (Registro de asistencia desde SFTP)
 ```sql
-- emp_id: Referencia a PLANTILLA
+- numero_empleado: Referencia a EMPLEADOS_SFTP
 - fecha: Fecha de la actividad
+- horas_trabajadas: Horas trabajadas en el día
+- horas_incidencia: Horas de incidencia (si > 0, hubo incidencia)
 - presente: true/false (asistencia)
 ```
 
-### **Tabla INCIDENCIAS** (Incidentes)
+### **Tabla MOTIVOS_BAJA** (Detalle de bajas - opcional)
 ```sql
-- emp_id: Referencia a PLANTILLA  
-- fecha: Fecha del incidente
-- tipo: Tardanza, Falta, etc.
-- descripcion: Detalles del incidente
+- numero_empleado: Referencia a EMPLEADOS_SFTP
+- fecha_baja: Fecha de la baja
+- tipo: Tipo de baja
+- motivo: Motivo detallado
+- descripcion: Descripción adicional
 ```
 
 ---
@@ -295,5 +304,6 @@ Porcentaje_Incidencias = (41 / 68) * 100 = 60.29%
 
 ---
 
-*Documentación actualizada: Septiembre 2025*
+*Documentación actualizada: Septiembre 10, 2025*
+*NOTA: Sistema dinámico - solo muestra datos reales de empleados_sftp, no datos futuros*
 *Para dudas técnicas, consultar: `apps/web/src/lib/kpi-calculator.ts`*

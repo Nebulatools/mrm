@@ -20,7 +20,7 @@ import { DismissalReasonsTable } from "./dismissal-reasons-table";
 import { RetentionCharts } from "./retention-charts";
 import { RetentionFilterPanel, type RetentionFilterOptions } from "./retention-filter-panel";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
-import { supabase } from "@/lib/supabase";
+import { supabase, db } from "@/lib/supabase";
 import { format } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -98,19 +98,14 @@ export function DashboardPage() {
       const kpis = await kpiCalculator.calculateAllKPIs(effectiveFilter);
       console.log('📈 KPIs received:', kpis?.length, 'items');
       
-      // Load plantilla data for dismissal analysis
-      console.log('👥 Loading plantilla data...');
-      const { data: plantilla, error: plantillaError } = await supabase
-        .from('plantilla')
-        .select('*');
-        
-      if (plantillaError) {
-        console.warn('⚠️ Error loading plantilla:', plantillaError);
-      }
+      // Load empleados_sftp data for dismissal analysis
+      console.log('👥 Loading empleados_sftp data...');
+      const empleadosData = await db.getEmpleadosSFTP();
+      console.log('✅ Loaded', empleadosData.length, 'employees from empleados_sftp');
       
       setData({
         kpis: kpis.length > 0 ? kpis : [],
-        plantilla: plantilla || [],
+        plantilla: empleadosData || [],
         lastUpdated: new Date(),
         loading: false
       });
@@ -154,6 +149,18 @@ export function DashboardPage() {
     
     let filteredData = [...plantillaData];
     
+    console.log('🔍 Applying retention filters');
+    console.log('📊 Total employees before filter:', plantillaData.length);
+    console.log('🎯 Active filters:', retentionFilters);
+    if (plantillaData[0]) {
+      console.log('🔍 Sample employee data:', {
+        departamento: plantillaData[0].departamento,
+        clasificacion: plantillaData[0].clasificacion,
+        puesto: plantillaData[0].puesto,
+        area: plantillaData[0].area
+      });
+    }
+    
     // Filtrar por año (fecha de ingreso o fecha de baja)
     if (retentionFilters.years.length > 0) {
       filteredData = filteredData.filter(emp => {
@@ -174,6 +181,37 @@ export function DashboardPage() {
         return retentionFilters.months.includes(ingresoMonth) || 
                (bajaMonth && retentionFilters.months.includes(bajaMonth));
       });
+    }
+    
+    // Filtrar por departamento
+    if (retentionFilters.departamentos && retentionFilters.departamentos.length > 0) {
+      console.log('🏢 Filtering by departamentos:', retentionFilters.departamentos);
+      filteredData = filteredData.filter(emp => {
+        return emp.departamento && retentionFilters.departamentos.includes(emp.departamento);
+      });
+      console.log('✅ After departamento filter:', filteredData.length);
+    }
+    
+    // Filtrar por puesto
+    if (retentionFilters.puestos && retentionFilters.puestos.length > 0) {
+      console.log('👔 Filtering by puestos:', retentionFilters.puestos);
+      filteredData = filteredData.filter(emp => {
+        const empPuesto = (emp.puesto || '').trim();
+        const puestoMatch = retentionFilters.puestos.some(filterPuesto => 
+          (filterPuesto || '').trim() === empPuesto
+        );
+        return puestoMatch;
+      });
+      console.log('✅ After puesto filter:', filteredData.length);
+    }
+    
+    // Filtrar por clasificación
+    if (retentionFilters.clasificaciones && retentionFilters.clasificaciones.length > 0) {
+      console.log('📝 Filtering by clasificaciones:', retentionFilters.clasificaciones);
+      filteredData = filteredData.filter(emp => {
+        return emp.clasificacion && retentionFilters.clasificaciones.includes(emp.clasificacion);
+      });
+      console.log('✅ After clasificacion filter:', filteredData.length);
     }
     
     // Filtrar por fecha (años y meses) - versión corregida
@@ -229,6 +267,7 @@ export function DashboardPage() {
       });
     }
     
+    console.log('✅ Final filtered data:', filteredData.length, 'employees');
     return filteredData;
   };
 
@@ -240,7 +279,9 @@ export function DashboardPage() {
       return {
         activosPromedio: 0,
         bajas: 0,
-        rotacionMensual: 0
+        bajasTempranas: 0,
+        rotacionMensual: 0,
+        rotacionAcumulada: 0
       };
     }
     
@@ -251,45 +292,92 @@ export function DashboardPage() {
     console.log('📊 Filtered employees:', filteredPlantilla.length);
     console.log('🎯 Active filters:', retentionFilters);
     
-    // Calcular Activos Promedio con filtros
+    // Calcular Activos actuales
     const activosActuales = filteredPlantilla.filter(emp => emp.activo).length;
     
-    // Calcular Bajas usando los filtros en lugar de selectedPeriod
-    let bajasTotal = 0;
+    // Calcular TODAS las Bajas (empleados con fecha_baja)
+    const bajasTotal = filteredPlantilla.filter(emp => {
+      return emp.fecha_baja !== null && emp.fecha_baja !== undefined;
+    }).length;
     
-    if (retentionFilters.years.length > 0 && retentionFilters.months.length > 0) {
-      // Si hay filtros específicos de año y mes, calcular bajas para esas combinaciones
-      for (const year of retentionFilters.years) {
-        for (const month of retentionFilters.months) {
-          const bajasEnPeriodo = filteredPlantilla.filter(emp => {
-            if (!emp.fecha_baja || emp.activo) return false;
-            const fechaBaja = new Date(emp.fecha_baja);
-            return fechaBaja.getMonth() === (month - 1) && fechaBaja.getFullYear() === year;
-          }).length;
-          bajasTotal += bajasEnPeriodo;
-        }
-      }
-    } else {
-      // Si no hay filtros específicos, usar el período actual (comportamiento original)
-      const currentMonth = selectedPeriod.getMonth();
-      const currentYear = selectedPeriod.getFullYear();
-      bajasTotal = filteredPlantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
-        const fechaBaja = new Date(emp.fecha_baja);
-        return fechaBaja.getMonth() === currentMonth && fechaBaja.getFullYear() === currentYear;
-      }).length;
-    }
+    // Calcular Bajas del periodo actual para rotación mensual
+    const currentMonth = selectedPeriod.getMonth();
+    const currentYear = selectedPeriod.getFullYear();
+    const inicioMes = new Date(currentYear, currentMonth, 1);
+    const finMes = new Date(currentYear, currentMonth + 1, 0);
     
-    console.log('📉 Bajas calculated:', bajasTotal);
-    console.log('👥 Activos calculated:', activosActuales);
+    // Bajas del mes actual
+    const bajasDelMes = filteredPlantilla.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const fechaBaja = new Date(emp.fecha_baja);
+      return fechaBaja >= inicioMes && fechaBaja <= finMes;
+    }).length;
     
-    // Calcular Rotación Mensual con filtros
-    const rotacionMensual = activosActuales > 0 ? (bajasTotal / activosActuales) * 100 : 0;
+    // Calcular empleados al inicio y fin del mes para el promedio
+    const empleadosInicioMes = filteredPlantilla.filter(emp => {
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      return fechaIngreso <= inicioMes && (!fechaBaja || fechaBaja > inicioMes);
+    }).length;
+    
+    const empleadosFinMes = filteredPlantilla.filter(emp => {
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      return fechaIngreso <= finMes && (!fechaBaja || fechaBaja > finMes);
+    }).length;
+    
+    const activosPromedio = (empleadosInicioMes + empleadosFinMes) / 2;
+    
+    console.log('📊 Empleados inicio mes:', empleadosInicioMes);
+    console.log('📊 Empleados fin mes:', empleadosFinMes);
+    console.log('📊 Activos promedio:', activosPromedio);
+    console.log('📉 Bajas del mes:', bajasDelMes);
+    console.log('📉 Bajas totales histórico:', bajasTotal);
+    
+    // Calcular Bajas Tempranas (menos de 3 meses)
+    const bajasTempranas = filteredPlantilla.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = new Date(emp.fecha_baja);
+      const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+      return mesesTrabajados < 3;
+    }).length;
+    
+    // Calcular Rotación Mensual = (Bajas del mes / Activos promedio) * 100
+    const rotacionMensual = activosPromedio > 0 ? (bajasDelMes / activosPromedio) * 100 : 0;
+    
+    // Calcular Rotación Acumulada (últimos 12 meses)
+    const hace12Meses = new Date(currentYear, currentMonth - 11, 1);
+    const finPeriodo12m = new Date(currentYear, currentMonth + 1, 0);
+    
+    const bajasUltimos12Meses = filteredPlantilla.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const fechaBaja = new Date(emp.fecha_baja);
+      return fechaBaja >= hace12Meses && fechaBaja <= finPeriodo12m;
+    }).length;
+    
+    // Calcular promedio de activos para los 12 meses
+    const empleadosInicio12m = filteredPlantilla.filter(emp => {
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      return fechaIngreso <= hace12Meses && (!fechaBaja || fechaBaja > hace12Meses);
+    }).length;
+    
+    const empleadosFin12m = empleadosFinMes; // Ya calculado arriba
+    const activosPromedio12m = (empleadosInicio12m + empleadosFin12m) / 2;
+    
+    const rotacionAcumulada = activosPromedio12m > 0 ? (bajasUltimos12Meses / activosPromedio12m) * 100 : 0;
+    
+    console.log('📊 Rotación Acumulada - Bajas 12 meses:', bajasUltimos12Meses);
+    console.log('📊 Rotación Acumulada - Promedio activos 12m:', activosPromedio12m);
+    console.log('📊 Rotación Acumulada - Resultado:', rotacionAcumulada);
     
     return {
-      activosPromedio: activosActuales,
+      activosPromedio: Math.round(activosPromedio),
       bajas: bajasTotal,
-      rotacionMensual: Number(rotacionMensual.toFixed(2))
+      bajasTempranas: bajasTempranas,
+      rotacionMensual: Number(rotacionMensual.toFixed(2)),
+      rotacionAcumulada: Number(rotacionAcumulada.toFixed(2))
     };
   };
 
@@ -637,7 +725,10 @@ export function DashboardPage() {
           {/* Retention Tab */}
           <TabsContent value="retention" className="space-y-6">
             {/* Mostrar filtros aplicados */}
-            {(retentionFilters.years.length > 0 || retentionFilters.months.length > 0) && (
+            {(retentionFilters.years.length > 0 || retentionFilters.months.length > 0 || 
+              (retentionFilters.departamentos && retentionFilters.departamentos.length > 0) ||
+              (retentionFilters.areas && retentionFilters.areas.length > 0) ||
+              (retentionFilters.clasificaciones && retentionFilters.clasificaciones.length > 0)) && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <Filter className="h-4 w-4" />
@@ -650,6 +741,15 @@ export function DashboardPage() {
                       <span key={month} className="bg-blue-100 px-2 py-1 rounded text-xs">
                         {['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][month-1]}
                       </span>
+                    ))}
+                    {retentionFilters.departamentos?.map(depto => (
+                      <span key={depto} className="bg-green-100 px-2 py-1 rounded text-xs">{depto}</span>
+                    ))}
+                    {retentionFilters.areas?.map(area => (
+                      <span key={area} className="bg-purple-100 px-2 py-1 rounded text-xs">{area}</span>
+                    ))}
+                    {retentionFilters.clasificaciones?.map(clas => (
+                      <span key={clas} className="bg-orange-100 px-2 py-1 rounded text-xs">{clas}</span>
                     ))}
                   </div>
                 </div>
@@ -681,9 +781,9 @@ export function DashboardPage() {
                   category: 'retention',
                   value: filteredRetentionKPIs.bajas,
                   unit: 'empleados',
-                  period: timePeriod,
+                  period: 'Total histórico',
                   date: selectedPeriod,
-                  description: 'Total de bajas en el período'
+                  description: 'Total de bajas históricas'
                 }} 
                 icon={<UserMinus className="h-6 w-6" />}
               />
@@ -694,7 +794,7 @@ export function DashboardPage() {
                   id: 'bajas-tempranas-filtered',
                   name: 'Bajas Tempranas',
                   category: 'retention',
-                  value: categorized.retention.find(k => k.name === 'Bajas Tempranas')?.value || 0,
+                  value: filteredRetentionKPIs.bajasTempranas,
                   unit: 'empleados',
                   period: timePeriod,
                   date: selectedPeriod,
@@ -724,7 +824,7 @@ export function DashboardPage() {
                   id: 'rotacion-acumulada-filtered',
                   name: 'Rotación Acumulada',
                   category: 'retention',
-                  value: data.kpis.find(k => k.name === 'Rotación Acumulada')?.value || 0,
+                  value: filteredRetentionKPIs.rotacionAcumulada,
                   unit: '%',
                   period: '12 meses',
                   date: selectedPeriod,

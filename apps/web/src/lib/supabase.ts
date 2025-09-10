@@ -32,14 +32,34 @@ export interface EmpleadoSFTPRecord {
   apellidos: string
   nombres: string
   nombre_completo?: string
+  gafete?: string
+  genero?: string
+  imss?: string
+  fecha_nacimiento?: string
+  estado?: string
+  fecha_ingreso?: string
+  fecha_antiguedad?: string
+  empresa?: string
+  registro_patronal?: string
+  codigo_puesto?: string
+  puesto?: string
+  codigo_depto?: string
+  departamento?: string
+  codigo_cc?: string
+  cc?: string
+  subcuenta_cc?: string
+  clasificacion?: string  // CONFIANZA, SINDICALIZADO, etc.
+  codigo_area?: string
+  area?: string
+  telefono?: string
+  correo?: string
+  direccion?: string
+  cuenta_bancaria?: string
+  fecha_baja?: string | null
+  motivo_baja?: string | null
   activo: boolean
   fecha_creacion?: string
   fecha_actualizacion?: string
-  // Virtual fields we'll add
-  departamento?: string
-  area?: string
-  fecha_ingreso?: string
-  fecha_baja?: string | null
 }
 
 export interface MotivoBajaRecord {
@@ -103,8 +123,9 @@ export const db = {
   // EMPLEADOS_SFTP operations (new main employee table)
   async getEmpleadosSFTP() {
     console.log('🗄️ Fetching empleados_sftp data...');
+    console.log('🔍 DEBUGGING: getEmpleadosSFTP called at', new Date().toISOString());
     
-    // Obtener empleados
+    // Obtener empleados con TODOS los campos incluyendo clasificacion
     const { data: empleados, error: empleadosError } = await supabase
       .from('empleados_sftp')
       .select('*')
@@ -142,14 +163,16 @@ export const db = {
       return {
         id: emp.id,
         emp_id: String(emp.numero_empleado),
-        nombre: emp.nombre_completo || `${emp.nombres} ${emp.apellidos}`,
+        numero_empleado: emp.numero_empleado, // Agregar campo numero_empleado
+        nombre: emp.nombre_completo || `${emp.nombres || ''} ${emp.apellidos || ''}`.trim() || 'Sin Nombre',
         departamento: emp.departamento || 'Sin Departamento',
-        activo: emp.activo,
-        fecha_ingreso: emp.fecha_ingreso || emp.fecha_creacion || new Date().toISOString(),
-        fecha_baja: ultimoMotivo?.fecha_baja || null,
-        puesto: emp.puesto || null,
-        motivo_baja: ultimoMotivo?.motivo || null,
-        area: emp.area || null,
+        activo: emp.activo === true || emp.activo === 'true' || emp.activo === 1,
+        fecha_ingreso: emp.fecha_ingreso || emp.fecha_antiguedad || emp.fecha_creacion || new Date().toISOString(),
+        fecha_baja: emp.fecha_baja || ultimoMotivo?.fecha_baja || null,
+        puesto: emp.puesto || 'Sin Puesto',
+        motivo_baja: emp.motivo_baja || ultimoMotivo?.motivo || 'No especificado',
+        area: emp.area || 'Sin Área',
+        clasificacion: emp.clasificacion || 'Sin Clasificación',
         created_at: emp.fecha_creacion || new Date().toISOString(),
         updated_at: emp.fecha_actualizacion || new Date().toISOString()
       };
@@ -157,6 +180,22 @@ export const db = {
     
     console.log('✅ empleados_sftp data loaded:', transformed.length, 'records');
     console.log('✅ motivos_baja data loaded:', motivos?.length, 'records');
+    
+    // DEBUG: Ver qué puestos y clasificaciones hay
+    console.log('🔍 DEBUGGING FILTROS:');
+    console.log('🔍 Primeros 3 empleados:', transformed.slice(0, 3).map(emp => ({
+      nombre: emp.nombre,
+      departamento: emp.departamento,
+      puesto: emp.puesto,
+      clasificacion: emp.clasificacion
+    })));
+    
+    const puestosUnicos = [...new Set(transformed.map(emp => emp.puesto).filter(p => p && p !== 'Sin Puesto'))];
+    const clasificacionesUnicas = [...new Set(transformed.map(emp => emp.clasificacion).filter(c => c && c !== 'Sin Clasificación'))];
+    
+    console.log('🔍 Puestos únicos encontrados:', puestosUnicos);
+    console.log('🔍 Clasificaciones únicas encontradas:', clasificacionesUnicas);
+    
     return transformed as PlantillaRecord[];
   },
 

@@ -33,7 +33,8 @@ interface RetentionFilters {
   years: number[];
   months: number[];
   departamentos?: string[];
-  areas?: string[];
+  puestos?: string[]; // Cambiado de areas a puestos
+  clasificaciones?: string[]; // Agregado clasificaciones
 }
 
 interface RetentionChartsProps {
@@ -63,28 +64,41 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
         throw new Error('No plantilla data found');
       }
       
-      // Detectar el rango de años con datos reales de bajas
+      // Detectar el rango de años con datos reales de bajas - DINÁMICO
+      const hoy = new Date();
+      const añoActual = hoy.getFullYear();
+      const mesActual = hoy.getMonth();
+      
       const bajasConFecha = plantilla.filter(emp => emp.fecha_baja);
       const años = new Set<number>();
       
       bajasConFecha.forEach(emp => {
-        const año = new Date(emp.fecha_baja).getFullYear();
-        if (año >= 2022 && año <= 2025) {
-          años.add(año);
+        if (emp.fecha_baja) {
+          const fechaBaja = new Date(emp.fecha_baja);
+          const año = fechaBaja.getFullYear();
+          // Solo incluir años con datos reales (no futuros)
+          if (año >= 2022 && fechaBaja <= hoy) {
+            años.add(año);
+          }
         }
       });
       
-      // Si no hay bajas, usar años por defecto
-      const years = años.size > 0 ? Array.from(años).sort() : [2024, 2025];
+      // Si no hay bajas, usar solo el año actual
+      const years = años.size > 0 ? Array.from(años).sort() : [añoActual];
       console.log('📅 Years with dismissal data:', years);
       
-      // Generar datos para todos los años con bajas
+      // Generar datos para todos los años con bajas - SOLO MESES CON DATOS
       const allMonthsData: MonthlyRetentionData[] = [];
       
       for (const year of years) {
         for (let month = 0; month < 12; month++) {
           const startDate = new Date(year, month, 1);
           const endDate = new Date(year, month + 1, 0);
+          
+          // NO incluir meses futuros
+          if (startDate > hoy) {
+            continue;
+          }
           
           const monthData = await calculateMonthlyRetention(startDate, endDate, plantilla);
           allMonthsData.push({
@@ -131,10 +145,11 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
         });
       }
       
-      // Preparar datos para comparación por año (últimos 2 años con datos)
+      // Preparar datos para comparación por año (año actual vs anterior)
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-      const uniqueYears = [...new Set(allMonthsData.map(d => d.year))].sort();
-      const lastTwoYears = uniqueYears.slice(-2); // Tomar los últimos 2 años
+      const currentYear = new Date().getFullYear();
+      const previousYear = currentYear - 1;
+      const lastTwoYears = [previousYear, currentYear]; // Año anterior y actual
       
       const comparisonData: YearlyComparisonData[] = monthNames.map((monthName, index) => {
         const dataByYear: any = {
@@ -173,21 +188,51 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
       const startDate12m = subMonths(currentMonthDate, 11);
       const endDate12m = endOfMonth(currentMonthDate);
 
+      // Aplicar filtros ANTES de contar bajas
+      const plantillaFiltrada = plantilla.filter(emp => {
+        // Filtrar por departamento
+        if (filters && filters.departamentos && filters.departamentos.length > 0) {
+          if (!filters.departamentos.includes(emp.departamento || '')) return false;
+        }
+        
+        // Filtrar por puesto
+        if (filters && filters.puestos && filters.puestos.length > 0) {
+          const empPuesto = (emp.puesto || '').trim(); // Limpiar espacios
+          const puestoMatch = filters.puestos.some(filterPuesto => 
+            (filterPuesto || '').trim() === empPuesto
+          );
+          console.log('🔍 FILTRO PUESTO DEBUG:', {
+            empleado: emp.nombre,
+            empPuesto: `"${empPuesto}"`,
+            filtrosPuestos: filters.puestos,
+            match: puestoMatch
+          });
+          if (!puestoMatch) return false;
+        }
+        
+        // Filtrar por clasificación
+        if (filters && filters.clasificaciones && filters.clasificaciones.length > 0) {
+          if (!filters.clasificaciones.includes(emp.clasificacion || '')) return false;
+        }
+        
+        return true;
+      });
+
       // Contar todas las bajas en el período de 12 meses
-      const bajasEn12Meses = plantilla.filter(emp => {
+      const bajasEn12Meses = plantillaFiltrada.filter(emp => {
         if (!emp.fecha_baja || emp.activo) return false;
         const fechaBaja = new Date(emp.fecha_baja);
         return fechaBaja >= startDate12m && fechaBaja <= endDate12m;
       }).length;
 
       // Calcular promedio de empleados activos en el período de 12 meses
-      const activosInicioRango = plantilla.filter(emp => {
+      const activosInicioRango = plantillaFiltrada.filter(emp => {
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
         return fechaIngreso <= startDate12m && (!fechaBaja || fechaBaja > startDate12m);
       }).length;
 
-      const activosFinRango = plantilla.filter(emp => {
+      const activosFinRango = plantillaFiltrada.filter(emp => {
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
         return fechaIngreso <= endDate12m && (!fechaBaja || fechaBaja > endDate12m);
@@ -205,10 +250,37 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
 
   const calculateMonthlyRetention = async (startDate: Date, endDate: Date, plantilla: any[]): Promise<MonthlyRetentionData> => {
     try {
-      // Filtrar empleados que ingresaron antes o durante el mes
-      const plantillaFiltered = plantilla.filter(emp => {
+      // Aplicar filtros de departamento, puesto y clasificación PRIMERO
+      let plantillaFiltered = plantilla.filter(emp => {
         const fechaIngreso = new Date(emp.fecha_ingreso);
-        return fechaIngreso <= endDate;
+        if (fechaIngreso > endDate) return false;
+        
+        // Filtrar por departamento
+        if (filters && filters.departamentos && filters.departamentos.length > 0) {
+          if (!filters.departamentos.includes(emp.departamento || '')) return false;
+        }
+        
+        // Filtrar por puesto
+        if (filters && filters.puestos && filters.puestos.length > 0) {
+          const empPuesto = (emp.puesto || '').trim(); // Limpiar espacios
+          const puestoMatch = filters.puestos.some(filterPuesto => 
+            (filterPuesto || '').trim() === empPuesto
+          );
+          console.log('🔍 FILTRO PUESTO DEBUG:', {
+            empleado: emp.nombre,
+            empPuesto: `"${empPuesto}"`,
+            filtrosPuestos: filters.puestos,
+            match: puestoMatch
+          });
+          if (!puestoMatch) return false;
+        }
+        
+        // Filtrar por clasificación
+        if (filters && filters.clasificaciones && filters.clasificaciones.length > 0) {
+          if (!filters.clasificaciones.includes(emp.clasificacion || '')) return false;
+        }
+        
+        return true;
       });
 
       // Empleados al inicio y fin del mes para calcular promedio correcto
@@ -238,6 +310,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
 
       // Calcular bajas por temporalidad
       const bajasMenor3m = bajasEnMes.filter(emp => {
+        if (!emp.fecha_baja) return false;
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = new Date(emp.fecha_baja);
         const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
@@ -245,6 +318,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
       }).length;
 
       const bajas3a6m = bajasEnMes.filter(emp => {
+        if (!emp.fecha_baja) return false;
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = new Date(emp.fecha_baja);
         const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
@@ -252,6 +326,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
       }).length;
 
       const bajas6a12m = bajasEnMes.filter(emp => {
+        if (!emp.fecha_baja) return false;
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = new Date(emp.fecha_baja);
         const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
@@ -259,6 +334,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
       }).length;
 
       const bajasMas12m = bajasEnMes.filter(emp => {
+        if (!emp.fecha_baja) return false;
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = new Date(emp.fecha_baja);
         const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
@@ -379,7 +455,10 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
           <h3 className="text-base font-semibold mb-2">Rotación Mensual</h3>
           <p className="text-sm text-gray-600 mb-4">Rotación mensual %, bajas y activos por mes</p>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={monthlyData.filter(d => d.year === (availableYears[availableYears.length - 1] || 2025))}>
+            <LineChart data={monthlyData.filter(d => {
+              const fecha = new Date(d.year, d.month - 1, 1);
+              return d.year === (availableYears[availableYears.length - 1] || new Date().getFullYear()) && fecha <= new Date();
+            })}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="mes" 
@@ -438,7 +517,10 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
           <h3 className="text-base font-semibold mb-2">Rotación por Temporalidad</h3>
           <p className="text-sm text-gray-600 mb-4">Bajas por tiempo trabajado por mes</p>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={monthlyData.filter(d => d.year === (availableYears[availableYears.length - 1] || 2025))}>
+            <BarChart data={monthlyData.filter(d => {
+              const fecha = new Date(d.year, d.month - 1, 1);
+              return d.year === (availableYears[availableYears.length - 1] || new Date().getFullYear()) && fecha <= new Date();
+            })}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="mes" 
@@ -473,8 +555,8 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-4">Mes</th>
-                  <th className="text-center py-2 px-4 bg-blue-50">{availableYears[0] || 2024}</th>
-                  <th className="text-center py-2 px-4 bg-red-50">{availableYears[availableYears.length - 1] || 2025}</th>
+                  <th className="text-center py-2 px-4 bg-blue-50">{availableYears[0] || new Date().getFullYear() - 1}</th>
+                  <th className="text-center py-2 px-4 bg-red-50">{availableYears[1] || new Date().getFullYear()}</th>
                   <th className="text-center py-2 px-4">Variación</th>
                 </tr>
               </thead>
