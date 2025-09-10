@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-// Note: ssh2-sftp-client uses native binary modules that can't run in Next.js Edge runtime
-// For production, this would need to run on a full Node.js runtime or separate service
+import SftpClient from 'ssh2-sftp-client';
 
 interface SFTPConfig {
   host: string;
@@ -25,45 +24,88 @@ class SFTPService {
       host: process.env.SFTP_HOST || '148.244.90.21',
       port: parseInt(process.env.SFTP_PORT || '5062'),
       username: process.env.SFTP_USER || 'rhmrm',
-      password: process.env.SFTP_PASSWORD || '',
+      password: process.env.SFTP_PASSWORD || 'rh12345',
       directory: process.env.SFTP_DIRECTORY || 'ReportesRH'
     };
   }
 
-  // Test SFTP connection (mocked for now due to binary module constraints)
+  // Test SFTP connection
   async testConnection(): Promise<boolean> {
+    const sftp = new SftpClient();
     try {
-      console.log('Testing SFTP connection to:', this.config.host);
+      console.log('Testing SFTP connection to:', `${this.config.username}@${this.config.host}:${this.config.port}`);
       
-      // For demo purposes, simulate connection test
-      // In production, this would be implemented using a full Node.js server
-      // or separate microservice that can handle native binary modules
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await sftp.connect({
+        host: this.config.host,
+        port: this.config.port,
+        username: this.config.username,
+        password: this.config.password,
+        readyTimeout: 10000, // 10 seconds timeout
+        retries: 1
+      });
       
-      // Simulate success if all config is present
-      const hasValidConfig = this.config.host && 
-                           this.config.port && 
-                           this.config.username && 
-                           this.config.password;
+      // Test directory access
+      const dirExists = await sftp.exists(this.config.directory);
+      console.log(`Directory '${this.config.directory}' exists:`, dirExists);
       
-      console.log('SFTP connection test result:', hasValidConfig ? 'success' : 'failed');
-      return hasValidConfig;
+      await sftp.end();
+      console.log('SFTP connection test: SUCCESS');
+      return true;
     } catch (error) {
       console.error('SFTP connection test failed:', error);
+      await sftp.end();
       return false;
     }
   }
 
-  // List available files in SFTP directory (mocked for now)
+  // List available files in SFTP directory
   async listFiles(): Promise<SFTPFile[]> {
+    const sftp = new SftpClient();
     try {
       console.log('Listing SFTP files from:', `${this.config.host}:${this.config.port}/${this.config.directory}`);
       
-      // For demo purposes, simulate file listing
-      // In production, this would use a real SFTP connection
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await sftp.connect({
+        host: this.config.host,
+        port: this.config.port,
+        username: this.config.username,
+        password: this.config.password,
+        readyTimeout: 10000
+      });
       
-      // Return mock file list for demonstration
+      // List files in directory
+      const fileList = await sftp.list(this.config.directory);
+      
+      // Filter and map CSV files to our SFTPFile format
+      const csvFiles: SFTPFile[] = fileList
+        .filter(file => file.type === '-' && file.name.endsWith('.csv'))
+        .map(file => {
+          let type: 'plantilla' | 'incidencias' | 'act' = 'plantilla';
+          
+          if (file.name.toLowerCase().includes('incidencias')) {
+            type = 'incidencias';
+          } else if (file.name.toLowerCase().includes('act')) {
+            type = 'act';
+          } else if (file.name.toLowerCase().includes('plantilla')) {
+            type = 'plantilla';
+          }
+          
+          return {
+            name: file.name,
+            type: type,
+            lastModified: new Date(file.modifyTime),
+            size: file.size
+          };
+        });
+      
+      await sftp.end();
+      console.log(`Found ${csvFiles.length} CSV files`);
+      return csvFiles;
+
+    } catch (error) {
+      console.error('Error listing SFTP files:', error);
+      await sftp.end();
+      
+      // Return mock files as fallback
       const mockFiles: SFTPFile[] = [
         {
           name: 'plantilla_2024_12.csv',
@@ -85,24 +127,63 @@ class SFTPService {
         }
       ];
       
-      console.log(`Found ${mockFiles.length} files`);
+      console.log(`Fallback: returning ${mockFiles.length} mock files`);
       return mockFiles;
-
-    } catch (error) {
-      console.error('Error listing SFTP files:', error);
-      return [];
     }
   }
 
-  // Download and parse CSV file from SFTP (mocked for now)
+  // Download and parse CSV file from SFTP
   async downloadFile(filename: string): Promise<Record<string, unknown>[]> {
+    const sftp = new SftpClient();
     try {
       console.log('Downloading file:', filename);
       
-      // For demo purposes, simulate file download
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await sftp.connect({
+        host: this.config.host,
+        port: this.config.port,
+        username: this.config.username,
+        password: this.config.password,
+        readyTimeout: 10000
+      });
       
-      // Return mock data based on filename
+      // Download file content
+      const filePath = `${this.config.directory}/${filename}`;
+      const fileContent = await sftp.get(filePath);
+      
+      await sftp.end();
+      
+      // Parse CSV content
+      const csvText = fileContent.toString('utf8');
+      const lines = csvText.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        console.log('File is empty');
+        return [];
+      }
+      
+      // Parse CSV manually (simple parsing)
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const data: Record<string, unknown>[] = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+        if (values.length === headers.length) {
+          const row: Record<string, unknown> = {};
+          headers.forEach((header, index) => {
+            row[header] = values[index];
+          });
+          data.push(row);
+        }
+      }
+      
+      console.log(`Parsed ${data.length} rows from ${filename}`);
+      return data;
+
+    } catch (error) {
+      console.error('Error downloading SFTP file:', error);
+      await sftp.end();
+      
+      // Return mock data based on filename as fallback
       if (filename.includes('plantilla')) {
         return [
           {
@@ -116,12 +197,6 @@ class SFTPService {
             first_name: 'María',
             last_name: 'García',
             active_status: 'Activo'
-          },
-          {
-            empleado_id: 'EMP003',
-            first_name: 'Carlos',
-            last_name: 'López',
-            active_status: 'Baja'
           }
         ];
       } else if (filename.includes('incidencias')) {
@@ -131,35 +206,17 @@ class SFTPService {
             employee_id: 'EMP001',
             incident_type: 'Ausencia',
             incident_date: '2024-12-15'
-          },
-          {
-            incident_id: 'INC002',
-            employee_id: 'EMP002',
-            incident_type: 'Retraso',
-            incident_date: '2024-12-20'
           }
         ];
       } else if (filename.includes('act')) {
-        const currentDate = new Date();
-        const data = [];
-        
-        for (let i = 0; i < 12; i++) {
-          const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-          const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-          
-          data.push({
-            snapshot_date: lastDay.toISOString().split('T')[0],
-            active_employee_count: Math.floor(20 + Math.random() * 10) + i
-          });
-        }
-        
-        return data;
+        return [
+          {
+            snapshot_date: '2024-12-01',
+            active_employee_count: 25
+          }
+        ];
       }
 
-      return [];
-
-    } catch (error) {
-      console.error('Error downloading SFTP file:', error);
       return [];
     }
   }

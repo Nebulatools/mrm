@@ -43,7 +43,7 @@ export const db = {
   // PLANTILLA operations
   async getPlantilla() {
     const { data, error } = await supabase
-      .from('PLANTILLA')
+      .from('plantilla')
       .select('*')
       .order('emp_id')
     
@@ -53,7 +53,7 @@ export const db = {
 
   async getActiveEmployees() {
     const { data, error } = await supabase
-      .from('PLANTILLA')
+      .from('plantilla')
       .select('*')
       .eq('activo', true)
       .order('emp_id')
@@ -65,7 +65,7 @@ export const db = {
   // INCIDENCIAS operations
   async getIncidencias(startDate?: string, endDate?: string) {
     let query = supabase
-      .from('INCIDENCIAS')
+      .from('incidencias')
       .select('*')
       .order('fecha', { ascending: false })
 
@@ -83,7 +83,7 @@ export const db = {
 
   async addIncidencia(incidencia: Omit<IncidenciaRecord, 'id' | 'created_at'>) {
     const { data, error } = await supabase
-      .from('INCIDENCIAS')
+      .from('incidencias')
       .insert([incidencia])
       .select()
 
@@ -94,7 +94,7 @@ export const db = {
   // ACT operations (actividad diaria)
   async getACT(startDate?: string, endDate?: string) {
     let query = supabase
-      .from('ACT')
+      .from('act')
       .select('*')
       .order('fecha', { ascending: false })
 
@@ -112,7 +112,7 @@ export const db = {
 
   async addACT(actividad: Omit<ActividadRecord, 'id' | 'created_at'>) {
     const { data, error } = await supabase
-      .from('ACT')
+      .from('act')
       .insert([actividad])
       .select()
 
@@ -123,7 +123,7 @@ export const db = {
   // Bulk operations for adding multiple records
   async addMultipleEmployees(employees: Omit<PlantillaRecord, 'id' | 'created_at' | 'updated_at'>[]) {
     const { data, error } = await supabase
-      .from('PLANTILLA')
+      .from('plantilla')
       .insert(employees)
       .select()
 
@@ -133,7 +133,7 @@ export const db = {
 
   async addMultipleIncidencias(incidencias: Omit<IncidenciaRecord, 'id' | 'created_at'>[]) {
     const { data, error } = await supabase
-      .from('INCIDENCIAS')
+      .from('incidencias')
       .insert(incidencias)
       .select()
 
@@ -143,7 +143,7 @@ export const db = {
 
   async addMultipleACT(actividades: Omit<ActividadRecord, 'id' | 'created_at'>[]) {
     const { data, error } = await supabase
-      .from('ACT')
+      .from('act')
       .insert(actividades)
       .select()
 
