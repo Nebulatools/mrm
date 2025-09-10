@@ -48,11 +48,13 @@ export async function GET() {
     }
     console.log('db.getPlantilla result:', { count: dbResult?.length, error: dbError })
 
-    // Test 5: Try other HR tables
-    const hrTables = ['incidencias', 'INCIDENCIAS', 'act', 'ACT']
+    // Test 5: Try SFTP tables and HR tables
+    const sftpTables = ['empleados_sftp', 'motivos_baja', 'asistencia_diaria']
+    const hrTables = ['incidencias', 'act']
+    const allTables = [...sftpTables, ...hrTables]
     const results: any = {}
     
-    for (const tableName of hrTables) {
+    for (const tableName of allTables) {
       console.log(`📋 Step 5: Testing ${tableName}...`)
       const { data, error } = await supabase
         .from(tableName)

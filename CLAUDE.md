@@ -49,8 +49,7 @@ npm run type-check # TypeScript type checking (tsc --noEmit)
 ### Key Architectural Patterns
 
 **Data Layer:**
-- Legacy SFTP tables: `plantilla`, `incidencias`, `act` (raw data ingestion)
-- Normalized tables: `employees`, `departments`, `absence_records`, `payroll_records`
+- SFTP Source Tables: `empleados_sftp`, `motivos_baja`, `asistencia_diaria` (direct SFTP import)
 - KPI calculation engine in `apps/web/src/lib/kpi-calculator.ts`
 - Supabase client configuration in `apps/web/src/lib/supabase.ts`
 
@@ -64,22 +63,20 @@ npm run type-check # TypeScript type checking (tsc --noEmit)
 The system implements HR-specific formulas with accurate calculations:
 
 **Core Formulas:**
-- **Activos**: Count(empleados al final del período) - Uses PLANTILLA table for headcount
+- **Activos**: Count(empleados activos) - Uses empleados_sftp table for headcount
 - **Activos Promedio**: (Empleados_Inicio_Período + Empleados_Fin_Período) / 2 - Correct average for rotation calculations
-- **Rotación Mensual**: (Bajas_del_Período / Activos_Promedio) × 100 - Standard HR rotation formula
-- **Días**: Count(DISTINCT fechas from ACT table) - Unique activity days
-- **Bajas**: Count(empleados with fecha_baja in period) - Terminations in specific period
-- **Incidencias**: Count(INCIDENCIAS records in period) - Total incidents
+- **Rotación Mensual**: (Bajas_del_Período / Activos_Promedio) × 100 - Standard HR rotation formula using motivos_baja
+- **Días**: Count(DISTINCT fechas from asistencia_diaria table) - Unique activity days
+- **Bajas**: Count(empleados with fecha_baja in period) - Terminations from motivos_baja table
+- **Incidencias**: Count(incidencia records from asistencia_diaria) - Total incidents from attendance data
 - **Inc prom x empleado**: Incidencias / Activos_Promedio - Incidents per employee
 - **Días Laborados**: (Activos / 7) × 6 - Estimated work days (6 days/week)
 - **%incidencias**: (Incidencias / Días_Laborados) × 100 - Incident percentage
 
-**Key Corrections Made:**
-- Changed Activos Promedio from employees/days to proper headcount average
-- Fixed rotation to use only period-specific terminations, not cumulative
-- Updated charts to use PLANTILLA data instead of ACT table for employee counts
-- Changed default period from 'alltime' to 'monthly'
-- Removed hardcoded targets/metas from KPI cards
+**SFTP Tables Architecture:**
+- empleados_sftp: Master employee data with all HR information
+- motivos_baja: Termination records with dates and reasons
+- asistencia_diaria: Daily attendance with incident tracking
 
 **Realistic Value Ranges:**
 - Activos Promedio: 70-85 employees (not 6)
@@ -112,55 +109,53 @@ The system implements HR-specific formulas with accurate calculations:
 - `retroactive-adjustment.tsx` - KPI adjustment with audit trail
 - `filter-panel.tsx` - Dashboard filtering system
 
-### Database Schema - Complete Reference
+### Database Schema - SFTP Tables
 
-**Primary Tables (Supabase PostgreSQL):**
+**SFTP Source Tables (Supabase PostgreSQL):**
 
-**1. PLANTILLA (Employee Master Data)**
+**1. empleados_sftp (Master Employee Data)**
 ```sql
 id: SERIAL PRIMARY KEY
-emp_id: VARCHAR(20) UNIQUE -- Employee ID (e.g., 'ACT001', 'TEC005')
-nombre: VARCHAR(200) -- Full name
-departamento: VARCHAR(100) -- Department (RH, Tecnología, Ventas, Marketing, Operaciones, Finanzas)
-activo: BOOLEAN -- Employment status (true=active, false=terminated)
-fecha_ingreso: DATE -- Hire date
-fecha_baja: DATE NULL -- Termination date (NULL if active)
-puesto: VARCHAR(100) -- Job title
-area: VARCHAR(100) -- Functional area within department
-motivo_baja: VARCHAR(200) NULL -- Termination reason (NULL if active)
-created_at: TIMESTAMP DEFAULT NOW()
-updated_at: TIMESTAMP DEFAULT NOW()
+numero_empleado: INTEGER UNIQUE NOT NULL
+apellidos: VARCHAR(200) NOT NULL
+nombres: VARCHAR(200) NOT NULL
+nombre_completo: VARCHAR(400)
+departamento: VARCHAR(100)
+puesto: VARCHAR(100)
+area: VARCHAR(100)
+fecha_ingreso: DATE NOT NULL
+fecha_baja: DATE
+activo: BOOLEAN NOT NULL DEFAULT true
+empresa: VARCHAR(200)
+fecha_creacion: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 ```
 
-**2. ACT (Daily Activity Records)**
+**2. motivos_baja (Termination Records)**
 ```sql
 id: SERIAL PRIMARY KEY
-emp_id: VARCHAR(20) -- References PLANTILLA.emp_id
-fecha: DATE -- Activity date
-presente: BOOLEAN -- Attendance status
-created_at: TIMESTAMP DEFAULT NOW()
+numero_empleado: INTEGER NOT NULL
+fecha_baja: DATE NOT NULL
+tipo: VARCHAR(100) NOT NULL
+motivo: VARCHAR(200) NOT NULL
+descripcion: TEXT
+fecha_creacion: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 ```
 
-**3. INCIDENCIAS (Incident Records)**
+**3. asistencia_diaria (Daily Attendance)**
 ```sql
 id: SERIAL PRIMARY KEY
-emp_id: VARCHAR(20) -- References PLANTILLA.emp_id
-fecha: DATE -- Incident date
-tipo: VARCHAR(100) -- Incident type (Tardanza, Falta injustificada, etc.)
-descripcion: TEXT -- Incident description
-created_at: TIMESTAMP DEFAULT NOW()
+numero_empleado: INTEGER NOT NULL
+fecha: DATE NOT NULL
+horas_trabajadas: DECIMAL(4,2) DEFAULT 8.0
+horas_incidencia: DECIMAL(4,2) DEFAULT 0.0
+presente: BOOLEAN DEFAULT true
+fecha_creacion: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+UNIQUE(numero_empleado, fecha)
 ```
 
-**Data Relationships:**
-- PLANTILLA is the master table (115 total records as of Sept 2025)
-- ACT links to PLANTILLA via emp_id (activity tracking)
-- INCIDENCIAS links to PLANTILLA via emp_id (incident tracking)
-
-**Current Data Distribution:**
-- **Active Employees**: 73 (activo = true)
-- **Terminated Employees**: 42 (activo = false, distributed across 2025)
-- **Departments**: RH (15), Tecnología (25), Ventas (15), Marketing (10), Operaciones (8), Finanzas (varies)
-- **Monthly Terminations 2025**: Jan(2), Feb(3), Mar(4), Apr(2), May(3), Jun(1), Jul(2), Aug(4), Sep+
+**Data Flow:**
+- SFTP Files → empleados_sftp, motivos_baja, asistencia_diaria
+- KPI calculations use these 3 tables directly
 
 ### Type System
 

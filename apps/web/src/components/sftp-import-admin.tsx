@@ -20,6 +20,7 @@ import {
 interface ImportResults {
   empleados: number;
   bajas: number;
+  asistencia: number;
   errors: string[];
 }
 
@@ -75,6 +76,7 @@ export function SFTPImportAdmin() {
         setImportResults({
           empleados: result.data.empleados.total_en_bd || 0,
           bajas: result.data.bajas.total_en_bd || 0,
+          asistencia: result.data.asistencia.total_en_bd || 0,
           errors: []
         });
         console.log('✅ Importación real completada:', result.data);
@@ -83,6 +85,7 @@ export function SFTPImportAdmin() {
         setImportResults({
           empleados: 0,
           bajas: 0,
+          asistencia: 0,
           errors: [result.error || 'Error desconocido']
         });
       }
@@ -123,6 +126,7 @@ export function SFTPImportAdmin() {
         setImportResults({
           empleados: 0,
           bajas: 0,
+          asistencia: 0,
           errors: [result.error || 'Error desconocido']
         });
       }
@@ -324,6 +328,16 @@ export function SFTPImportAdmin() {
                 </div>
                 <div className="text-2xl font-bold text-red-600">
                   {importResults.bajas.toLocaleString()}
+                </div>
+              </div>
+              
+              <div className="bg-green-50 p-6 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="font-medium">Asistencia Importada</span>
+                </div>
+                <div className="text-2xl font-bold text-green-600">
+                  {importResults.asistencia.toLocaleString()}
                 </div>
               </div>
             </div>
