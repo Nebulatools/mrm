@@ -26,6 +26,9 @@ export interface PlantillaRecord {
   area?: string | null
   clasificacion?: string | null
   ubicacion?: string | null
+  genero?: string | null
+  fecha_nacimiento?: string | null
+  fecha_antiguedad?: string | null
   created_at: string
   updated_at: string
 }
@@ -179,6 +182,9 @@ export const db = {
         area: emp.area || 'Sin Área',
         clasificacion: emp.clasificacion || 'Sin Clasificación',
         ubicacion: (emp as any).ubicacion || null,
+        genero: emp.genero || null,
+        fecha_nacimiento: emp.fecha_nacimiento || null,
+        fecha_antiguedad: emp.fecha_antiguedad || null,
         created_at: emp.fecha_creacion || new Date().toISOString(),
         updated_at: emp.fecha_actualizacion || new Date().toISOString()
       };

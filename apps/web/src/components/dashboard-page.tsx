@@ -12,6 +12,7 @@ import {
   Calendar,
   Filter,
 } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter } from 'recharts';
 import { KPICard } from "./kpi-card";
 import { KPIChart } from "./kpi-chart";
 import { AIInsights } from "./ai-insights";
@@ -158,6 +159,126 @@ export function DashboardPage() {
 
   // Use shared filter util
   const filterPlantilla = (plantillaData: PlantillaRecord[]) => applyRetentionFilters(plantillaData, retentionFilters);
+
+  // ======= Headcount (Personal) derived metrics and datasets =======
+  const getAge = (fechaNacimiento?: string | null) => {
+    if (!fechaNacimiento) return null;
+    const d = new Date(fechaNacimiento);
+    if (isNaN(d.getTime())) return null;
+    const diff = Date.now() - d.getTime();
+    const age = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+    return age;
+  };
+
+  const monthsBetween = (startStr?: string | null, end: Date = new Date()) => {
+    if (!startStr) return 0;
+    const start = new Date(startStr);
+    if (isNaN(start.getTime())) return 0;
+    const years = end.getFullYear() - start.getFullYear();
+    const months = end.getMonth() - start.getMonth();
+    const total = years * 12 + months + (end.getDate() >= start.getDate() ? 0 : -1);
+    return Math.max(0, total);
+  };
+
+  const plantillaFiltered = filterPlantilla(data.plantilla || []);
+  const activosNow = plantillaFiltered.filter(e => e.activo).length;
+  const bajasTotal = plantillaFiltered.filter(e => !!e.fecha_baja).length;
+  // Ingresos: contrataciones históricas y del mes actual
+  const now = new Date();
+  const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const ingresosHistorico = plantillaFiltered.filter(e => {
+    const fi = new Date(e.fecha_ingreso);
+    return !isNaN(fi.getTime());
+  }).length;
+  const ingresosMes = plantillaFiltered.filter(e => {
+    const fi = new Date(e.fecha_ingreso);
+    return !isNaN(fi.getTime()) && fi >= startMonth && fi <= endMonth;
+  }).length;
+  // Antigüedad promedio (meses) sobre activos
+  const activeEmployees = plantillaFiltered.filter(e => e.activo);
+  const antigPromMeses = activeEmployees.length > 0 
+    ? Math.round(activeEmployees.reduce((acc, e) => acc + monthsBetween(e.fecha_antiguedad || e.fecha_ingreso), 0) / activeEmployees.length)
+    : 0;
+  // Empleados con antigüedad < 3 meses (activos)
+  const menores3m = activeEmployees.filter(e => monthsBetween(e.fecha_antiguedad || e.fecha_ingreso) < 3).length;
+
+  // Clasificación: horizontal bar
+  const classCounts = (() => {
+    const map = new Map<string, number>();
+    plantillaFiltered.forEach(e => {
+      const key = (e.clasificacion || 'Sin Clasificación').toUpperCase();
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+  })();
+
+  // Género: horizontal bar
+  const genderCounts = (() => {
+    const norm = (g?: string | null) => {
+      const s = (g || '').toString().trim().toUpperCase();
+      if (["H", "HOMBRE", "M", "MASCULINO"].includes(s)) return "HOMBRE";
+      if (["M", "MUJER", "F", "FEMENINO"].includes(s)) return "MUJER";
+      return s || 'NO ESPECIFICADO';
+    };
+    const map = new Map<string, number>();
+    plantillaFiltered.forEach(e => {
+      const key = norm((e as any).genero);
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+  })();
+
+  // Edad: scatter de distribución por edad (conteo por edad)
+  const ageScatterData = (() => {
+    const map = new Map<number, number>();
+    plantillaFiltered.forEach(e => {
+      const age = getAge((e as any).fecha_nacimiento);
+      if (age !== null && age >= 0 && age <= 100) {
+        map.set(age, (map.get(age) || 0) + 1);
+      }
+    });
+    return Array.from(map.entries()).map(([age, count]) => ({ age, count }));
+  })();
+
+  // Headcount por Departamento (barras verticales)
+  const hcDeptData = (() => {
+    const map = new Map<string, number>();
+    activeEmployees.forEach(e => {
+      const key = e.departamento || 'Sin Departamento';
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([departamento, count]) => ({ departamento, count })).sort((a,b)=> b.count - a.count);
+  })();
+
+  // Headcount por Área (barras verticales)
+  const hcAreaData = (() => {
+    const map = new Map<string, number>();
+    activeEmployees.forEach(e => {
+      const key = e.area || 'Sin Área';
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([area, count]) => ({ area, count })).sort((a,b)=> b.count - a.count);
+  })();
+
+  // Antigüedad por Área (barras horizontales apiladas por bins)
+  const seniorityByArea = (() => {
+    const bins = (months: number) => {
+      if (months < 3) return '<3m';
+      if (months < 6) return '3-6m';
+      if (months < 12) return '6-12m';
+      return '12m+';
+    };
+    const map = new Map<string, { ['<3m']: number; ['3-6m']: number; ['6-12m']: number; ['12m+']: number }>();
+    activeEmployees.forEach(e => {
+      const area = e.area || 'Sin Área';
+      const m = monthsBetween(e.fecha_antiguedad || e.fecha_ingreso);
+      const b = bins(m);
+      if (!map.has(area)) map.set(area, { '<3m': 0, '3-6m': 0, '6-12m': 0, '12m+': 0 });
+      map.get(area)![b as '<3m' | '3-6m' | '6-12m' | '12m+']++;
+    });
+    return Array.from(map.entries()).map(([area, counts]) => ({ area, ...counts }));
+  })();
 
   // Función para calcular KPIs filtrados para retención
   const getFilteredRetentionKPIs = () => {
@@ -496,57 +617,139 @@ export function DashboardPage() {
 
           {/* Headcount Tab */}
           <TabsContent value="headcount" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {categorized.headcount.map((kpi) => (
-                <KPICard 
-                  key={kpi.name} 
-                  kpi={kpi} 
-                  icon={<Users className="h-6 w-6" />}
-                />
-              ))}
+            {/* 5 KPIs solicitados */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <KPICard kpi={{ name: 'Activos', category: 'headcount', value: activosNow, period_start: '', period_end: '' }} icon={<Users className="h-6 w-6" />} />
+              <KPICard kpi={{ name: 'Bajas', category: 'headcount', value: bajasTotal, period_start: '', period_end: '' }} icon={<UserMinus className="h-6 w-6" />} />
+              <KPICard kpi={{ name: 'Ingresos (histórico)', category: 'headcount', value: ingresosHistorico, period_start: '1900-01-01', period_end: new Date().toISOString().slice(0,10) }} icon={<TrendingUp className="h-6 w-6" />} />
+              <KPICard kpi={{ name: 'Antigüedad Promedio (meses)', category: 'headcount', value: antigPromMeses, period_start: '', period_end: '' }} icon={<Calendar className="h-6 w-6" />} />
+              <KPICard kpi={{ name: 'Empl. < 3 meses', category: 'headcount', value: menores3m, period_start: '', period_end: '' }} icon={<Calendar className="h-6 w-6" />} />
             </div>
-            
-            {/* 3 Chart Types for Headcount */}
+
+            {/* Gráficas intermedias: Clasificación, Género, Edad (scatter) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Tendencias</CardTitle>
-                  <p className="text-sm text-gray-600">Evolución temporal</p>
+                  <CardTitle className="text-base">Clasificación</CardTitle>
+                  <p className="text-sm text-gray-600">Confianza vs Sindicalizado</p>
                 </CardHeader>
                 <CardContent>
-                  <KPIChart 
-                    data={categorized.headcount} 
-                    type="trend" 
-                    height={300}
-                  />
+                  <div style={{ width: '100%', height: 280 }}>
+                    <ResponsiveContainer>
+                      <BarChart data={classCounts} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" allowDecimals={false} />
+                        <YAxis type="category" dataKey="name" />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#3b82f6" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Distribución</CardTitle>
-                  <p className="text-sm text-gray-600">Proporción por métrica</p>
+                  <CardTitle className="text-base">Género</CardTitle>
+                  <p className="text-sm text-gray-600">Hombre / Mujer</p>
                 </CardHeader>
                 <CardContent>
-                  <KPIChart 
-                    data={categorized.headcount} 
-                    type="pie" 
-                    height={300}
-                  />
+                  <div style={{ width: '100%', height: 280 }}>
+                    <ResponsiveContainer>
+                      <BarChart data={genderCounts} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" allowDecimals={false} />
+                        <YAxis type="category" dataKey="name" />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#10b981" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Comparativo</CardTitle>
-                  <p className="text-sm text-gray-600">Actual vs anterior</p>
+                  <CardTitle className="text-base">Distribución por Edad</CardTitle>
+                  <p className="text-sm text-gray-600">Gráfica de dispersión</p>
                 </CardHeader>
                 <CardContent>
-                  <KPIChart 
-                    data={categorized.headcount} 
-                    type="stacked-bar" 
-                    height={300}
-                  />
+                  <div style={{ width: '100%', height: 280 }}>
+                    <ResponsiveContainer>
+                      <ScatterChart margin={{ left: 16, right: 16, top: 8, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="age" name="Edad" unit=" años" type="number" allowDecimals={false} />
+                        <YAxis dataKey="count" name="# Empleados" type="number" allowDecimals={false} />
+                        <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                        <Scatter data={ageScatterData} fill="#ef4444" />
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Gráficas inferiores: HC por Depto, HC por Área, Antigüedad por Área */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">HC por Departamento</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer>
+                      <BarChart data={hcDeptData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="departamento" angle={-30} textAnchor="end" interval={0} height={70} />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="#6366f1" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">HC por Área</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer>
+                      <BarChart data={hcAreaData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="area" angle={-30} textAnchor="end" interval={0} height={70} />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="#f59e0b" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Antigüedad por Área</CardTitle>
+                  <p className="text-sm text-gray-600">Barras horizontales por grupos</p>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer>
+                      <BarChart data={seniorityByArea} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" allowDecimals={false} />
+                        <YAxis dataKey="area" type="category" width={120} />
+                        <Legend />
+                        <Tooltip />
+                        <Bar dataKey="<3m" stackId="a" fill="#22c55e" />
+                        <Bar dataKey="3-6m" stackId="a" fill="#3b82f6" />
+                        <Bar dataKey="6-12m" stackId="a" fill="#a855f7" />
+                        <Bar dataKey="12m+" stackId="a" fill="#ef4444" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </CardContent>
               </Card>
             </div>
