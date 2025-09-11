@@ -27,7 +27,7 @@ interface DismissalReasonsTableProps {
 // Color mapping removed (not used)
 
 export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps) {
-  const [showAll, setShowAll] = useState(true); // MOSTRAR TODOS POR DEFECTO!
+  const [showAll, setShowAll] = useState(false); // COLAPSADA POR DEFECTO
   
   const sanitizeText = (value?: string) => {
     if (!value) return 'N/A';
