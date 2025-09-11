@@ -30,7 +30,7 @@ export class GeminiAIService {
   constructor() {
     // Use API key from environment variables
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || 'demo-key';
-    console.log('🤖 Inicializando Gemini AI (gemini-1.5-flash) con API key:', apiKey !== 'demo-key' ? '✅ API key configurada' : '⚠️ Usando modo demo');
+    console.log('🤖 Inicializando IA (gemini-1.5-flash) con API key:', apiKey !== 'demo-key' ? '✅ API key configurada' : '⚠️ Usando modo demo');
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({ 
       model: 'gemini-1.5-flash',
@@ -44,7 +44,7 @@ export class GeminiAIService {
   }
 
   async analyzeKPIs(kpis: KPIResult[], period: string = 'monthly'): Promise<AIAnalysis> {
-    console.log('🤖 Starting Gemini AI analysis for KPIs');
+    console.log('🤖 Starting IA analysis for KPIs');
     
     const cacheKey = `analysis-${period}-${JSON.stringify(kpis.map(k => k.value))}`;
     const cached = this.cache.get(cacheKey);
@@ -59,11 +59,11 @@ export class GeminiAIService {
       const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
       if (!apiKey || apiKey === 'demo-key' || apiKey === 'your_gemini_api_key_here') {
         console.log('🎲 Usando análisis mock - API key no configurada correctamente');
-        console.log('💡 Para usar Gemini real: Ve a https://aistudio.google.com/app/apikey y configura NEXT_PUBLIC_GEMINI_API_KEY');
+        console.log('💡 Para usar IA real: Ve a https://aistudio.google.com/app/apikey y configura NEXT_PUBLIC_GEMINI_API_KEY');
         return this.generateMockAnalysis(kpis, period);
       }
 
-      console.log('🚀 Enviando solicitud a Gemini AI...');
+      console.log('🚀 Enviando solicitud a IA...');
       
       // Create prompt for Gemini
       const prompt = this.createAnalysisPrompt(kpis, period);
@@ -71,7 +71,7 @@ export class GeminiAIService {
       
       // Call Gemini API with timeout
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Gemini API timeout after 30 seconds')), 30000);
+        setTimeout(() => reject(new Error('IA API timeout after 30 seconds')), 30000);
       });
       
       const apiPromise = this.model.generateContent(prompt);
@@ -80,14 +80,14 @@ export class GeminiAIService {
       const response = (result as Awaited<ReturnType<typeof this.model.generateContent>>).response;
       
       if (!response) {
-        throw new Error('No response from Gemini API');
+        throw new Error('No response from IA API');
       }
       
       const analysisText = response.text();
-      console.log('📦 Respuesta de Gemini recibida:', analysisText.length, 'caracteres');
+      console.log('📦 Respuesta de IA recibida:', analysisText.length, 'caracteres');
       
       if (!analysisText || analysisText.trim().length === 0) {
-        throw new Error('Empty response from Gemini API');
+        throw new Error('Empty response from IA API');
       }
       
       // Parse the AI response into structured data
@@ -249,13 +249,13 @@ IMPORTANTE:
       return analysis;
       
     } catch (error) {
-      console.error('❌ Error parsing Gemini AI response:', error);
+      console.error('❌ Error parsing IA response:', error);
       console.log('🔄 Falling back to mock analysis');
       
       // Fallback to mock analysis with notification
       return {
         ...this.generateMockAnalysis(kpis, 'monthly'),
-        summary: `⚠️ Error al procesar respuesta de Gemini AI. Usando análisis alternativo: ${this.generateMockAnalysis(kpis, 'monthly').summary}`
+        summary: `⚠️ Error al procesar respuesta de IA. Usando análisis alternativo: ${this.generateMockAnalysis(kpis, 'monthly').summary}`
       };
     }
   }
@@ -329,11 +329,11 @@ IMPORTANTE:
 
   // Advanced method to analyze charts and trends
   async analyzeChartTrends(kpis: KPIResult[], chartType: string = 'line'): Promise<string> {
-    console.log('📊 Iniciando análisis avanzado de gráficas con Gemini AI');
+    console.log('📊 Iniciando análisis avanzado de gráficas con IA');
     
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey || apiKey === 'demo-key' || apiKey === 'your_gemini_api_key_here') {
-      return 'Análisis de gráficas no disponible - API key de Gemini no configurada';
+      return 'Análisis de gráficas no disponible - API key de IA no configurada';
     }
 
     try {

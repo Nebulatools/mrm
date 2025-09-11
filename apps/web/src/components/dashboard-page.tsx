@@ -621,7 +621,7 @@ export function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <KPICard kpi={{ name: 'Activos', category: 'headcount', value: activosNow, period_start: '', period_end: '' }} icon={<Users className="h-6 w-6" />} />
               <KPICard kpi={{ name: 'Bajas', category: 'headcount', value: bajasTotal, period_start: '', period_end: '' }} icon={<UserMinus className="h-6 w-6" />} />
-              <KPICard kpi={{ name: 'Ingresos (histórico)', category: 'headcount', value: ingresosHistorico, period_start: '1900-01-01', period_end: new Date().toISOString().slice(0,10) }} icon={<TrendingUp className="h-6 w-6" />} />
+              <KPICard kpi={{ name: 'Ingresos', category: 'headcount', value: ingresosHistorico, period_start: '1900-01-01', period_end: new Date().toISOString().slice(0,10) }} icon={<TrendingUp className="h-6 w-6" />} />
               <KPICard kpi={{ name: 'Antigüedad Promedio (meses)', category: 'headcount', value: antigPromMeses, period_start: '', period_end: '' }} icon={<Calendar className="h-6 w-6" />} />
               <KPICard kpi={{ name: 'Empl. < 3 meses', category: 'headcount', value: menores3m, period_start: '', period_end: '' }} icon={<Calendar className="h-6 w-6" />} />
             </div>

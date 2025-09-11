@@ -486,113 +486,168 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
         </div>
       </div>
 
-      {/* Tabla comparativa de Rotación Acumulada */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Tabla Comparativa - Rotación Acumulada 12 Meses Móviles</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 px-4">Mes</th>
-                  <th className="text-center py-2 px-4 bg-blue-50">{availableYears[0] || new Date().getFullYear() - 1}</th>
-                  <th className="text-center py-2 px-4 bg-red-50">{availableYears[1] || new Date().getFullYear()}</th>
-                  <th className="text-center py-2 px-4">Variación</th>
-                </tr>
-              </thead>
-              <tbody>
-                {yearlyComparison.map((row, index) => {
-                  const year1 = availableYears[0];
-                  const year2 = availableYears[availableYears.length - 1];
-                  const variation = row[`rotacion${year2}`] && row[`rotacion${year1}`] 
-                    ? ((row[`rotacion${year2}`] - row[`rotacion${year1}`]) / row[`rotacion${year1}`] * 100).toFixed(1)
-                    : null;
-                  return (
-                    <tr key={row.mes} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                      <td className="py-2 px-4 font-medium">{row.mes}</td>
-                      <td className="py-2 px-4 text-center">
-                        {row[`rotacion${year1}`] ? `${row[`rotacion${year1}`].toFixed(2)}%` : '-'}
-                      </td>
-                      <td className="py-2 px-4 text-center">
-                        {row[`rotacion${year2}`] ? `${row[`rotacion${year2}`].toFixed(2)}%` : '-'}
-                      </td>
-                      <td className="py-2 px-4 text-center">
-                        {variation && (
-                          <Badge variant={parseFloat(variation) > 0 ? "destructive" : "default"}>
-                            {variation}%
-                          </Badge>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Tablas comparativas lado a lado */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Tabla comparativa de Rotación Acumulada */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Tabla Comparativa - Rotación Acumulada 12 Meses Móviles</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-3" rowSpan={2}>Mes</th>
+                    <th className="text-center py-2 px-3 bg-blue-50" colSpan={3}>{availableYears[0] || new Date().getFullYear() - 1}</th>
+                    <th className="text-center py-2 px-3 bg-red-50" colSpan={3}>{availableYears[1] || new Date().getFullYear()}</th>
+                    <th className="text-center py-2 px-3" rowSpan={2}>Variación</th>
+                  </tr>
+                  <tr className="border-b">
+                    <th className="text-center py-2 px-3 bg-blue-50 text-xs">% Rot. 12M</th>
+                    <th className="text-center py-2 px-3 bg-blue-50 text-xs"># Bajas 12M</th>
+                    <th className="text-center py-2 px-3 bg-blue-50 text-xs"># Activos</th>
+                    <th className="text-center py-2 px-3 bg-red-50 text-xs">% Rot. 12M</th>
+                    <th className="text-center py-2 px-3 bg-red-50 text-xs"># Bajas 12M</th>
+                    <th className="text-center py-2 px-3 bg-red-50 text-xs"># Activos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {yearlyComparison.map((row, index) => {
+                    const year1 = availableYears[0];
+                    const year2 = availableYears[availableYears.length - 1];
+                    
+                    // Buscar datos del mes para cada año en monthlyData
+                    const monthIndex = yearlyComparison.indexOf(row);
+                    const monthNumber = monthIndex + 1;
+                    
+                    const monthData1 = monthlyData.find(d => d.year === year1 && d.month === monthNumber);
+                    const monthData2 = monthlyData.find(d => d.year === year2 && d.month === monthNumber);
+                    
+                    // Calcular bajas acumuladas de 12 meses para cada año
+                    const getBajas12M = (targetYear: number, targetMonth: number) => {
+                      const startDate = new Date(targetYear, targetMonth - 13, 1);
+                      
+                      let totalBajas = 0;
+                      for (let i = 0; i < 12; i++) {
+                        const checkMonth = new Date(startDate);
+                        checkMonth.setMonth(startDate.getMonth() + i);
+                        const data = monthlyData.find(d => 
+                          d.year === checkMonth.getFullYear() && 
+                          d.month === checkMonth.getMonth() + 1
+                        );
+                        if (data) totalBajas += data.bajas;
+                      }
+                      return totalBajas;
+                    };
+                    
+                    const bajas12M_1 = getBajas12M(year1, monthNumber);
+                    const bajas12M_2 = getBajas12M(year2, monthNumber);
+                    
+                    const rotacion1 = typeof row[`rotacion${year1}`] === 'number' ? row[`rotacion${year1}`] as number : 0;
+                    const rotacion2 = typeof row[`rotacion${year2}`] === 'number' ? row[`rotacion${year2}`] as number : 0;
+                    
+                    const variation = rotacion2 && rotacion1 
+                      ? ((rotacion2 - rotacion1) / rotacion1 * 100).toFixed(1)
+                      : null;
+                      
+                    return (
+                      <tr key={row.mes} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+                        <td className="py-2 px-3 font-medium">{row.mes}</td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {rotacion1 ? `${rotacion1.toFixed(2)}%` : '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {bajas12M_1 || '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {monthData1?.activos ?? '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {rotacion2 ? `${rotacion2.toFixed(2)}%` : '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {bajas12M_2 || '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {monthData2?.activos ?? '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {variation && (
+                            <Badge variant={parseFloat(variation) > 0 ? "destructive" : "default"}>
+                              {variation}%
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Tabla comparativa de Rotación Mensual */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Tabla Comparativa - Rotación Mensual</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 px-3" rowSpan={2}>Mes</th>
-                  <th className="text-center py-2 px-3 bg-blue-50" colSpan={3}>{availableYears[0] || 2024}</th>
-                  <th className="text-center py-2 px-3 bg-red-50" colSpan={3}>{availableYears[availableYears.length - 1] || 2025}</th>
-                </tr>
-                <tr className="border-b">
-                  <th className="text-center py-2 px-3 bg-blue-50 text-xs">% Rotación</th>
-                  <th className="text-center py-2 px-3 bg-blue-50 text-xs"># Bajas</th>
-                  <th className="text-center py-2 px-3 bg-blue-50 text-xs"># Activos</th>
-                  <th className="text-center py-2 px-3 bg-red-50 text-xs">% Rotación</th>
-                  <th className="text-center py-2 px-3 bg-red-50 text-xs"># Bajas</th>
-                  <th className="text-center py-2 px-3 bg-red-50 text-xs"># Activos</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthNames.map((monthName, index) => {
-                  const year1 = availableYears[0] || 2024;
-                  const year2 = availableYears[availableYears.length - 1] || 2025;
-                  const monthYear1 = monthlyData.find(d => d.year === year1 && d.month === index + 1);
-                  const monthYear2 = monthlyData.find(d => d.year === year2 && d.month === index + 1);
-                  
-                  return (
-                    <tr key={monthName} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                      <td className="py-2 px-3 font-medium">{monthName}</td>
-                      <td className="py-2 px-3 text-center text-xs">
-                        {monthYear1?.rotacionPorcentaje ? `${monthYear1.rotacionPorcentaje.toFixed(1)}%` : '-'}
-                      </td>
-                      <td className="py-2 px-3 text-center text-xs">
-                        {monthYear1?.bajas ?? '-'}
-                      </td>
-                      <td className="py-2 px-3 text-center text-xs">
-                        {monthYear1?.activos ?? '-'}
-                      </td>
-                      <td className="py-2 px-3 text-center text-xs">
-                        {monthYear2?.rotacionPorcentaje ? `${monthYear2.rotacionPorcentaje.toFixed(1)}%` : '-'}
-                      </td>
-                      <td className="py-2 px-3 text-center text-xs">
-                        {monthYear2?.bajas ?? '-'}
-                      </td>
-                      <td className="py-2 px-3 text-center text-xs">
-                        {monthYear2?.activos ?? '-'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Tabla comparativa de Rotación Mensual */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Tabla Comparativa - Rotación Mensual</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-3" rowSpan={2}>Mes</th>
+                    <th className="text-center py-2 px-3 bg-blue-50" colSpan={3}>{availableYears[0] || 2024}</th>
+                    <th className="text-center py-2 px-3 bg-red-50" colSpan={3}>{availableYears[availableYears.length - 1] || 2025}</th>
+                  </tr>
+                  <tr className="border-b">
+                    <th className="text-center py-2 px-3 bg-blue-50 text-xs">% Rotación</th>
+                    <th className="text-center py-2 px-3 bg-blue-50 text-xs"># Bajas</th>
+                    <th className="text-center py-2 px-3 bg-blue-50 text-xs"># Activos</th>
+                    <th className="text-center py-2 px-3 bg-red-50 text-xs">% Rotación</th>
+                    <th className="text-center py-2 px-3 bg-red-50 text-xs"># Bajas</th>
+                    <th className="text-center py-2 px-3 bg-red-50 text-xs"># Activos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthNames.map((monthName, index) => {
+                    const year1 = availableYears[0] || 2024;
+                    const year2 = availableYears[availableYears.length - 1] || 2025;
+                    const monthYear1 = monthlyData.find(d => d.year === year1 && d.month === index + 1);
+                    const monthYear2 = monthlyData.find(d => d.year === year2 && d.month === index + 1);
+                    
+                    return (
+                      <tr key={monthName} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+                        <td className="py-2 px-3 font-medium">{monthName}</td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {monthYear1?.rotacionPorcentaje ? `${monthYear1.rotacionPorcentaje.toFixed(1)}%` : '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {monthYear1?.bajas ?? '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {monthYear1?.activos ?? '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {monthYear2?.rotacionPorcentaje ? `${monthYear2.rotacionPorcentaje.toFixed(1)}%` : '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {monthYear2?.bajas ?? '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center text-xs">
+                          {monthYear2?.activos ?? '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

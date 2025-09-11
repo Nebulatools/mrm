@@ -129,14 +129,14 @@ export function AIInsights({ kpis, period = 'monthly' }: AIInsightsProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 animate-pulse" />
-            Análisis con IA (Gemini)
+            Análisis con IA
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <Brain className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-500" />
-              <p className="text-sm text-gray-600">Analizando KPIs con Gemini AI...</p>
+              <p className="text-sm text-gray-600">Analizando KPIs con IA...</p>
             </div>
           </div>
         </CardContent>
@@ -150,7 +150,7 @@ export function AIInsights({ kpis, period = 'monthly' }: AIInsightsProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5" />
-            Análisis con IA (Gemini)
+            Análisis con IA
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -168,7 +168,7 @@ export function AIInsights({ kpis, period = 'monthly' }: AIInsightsProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Brain className="h-5 w-5 text-purple-600" />
-          Análisis con IA (Gemini)
+          Análisis con IA
           <Badge variant="outline" className="ml-auto">
             Puntuación: <span className={getScoreColor(analysis.overallScore)}>{analysis.overallScore}/100</span>
           </Badge>
@@ -187,7 +187,7 @@ export function AIInsights({ kpis, period = 'monthly' }: AIInsightsProps) {
             ) : (
               <Eye className="h-4 w-4 mr-2" />
             )}
-            Test Gemini
+            Test IA
           </Button>
           <Button
             variant="outline"
@@ -367,7 +367,7 @@ export function AIInsights({ kpis, period = 'monthly' }: AIInsightsProps) {
             <div className="flex items-center gap-3">
               <BarChart3 className="h-5 w-5 animate-spin text-blue-500" />
               <div>
-                <h4 className="font-medium text-gray-900">Analizando Gráficas con Gemini AI</h4>
+                <h4 className="font-medium text-gray-900">Analizando Gráficas con IA</h4>
                 <p className="text-sm text-gray-600">Identificando patrones y tendencias visuales...</p>
               </div>
             </div>
