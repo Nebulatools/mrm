@@ -1,4 +1,4 @@
-import { db, type PlantillaRecord, type IncidenciaRecord, type ActividadRecord } from './supabase';
+import { db, type PlantillaRecord, type AsistenciaDiariaRecord, type EmpleadoSFTPRecord } from './supabase';
 import { sftpClient } from './sftp-client';
 import { startOfMonth, endOfMonth, format, differenceInDays, isWithinInterval, subMonths } from 'date-fns';
 
@@ -197,11 +197,11 @@ export class KPICalculator {
 
   private calculateKPIsFromData(
     plantilla: PlantillaRecord[],
-    incidencias: any[], // AsistenciaDiariaRecord with horas_incidencia > 0
-    asistencia: any[], // All AsistenciaDiariaRecord
+    incidencias: AsistenciaDiariaRecord[],
+    asistencia: AsistenciaDiariaRecord[],
     prevPlantilla: PlantillaRecord[],
-    prevIncidencias: any[], // Previous AsistenciaDiariaRecord with horas_incidencia > 0
-    prevAsistencia: any[], // All previous AsistenciaDiariaRecord
+    prevIncidencias: AsistenciaDiariaRecord[],
+    prevAsistencia: AsistenciaDiariaRecord[],
     startDate: Date,
     endDate: Date
   ): KPIResult[] {
@@ -229,8 +229,8 @@ export class KPICalculator {
     const prevActivosActuales = prevPlantilla.filter(emp => emp.activo === true).length;
 
     // 2. Días - Count distinct dates in asistencia_diaria
-    const uniqueDays = [...new Set(asistenciaFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
-    const prevUniqueDays = [...new Set(prevAsistenciaFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))].length;
+    const uniqueDays = Array.from(new Set(asistenciaFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))).length;
+    const prevUniqueDays = Array.from(new Set(prevAsistenciaFiltered.map(a => format(new Date(a.fecha), 'yyyy-MM-dd')))).length;
 
     // 3. Activos Prom - Promedio de activos al inicio y fin del periodo
     // Empleados activos al inicio del periodo
@@ -589,7 +589,7 @@ export class KPICalculator {
       ]);
 
       // Transform empleados - USAR EL CAMPO ACTIVO DE LA TABLA!
-      const plantillaWithDates: PlantillaRecord[] = empleados.map((emp: any) => {
+      const plantillaWithDates: PlantillaRecord[] = (empleados as EmpleadoSFTPRecord[]).map((emp) => {
         return {
           ...emp,
           emp_id: emp.numero_empleado, // Add emp_id for compatibility
@@ -662,7 +662,7 @@ export class KPICalculator {
     sftpClient.clearCache();
   }
 
-  private calculateRotacionAcumulada(plantilla: any[], endDate: Date): number {
+  private calculateRotacionAcumulada(plantilla: PlantillaRecord[], endDate: Date): number {
     try {
       // Calculate 12-month rolling turnover
       const startDate12m = new Date(endDate);

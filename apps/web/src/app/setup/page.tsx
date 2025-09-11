@@ -28,7 +28,8 @@ export default function SetupPage() {
       } else {
         setPopulationResult(`❌ Error: ${result.error}`);
       }
-    } catch (error) {
+    } catch (e) {
+      const error = e as Error;
       setPopulationResult(`❌ Error: ${error.message}`);
     } finally {
       setIsPopulating(false);

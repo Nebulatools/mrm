@@ -28,7 +28,7 @@ export class SFTPClient {
     const cached = this.cache.get(key);
     if (cached && Date.now() - cached.timestamp < cached.ttl) {
       console.log(`Cache hit for ${key}`);
-      return cached.data;
+      return cached.data as T;
     }
     if (cached) {
       console.log(`Cache expired for ${key}`);
@@ -81,7 +81,7 @@ export class SFTPClient {
     // Check if request is already in progress
     if (this.ongoingRequests.has(cacheKey)) {
       console.log('Waiting for ongoing listFiles request...');
-      return this.ongoingRequests.get(cacheKey)!;
+      return this.ongoingRequests.get(cacheKey)! as Promise<SFTPFile[]>;
     }
 
     // Start new request
@@ -137,7 +137,7 @@ export class SFTPClient {
     // Check if request is already in progress
     if (this.ongoingRequests.has(cacheKey)) {
       console.log(`Waiting for ongoing download request for ${filename}...`);
-      return this.ongoingRequests.get(cacheKey)!;
+      return this.ongoingRequests.get(cacheKey)! as Promise<Record<string, unknown>[]>;
     }
 
     // Start new request
@@ -196,7 +196,11 @@ export class SFTPClient {
     // Check if request is already in progress
     if (this.ongoingRequests.has(cacheKey)) {
       console.log('Waiting for ongoing syncAllData request...');
-      return this.ongoingRequests.get(cacheKey)!;
+      return this.ongoingRequests.get(cacheKey)! as Promise<{
+        plantilla: Record<string, unknown>[];
+        incidencias: Record<string, unknown>[];
+        act: Record<string, unknown>[];
+      }>;
     }
 
     // Start new request

@@ -21,12 +21,22 @@ class SFTPService {
   private config: SFTPConfig;
 
   constructor() {
+    const host = process.env.SFTP_HOST;
+    const port = process.env.SFTP_PORT;
+    const username = process.env.SFTP_USER;
+    const password = process.env.SFTP_PASSWORD;
+    const directory = process.env.SFTP_DIRECTORY || 'ReportesRH';
+
+    if (!host || !port || !username || !password) {
+      throw new Error('Missing SFTP configuration. Please set SFTP_HOST, SFTP_PORT, SFTP_USER, SFTP_PASSWORD.');
+    }
+
     this.config = {
-      host: process.env.SFTP_HOST || '148.244.90.21',
-      port: parseInt(process.env.SFTP_PORT || '5062'),
-      username: process.env.SFTP_USER || 'rhmrm',
-      password: process.env.SFTP_PASSWORD || 'rh12345',
-      directory: process.env.SFTP_DIRECTORY || 'ReportesRH'
+      host,
+      port: parseInt(String(port)),
+      username,
+      password,
+      directory
     };
   }
 
@@ -209,25 +219,22 @@ class SFTPService {
           const workbook = XLSX.read(fileContent, { type: 'buffer' });
           const firstSheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[firstSheetName];
-          
-          // Convertir a JSON
-          data = XLSX.utils.sheet_to_json(worksheet, { 
-            header: 1,
-            raw: false,
-            dateNF: 'yyyy-mm-dd'
-          }).map((row: any[], index: number) => {
-            if (index === 0) return null; // Skip header row for now
-            
-            // Create object with proper keys
-            const headers = (XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[]) || [];
+
+          // Convertir a matriz de filas (primera fila = headers)
+          const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' }) as unknown[];
+          const headerRow = (rows[0] as unknown[]) || [];
+          const headers: string[] = headerRow.map((h: unknown) => String(h || ''));
+          const bodyRows = rows.slice(1) as unknown[];
+
+          data = bodyRows.map((rowUnknown: unknown) => {
+            const row = rowUnknown as unknown[];
             const obj: Record<string, unknown> = {};
-            
             headers.forEach((header, i) => {
-              obj[header || `col_${i}`] = row[i] || null;
+              const cell = row && row[i] !== undefined ? row[i] : null;
+              obj[header || `col_${i}`] = cell as unknown;
             });
-            
             return obj;
-          }).filter(Boolean) as Record<string, unknown>[];
+          });
           
           console.log(`Excel procesado: ${data.length} filas extraídas`);
         } catch (excelError) {
@@ -254,40 +261,7 @@ class SFTPService {
       console.error('Error downloading SFTP file:', error);
       await sftp.end();
       
-      // Return mock data based on filename as fallback
-      if (filename.includes('plantilla')) {
-        return [
-          {
-            empleado_id: 'EMP001',
-            first_name: 'Juan',
-            last_name: 'Pérez',
-            active_status: 'Activo'
-          },
-          {
-            empleado_id: 'EMP002',
-            first_name: 'María',
-            last_name: 'García',
-            active_status: 'Activo'
-          }
-        ];
-      } else if (filename.includes('incidencias')) {
-        return [
-          {
-            incident_id: 'INC001',
-            employee_id: 'EMP001',
-            incident_type: 'Ausencia',
-            incident_date: '2024-12-15'
-          }
-        ];
-      } else if (filename.includes('act')) {
-        return [
-          {
-            snapshot_date: '2024-12-01',
-            active_employee_count: 25
-          }
-        ];
-      }
-
+      // No mock data on failure: fail fast to surface config issues
       return [];
     }
   }

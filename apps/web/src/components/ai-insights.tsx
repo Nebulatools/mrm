@@ -98,7 +98,8 @@ export function AIInsights({ kpis, period = 'monthly' }: AIInsightsProps) {
     try {
       const result = await geminiAI.testConnection();
       setTestResult(result.message);
-    } catch (error) {
+    } catch (e) {
+      const error = e as Error;
       setTestResult('❌ Error al testear conexión: ' + error.message);
     } finally {
       setTestingConnection(false);
@@ -114,7 +115,8 @@ export function AIInsights({ kpis, period = 'monthly' }: AIInsightsProps) {
     try {
       const chartAnalysisResult = await geminiAI.analyzeChartTrends(kpis, 'line');
       setChartAnalysis(chartAnalysisResult);
-    } catch (error) {
+    } catch (e) {
+      const error = e as Error;
       setChartAnalysis('❌ Error al analizar gráficas: ' + error.message);
     } finally {
       setLoadingChart(false);

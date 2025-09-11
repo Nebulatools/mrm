@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { db } from '@/lib/supabase';
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { db, type PlantillaRecord } from '@/lib/supabase';
+import { format, subMonths, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+//
 
 interface MonthlyRetentionData {
   mes: string;
@@ -26,7 +27,7 @@ interface MonthlyRetentionData {
 
 interface YearlyComparisonData {
   mes: string;
-  [key: string]: any; // Para soportar años dinámicos
+  [key: string]: number | string;
 }
 
 interface RetentionFilters {
@@ -50,6 +51,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
 
   useEffect(() => {
     loadMonthlyRetentionData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate, filters]);
 
   const loadMonthlyRetentionData = async () => {
@@ -67,7 +69,6 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
       // Detectar el rango de años con datos reales de bajas - DINÁMICO
       const hoy = new Date();
       const añoActual = hoy.getFullYear();
-      const mesActual = hoy.getMonth();
       
       const bajasConFecha = plantilla.filter(emp => emp.fecha_baja);
       const años = new Set<number>();
@@ -111,8 +112,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
       
       // Calcular rotación acumulada de 12 meses móviles para cada punto
       for (let i = 0; i < allMonthsData.length; i++) {
-        const currentMonthDate = new Date(allMonthsData[i].year, allMonthsData[i].month - 1, 1);
-        const rotacionAcumulada12m = calculateRolling12MonthRotation(allMonthsData, i, plantilla, currentMonthDate);
+        const rotacionAcumulada12m = calculateRolling12MonthRotation(allMonthsData, i, plantilla);
         allMonthsData[i].rotacionAcumulada12m = rotacionAcumulada12m;
       }
       
@@ -152,7 +152,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
       const lastTwoYears = [previousYear, currentYear]; // Año anterior y actual
       
       const comparisonData: YearlyComparisonData[] = monthNames.map((monthName, index) => {
-        const dataByYear: any = {
+        const dataByYear: Record<string, number | string> = {
           mes: monthName
         };
         
@@ -179,7 +179,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
     }
   };
 
-  const calculateRolling12MonthRotation = (monthsData: MonthlyRetentionData[], currentIndex: number, plantilla: any[], baseDate: Date): number => {
+  const calculateRolling12MonthRotation = (monthsData: MonthlyRetentionData[], currentIndex: number, plantilla: PlantillaRecord[]): number => {
     try {
       const currentMonthData = monthsData[currentIndex];
       if (!currentMonthData) return 0;
@@ -188,35 +188,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
       const startDate12m = subMonths(currentMonthDate, 11);
       const endDate12m = endOfMonth(currentMonthDate);
 
-      // Aplicar filtros ANTES de contar bajas
-      const plantillaFiltrada = plantilla.filter(emp => {
-        // Filtrar por departamento
-        if (filters && filters.departamentos && filters.departamentos.length > 0) {
-          if (!filters.departamentos.includes(emp.departamento || '')) return false;
-        }
-        
-        // Filtrar por puesto
-        if (filters && filters.puestos && filters.puestos.length > 0) {
-          const empPuesto = (emp.puesto || '').trim(); // Limpiar espacios
-          const puestoMatch = filters.puestos.some(filterPuesto => 
-            (filterPuesto || '').trim() === empPuesto
-          );
-          console.log('🔍 FILTRO PUESTO DEBUG:', {
-            empleado: emp.nombre,
-            empPuesto: `"${empPuesto}"`,
-            filtrosPuestos: filters.puestos,
-            match: puestoMatch
-          });
-          if (!puestoMatch) return false;
-        }
-        
-        // Filtrar por clasificación
-        if (filters && filters.clasificaciones && filters.clasificaciones.length > 0) {
-          if (!filters.clasificaciones.includes(emp.clasificacion || '')) return false;
-        }
-        
-        return true;
-      });
+      const plantillaFiltrada = plantilla;
 
       // Contar todas las bajas en el período de 12 meses
       const bajasEn12Meses = plantillaFiltrada.filter(emp => {
@@ -248,40 +220,10 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
     }
   };
 
-  const calculateMonthlyRetention = async (startDate: Date, endDate: Date, plantilla: any[]): Promise<MonthlyRetentionData> => {
+  const calculateMonthlyRetention = async (startDate: Date, endDate: Date, plantilla: PlantillaRecord[]): Promise<MonthlyRetentionData> => {
     try {
-      // Aplicar filtros de departamento, puesto y clasificación PRIMERO
-      let plantillaFiltered = plantilla.filter(emp => {
-        const fechaIngreso = new Date(emp.fecha_ingreso);
-        if (fechaIngreso > endDate) return false;
-        
-        // Filtrar por departamento
-        if (filters && filters.departamentos && filters.departamentos.length > 0) {
-          if (!filters.departamentos.includes(emp.departamento || '')) return false;
-        }
-        
-        // Filtrar por puesto
-        if (filters && filters.puestos && filters.puestos.length > 0) {
-          const empPuesto = (emp.puesto || '').trim(); // Limpiar espacios
-          const puestoMatch = filters.puestos.some(filterPuesto => 
-            (filterPuesto || '').trim() === empPuesto
-          );
-          console.log('🔍 FILTRO PUESTO DEBUG:', {
-            empleado: emp.nombre,
-            empPuesto: `"${empPuesto}"`,
-            filtrosPuestos: filters.puestos,
-            match: puestoMatch
-          });
-          if (!puestoMatch) return false;
-        }
-        
-        // Filtrar por clasificación
-        if (filters && filters.clasificaciones && filters.clasificaciones.length > 0) {
-          if (!filters.clasificaciones.includes(emp.clasificacion || '')) return false;
-        }
-        
-        return true;
-      });
+      // Plantilla ya filtrada por opciones del panel; solo filtrar por fecha ingreso <= fin de mes
+      const plantillaFiltered = plantilla.filter(emp => new Date(emp.fecha_ingreso) <= endDate);
 
       // Empleados al inicio y fin del mes para calcular promedio correcto
       const empleadosInicioMes = plantillaFiltered.filter(emp => {

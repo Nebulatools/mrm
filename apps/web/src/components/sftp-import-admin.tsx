@@ -44,9 +44,12 @@ export function SFTPImportAdmin() {
       const data = await response.json();
       
       if (data.files) {
-        setSftpFiles(data.files.map((file: any) => ({
-          ...file,
-          lastModified: new Date(file.lastModified)
+        type ApiSFTPFile = { name: string; type: 'plantilla' | 'incidencias' | 'act'; lastModified: string | number | Date; size: number };
+        setSftpFiles((data.files as ApiSFTPFile[]).map((file) => ({
+          name: String(file.name),
+          type: file.type,
+          lastModified: new Date(file.lastModified),
+          size: Number(file.size)
         })));
       }
     } catch (error) {
@@ -95,6 +98,7 @@ export function SFTPImportAdmin() {
       setImportResults({
         empleados: 0,
         bajas: 0,
+        asistencia: 0,
         errors: [error instanceof Error ? error.message : 'Error de conexión']
       });
     } finally {
@@ -136,6 +140,7 @@ export function SFTPImportAdmin() {
       setImportResults({
         empleados: 0,
         bajas: 0,
+        asistencia: 0,
         errors: [error instanceof Error ? error.message : 'Error de conexión']
       });
     } finally {
@@ -226,7 +231,7 @@ export function SFTPImportAdmin() {
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No se han cargado archivos aún</p>
-              <p className="text-sm">Haz clic en "Actualizar Lista" para ver los archivos disponibles</p>
+              <p className="text-sm">Haz clic en &quot;Actualizar Lista&quot; para ver los archivos disponibles</p>
             </div>
           )}
         </CardContent>
@@ -245,7 +250,7 @@ export function SFTPImportAdmin() {
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-medium text-blue-900 mb-2">📋 Proceso de Importación</h4>
               <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Se conectará al servidor SFTP (148.244.90.21:5062)</li>
+                <li>• Se conectará al servidor SFTP (configurado por variables de entorno)</li>
                 <li>• Descargará y procesará archivos de empleados y bajas</li>
                 <li>• Limpiará tablas existentes e insertará datos reales</li>
                 <li>• Validará y transformará datos según estructura de BD</li>

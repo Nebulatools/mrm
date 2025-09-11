@@ -7,7 +7,7 @@ async function executeSchemaUpdate() {
 
   try {
     // Test connection first
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('plantilla')
       .select('COUNT(*)')
       .limit(1);

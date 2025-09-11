@@ -1,5 +1,5 @@
 {
-  "name": "hr-kpi-dashboard",
+  "name": "mrm_simple",
   "version": "1.0.0",
   "description": "HR KPI Dashboard with Next.js and Supabase",
   "private": true,

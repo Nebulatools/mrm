@@ -39,7 +39,8 @@ export function KPIChart({ data, type = 'line', height = 300, showAll = false }:
     return Math.round(value).toLocaleString('es-MX');
   };
 
-  const CustomTooltip = ({ active, payload, label }: {active?: boolean, payload?: Array<{color: string, name: string, value: number}>, label?: string}) => {
+  type TooltipPayloadItem = { color: string; name: string; value: number; payload?: { target?: number } };
+  const CustomTooltip = ({ active, payload, label }: {active?: boolean, payload?: TooltipPayloadItem[], label?: string}) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border rounded-lg shadow-lg">
@@ -49,9 +50,9 @@ export function KPIChart({ data, type = 'line', height = 300, showAll = false }:
               <span style={{ color: entry.color }}>
                 {entry.name}: {formatValue(entry.value, label)}
               </span>
-              {entry.name === 'value' && (entry as any).payload?.target && (
+              {entry.name === 'value' && entry.payload?.target && (
                 <div className="text-xs text-gray-500">
-                  Meta: {formatValue((entry as any).payload.target, label)}
+                  Meta: {formatValue(entry.payload.target, label)}
                 </div>
               )}
             </div>

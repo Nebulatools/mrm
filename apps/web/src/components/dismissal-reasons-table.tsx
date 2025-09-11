@@ -6,13 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Users, UserMinus } from "lucide-react";
+import type { PlantillaRecord } from "@/lib/supabase";
 
-interface DismissalReason {
-  motivo: string;
-  cantidad: number;
-  porcentaje: number;
-  nivel: 'low' | 'medium' | 'high';
-}
+//
 
 interface Employee {
   id: string;
@@ -25,26 +21,10 @@ interface Employee {
 }
 
 interface DismissalReasonsTableProps {
-  plantilla: any[];
+  plantilla: PlantillaRecord[];
 }
 
-const MOTIVO_COLORS = {
-  low: {
-    bg: 'bg-green-100 dark:bg-green-900/20',
-    text: 'text-green-800 dark:text-green-300',
-    dot: 'bg-green-500'
-  },
-  medium: {
-    bg: 'bg-yellow-100 dark:bg-yellow-900/20', 
-    text: 'text-yellow-800 dark:text-yellow-300',
-    dot: 'bg-yellow-500'
-  },
-  high: {
-    bg: 'bg-red-100 dark:bg-red-900/20',
-    text: 'text-red-800 dark:text-red-300', 
-    dot: 'bg-red-500'
-  }
-};
+// Color mapping removed (not used)
 
 export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps) {
   const [showAll, setShowAll] = useState(true); // MOSTRAR TODOS POR DEFECTO!
@@ -56,21 +36,8 @@ export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps)
   });
   
   // Calcular razones de baja agrupadas
-  const razonesMap = new Map<string, number>();
-  empleadosBaja.forEach(emp => {
-    const motivo = emp.motivo_baja || 'No especificado';
-    razonesMap.set(motivo, (razonesMap.get(motivo) || 0) + 1);
-  });
-
-  // Convertir a array y calcular porcentajes
-  const razones: DismissalReason[] = Array.from(razonesMap.entries())
-    .map(([motivo, cantidad]) => ({
-      motivo,
-      cantidad,
-      porcentaje: (cantidad / empleadosBaja.length) * 100,
-      nivel: cantidad >= 5 ? 'high' : cantidad >= 3 ? 'medium' : 'low'
-    }))
-    .sort((a, b) => b.cantidad - a.cantidad);
+  // Razones agregadas (si se requiere mostrar en otra vista)
+  // const motivos = aggregate dismissal reasons here if needed
 
   // Lista detallada de empleados - ordenar primero y luego decidir cuántos mostrar
   const empleadosOrdenados = empleadosBaja

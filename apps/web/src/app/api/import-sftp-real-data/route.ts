@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sftpClient } from '@/lib/sftp-client';
 
@@ -10,10 +10,10 @@ interface EmpleadoSFTP {
   gafete?: string;
   genero?: string;
   imss?: string;
-  fecha_nacimiento?: string;
+  fecha_nacimiento?: string | null;
   estado?: string;
   fecha_ingreso: string;
-  fecha_antiguedad?: string;
+  fecha_antiguedad?: string | null;
   empresa?: string;
   registro_patronal?: string;
   codigo_puesto?: string;
@@ -44,7 +44,7 @@ interface MotivoBaja {
   observaciones?: string;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     console.log('🚀 Iniciando importación real de datos SFTP...');
     
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         
         if (empleadosData.length > 0) {
           // Mapear datos del SFTP a estructura de BD
-          const empleadosTransformados: EmpleadoSFTP[] = empleadosData.map((record: any, index: number) => {
+          const empleadosTransformados: EmpleadoSFTP[] = empleadosData.map((record: Record<string, unknown>, index: number) => {
             
             // Parsear fecha de ingreso
             let fechaIngreso = '2024-01-01'; // Default
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
         
         if (bajasData.length > 0) {
           // Mapear datos del SFTP a estructura de BD
-          const bajasTransformadas: MotivoBaja[] = bajasData.map((record: any) => {
+          const bajasTransformadas: MotivoBaja[] = bajasData.map((record: Record<string, unknown>) => {
             // Parsear fecha de baja
             let fechaBaja = '2024-01-01'; // Default
             if (record['Fecha']) {

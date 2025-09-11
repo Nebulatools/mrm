@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 // Helper function to safely parse dates
-function parseDate(dateValue: any): string | null {
+function parseDate(dateValue: unknown): string | null {
   if (!dateValue) return null;
   
   try {
@@ -52,7 +52,7 @@ function parseDate(dateValue: any): string | null {
 }
 
 // FORZAR IMPORTACIÓN REAL SIN CACHÉ
-export async function POST(request: NextRequest) {
+export async function POST() {
   console.log('🚀 FORZANDO IMPORTACIÓN REAL DE DATOS SFTP (SIN CACHÉ)...');
 
   try {
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     
     // Crear mapa de nómina para buscar nombres por número de empleado
     const nominaMap = new Map();
-    (nominaData.data || []).forEach((nomina: any, index: number) => {
+    (nominaData.data || []).forEach((nomina: Record<string, unknown>, index: number) => {
       // Probar múltiples variaciones de campos para el número
       const numero = String(
         nomina['Número'] || 
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     // Debug: mostrar las primeras claves del mapa
     console.log('🔍 Primeras 5 claves del mapa:', Array.from(nominaMap.keys()).slice(0, 5));
     
-    const empleadosReales = (empleadosData.data || []).map((emp: any, index: number) => {
+    const empleadosReales = (empleadosData.data || []).map((emp: Record<string, unknown>, index: number) => {
       // Probar múltiples variaciones para el número de empleado
       const numero = String(
         emp['Número'] || 
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    const bajasReales = (bajasData.data || []).map((baja: any, index: number) => {
+    const bajasReales = (bajasData.data || []).map((baja: Record<string, unknown>, index: number) => {
       return {
         numero_empleado: parseInt(String(baja['#'] || baja['Número'] || baja['N?mero'])) || (index + 1),
         fecha_baja: parseDate(baja['Fecha']) || new Date().toISOString().split('T')[0],
@@ -286,10 +286,10 @@ export async function POST(request: NextRequest) {
     console.log('💾 Insertando asistencia diaria...');
     
     let asistenciaInsertada = 0;
-    const asistenciaReales: any[] = [];
+    const asistenciaReales: Array<{ numero_empleado: number; fecha: string; horas: number } > = [];
     
     // Procesar datos de Prenomina Horizontal para asistencia
-    (nominaData.data || []).forEach((nomina: any, index: number) => {
+    (nominaData.data || []).forEach((nomina: Record<string, unknown>, index: number) => {
       const numeroEmpleado = parseInt(String(
         nomina['Número'] || 
         nomina['N?mero'] || 
@@ -330,7 +330,6 @@ export async function POST(request: NextRequest) {
         // Si no encontramos fechas específicas, crear registros de ejemplo para el mes actual
         if (asistenciaReales.filter(a => a.numero_empleado === numeroEmpleado).length === 0) {
           const today = new Date();
-          const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
           const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
           
           // Crear registros para los días laborales del mes (lunes a sábado)

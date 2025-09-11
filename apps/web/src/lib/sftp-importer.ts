@@ -24,8 +24,8 @@ interface MotivoBaja {
   fecha_baja: string;
   tipo: string;
   motivo: string;
-  descripcion?: string;
-  observaciones?: string;
+  descripcion?: string | null;
+  observaciones?: string | null;
 }
 
 export class SFTPImporter {
@@ -46,7 +46,7 @@ export class SFTPImporter {
     
     this.importacionId = data.id;
     console.log(`🚀 Importación iniciada: ${archivo} (ID: ${this.importacionId})`);
-    return this.importacionId;
+    return data.id;
   }
 
   // Completar importación
@@ -77,7 +77,7 @@ export class SFTPImporter {
     }
 
     // Parse headers
-    const headers = csvData[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    // const headers = csvData[0].split(',').map(h => h.trim().replace(/"/g, ''));
     console.log(`📋 Headers encontrados: ${headers.length} columnas`);
 
     // Limpiar datos existentes
@@ -147,7 +147,7 @@ export class SFTPImporter {
                   horas_trabajadas: horas,
                   horas_incidencia: incidencia
                 });
-              } catch (error) {
+              } catch {
                 console.warn(`⚠️  Error procesando fecha ${fechaStr} para empleado ${numeroEmpleado}`);
               }
             }
@@ -203,7 +203,7 @@ export class SFTPImporter {
       return { exitosos: 0, errores: 0 };
     }
 
-    const headers = csvData[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    // const headers = csvData[0].split(',').map(h => h.trim().replace(/"/g, ''));
     const motivos: MotivoBaja[] = [];
 
     for (let i = 1; i < csvData.length; i++) {

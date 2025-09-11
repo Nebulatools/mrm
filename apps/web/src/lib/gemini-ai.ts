@@ -223,7 +223,7 @@ IMPORTANTE:
         summary: parsed.summary || 'Análisis generado por Gemini AI',
         overallScore: typeof parsed.overallScore === 'number' ? 
           Math.max(0, Math.min(100, parsed.overallScore)) : 75,
-        insights: Array.isArray(parsed.insights) ? parsed.insights.map(insight => ({
+        insights: Array.isArray(parsed.insights) ? parsed.insights.map((insight: Record<string, unknown>) => ({
           type: ['positive', 'negative', 'warning', 'neutral'].includes(insight.type) ? insight.type : 'neutral',
           kpi: insight.kpi || 'KPI General',
           insight: insight.insight || 'Análisis no disponible',

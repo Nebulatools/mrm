@@ -175,7 +175,8 @@ export async function populateDatabase() {
     }
 
     // Generate activity for current month
-    const activities = [];
+    type Activity = { emp_id: string; fecha: string; presente: boolean };
+    const activities: Activity[] = [];
     const currentDateIter = new Date(startOfMonth);
     
     while (currentDateIter <= endOfMonth) {

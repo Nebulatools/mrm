@@ -18,15 +18,16 @@ import { AIInsights } from "./ai-insights";
 import { RetroactiveAdjustment } from "./retroactive-adjustment";
 import { DismissalReasonsTable } from "./dismissal-reasons-table";
 import { RetentionCharts } from "./retention-charts";
-import { RetentionFilterPanel, type RetentionFilterOptions } from "./retention-filter-panel";
+import { RetentionFilterPanel } from "./retention-filter-panel";
+import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filters/retention";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
-import { supabase, db } from "@/lib/supabase";
+import { db, type PlantillaRecord } from "@/lib/supabase";
 import { format } from "date-fns";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+//
 
 interface DashboardData {
   kpis: KPIResult[];
-  plantilla: any[];
+  plantilla: PlantillaRecord[];
   lastUpdated: Date;
   loading: boolean;
 }
@@ -41,7 +42,7 @@ export function DashboardPage() {
     loading: true
   });
   const [selectedPeriod] = useState<Date>(new Date());
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>('alltime');
+  const [timePeriod] = useState<TimePeriod>('alltime');
   
   useEffect(() => {
     const loadData = async () => {
@@ -71,7 +72,10 @@ export function DashboardPage() {
   
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
     years: [],
-    months: []
+    months: [],
+    departamentos: [],
+    puestos: [],
+    clasificaciones: []
   });
 
   const loadDashboardData = useCallback(async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
@@ -143,133 +147,8 @@ export function DashboardPage() {
 
   const categorized = categorizeKPIs(data.kpis);
 
-  // Función para filtrar datos basado en los filtros de retención
-  const applyRetentionFilters = (plantillaData: any[]) => {
-    if (!plantillaData) return [];
-    
-    let filteredData = [...plantillaData];
-    
-    console.log('🔍 Applying retention filters');
-    console.log('📊 Total employees before filter:', plantillaData.length);
-    console.log('🎯 Active filters:', retentionFilters);
-    if (plantillaData[0]) {
-      console.log('🔍 Sample employee data:', {
-        departamento: plantillaData[0].departamento,
-        clasificacion: plantillaData[0].clasificacion,
-        puesto: plantillaData[0].puesto,
-        area: plantillaData[0].area
-      });
-    }
-    
-    // Filtrar por año (fecha de ingreso o fecha de baja)
-    if (retentionFilters.years.length > 0) {
-      filteredData = filteredData.filter(emp => {
-        const ingresoYear = new Date(emp.fecha_ingreso).getFullYear();
-        const bajaYear = emp.fecha_baja ? new Date(emp.fecha_baja).getFullYear() : null;
-        
-        return retentionFilters.years.includes(ingresoYear) || 
-               (bajaYear && retentionFilters.years.includes(bajaYear));
-      });
-    }
-    
-    // Filtrar por mes (fecha de ingreso o fecha de baja)
-    if (retentionFilters.months.length > 0) {
-      filteredData = filteredData.filter(emp => {
-        const ingresoMonth = new Date(emp.fecha_ingreso).getMonth() + 1;
-        const bajaMonth = emp.fecha_baja ? new Date(emp.fecha_baja).getMonth() + 1 : null;
-        
-        return retentionFilters.months.includes(ingresoMonth) || 
-               (bajaMonth && retentionFilters.months.includes(bajaMonth));
-      });
-    }
-    
-    // Filtrar por departamento
-    if (retentionFilters.departamentos && retentionFilters.departamentos.length > 0) {
-      console.log('🏢 Filtering by departamentos:', retentionFilters.departamentos);
-      filteredData = filteredData.filter(emp => {
-        return emp.departamento && retentionFilters.departamentos.includes(emp.departamento);
-      });
-      console.log('✅ After departamento filter:', filteredData.length);
-    }
-    
-    // Filtrar por puesto
-    if (retentionFilters.puestos && retentionFilters.puestos.length > 0) {
-      console.log('👔 Filtering by puestos:', retentionFilters.puestos);
-      filteredData = filteredData.filter(emp => {
-        const empPuesto = (emp.puesto || '').trim();
-        const puestoMatch = retentionFilters.puestos.some(filterPuesto => 
-          (filterPuesto || '').trim() === empPuesto
-        );
-        return puestoMatch;
-      });
-      console.log('✅ After puesto filter:', filteredData.length);
-    }
-    
-    // Filtrar por clasificación
-    if (retentionFilters.clasificaciones && retentionFilters.clasificaciones.length > 0) {
-      console.log('📝 Filtering by clasificaciones:', retentionFilters.clasificaciones);
-      filteredData = filteredData.filter(emp => {
-        return emp.clasificacion && retentionFilters.clasificaciones.includes(emp.clasificacion);
-      });
-      console.log('✅ After clasificacion filter:', filteredData.length);
-    }
-    
-    // Filtrar por fecha (años y meses) - versión corregida
-    if (retentionFilters.years.length > 0 || retentionFilters.months.length > 0) {
-      filteredData = filteredData.filter(emp => {
-        const fechaIngreso = new Date(emp.fecha_ingreso);
-        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-        
-        // Si hay filtros de año y mes, verificar combinaciones año-mes
-        if (retentionFilters.years.length > 0 && retentionFilters.months.length > 0) {
-          return retentionFilters.years.some(year => {
-            return retentionFilters.months.some(month => {
-              // Verificar si el empleado estuvo activo durante este año-mes específico
-              const startOfPeriod = new Date(year, month - 1, 1);
-              const endOfPeriod = new Date(year, month, 0);
-              
-              return (fechaIngreso <= endOfPeriod) && 
-                     (!fechaBaja || fechaBaja >= startOfPeriod);
-            });
-          });
-        }
-        
-        // Si solo hay filtros de año
-        if (retentionFilters.years.length > 0 && retentionFilters.months.length === 0) {
-          return retentionFilters.years.some(year => {
-            const startOfYear = new Date(year, 0, 1);
-            const endOfYear = new Date(year, 11, 31);
-            
-            return (fechaIngreso <= endOfYear) && 
-                   (!fechaBaja || fechaBaja >= startOfYear);
-          });
-        }
-        
-        // Si solo hay filtros de mes (cualquier año)
-        if (retentionFilters.months.length > 0 && retentionFilters.years.length === 0) {
-          return retentionFilters.months.some(month => {
-            // Verificar en cualquier año si el empleado estuvo activo en ese mes
-            const currentYear = new Date().getFullYear();
-            for (let year = 2024; year <= currentYear; year++) {
-              const startOfPeriod = new Date(year, month - 1, 1);
-              const endOfPeriod = new Date(year, month, 0);
-              
-              if ((fechaIngreso <= endOfPeriod) && 
-                  (!fechaBaja || fechaBaja >= startOfPeriod)) {
-                return true;
-              }
-            }
-            return false;
-          });
-        }
-        
-        return true;
-      });
-    }
-    
-    console.log('✅ Final filtered data:', filteredData.length, 'employees');
-    return filteredData;
-  };
+  // Use shared filter util
+  const filterPlantilla = (plantillaData: PlantillaRecord[]) => applyRetentionFilters(plantillaData, retentionFilters);
 
   // Función para calcular KPIs filtrados para retención
   const getFilteredRetentionKPIs = () => {
@@ -285,7 +164,7 @@ export function DashboardPage() {
       };
     }
     
-    const filteredPlantilla = applyRetentionFilters(data.plantilla);
+    const filteredPlantilla = filterPlantilla(data.plantilla);
     
     console.log('🔍 Calculating filtered KPIs:');
     console.log('📊 Total employees in plantilla:', data.plantilla.length);
@@ -293,7 +172,7 @@ export function DashboardPage() {
     console.log('🎯 Active filters:', retentionFilters);
     
     // Calcular Activos actuales
-    const activosActuales = filteredPlantilla.filter(emp => emp.activo).length;
+    // const activosActuales = filteredPlantilla.filter(emp => emp.activo).length;
     
     // Calcular TODAS las Bajas (empleados con fecha_baja)
     const bajasTotal = filteredPlantilla.filter(emp => {
@@ -727,7 +606,7 @@ export function DashboardPage() {
             {/* Mostrar filtros aplicados */}
             {(retentionFilters.years.length > 0 || retentionFilters.months.length > 0 || 
               (retentionFilters.departamentos && retentionFilters.departamentos.length > 0) ||
-              (retentionFilters.areas && retentionFilters.areas.length > 0) ||
+              (retentionFilters.puestos && retentionFilters.puestos.length > 0) ||
               (retentionFilters.clasificaciones && retentionFilters.clasificaciones.length > 0)) && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-sm text-blue-700">
@@ -745,8 +624,8 @@ export function DashboardPage() {
                     {retentionFilters.departamentos?.map(depto => (
                       <span key={depto} className="bg-green-100 px-2 py-1 rounded text-xs">{depto}</span>
                     ))}
-                    {retentionFilters.areas?.map(area => (
-                      <span key={area} className="bg-purple-100 px-2 py-1 rounded text-xs">{area}</span>
+                    {retentionFilters.puestos?.map(puesto => (
+                      <span key={puesto} className="bg-purple-100 px-2 py-1 rounded text-xs">{puesto}</span>
                     ))}
                     {retentionFilters.clasificaciones?.map(clas => (
                       <span key={clas} className="bg-orange-100 px-2 py-1 rounded text-xs">{clas}</span>
@@ -761,14 +640,11 @@ export function DashboardPage() {
               {/* Activos Promedio */}
               <KPICard 
                 kpi={{
-                  id: 'activos-prom-filtered',
                   name: 'Activos Promedio',
                   category: 'headcount',
                   value: filteredRetentionKPIs.activosPromedio,
-                  unit: 'empleados',
-                  period: timePeriod,
-                  date: selectedPeriod,
-                  description: 'Promedio de empleados activos'
+                  period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1).toISOString().split('T')[0],
+                  period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0).toISOString().split('T')[0]
                 }} 
                 icon={<Users className="h-6 w-6" />}
               />
@@ -776,14 +652,11 @@ export function DashboardPage() {
               {/* Bajas */}
               <KPICard 
                 kpi={{
-                  id: 'bajas-filtered',
                   name: 'Bajas',
                   category: 'retention',
                   value: filteredRetentionKPIs.bajas,
-                  unit: 'empleados',
-                  period: 'Total histórico',
-                  date: selectedPeriod,
-                  description: 'Total de bajas históricas'
+                  period_start: '1900-01-01',
+                  period_end: new Date().toISOString().split('T')[0]
                 }} 
                 icon={<UserMinus className="h-6 w-6" />}
               />
@@ -791,14 +664,11 @@ export function DashboardPage() {
               {/* Bajas Tempranas */}
               <KPICard 
                 kpi={{
-                  id: 'bajas-tempranas-filtered',
                   name: 'Bajas Tempranas',
                   category: 'retention',
                   value: filteredRetentionKPIs.bajasTempranas,
-                  unit: 'empleados',
-                  period: timePeriod,
-                  date: selectedPeriod,
-                  description: 'Bajas con menos de 3 meses'
+                  period_start: '1900-01-01',
+                  period_end: new Date().toISOString().split('T')[0]
                 }} 
                 icon={<UserMinus className="h-6 w-6" />}
               />
@@ -806,14 +676,11 @@ export function DashboardPage() {
               {/* Rotación Mensual */}
               <KPICard 
                 kpi={{
-                  id: 'rotacion-filtered',
                   name: 'Rotación Mensual',
                   category: 'retention',
                   value: filteredRetentionKPIs.rotacionMensual,
-                  unit: '%',
-                  period: timePeriod,
-                  date: selectedPeriod,
-                  description: 'Porcentaje de rotación mensual'
+                  period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1).toISOString().split('T')[0],
+                  period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0).toISOString().split('T')[0]
                 }} 
                 icon={<TrendingUp className="h-6 w-6" />}
               />
@@ -821,14 +688,11 @@ export function DashboardPage() {
               {/* Rotación Acumulada */}
               <KPICard 
                 kpi={{
-                  id: 'rotacion-acumulada-filtered',
                   name: 'Rotación Acumulada',
                   category: 'retention',
                   value: filteredRetentionKPIs.rotacionAcumulada,
-                  unit: '%',
-                  period: '12 meses',
-                  date: selectedPeriod,
-                  description: 'Rotación últimos 12 meses'
+                  period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() - 11, 1).toISOString().split('T')[0],
+                  period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0).toISOString().split('T')[0]
                 }} 
                 icon={<TrendingDown className="h-6 w-6" />}
               />
@@ -838,7 +702,7 @@ export function DashboardPage() {
             <RetentionCharts currentDate={selectedPeriod} filters={retentionFilters} />
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
-            <DismissalReasonsTable plantilla={applyRetentionFilters(data.plantilla || [])} />
+            <DismissalReasonsTable plantilla={filterPlantilla(data.plantilla || [])} />
           </TabsContent>
 
           {/* Trends Tab */}

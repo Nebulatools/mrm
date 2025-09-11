@@ -9,12 +9,16 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configuración SFTP
 const sftpConfig = {
-  host: process.env.SFTP_HOST || '148.244.90.21',
-  port: parseInt(process.env.SFTP_PORT || '5062'),
-  username: process.env.SFTP_USER || 'rhmrm',
-  password: process.env.SFTP_PASSWORD || 'rh12345',
+  host: process.env.SFTP_HOST,
+  port: parseInt(process.env.SFTP_PORT || '22'),
+  username: process.env.SFTP_USER,
+  password: process.env.SFTP_PASSWORD,
   directory: process.env.SFTP_DIRECTORY || 'ReportesRH'
 };
+
+if (!sftpConfig.host || !sftpConfig.username || !sftpConfig.password) {
+  throw new Error('Missing SFTP configuration. Set SFTP_HOST, SFTP_USER, SFTP_PASSWORD in apps/web/.env.local');
+}
 
 async function importarDatosSFTP() {
   const sftp = new SftpClient();

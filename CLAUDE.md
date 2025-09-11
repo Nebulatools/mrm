@@ -30,7 +30,7 @@ npm run type-check # TypeScript type checking (tsc --noEmit)
 
 ### Monorepo Structure
 ```
-/hr-kpi-dashboard
+/mrm_simple
 ├── apps/
 │   └── web/                    # Next.js 14 frontend (main application)
 ├── packages/
@@ -52,12 +52,14 @@ npm run type-check # TypeScript type checking (tsc --noEmit)
 - SFTP Source Tables: `empleados_sftp`, `motivos_baja`, `asistencia_diaria` (direct SFTP import)
 - KPI calculation engine in `apps/web/src/lib/kpi-calculator.ts`
 - Supabase client configuration in `apps/web/src/lib/supabase.ts`
+- Shared retention filters in `apps/web/src/lib/filters/retention.ts`
 
 **Frontend Organization:**
 - App Router structure in `apps/web/src/app/`
 - Shared components in `apps/web/src/components/`
 - Business logic in `apps/web/src/lib/`
 - Shared types in `packages/shared/src/types.ts`
+ - Admin SFTP UI: `apps/web/src/components/sftp-import-admin.tsx` (exposed at `/admin`)
 
 **KPI Calculation System (Corrected September 2025):**
 The system implements HR-specific formulas with accurate calculations:
@@ -96,8 +98,9 @@ The system implements HR-specific formulas with accurate calculations:
 
 **Data Ingestion:**
 - SFTP client implementation in `apps/web/src/lib/sftp-client.ts`
-- Import logging and error handling
-- Edge Functions for serverless data processing
+- API routes: `apps/web/src/app/api/sftp/route.ts`, `.../import-sftp-real-data/route.ts`, `.../import-real-sftp-force/route.ts`
+- Admin UI at `/admin` to list, test, and import from SFTP
+- Note: legacy debug endpoints and an unused edge function were removed
 
 ### Component Architecture
 
@@ -157,6 +160,30 @@ UNIQUE(numero_empleado, fecha)
 - SFTP Files → empleados_sftp, motivos_baja, asistencia_diaria
 - KPI calculations use these 3 tables directly
 
+## SFTP Admin Workflow
+
+1) Configure env in `apps/web/.env.local`:
+```
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# SFTP
+SFTP_HOST=...
+SFTP_PORT=22
+SFTP_USER=...
+SFTP_PASSWORD=...
+SFTP_DIRECTORY=ReportesRH
+```
+2) Run `npm run dev` (root) and open `/admin`.
+3) Click “Actualizar Lista” to fetch SFTP files; “Probar Conexión” to validate.
+4) Use “FORZAR IMPORTACIÓN REAL” or “Importación Estándar” to populate tables.
+
+Notes:
+- The API fails fast if SFTP env vars are missing (no insecure defaults).
+- Excel/CSV parsing is handled server-side; batch inserts are used.
+
 ### Type System
 
 **Shared Types Location:** `packages/shared/src/types.ts`
@@ -173,8 +200,17 @@ UNIQUE(numero_empleado, fecha)
 
 **Required Environment Variables (apps/web/.env.local):**
 ```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# SFTP
+SFTP_HOST=...
+SFTP_PORT=22
+SFTP_USER=...
+SFTP_PASSWORD=...
+SFTP_DIRECTORY=ReportesRH
 ```
 
 ### Development Notes
@@ -192,8 +228,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 - Chart components with Recharts integration
 
 **Data Flow:**
-1. SFTP → Edge Functions → Legacy tables
-2. Legacy tables → KPI Calculator → Dashboard
+1. SFTP → API routes → `empleados_sftp`, `motivos_baja`, `asistencia_diaria`
+2. Tables → KPI Calculator → Dashboard
 3. KPI data → AI Analyzer → Insights
 4. User interactions → Filters → Real-time updates
 
@@ -202,3 +238,24 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 - ESLint configuration with Next.js rules
 - Type checking with `npm run type-check`
 - Shared types prevent interface mismatches between frontend and backend
+
+## Coding Conventions & Best Practices
+
+- TypeScript strict; avoid `any`. Narrow `unknown` in catch blocks.
+- File naming: kebab-case files, PascalCase components.
+- Imports: use `@/` alias for `apps/web/src`.
+- Keep SFTP secrets in env; never hardcode credentials.
+- Prefer server-side parsing (Excel/CSV) and batch inserts.
+- For filters/derived data, use shared pure functions and memoization when applicable.
+- Remove dead code and debug endpoints; keep repo minimal and secure.
+
+## Root Commands (Workspaces)
+
+From repo root:
+```
+npm run dev        # dev server for apps/web
+npm run build      # build apps/web
+npm run start      # start production for apps/web
+npm run lint       # ESLint (Next config)
+npm run type-check # TypeScript check (apps/web)
+```

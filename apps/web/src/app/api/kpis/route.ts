@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { kpiCalculator } from '@/lib/kpi-calculator'
+import { kpiCalculator, type TimeFilter } from '@/lib/kpi-calculator'
 import { db } from '@/lib/supabase'
 
 export async function GET(request: Request) {
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     // Load both KPIs and plantilla in parallel
     const [kpis, plantilla] = await Promise.all([
       kpiCalculator.calculateAllKPIs({ 
-        period: period as any, 
+        period: period as TimeFilter['period'], 
         date: new Date(dateParam) 
       }),
       db.getEmpleadosSFTP()
@@ -41,7 +41,8 @@ export async function GET(request: Request) {
       }
     })
 
-  } catch (error: any) {
+  } catch (e) {
+    const error = e as Error;
     console.error('❌ API KPIs error:', error)
     return NextResponse.json({ 
       success: false, 

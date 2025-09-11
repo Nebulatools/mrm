@@ -2,20 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+//
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+//
 import { supabase } from "@/lib/supabase";
+import type { RetentionFilterOptions } from "@/lib/filters/retention";
 
-export interface RetentionFilterOptions {
-  years: number[];
-  months: number[];
-  departamentos: string[];
-  puestos: string[]; // Cambiado de areas a puestos
-  clasificaciones: string[]; // CONFIANZA, SINDICALIZADO, etc.
-}
+// Type moved to lib/filters/retention
 
 interface RetentionFilterPanelProps {
   onFiltersChange: (filters: RetentionFilterOptions) => void;
@@ -91,14 +86,13 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       }
       
       // Add current year if not present
-      const currentYear = new Date().getFullYear();
       allDates.push(new Date().toISOString());
       
       // Extract unique years from dates (2022-2025 range)
-      const uniqueYears = [...new Set(allDates.map(dateStr => {
+      const uniqueYears = Array.from(new Set(allDates.map(dateStr => {
         const year = new Date(dateStr).getFullYear();
         return year >= 2022 && year <= 2025 ? year : null;
-      }).filter(year => year !== null))] as number[];
+      }).filter(year => year !== null))) as number[];
       uniqueYears.sort((a, b) => b - a);
 
       // All months
@@ -196,14 +190,14 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
     if (filters.months.length > 0) {
       parts.push(`${filters.months.length} mes${filters.months.length !== 1 ? 'es' : ''}`);
     }
-    if (filters.departamentos.length > 0) {
-      parts.push(`${filters.departamentos.length} depto${filters.departamentos.length !== 1 ? 's' : ''}`);
+    if ((filters.departamentos || []).length > 0) {
+      parts.push(`${(filters.departamentos || []).length} depto${(filters.departamentos || []).length !== 1 ? 's' : ''}`);
     }
-    if (filters.puestos.length > 0) {
-      parts.push(`${filters.puestos.length} puesto${filters.puestos.length !== 1 ? 's' : ''}`);
+    if ((filters.puestos || []).length > 0) {
+      parts.push(`${(filters.puestos || []).length} puesto${(filters.puestos || []).length !== 1 ? 's' : ''}`);
     }
-    if (filters.clasificaciones.length > 0) {
-      parts.push(`${filters.clasificaciones.length} clasificación${filters.clasificaciones.length !== 1 ? 'es' : ''}`);
+    if ((filters.clasificaciones || []).length > 0) {
+      parts.push(`${(filters.clasificaciones || []).length} clasificación${(filters.clasificaciones || []).length !== 1 ? 'es' : ''}`);
     }
     
     return parts.join(', ');
@@ -384,7 +378,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
             <MultiSelectDropdown
               label="Departamento"
               options={availableOptions.departamentos}
-              selectedValues={filters.departamentos}
+              selectedValues={filters.departamentos || []}
               onSelectionChange={(values) => handleMultiSelectChange('departamentos', values)}
               renderOption={(option) => option.toString()}
             />
@@ -393,7 +387,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
             <MultiSelectDropdown
               label="Puesto"
               options={availableOptions.puestos}
-              selectedValues={filters.puestos}
+              selectedValues={filters.puestos || []}
               onSelectionChange={(values) => handleMultiSelectChange('puestos', values)}
               renderOption={(option) => option.toString()}
             />
@@ -402,7 +396,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
             <MultiSelectDropdown
               label="Clasificación"
               options={availableOptions.clasificaciones}
-              selectedValues={filters.clasificaciones}
+              selectedValues={filters.clasificaciones || []}
               onSelectionChange={(values) => handleMultiSelectChange('clasificaciones', values)}
               renderOption={(option) => option.toString()}
             />

@@ -3,10 +3,12 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-console.log('🔑 Supabase config:', {
-  url: supabaseUrl ? '✅ Configured' : '❌ Missing',
-  key: supabaseAnonKey ? '✅ Configured' : '❌ Missing'
-});
+if (process.env.NODE_ENV !== 'production') {
+  console.log('🔑 Supabase config:', {
+    url: supabaseUrl ? '✅ Configured' : '❌ Missing',
+    key: supabaseAnonKey ? '✅ Configured' : '❌ Missing'
+  });
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
@@ -22,6 +24,7 @@ export interface PlantillaRecord {
   puesto?: string
   motivo_baja?: string | null
   area?: string | null
+  clasificacion?: string | null
   created_at: string
   updated_at: string
 }
@@ -190,8 +193,8 @@ export const db = {
       clasificacion: emp.clasificacion
     })));
     
-    const puestosUnicos = [...new Set(transformed.map(emp => emp.puesto).filter(p => p && p !== 'Sin Puesto'))];
-    const clasificacionesUnicas = [...new Set(transformed.map(emp => emp.clasificacion).filter(c => c && c !== 'Sin Clasificación'))];
+    const puestosUnicos = Array.from(new Set(transformed.map(emp => emp.puesto).filter(p => p && p !== 'Sin Puesto')));
+    const clasificacionesUnicas = Array.from(new Set(transformed.map(emp => emp.clasificacion).filter(c => c && c !== 'Sin Clasificación')));
     
     console.log('🔍 Puestos únicos encontrados:', puestosUnicos);
     console.log('🔍 Clasificaciones únicas encontradas:', clasificacionesUnicas);
@@ -313,7 +316,7 @@ export const db = {
   },
 
   // Stats operations
-  async getKPIStats(period: string = 'monthly') {
+  async getKPIStats() {
     const [empleados, asistencia, bajas] = await Promise.all([
       this.getEmpleadosSFTP(),
       this.getAsistenciaDiaria(),
@@ -327,7 +330,7 @@ export const db = {
       totalEmployees: empleados.length,
       activeEmployees: empleados.filter((e: PlantillaRecord) => e.activo).length,
       totalIncidents: incidencias.length,
-      totalActiveDays: [...new Set(asistencia.map((a: AsistenciaDiariaRecord) => a.fecha))].length,
+      totalActiveDays: Array.from(new Set(asistencia.map((a: AsistenciaDiariaRecord) => a.fecha))).length,
       totalTerminations: bajas.length
     }
   }
