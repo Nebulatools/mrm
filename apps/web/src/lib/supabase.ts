@@ -25,6 +25,7 @@ export interface PlantillaRecord {
   motivo_baja?: string | null
   area?: string | null
   clasificacion?: string | null
+  ubicacion?: string | null
   created_at: string
   updated_at: string
 }
@@ -54,6 +55,7 @@ export interface EmpleadoSFTPRecord {
   clasificacion?: string  // CONFIANZA, SINDICALIZADO, etc.
   codigo_area?: string
   area?: string
+  ubicacion?: string | null
   telefono?: string
   correo?: string
   direccion?: string
@@ -176,6 +178,7 @@ export const db = {
         motivo_baja: emp.motivo_baja || ultimoMotivo?.motivo || 'No especificado',
         area: emp.area || 'Sin Área',
         clasificacion: emp.clasificacion || 'Sin Clasificación',
+        ubicacion: (emp as any).ubicacion || null,
         created_at: emp.fecha_creacion || new Date().toISOString(),
         updated_at: emp.fecha_actualizacion || new Date().toISOString()
       };

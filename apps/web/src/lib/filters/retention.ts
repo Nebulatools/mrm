@@ -6,6 +6,7 @@ export interface RetentionFilterOptions {
   departamentos?: string[];
   puestos?: string[];
   clasificaciones?: string[];
+  ubicaciones?: string[];
 }
 
 // Apply retention filters to empleados_sftp-derived records efficiently
@@ -21,6 +22,7 @@ export function applyRetentionFilters(
   const puestosSet = new Set((filters.puestos || []).map(p => String(p).trim()));
   const deptosSet = new Set(filters.departamentos || []);
   const clasifSet = new Set(filters.clasificaciones || []);
+  const ubicSet = new Set(filters.ubicaciones || []);
 
   const filtered = (plantilla as PlantillaRecord[]).filter((emp) => {
     // Departamento
@@ -34,6 +36,13 @@ export function applyRetentionFilters(
 
     // Clasificación
     if (clasifSet.size && !clasifSet.has(emp.clasificacion || '')) return false;
+
+    // Ubicación
+    // Some datasets might have missing ubicacion; default to empty string
+    // Only filter when there are selected ubicaciones
+    // @ts-ignore - PlantillaRecord may be extended to include ubicacion
+    const empUbicacion: string = (emp as any).ubicacion || '';
+    if (ubicSet.size && !ubicSet.has(empUbicacion)) return false;
 
     // Year/Month filters: employee considered included if active within any selected period
     if (hasYearFilters || hasMonthFilters) {

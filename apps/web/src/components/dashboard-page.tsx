@@ -35,6 +35,14 @@ interface DashboardData {
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'annual' | 'last12months' | 'alltime';
 
 export function DashboardPage() {
+  const sanitizeChip = (value?: string) => {
+    if (!value) return '';
+    const v = String(value);
+    const lower = v.toLowerCase();
+    const looksFilePath = v.startsWith('/') || v.includes('/var/folders/') || lower.includes('temporaryitems') || lower.includes('screencaptureui');
+    const looksScreenshot = lower.includes('screenshot') || lower.endsWith('.png') || lower.includes('.png');
+    return (looksFilePath || looksScreenshot) ? '—' : v;
+  };
   const [data, setData] = useState<DashboardData>({
     kpis: [],
     plantilla: [],
@@ -75,7 +83,8 @@ export function DashboardPage() {
     months: [],
     departamentos: [],
     puestos: [],
-    clasificaciones: []
+    clasificaciones: [],
+    ubicaciones: []
   });
 
   const loadDashboardData = useCallback(async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
@@ -607,7 +616,8 @@ export function DashboardPage() {
             {(retentionFilters.years.length > 0 || retentionFilters.months.length > 0 || 
               (retentionFilters.departamentos && retentionFilters.departamentos.length > 0) ||
               (retentionFilters.puestos && retentionFilters.puestos.length > 0) ||
-              (retentionFilters.clasificaciones && retentionFilters.clasificaciones.length > 0)) && (
+              (retentionFilters.clasificaciones && retentionFilters.clasificaciones.length > 0) ||
+              (retentionFilters.ubicaciones && retentionFilters.ubicaciones.length > 0)) && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <Filter className="h-4 w-4" />
@@ -622,13 +632,16 @@ export function DashboardPage() {
                       </span>
                     ))}
                     {retentionFilters.departamentos?.map(depto => (
-                      <span key={depto} className="bg-green-100 px-2 py-1 rounded text-xs">{depto}</span>
+                      <span key={depto} className="bg-green-100 px-2 py-1 rounded text-xs">{sanitizeChip(depto)}</span>
                     ))}
                     {retentionFilters.puestos?.map(puesto => (
-                      <span key={puesto} className="bg-purple-100 px-2 py-1 rounded text-xs">{puesto}</span>
+                      <span key={puesto} className="bg-purple-100 px-2 py-1 rounded text-xs">{sanitizeChip(puesto)}</span>
                     ))}
                     {retentionFilters.clasificaciones?.map(clas => (
-                      <span key={clas} className="bg-orange-100 px-2 py-1 rounded text-xs">{clas}</span>
+                      <span key={clas} className="bg-orange-100 px-2 py-1 rounded text-xs">{sanitizeChip(clas)}</span>
+                    ))}
+                    {retentionFilters.ubicaciones?.map(ubi => (
+                      <span key={ubi} className="bg-yellow-100 px-2 py-1 rounded text-xs">{sanitizeChip(ubi)}</span>
                     ))}
                   </div>
                 </div>

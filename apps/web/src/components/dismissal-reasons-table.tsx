@@ -12,12 +12,12 @@ import type { PlantillaRecord } from "@/lib/supabase";
 
 interface Employee {
   id: string;
-  nombre: string;
   puesto?: string;
   departamento?: string;
   clasificacion?: string;
-  fecha_baja: string;
+  fecha_baja: string | null;
   motivo_baja?: string;
+  ubicacion?: string;
 }
 
 interface DismissalReasonsTableProps {
@@ -28,6 +28,16 @@ interface DismissalReasonsTableProps {
 
 export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps) {
   const [showAll, setShowAll] = useState(true); // MOSTRAR TODOS POR DEFECTO!
+  
+  const sanitizeText = (value?: string) => {
+    if (!value) return 'N/A';
+    const v = String(value);
+    // Hide macOS temp screenshot paths or any absolute file paths
+    const isFilePath = v.includes('/var/folders/') || v.startsWith('/') || v.match(/^([A-Za-z]:\\|file:\/\/)/);
+    const looksLikeScreenshot = v.toLowerCase().includes('screenshot') || v.toLowerCase().includes('nsird_screencaptureui');
+    if (isFilePath || looksLikeScreenshot) return '—';
+    return v;
+  };
   
   // Filtrar empleados dados de baja - usar fecha_baja O activo = false
   const empleadosBaja = plantilla.filter(emp => {
@@ -46,15 +56,16 @@ export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps)
   const empleadosDetalle: Employee[] = (showAll ? empleadosOrdenados : empleadosOrdenados.slice(0, 10))
     .map(emp => ({
       id: emp.emp_id || emp.numero_empleado || emp.id || 'N/A',
-      nombre: emp.nombre || 'N/A',
-      puesto: emp.puesto || 'Sin puesto',
-      departamento: emp.departamento || 'Sin departamento',
-      clasificacion: emp.clasificacion || 'Sin clasificación',
+      puesto: sanitizeText(emp.puesto || '') || 'Sin puesto',
+      departamento: sanitizeText(emp.departamento || '') || 'Sin departamento',
+      clasificacion: sanitizeText(emp.clasificacion || '') || 'Sin clasificación',
       fecha_baja: emp.fecha_baja,
-      motivo_baja: emp.motivo_baja || 'No especificado'
+      motivo_baja: sanitizeText(emp.motivo_baja || '') || 'No especificado',
+      ubicacion: sanitizeText((emp as any).ubicacion || '') || 'Sin ubicación'
     }));
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
     try {
       return new Date(dateString).toLocaleDateString('es-ES', {
         day: '2-digit',
@@ -62,99 +73,60 @@ export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps)
         year: 'numeric'
       });
     } catch {
-      return dateString;
+      return dateString || '-';
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Resumen de Bajas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Empleados</p>
-                <p className="text-3xl font-bold">{plantilla.length}</p>
-              </div>
-              <Users className="h-8 w-8 text-blue-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Bajas</p>
-                <p className="text-3xl font-bold text-red-600">{empleadosBaja.length}</p>
-              </div>
-              <UserMinus className="h-8 w-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">% Bajas</p>
-                <p className="text-3xl font-bold">
-                  {plantilla.length > 0 ? ((empleadosBaja.length / plantilla.length) * 100).toFixed(1) : 0}%
-                </p>
-              </div>
-              <Badge variant="destructive" className="text-lg px-3 py-1">
-                {empleadosBaja.length > 50 ? 'Alto' : empleadosBaja.length > 20 ? 'Medio' : 'Bajo'}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Resumen de Bajas removed as requested */}
       {/* Listado Detallado de Bajas Recientes */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            📋 Detalle de Bajas (empleados_sftp)
-            <Badge variant="outline" className="ml-2">
-              {showAll ? `Mostrando todas las ${empleadosBaja.length} bajas` : `Últimas ${empleadosDetalle.length} de ${empleadosBaja.length} total`}
-            </Badge>
-          </CardTitle>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            ID, Departamento, Puesto, Clasificación - Datos completos de empleados_sftp
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-20">ID</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Departamento</TableHead>
-                <TableHead>Puesto</TableHead>
-                <TableHead>Clasificación</TableHead>
-                <TableHead>Fecha Baja</TableHead>
-                <TableHead>Motivo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {empleadosDetalle.map((empleado, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-mono text-xs">
-                    {empleado.id}
-                  </TableCell>
-                  <TableCell className="font-medium text-sm">
-                    {empleado.nombre}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs bg-blue-50">
-                      {empleado.departamento || 'Sin Depto'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="text-xs">
-                      {empleado.puesto || 'Sin Puesto'}
-                    </Badge>
-                  </TableCell>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          📋 Detalle de Bajas (empleados_sftp)
+          <Badge variant="outline" className="ml-2">
+            {showAll ? `Mostrando todas las ${empleadosBaja.length} bajas` : `Últimas ${empleadosDetalle.length} de ${empleadosBaja.length} total`}
+          </Badge>
+        </CardTitle>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          ID, Departamento, Ubicación, Puesto, Clasificación - Datos completos de empleados_sftp
+        </p>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-20">ID</TableHead>
+              <TableHead>Departamento</TableHead>
+              <TableHead>Ubicación</TableHead>
+              <TableHead>Puesto</TableHead>
+              <TableHead>Clasificación</TableHead>
+              <TableHead>Fecha Baja</TableHead>
+              <TableHead>Motivo</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {empleadosDetalle.map((empleado, index) => (
+              <TableRow key={index}>
+                <TableCell className="font-mono text-xs">
+                  {empleado.id}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="text-xs bg-blue-50">
+                    {empleado.departamento || 'Sin Depto'}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="text-xs">
+                    {empleado.ubicacion || 'Sin Ubicación'}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary" className="text-xs">
+                    {empleado.puesto || 'Sin Puesto'}
+                  </Badge>
+                </TableCell>
                   <TableCell>
                     <Badge 
                       variant={empleado.clasificacion === 'CONFIANZA' ? 'default' : 

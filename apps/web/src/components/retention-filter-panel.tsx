@@ -19,12 +19,20 @@ interface RetentionFilterPanelProps {
 
 export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFilterPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const sanitize = (value: string | number) => {
+    const v = String(value);
+    const lower = v.toLowerCase();
+    const looksFilePath = v.startsWith('/') || v.includes('/var/folders/') || lower.includes('temporaryitems') || lower.includes('screencaptureui');
+    const looksScreenshot = lower.includes('screenshot') || lower.endsWith('.png') || lower.includes('.png');
+    return (looksFilePath || looksScreenshot) ? '—' : v;
+  };
   const [filters, setFilters] = useState<RetentionFilterOptions>({
     years: [],
     months: [],
     departamentos: [],
     puestos: [], // Cambiado de areas a puestos
-    clasificaciones: []
+    clasificaciones: [],
+    ubicaciones: []
   });
   
   const [availableOptions, setAvailableOptions] = useState({
@@ -32,7 +40,8 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
     months: [] as number[],
     departamentos: [] as string[],
     puestos: [] as string[], // Cambiado de areas a puestos
-    clasificaciones: [] as string[]
+    clasificaciones: [] as string[],
+    ubicaciones: [] as string[]
   });
 
   // Cargar opciones disponibles desde la base de datos
@@ -45,13 +54,14 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       // Get empleados_sftp data 
       const { data: empleadosSFTP } = await supabase
         .from('empleados_sftp')
-        .select('fecha_baja, departamento, puesto, clasificacion'); // Agregado clasificacion
+        .select('fecha_baja, departamento, puesto, clasificacion, ubicacion'); // Agregado clasificacion y ubicacion
       
       // Extract all dates from fecha_baja
       const allDates = [];
       const departamentosSet = new Set<string>();
       const puestosSet = new Set<string>(); // Cambiado de areasSet a puestosSet
       const clasificacionesSet = new Set<string>();
+      const ubicacionesSet = new Set<string>();
       
       if (empleadosSFTP) {
         empleadosSFTP.forEach(emp => {
@@ -61,6 +71,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
             console.log('🔍 Departamento:', emp.departamento);
             console.log('🔍 Puesto:', emp.puesto);  
             console.log('🔍 Clasificación:', emp.clasificacion);
+            console.log('🔍 Ubicación:', (emp as any).ubicacion);
           }
           
           // Collect dates
@@ -82,6 +93,13 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
           if (emp.clasificacion && emp.clasificacion !== 'null' && emp.clasificacion !== '') {
             clasificacionesSet.add(emp.clasificacion);
           }
+
+          // Collect unique ubicaciones
+          // @ts-ignore - runtime property
+          const ub = (emp as any).ubicacion as string | undefined;
+          if (ub && ub !== 'null' && ub !== '') {
+            ubicacionesSet.add(ub);
+          }
         });
       }
       
@@ -102,6 +120,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       const departamentos = Array.from(departamentosSet).sort();
       const puestos = Array.from(puestosSet).sort(); // Cambiado de areas a puestos
       const clasificaciones = Array.from(clasificacionesSet).sort();
+      const ubicaciones = Array.from(ubicacionesSet).sort();
       
       // If no departamentos/puestos found, use default values
       const finalDepartamentos = departamentos.length > 0 ? departamentos : [
@@ -129,12 +148,20 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
         'EVENTUAL'
       ];
 
+      const finalUbicaciones = ubicaciones.length > 0 ? ubicaciones : [
+        'Planta Norte',
+        'Planta Sur',
+        'Oficinas CDMX',
+        'Remoto'
+      ];
+
       setAvailableOptions({
         years: uniqueYears,
         months: uniqueMonths,
         departamentos: finalDepartamentos,
         puestos: finalPuestos, // Cambiado de areas a puestos
-        clasificaciones: finalClasificaciones
+        clasificaciones: finalClasificaciones,
+        ubicaciones: finalUbicaciones
       });
     } catch (error) {
       console.error('Error loading available options:', error);
@@ -159,6 +186,8 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       newFilters.puestos = selectedValues; // Cambiado de areas a puestos
     } else if (filterType === 'clasificaciones') {
       newFilters.clasificaciones = selectedValues;
+    } else if (filterType === 'ubicaciones') {
+      newFilters.ubicaciones = selectedValues;
     }
     
     setFilters(newFilters);
@@ -171,7 +200,8 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
       months: [],
       departamentos: [],
       puestos: [], // Cambiado de areas a puestos
-      clasificaciones: []
+      clasificaciones: [],
+      ubicaciones: []
     };
     setFilters(emptyFilters);
     onFiltersChange(emptyFilters);
@@ -198,6 +228,9 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
     }
     if ((filters.clasificaciones || []).length > 0) {
       parts.push(`${(filters.clasificaciones || []).length} clasificación${(filters.clasificaciones || []).length !== 1 ? 'es' : ''}`);
+    }
+    if ((filters.ubicaciones || []).length > 0) {
+      parts.push(`${(filters.ubicaciones || []).length} ubicación${(filters.ubicaciones || []).length !== 1 ? 'es' : ''}`);
     }
     
     return parts.join(', ');
@@ -354,8 +387,8 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
             </div>
           )}
 
-          {/* Layout de dropdowns - Año, Mes, Departamento, Área y Clasificación */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {/* Layout de dropdowns - Año, Mes, Departamento, Puesto, Clasificación, Ubicación */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             {/* Años */}
             <MultiSelectDropdown
               label="Año"
@@ -380,7 +413,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
               options={availableOptions.departamentos}
               selectedValues={filters.departamentos || []}
               onSelectionChange={(values) => handleMultiSelectChange('departamentos', values)}
-              renderOption={(option) => option.toString()}
+              renderOption={(option) => sanitize(option)}
             />
             
             {/* Puestos */}
@@ -389,7 +422,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
               options={availableOptions.puestos}
               selectedValues={filters.puestos || []}
               onSelectionChange={(values) => handleMultiSelectChange('puestos', values)}
-              renderOption={(option) => option.toString()}
+              renderOption={(option) => sanitize(option)}
             />
             
             {/* Clasificaciones */}
@@ -398,7 +431,16 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
               options={availableOptions.clasificaciones}
               selectedValues={filters.clasificaciones || []}
               onSelectionChange={(values) => handleMultiSelectChange('clasificaciones', values)}
-              renderOption={(option) => option.toString()}
+              renderOption={(option) => sanitize(option)}
+            />
+
+            {/* Ubicaciones */}
+            <MultiSelectDropdown
+              label="Ubicación"
+              options={availableOptions.ubicaciones}
+              selectedValues={filters.ubicaciones || []}
+              onSelectionChange={(values) => handleMultiSelectChange('ubicaciones', values)}
+              renderOption={(option) => sanitize(option)}
             />
           </div>
         </div>
