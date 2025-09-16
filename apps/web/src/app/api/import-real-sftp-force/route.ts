@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+export const runtime = 'nodejs';
+import SftpClient from 'ssh2-sftp-client';
 
 // Helper function to safely parse dates
 function parseDate(dateValue: unknown): string | null {
@@ -374,6 +376,12 @@ export async function POST() {
     }
 
     // ========================================
+    // PASO 5.6: IMPORTAR INCIDENCIAS DESDE PDF (DESACTIVADO)
+    // ========================================
+    // A petición: por ahora omitimos parseo/import desde PDFs.
+    let incidenciasInsertadas = 0;
+
+    // ========================================
     // PASO 6: VERIFICAR INSERCIÓN
     // ========================================
     const { count: totalEmpleados } = await supabaseAdmin
@@ -386,6 +394,10 @@ export async function POST() {
       
     const { count: totalAsistencia } = await supabaseAdmin
       .from('asistencia_diaria')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: totalIncidencias } = await supabaseAdmin
+      .from('incidencias_detalle')
       .select('*', { count: 'exact', head: true });
 
     console.log('✅ IMPORTACIÓN REAL COMPLETADA!');
@@ -411,6 +423,10 @@ export async function POST() {
           encontrados: asistenciaReales.length,
           insertados: asistenciaInsertada,
           total_en_bd: totalAsistencia
+        },
+        incidencias: {
+          insertadas: incidenciasInsertadas,
+          total_en_bd: totalIncidencias
         }
       }
     });

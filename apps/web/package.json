@@ -27,6 +27,7 @@
     "lucide-react": "^0.445.0",
     "next": "14.2.32",
     "papaparse": "^5.5.3",
+    "pdf-parse": "^1.1.1",
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^2.15.4",
@@ -38,6 +39,7 @@
   "devDependencies": {
     "@types/node": "^20",
     "@types/papaparse": "^5.3.16",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/ssh2-sftp-client": "^9.0.5",

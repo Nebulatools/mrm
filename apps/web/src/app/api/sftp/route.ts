@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+export const runtime = 'nodejs';
 import SftpClient from 'ssh2-sftp-client';
 import * as XLSX from 'xlsx';
+
+// PDF parsing is done server-side via dynamic import to avoid ESM/CJS issues
 
 interface SFTPConfig {
   host: string;
@@ -45,7 +48,7 @@ class SFTPService {
     const sftp = new SftpClient();
     try {
       console.log('Testing SFTP connection to:', `${this.config.username}@${this.config.host}:${this.config.port}`);
-      
+
       await sftp.connect({
         host: this.config.host,
         port: this.config.port,
@@ -54,11 +57,11 @@ class SFTPService {
         readyTimeout: 10000, // 10 seconds timeout
         retries: 1
       });
-      
+
       // Test directory access
       const dirExists = await sftp.exists(this.config.directory);
       console.log(`Directory '${this.config.directory}' exists:`, dirExists);
-      
+
       await sftp.end();
       console.log('SFTP connection test: SUCCESS');
       return true;
@@ -74,7 +77,7 @@ class SFTPService {
     const sftp = new SftpClient();
     try {
       console.log('Listing SFTP files from:', `${this.config.host}:${this.config.port}/${this.config.directory}`);
-      
+
       await sftp.connect({
         host: this.config.host,
         port: this.config.port,
@@ -82,27 +85,28 @@ class SFTPService {
         password: this.config.password,
         readyTimeout: 10000
       });
-      
+
       // List files in directory
       const fileList = await sftp.list(this.config.directory);
-      
-      // Filter and map files - Excel, Word, CSV
+
+      // Filter and map files - Excel, Word, CSV, PDF
       const hrFiles: SFTPFile[] = fileList
         .filter(file => {
           const isFile = file.type === '-';
-          const hasValidExtension = file.name.endsWith('.csv') || 
-                                   file.name.endsWith('.xlsx') || 
-                                   file.name.endsWith('.xls') || 
-                                   file.name.endsWith('.docx') || 
-                                   file.name.endsWith('.doc');
+          const hasValidExtension = file.name.endsWith('.csv') ||
+                                   file.name.endsWith('.xlsx') ||
+                                   file.name.endsWith('.xls') ||
+                                   file.name.endsWith('.docx') ||
+                                   file.name.endsWith('.doc') ||
+                                   file.name.endsWith('.pdf');
           return isFile && hasValidExtension;
         })
         .map(file => {
           let type: 'plantilla' | 'incidencias' | 'act' = 'plantilla';
-          
+
           // Mapeo basado en los nombres de archivos de la imagen
           const fileName = file.name.toLowerCase();
-          
+
           if (fileName.includes('motivos') && fileName.includes('bajas')) {
             type = 'plantilla'; // Motivos Bajas va a empleados_sftp/plantilla
           } else if (fileName.includes('incidencias') || fileName.includes('me 5')) {
@@ -116,7 +120,16 @@ class SFTPService {
           } else if (fileName.includes('act')) {
             type = 'act';
           }
-          
+
+          // Handle PDF files specifically
+          if (file.name.endsWith('.pdf')) {
+            if (fileName.includes('motivos') && fileName.includes('bajas')) {
+              type = 'plantilla';
+            } else if (fileName.includes('incidencias')) {
+              type = 'incidencias';
+            }
+          }
+
           return {
             name: file.name,
             type: type,
@@ -124,7 +137,7 @@ class SFTPService {
             size: file.size
           };
         });
-      
+
       await sftp.end();
       console.log(`Found ${hrFiles.length} HR files`);
       return hrFiles;
@@ -132,7 +145,7 @@ class SFTPService {
     } catch (error) {
       console.error('Error listing SFTP files:', error);
       await sftp.end();
-      
+
       // Return mock files as fallback - basado en los archivos reales del SFTP
       const mockFiles: SFTPFile[] = [
         {
@@ -160,18 +173,18 @@ class SFTPService {
           size: 12800
         }
       ];
-      
+
       console.log(`Fallback: returning ${mockFiles.length} mock files`);
       return mockFiles;
     }
   }
 
   // Download and parse CSV file from SFTP
-  async downloadFile(filename: string): Promise<Record<string, unknown>[]> {
+  async downloadFile(filename: string, limit?: number): Promise<Record<string, unknown>[]> {
     const sftp = new SftpClient();
     try {
       console.log('Downloading file:', filename);
-      
+
       await sftp.connect({
         host: this.config.host,
         port: this.config.port,
@@ -179,30 +192,32 @@ class SFTPService {
         password: this.config.password,
         readyTimeout: 10000
       });
-      
+
       // Download file content
       const filePath = `${this.config.directory}/${filename}`;
       const fileContent = await sftp.get(filePath);
-      
+
       await sftp.end();
-      
+
       // Detectar tipo de archivo y procesarlo apropiadamente
       let data: Record<string, unknown>[] = [];
-      
+
       if (filename.toLowerCase().endsWith('.csv')) {
         // Procesar CSV
         const csvText = fileContent.toString('utf8');
         const lines = csvText.split('\n').filter(line => line.trim());
-        
+
         if (lines.length === 0) {
           console.log('CSV file is empty');
           return [];
         }
-        
+
         // Parse CSV manually
         const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        
-        for (let i = 1; i < lines.length; i++) {
+
+        const maxRows = limit ? Math.min(limit + 1, lines.length) : lines.length; // +1 porque línea 0 son headers
+
+        for (let i = 1; i < maxRows; i++) {
           const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
           if (values.length === headers.length) {
             const row: Record<string, unknown> = {};
@@ -226,7 +241,10 @@ class SFTPService {
           const headers: string[] = headerRow.map((h: unknown) => String(h || ''));
           const bodyRows = rows.slice(1) as unknown[];
 
-          data = bodyRows.map((rowUnknown: unknown) => {
+          const maxRows = limit ? Math.min(limit, bodyRows.length) : bodyRows.length;
+          const rowsToProcess = bodyRows.slice(0, maxRows);
+
+          data = rowsToProcess.map((rowUnknown: unknown) => {
             const row = rowUnknown as unknown[];
             const obj: Record<string, unknown> = {};
             headers.forEach((header, i) => {
@@ -235,12 +253,16 @@ class SFTPService {
             });
             return obj;
           });
-          
+
           console.log(`Excel procesado: ${data.length} filas extraídas`);
         } catch (excelError) {
           console.error('Error procesando Excel:', excelError);
           data = [];
         }
+      } else if (filename.toLowerCase().endsWith('.pdf')) {
+        // Por solicitud: omitir preview de PDFs por ahora
+        console.log('PDF preview omitido por configuración:', filename);
+        data = [];
       } else if (filename.toLowerCase().endsWith('.docx') || filename.toLowerCase().endsWith('.doc')) {
         // Para archivos Word, por ahora retornar datos mock
         console.log('Archivo Word detectado, usando datos simulados');
@@ -253,21 +275,20 @@ class SFTPService {
           }
         ];
       }
-      
+
       console.log(`Parsed ${data.length} rows from ${filename}`);
       return data;
 
     } catch (error) {
       console.error('Error downloading SFTP file:', error);
       await sftp.end();
-      
+
       // No mock data on failure: fail fast to surface config issues
       return [];
     }
   }
-}
 
-const sftpService = new SFTPService();
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -275,6 +296,9 @@ export async function GET(request: NextRequest) {
   const filename = searchParams.get('filename');
 
   try {
+    // Initialize SFTP service inside the handler to catch initialization errors
+    const sftpService = new SFTPService();
+
     switch (action) {
       case 'test':
         const connectionOk = await sftpService.testConnection();
@@ -291,14 +315,27 @@ export async function GET(request: NextRequest) {
         const data = await sftpService.downloadFile(filename);
         return NextResponse.json({ data });
 
+      case 'preview':
+        if (!filename) {
+          return NextResponse.json({ error: 'Filename is required for preview' }, { status: 400 });
+        }
+        console.log(`Preview requested for: ${filename}`);
+        const previewData = await sftpService.downloadFile(filename, 10); // Limit to 10 rows
+        return NextResponse.json({
+          data: previewData,
+          isPreview: true,
+          previewRows: previewData.length,
+          filename: filename
+        });
+
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
     console.error('SFTP API error:', error);
-    return NextResponse.json({ 
-      error: 'SFTP operation failed', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
+    return NextResponse.json({
+      error: 'SFTP operation failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

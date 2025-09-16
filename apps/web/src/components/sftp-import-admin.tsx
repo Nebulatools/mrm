@@ -5,22 +5,26 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Upload, 
-  Database, 
-  FileText, 
-  Users, 
-  UserMinus, 
-  AlertCircle, 
+import {
+  Upload,
+  Database,
+  FileText,
+  Users,
+  UserMinus,
+  AlertCircle,
   CheckCircle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 
 interface ImportResults {
   empleados: number;
   bajas: number;
   asistencia: number;
+  incidencias?: number;
   errors: string[];
 }
 
@@ -31,11 +35,20 @@ interface SFTPFile {
   size: number;
 }
 
+interface PreviewData {
+  data: Record<string, unknown>[];
+  filename: string;
+  previewRows: number;
+}
+
 export function SFTPImportAdmin() {
   const [isImporting, setIsImporting] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [sftpFiles, setSftpFiles] = useState<SFTPFile[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [previewData, setPreviewData] = useState<Record<string, PreviewData>>({});
+  const [loadingPreviews, setLoadingPreviews] = useState<Record<string, boolean>>({});
+  const [expandedPreviews, setExpandedPreviews] = useState<Record<string, boolean>>({});
 
   const loadSFTPFiles = async () => {
     setIsLoadingFiles(true);
@@ -80,6 +93,7 @@ export function SFTPImportAdmin() {
           empleados: result.data.empleados.total_en_bd || 0,
           bajas: result.data.bajas.total_en_bd || 0,
           asistencia: result.data.asistencia.total_en_bd || 0,
+          incidencias: result.data.incidencias?.total_en_bd || 0,
           errors: []
         });
         console.log('✅ Importación real completada:', result.data);
@@ -148,6 +162,40 @@ export function SFTPImportAdmin() {
     }
   };
 
+  const loadFilePreview = async (filename: string) => {
+    setLoadingPreviews(prev => ({ ...prev, [filename]: true }));
+    try {
+      const response = await fetch(`/api/sftp?action=preview&filename=${encodeURIComponent(filename)}`);
+      const result = await response.json();
+
+      if (result.data) {
+        setPreviewData(prev => ({
+          ...prev,
+          [filename]: {
+            data: result.data,
+            filename: result.filename,
+            previewRows: result.previewRows
+          }
+        }));
+        setExpandedPreviews(prev => ({ ...prev, [filename]: true }));
+      }
+    } catch (error) {
+      console.error('Error loading preview:', error);
+    } finally {
+      setLoadingPreviews(prev => ({ ...prev, [filename]: false }));
+    }
+  };
+
+  const togglePreview = (filename: string) => {
+    if (expandedPreviews[filename]) {
+      setExpandedPreviews(prev => ({ ...prev, [filename]: false }));
+    } else if (previewData[filename]) {
+      setExpandedPreviews(prev => ({ ...prev, [filename]: true }));
+    } else {
+      loadFilePreview(filename);
+    }
+  };
+
   const testConnection = async () => {
     try {
       const response = await fetch('/api/sftp?action=test');
@@ -201,29 +249,163 @@ export function SFTPImportAdmin() {
           </div>
           
           {sftpFiles.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {sftpFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <div className="font-medium">{file.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Modificado: {file.lastModified.toLocaleDateString()} • {(file.size / 1024).toFixed(1)} KB
+                <div key={index} className="border rounded-lg">
+                  <div className="flex items-center justify-between p-3">
+                    <div className="flex-1">
+                      <div className="font-medium">{file.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Modificado: {file.lastModified.toLocaleDateString()} • {(file.size / 1024).toFixed(1)} KB
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={
+                        file.type === 'plantilla' ? 'default' :
+                        file.type === 'incidencias' ? 'secondary' : 'outline'
+                      }>
+                        {file.type}
+                      </Badge>
+                      {file.name.includes('Validacion Alta') && (
+                        <Badge variant="default">👥 Empleados</Badge>
+                      )}
+                      {file.name.includes('MotivosBaja') && (
+                        <Badge variant="destructive">📉 Bajas</Badge>
+                      )}
+                      {file.name.toLowerCase().endsWith('.pdf') ? (
+                        <Badge variant="outline" className="text-[11px]">Sin vista previa (PDF)</Badge>
+                      ) : (
+                        <Button
+                          onClick={() => togglePreview(file.name)}
+                          variant="outline"
+                          size="sm"
+                          disabled={loadingPreviews[file.name]}
+                        >
+                          {loadingPreviews[file.name] ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4 mr-1" />
+                              {expandedPreviews[file.name] ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={
-                      file.type === 'plantilla' ? 'default' : 
-                      file.type === 'incidencias' ? 'secondary' : 'outline'
-                    }>
-                      {file.type}
-                    </Badge>
-                    {file.name.includes('Validacion Alta') && (
-                      <Badge variant="default">👥 Empleados</Badge>
-                    )}
-                    {file.name.includes('MotivosBaja') && (
-                      <Badge variant="destructive">📉 Bajas</Badge>
-                    )}
-                  </div>
+
+                  {/* Vista Previa */}
+                  {expandedPreviews[file.name] && previewData[file.name] && (
+                    <div className="border-t bg-gray-50 p-4">
+                      <div className="mb-3">
+                        <h4 className="text-sm font-medium text-gray-700">
+                          {file.name.endsWith('.pdf') ? (
+                            <>📄 Vista Previa PDF - Estructura detectada ({previewData[file.name].previewRows} elementos)</>
+                          ) : (
+                            <>📊 Vista Previa - {previewData[file.name].previewRows} de ? registros</>
+                          )}
+                        </h4>
+                      </div>
+
+                      {previewData[file.name].data.length > 0 ? (
+                        file.name.endsWith('.pdf') ? (
+                          // Vista tabular para PDFs si vienen campos normalizados
+                          (() => {
+                            const first = previewData[file.name].data[0] as any;
+                            const isStructured = first && (
+                              'numero_empleado' in first || 'tipo_incidencia' in first || 'fecha' in first
+                            );
+                            if (isStructured) {
+                              const columns = ['numero_empleado', 'fecha', 'tipo_incidencia', 'dias_aplicados', 'descripcion_tipo', 'observaciones'] as const;
+                              return (
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full text-xs border border-gray-200">
+                                    <thead className="bg-gray-100">
+                                      <tr>
+                                        {columns.map((c) => (
+                                          <th key={c} className="px-2 py-1 text-left border-b font-medium text-gray-600">
+                                            {c}
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {previewData[file.name].data.slice(0, 10).map((row, i) => (
+                                        <tr key={i} className="hover:bg-gray-50">
+                                          {columns.map((c) => (
+                                            <td key={c} className="px-2 py-1 border-b text-gray-700">
+                                              {String((row as any)[c] ?? '').slice(0, 50)}
+                                              {String((row as any)[c] ?? '').length > 50 && '...'}
+                                            </td>
+                                          ))}
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              );
+                            }
+                            // Fallback a vista de líneas si no es estructurado
+                            return (
+                              <div className="space-y-2">
+                                {previewData[file.name].data.map((row, i) => (
+                                  <div key={i} className="p-2 bg-white border rounded text-xs">
+                                    <div className="text-gray-600 bg-gray-50 p-1 rounded text-[10px] font-mono">
+                                      {String((row as any).raw_text || (row as any).content || '').slice(0, 200)}
+                                      {String((row as any).raw_text || (row as any).content || '').length > 200 && '...'}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          // Vista normal para CSV/Excel
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full text-xs border border-gray-200">
+                              <thead className="bg-gray-100">
+                                <tr>
+                                  {Object.keys(previewData[file.name].data[0]).slice(0, 6).map((header) => (
+                                    <th key={header} className="px-2 py-1 text-left border-b font-medium text-gray-600">
+                                      {header}
+                                    </th>
+                                  ))}
+                                  {Object.keys(previewData[file.name].data[0]).length > 6 && (
+                                    <th className="px-2 py-1 text-left border-b font-medium text-gray-500">
+                                      +{Object.keys(previewData[file.name].data[0]).length - 6} más...
+                                    </th>
+                                  )}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {previewData[file.name].data.slice(0, 10).map((row, i) => (
+                                  <tr key={i} className="hover:bg-gray-50">
+                                    {Object.keys(previewData[file.name].data[0]).slice(0, 6).map((header) => (
+                                      <td key={header} className="px-2 py-1 border-b text-gray-700">
+                                        {String(row[header] || '').slice(0, 30)}
+                                        {String(row[header] || '').length > 30 && '...'}
+                                      </td>
+                                    ))}
+                                    {Object.keys(previewData[file.name].data[0]).length > 6 && (
+                                      <td className="px-2 py-1 border-b text-gray-400">...</td>
+                                    )}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )
+                      ) : (
+                        <div className="text-center py-4 text-gray-500">
+                          No hay datos disponibles para vista previa
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -345,6 +527,18 @@ export function SFTPImportAdmin() {
                   {importResults.asistencia.toLocaleString()}
                 </div>
               </div>
+
+              {typeof importResults.incidencias === 'number' && (
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="h-5 w-5 text-purple-600" />
+                    <span className="font-medium">Incidencias Importadas</span>
+                  </div>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {importResults.incidencias.toLocaleString()}
+                  </div>
+                </div>
+              )}
             </div>
 
             {importResults.errors.length > 0 && (
