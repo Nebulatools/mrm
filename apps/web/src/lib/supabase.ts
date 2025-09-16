@@ -29,6 +29,7 @@ export interface PlantillaRecord {
   genero?: string | null
   fecha_nacimiento?: string | null
   fecha_antiguedad?: string | null
+  empresa?: string | null
   created_at: string
   updated_at: string
 }
@@ -101,6 +102,24 @@ export interface IncidenciaRecord {
   created_at: string
 }
 
+// Incidencias CSV (tabla: incidencias) según 1_crear_tabla_incidencias.sql
+export interface IncidenciaCSVRecord {
+  id: number
+  emp: number
+  nombre?: string | null
+  fecha: string
+  turno?: number | null
+  horario?: string | null
+  incidencia?: string | null
+  entra?: string | null
+  sale?: string | null
+  ordinarias?: number | null
+  numero?: number | null
+  inci?: string | null // Código: VAC, INC, FJ, FI, etc.
+  status?: number | null
+  fecha_creacion?: string
+}
+
 export interface ActividadRecord {
   id: number
   emp_id: string
@@ -126,6 +145,30 @@ export const db = {
     }
     console.log('✅ plantilla data loaded:', data?.length, 'records');
     return (data || []) as PlantillaRecord[]
+  },
+
+  // INCIDENCIAS (CSV) operations
+  async getIncidenciasCSV(startDate?: string, endDate?: string) {
+    console.log('🗄️ Fetching incidencias (CSV table)...', { startDate, endDate });
+    let query = supabase
+      .from('incidencias')
+      .select('*')
+      .order('fecha', { ascending: false })
+
+    if (startDate) {
+      query = query.gte('fecha', startDate)
+    }
+    if (endDate) {
+      query = query.lte('fecha', endDate)
+    }
+
+    const { data, error } = await query
+    if (error) {
+      console.error('❌ Error fetching incidencias (CSV):', error);
+      throw error;
+    }
+    console.log('✅ incidencias (CSV) loaded:', data?.length, 'records');
+    return (data || []) as IncidenciaCSVRecord[]
   },
 
   // EMPLEADOS_SFTP operations (new main employee table)
@@ -182,6 +225,7 @@ export const db = {
         area: emp.area || 'Sin Área',
         clasificacion: emp.clasificacion || 'Sin Clasificación',
         ubicacion: (emp as any).ubicacion || null,
+        empresa: (emp as any).empresa || null,
         genero: emp.genero || null,
         fecha_nacimiento: emp.fecha_nacimiento || null,
         fecha_antiguedad: emp.fecha_antiguedad || null,

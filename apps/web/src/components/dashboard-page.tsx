@@ -19,6 +19,7 @@ import { AIInsights } from "./ai-insights";
 import { RetroactiveAdjustment } from "./retroactive-adjustment";
 import { DismissalReasonsTable } from "./dismissal-reasons-table";
 import { RetentionCharts } from "./retention-charts";
+import IncidentsTab from "./incidents-tab";
 import { RetentionFilterPanel } from "./retention-filter-panel";
 import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filters/retention";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
@@ -757,60 +758,7 @@ export function DashboardPage() {
 
           {/* Incidents Tab */}
           <TabsContent value="incidents" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {categorized.incidents.map((kpi) => (
-                <KPICard 
-                  key={kpi.name} 
-                  kpi={kpi} 
-                  icon={<Calendar className="h-6 w-6" />}
-                />
-              ))}
-            </div>
-            
-            {/* 3 Chart Types for Incidents */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Tendencias</CardTitle>
-                  <p className="text-sm text-gray-600">Evolución temporal</p>
-                </CardHeader>
-                <CardContent>
-                  <KPIChart 
-                    data={categorized.incidents} 
-                    type="trend" 
-                    height={300}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Distribución</CardTitle>
-                  <p className="text-sm text-gray-600">Proporción por métrica</p>
-                </CardHeader>
-                <CardContent>
-                  <KPIChart 
-                    data={categorized.incidents} 
-                    type="pie" 
-                    height={300}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Comparativo</CardTitle>
-                  <p className="text-sm text-gray-600">Actual vs anterior</p>
-                </CardHeader>
-                <CardContent>
-                  <KPIChart 
-                    data={categorized.incidents} 
-                    type="stacked-bar" 
-                    height={300}
-                  />
-                </CardContent>
-              </Card>
-            </div>
+            <IncidentsTab plantilla={filterPlantilla(data.plantilla || [])} />
           </TabsContent>
 
           {/* Retention Tab */}
