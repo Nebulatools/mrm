@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db, type IncidenciaCSVRecord, type PlantillaRecord } from "@/lib/supabase";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
+import { Info } from "lucide-react";
 
 type Props = {
   plantilla?: PlantillaRecord[];
@@ -18,9 +19,9 @@ type EnrichedIncidencia = IncidenciaCSVRecord & {
   puesto?: string | null;
 };
 
-const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "INC", "ENFE"]);
+const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
 const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]); // Para card de empleados con incidencias
-const PERMISO_CODES = new Set(["FJ", "PCON", "VAC"]);
+const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3"]);
 
 const normalizeCode = (raw?: string | null) => {
   const c = (raw || '').toUpperCase().trim();
@@ -28,6 +29,7 @@ const normalizeCode = (raw?: string | null) => {
   if (c === 'PSG') return 'PSIN';
   if (c === 'PCG') return 'PCON';
   if (c === 'SUSP') return 'SUS';
+  if (c.replace(/\s+/g, '') === 'MAT3') return 'MAT3';
   return c;
 };
 
@@ -138,13 +140,8 @@ export function IncidentsTab({ plantilla }: Props) {
 
   // Resumen por tipo: #días (≈ registros) y #empleados únicos por tipo
   const tiposUnicos = useMemo(() => {
-    return Array.from(
-      new Set(
-        enriched
-          .map(i => normalizeCode(i.inci))
-          .filter((c): c is string => !!c && INCIDENT_CODES.has(c))
-      )
-    );
+    // Incluir todos los códigos presentes (incidencias y permisos), normalizados
+    return Array.from(new Set(enriched.map(i => normalizeCode(i.inci)).filter((c): c is string => !!c))).sort();
   }, [enriched]);
   const resumenPorTipo = useMemo(() => {
     const out = [] as { tipo: string; dias: number; empleados: number }[];
@@ -152,7 +149,6 @@ export function IncidentsTab({ plantilla }: Props) {
     enriched.forEach(i => {
       const t = normalizeCode(i.inci);
       if (!t) return;
-      if (!INCIDENT_CODES.has(t)) return; // solo incidencias
       if (!byTipo.has(t)) byTipo.set(t, []);
       byTipo.get(t)!.push(i);
     });
@@ -162,6 +158,16 @@ export function IncidentsTab({ plantilla }: Props) {
       const empleadosTipo = new Set(arr.map(a => a.emp)).size;
       const dias = arr.length; // sin dias_aplicados en CSV
       out.push({ tipo: t, dias, empleados: empleadosTipo });
+    });
+    // Orden: primero Incidencias, luego Permisos, luego otros (si existen)
+    const groupOf = (code: string) => (
+      INCIDENT_CODES.has(code) ? 0 : PERMISO_CODES.has(code) ? 1 : 2
+    );
+    out.sort((a, b) => {
+      const ga = groupOf(a.tipo);
+      const gb = groupOf(b.tipo);
+      if (ga !== gb) return ga - gb;
+      return a.tipo.localeCompare(b.tipo);
     });
     return out;
   }, [enriched, tiposUnicos]);
@@ -173,6 +179,15 @@ export function IncidentsTab({ plantilla }: Props) {
 
   const PIE_COLORS = ["#ef4444", "#10b981"];
 
+  const HoverHint = ({ text }: { text: string }) => (
+    <div className="relative inline-block group">
+      <Info className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+      <div role="tooltip" className="absolute z-50 hidden group-hover:block bottom-full mb-2 right-0 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white shadow">
+        {text}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* 4 Cards */}
@@ -182,86 +197,97 @@ export function IncidentsTab({ plantilla }: Props) {
           <CardContent className="text-3xl font-semibold">{activosCount.toLocaleString()}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Empleados con incidencias</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Empleados con incidencias</CardTitle>
+          </CardHeader>
           <CardContent className="text-3xl font-semibold">{empleadosConIncidencias.toLocaleString()}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Incidencias (FI+SUS+PSIN+INC+ENFE)</CardTitle></CardHeader>
+          <CardHeader className="pb-2 flex items-center justify-between">
+            <CardTitle className="text-base">Incidencias</CardTitle>
+            <HoverHint text="Incluye: FI, SUS, PSIN, ENFE" />
+          </CardHeader>
           <CardContent className="text-3xl font-semibold">{totalIncidencias.toLocaleString()}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Permisos (FJ+PCON+VAC)</CardTitle></CardHeader>
+          <CardHeader className="pb-2 flex items-center justify-between">
+            <CardTitle className="text-base">Permisos</CardTitle>
+            <HoverHint text="Incluye: PCON, VAC, MAT3" />
+          </CardHeader>
           <CardContent className="text-3xl font-semibold">{totalPermisos.toLocaleString()}</CardContent>
         </Card>
       </div>
 
-      {/* Histograma: Incidencias por empleado (mes) */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Incidencias por empleado</CardTitle>
-          <p className="text-sm text-gray-600">X: # Empleados • Y: # Incidencias</p>
-        </CardHeader>
-        <CardContent>
-          <div style={{ width: '100%', height: 320 }}>
-            <ResponsiveContainer>
-              <BarChart data={histoData} layout="vertical" margin={{ left: 16, right: 16, top: 8, bottom: 24 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="empleados" label={{ value: '# Empleados', position: 'insideBottom', offset: -10 }} />
-                <YAxis type="category" dataKey="incidencias" width={80} label={{ value: '# Incidencias', angle: -90, position: 'insideLeft' }} />
-                <Tooltip />
-                <Bar dataKey="empleados" fill="#6366f1" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Sección central: 3 tarjetas en la misma fila (responsive) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Histograma: Incidencias por empleado */}
+        <Card className="h-[420px] flex flex-col">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Incidencias por empleado</CardTitle>
+            <p className="text-sm text-gray-600">X: # Empleados • Y: # Incidencias</p>
+          </CardHeader>
+          <CardContent className="flex-1">
+            <div className="w-full h-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={histoData} layout="vertical" margin={{ left: 16, right: 16, top: 8, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" dataKey="empleados" label={{ value: '# Empleados', position: 'insideBottom', offset: -10 }} />
+                  <YAxis type="category" dataKey="incidencias" width={80} label={{ value: '# Incidencias', angle: -90, position: 'insideLeft' }} />
+                  <Tooltip />
+                  <Bar dataKey="empleados" fill="#6366f1" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Resumen por tipo */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Incidencias por tipo</CardTitle></CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>#días de incidencias</TableHead>
-                  <TableHead>#empleados con incidencias</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {resumenPorTipo.map(r => (
-                  <TableRow key={r.tipo}>
-                    <TableCell className="font-medium">{r.tipo}</TableCell>
-                    <TableCell>{r.dias.toLocaleString()}</TableCell>
-                    <TableCell>{r.empleados.toLocaleString()}</TableCell>
+        {/* Resumen por tipo */}
+        <Card className="h-[420px] flex flex-col">
+          <CardHeader className="pb-2"><CardTitle className="text-base">Incidencias por tipo</CardTitle></CardHeader>
+          <CardContent className="flex-1">
+            <div className="h-full overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>#días de incidencias</TableHead>
+                    <TableHead>#empleados con incidencias</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Pie: Incidencias vs Permisos */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Distribución: Incidencias vs Permisos</CardTitle></CardHeader>
-        <CardContent>
-          <div style={{ width: '100%', height: 280 }}>
-            <ResponsiveContainer>
-              <PieChart>
-                <Tooltip />
-                <Legend />
-                <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={110} label>
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                </TableHeader>
+                <TableBody>
+                  {resumenPorTipo.map(r => (
+                    <TableRow key={r.tipo}>
+                      <TableCell className="font-medium">{r.tipo}</TableCell>
+                      <TableCell>{r.dias.toLocaleString()}</TableCell>
+                      <TableCell>{r.empleados.toLocaleString()}</TableCell>
+                    </TableRow>
                   ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pie: Incidencias vs Permisos */}
+        <Card className="h-[420px] flex flex-col">
+          <CardHeader className="pb-2"><CardTitle className="text-base">Distribución: Incidencias vs Permisos</CardTitle></CardHeader>
+          <CardContent className="flex-1">
+            <div className="w-full h-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Tooltip />
+                  <Legend />
+                  <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={110} label>
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Tabla completa (mostrar 10 por defecto; botón para ver todo) */}
       <Card>
