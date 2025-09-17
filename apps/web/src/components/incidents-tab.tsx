@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db, type IncidenciaCSVRecord, type PlantillaRecord } from "@/lib/supabase";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Info } from "lucide-react";
 
 type Props = {
@@ -179,6 +179,45 @@ export function IncidentsTab({ plantilla }: Props) {
 
   const PIE_COLORS = ["#ef4444", "#10b981"];
 
+  // Calcular tendencias mensuales para el año actual
+  const monthlyTrendsData = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    return months.map((month, index) => {
+      // Filtrar incidencias por mes del año actual
+      const monthData = enriched.filter(inc => {
+        if (!inc.fecha) return false;
+        const date = new Date(inc.fecha);
+        return date.getFullYear() === currentYear && date.getMonth() === index;
+      });
+
+      // Contar incidencias y permisos por mes
+      let incidenciasCount = 0;
+      let permisosCount = 0;
+
+      monthData.forEach(inc => {
+        const code = normalizeCode(inc.inci);
+        if (!code) return;
+
+        if (INCIDENT_CODES.has(code)) {
+          incidenciasCount++;
+        } else if (PERMISO_CODES.has(code)) {
+          permisosCount++;
+        }
+      });
+
+      return {
+        mes: month,
+        incidencias: incidenciasCount,
+        permisos: permisosCount
+      };
+    });
+  }, [enriched]);
+
   const HoverHint = ({ text }: { text: string }) => (
     <div className="relative inline-block group">
       <Info className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
@@ -215,6 +254,57 @@ export function IncidentsTab({ plantilla }: Props) {
             <HoverHint text="Incluye: PCON, VAC, MAT3" />
           </CardHeader>
           <CardContent className="text-3xl font-semibold">{totalPermisos.toLocaleString()}</CardContent>
+        </Card>
+      </div>
+
+      {/* Gráfica de Tendencia Mensual - Incidencias y Permisos */}
+      <div className="mb-6">
+        <Card className="h-[400px] flex flex-col">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Tendencia Mensual - Incidencias y Permisos {new Date().getFullYear()}</CardTitle>
+            <p className="text-sm text-gray-600">Evolución de incidencias y permisos de enero a diciembre</p>
+          </CardHeader>
+          <CardContent className="flex-1">
+            <div className="w-full h-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={monthlyTrendsData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="mes"
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    interval={0}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <YAxis
+                    label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="incidencias"
+                    stroke="#ef4444"
+                    strokeWidth={3}
+                    dot={{ fill: '#ef4444', strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 8 }}
+                    name="# Incidencias"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="permisos"
+                    stroke="#10b981"
+                    strokeWidth={3}
+                    dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 8 }}
+                    name="# Permisos"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
         </Card>
       </div>
 

@@ -701,7 +701,7 @@ export function DashboardPage() {
                     <ResponsiveContainer>
                       <BarChart data={hcDeptData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="departamento" angle={-30} textAnchor="end" interval={0} height={70} />
+                        <XAxis dataKey="departamento" tick={false} height={20} />
                         <YAxis allowDecimals={false} />
                         <Tooltip />
                         <Bar dataKey="count" fill="#6366f1" />
@@ -720,7 +720,7 @@ export function DashboardPage() {
                     <ResponsiveContainer>
                       <BarChart data={hcAreaData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="area" angle={-30} textAnchor="end" interval={0} height={70} />
+                        <XAxis dataKey="area" tick={false} height={20} />
                         <YAxis allowDecimals={false} />
                         <Tooltip />
                         <Bar dataKey="count" fill="#f59e0b" />
