@@ -763,41 +763,6 @@ export function DashboardPage() {
 
           {/* Retention Tab */}
           <TabsContent value="retention" className="space-y-6">
-            {/* Mostrar filtros aplicados */}
-            {(retentionFilters.years.length > 0 || retentionFilters.months.length > 0 || 
-              (retentionFilters.departamentos && retentionFilters.departamentos.length > 0) ||
-              (retentionFilters.puestos && retentionFilters.puestos.length > 0) ||
-              (retentionFilters.clasificaciones && retentionFilters.clasificaciones.length > 0) ||
-              (retentionFilters.ubicaciones && retentionFilters.ubicaciones.length > 0)) && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <div className="flex items-center gap-2 text-sm text-blue-700">
-                  <Filter className="h-4 w-4" />
-                  <span className="font-medium">Filtros aplicados:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {retentionFilters.years.map(year => (
-                      <span key={year} className="bg-blue-100 px-2 py-1 rounded text-xs">{year}</span>
-                    ))}
-                    {retentionFilters.months.map(month => (
-                      <span key={month} className="bg-blue-100 px-2 py-1 rounded text-xs">
-                        {['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][month-1]}
-                      </span>
-                    ))}
-                    {retentionFilters.departamentos?.map(depto => (
-                      <span key={depto} className="bg-green-100 px-2 py-1 rounded text-xs">{sanitizeChip(depto)}</span>
-                    ))}
-                    {retentionFilters.puestos?.map(puesto => (
-                      <span key={puesto} className="bg-purple-100 px-2 py-1 rounded text-xs">{sanitizeChip(puesto)}</span>
-                    ))}
-                    {retentionFilters.clasificaciones?.map(clas => (
-                      <span key={clas} className="bg-orange-100 px-2 py-1 rounded text-xs">{sanitizeChip(clas)}</span>
-                    ))}
-                    {retentionFilters.ubicaciones?.map(ubi => (
-                      <span key={ubi} className="bg-yellow-100 px-2 py-1 rounded text-xs">{sanitizeChip(ubi)}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* 5 KPIs Principales de Retención con filtros aplicados */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
