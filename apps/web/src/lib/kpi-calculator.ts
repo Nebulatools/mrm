@@ -1,4 +1,4 @@
-import { db, type PlantillaRecord, type AsistenciaDiariaRecord, type EmpleadoSFTPRecord } from './supabase';
+import { db, supabase, type PlantillaRecord, type AsistenciaDiariaRecord, type EmpleadoSFTPRecord } from './supabase';
 import { sftpClient } from './sftp-client';
 import { startOfMonth, endOfMonth, format, differenceInDays, isWithinInterval, subMonths } from 'date-fns';
 
@@ -668,7 +668,7 @@ export class KPICalculator {
       const startDate12m = new Date(endDate);
       startDate12m.setMonth(startDate12m.getMonth() - 11);
       startDate12m.setDate(1);
-      
+
       // Count terminations in the 12-month period
       const bajasEn12Meses = plantilla.filter(emp => {
         if (!emp.fecha_baja || emp.activo) return false;
@@ -690,14 +690,77 @@ export class KPICalculator {
       }).length;
 
       const promedioActivos12m = (activosInicio + activosFin) / 2;
-      
+
       // Calculate accumulated rotation percentage
       const rotacionAcumulada = promedioActivos12m > 0 ? (bajasEn12Meses / promedioActivos12m) * 100 : 0;
-      
+
       return Number(rotacionAcumulada.toFixed(2));
     } catch (error) {
       console.error('Error calculating rotación acumulada:', error);
       return 0;
+    }
+  }
+
+  // Nueva función para obtener bajas por motivo y mes
+  async getBajasPorMotivoYMes(year: number): Promise<any[]> {
+    try {
+      console.log(`🚦 Getting bajas por motivo for year: ${year}`);
+
+      // Obtener datos de motivos_baja desde Supabase
+      const { data: motivosBaja, error } = await supabase
+        .from('motivos_baja')
+        .select('*')
+        .gte('fecha_baja', `${year}-01-01`)
+        .lte('fecha_baja', `${year}-12-31`);
+
+      if (error) {
+        console.error('Error fetching motivos_baja:', error);
+        return [];
+      }
+
+      if (!motivosBaja || motivosBaja.length === 0) {
+        console.log('No motivos_baja data found for year:', year);
+        return [];
+      }
+
+      // Agrupar por motivo y mes
+      const heatmapData: { [motivo: string]: { [mes: string]: number } } = {};
+
+      motivosBaja.forEach((baja: any) => {
+        const fechaBaja = new Date(baja.fecha_baja);
+        const motivo = baja.motivo || 'Sin motivo';
+        const mes = fechaBaja.getMonth(); // 0-11
+
+        // Inicializar motivo si no existe
+        if (!heatmapData[motivo]) {
+          heatmapData[motivo] = {
+            enero: 0, febrero: 0, marzo: 0, abril: 0,
+            mayo: 0, junio: 0, julio: 0, agosto: 0,
+            septiembre: 0, octubre: 0, noviembre: 0, diciembre: 0
+          };
+        }
+
+        // Mapear número de mes a nombre
+        const meses = [
+          'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+          'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+        ];
+
+        heatmapData[motivo][meses[mes]]++;
+      });
+
+      // Convertir a array para el componente
+      const result = Object.entries(heatmapData).map(([motivo, meses]) => ({
+        motivo,
+        ...meses
+      }));
+
+      console.log(`📊 Found ${result.length} motivos with data for ${year}`);
+      return result;
+
+    } catch (error) {
+      console.error('Error in getBajasPorMotivoYMes:', error);
+      return [];
     }
   }
 }

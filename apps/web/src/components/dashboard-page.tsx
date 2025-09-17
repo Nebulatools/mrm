@@ -17,6 +17,7 @@ import { KPIChart } from "./kpi-chart";
 import { AIInsights } from "./ai-insights";
 import { RetroactiveAdjustment } from "./retroactive-adjustment";
 import { DismissalReasonsTable } from "./dismissal-reasons-table";
+import { BajasPorMotivoHeatmap } from "./bajas-por-motivo-heatmap";
 import { RetentionCharts } from "./retention-charts";
 import IncidentsTab from "./incidents-tab";
 import { RetentionFilterPanel } from "./filter-panel";
@@ -33,6 +34,22 @@ interface DashboardData {
   loading: boolean;
 }
 
+interface BajasPorMotivoData {
+  motivo: string;
+  enero: number;
+  febrero: number;
+  marzo: number;
+  abril: number;
+  mayo: number;
+  junio: number;
+  julio: number;
+  agosto: number;
+  septiembre: number;
+  octubre: number;
+  noviembre: number;
+  diciembre: number;
+}
+
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'annual' | 'last12months' | 'alltime';
 
 export function DashboardPage() {
@@ -45,6 +62,8 @@ export function DashboardPage() {
   });
   const [selectedPeriod] = useState<Date>(new Date());
   const [timePeriod] = useState<TimePeriod>('alltime');
+  const [bajasPorMotivoData, setBajasPorMotivoData] = useState<BajasPorMotivoData[]>([]);
+  const [currentYear] = useState<number>(new Date().getFullYear());
   
   useEffect(() => {
     const loadData = async () => {
@@ -70,6 +89,20 @@ export function DashboardPage() {
     
     loadData();
   }, [timePeriod, selectedPeriod]);
+
+  // Cargar datos del mapa de calor
+  useEffect(() => {
+    const loadBajasPorMotivo = async () => {
+      try {
+        const data = await kpiCalculator.getBajasPorMotivoYMes(currentYear);
+        setBajasPorMotivoData(data);
+      } catch (error) {
+        console.error('Error loading bajas por motivo data:', error);
+      }
+    };
+
+    loadBajasPorMotivo();
+  }, [currentYear]);
   
   
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
@@ -835,6 +868,12 @@ export function DashboardPage() {
             
             {/* 3 Gráficas Especializadas de Retención */}
             <RetentionCharts currentDate={selectedPeriod} />
+
+            {/* Mapa de Calor de Bajas por Motivo */}
+            <BajasPorMotivoHeatmap
+              data={bajasPorMotivoData}
+              year={currentYear}
+            />
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
             <DismissalReasonsTable plantilla={filterPlantilla(data.plantilla || [])} />
