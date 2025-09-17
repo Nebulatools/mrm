@@ -80,17 +80,32 @@ export function IncidentsTab({ plantilla }: Props) {
   }, [empleados]);
 
   const enriched: EnrichedIncidencia[] = useMemo(() => {
-    return incidencias.filter(inc => empleadosMap.has(inc.emp)).map(inc => {
-      const emp = empleadosMap.get(inc.emp);
-      return {
-        ...inc,
-        empresa: emp?.empresa ?? null,
-        departamento: emp?.departamento ?? null,
-        area: emp?.area ?? null,
-        puesto: emp?.puesto ?? null,
-      };
-    });
-  }, [incidencias, empleadosMap]);
+    console.log('🔍 Incidents Tab - Filtering data:');
+    console.log('📊 Total incidencias:', incidencias.length);
+    console.log('👥 Empleados en mapa filtrado:', empleadosMap.size);
+    console.log('👤 Plantilla recibida:', plantilla?.length || 0);
+
+    const filtered = incidencias
+      .filter(inc => {
+        // Solo incluir incidencias de empleados que están en la plantilla filtrada
+        const hasEmployee = empleadosMap.has(inc.emp);
+        return hasEmployee;
+      })
+      .map(inc => {
+        const emp = empleadosMap.get(inc.emp);
+        return {
+          ...inc,
+          empresa: emp?.empresa ?? null,
+          departamento: emp?.departamento ?? null,
+          area: emp?.area ?? null,
+          puesto: emp?.puesto ?? null,
+        };
+      });
+
+    console.log('📋 Incidencias filtradas:', filtered.length);
+    console.log('🎯 Ejemplo filtrado:', filtered.slice(0, 2));
+    return filtered;
+  }, [incidencias, empleadosMap, plantilla]);
 
   const activosCount = useMemo(() => (empleados || []).filter(e => e.activo).length, [empleados]);
   const empleadosConIncidencias = useMemo(() => {
@@ -368,7 +383,7 @@ export function IncidentsTab({ plantilla }: Props) {
                   <Tooltip />
                   <Legend />
                   <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={110} label>
-                    {pieData.map((entry, index) => (
+                    {pieData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                     ))}
                   </Pie>

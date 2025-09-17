@@ -43,7 +43,7 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
 
     const defaultFilters = {
       years: [currentYear],
-      months: [currentMonth],
+      months: [currentMonth], // Default to current month
       departamentos: [],
       puestos: [],
       clasificaciones: [],

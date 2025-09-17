@@ -4,13 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Users, 
-  UserMinus, 
-  TrendingUp, 
+import {
+  Users,
+  UserMinus,
+  TrendingUp,
   TrendingDown,
   Calendar,
-  Filter,
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter } from 'recharts';
 import { KPICard } from "./kpi-card";
@@ -37,14 +36,7 @@ interface DashboardData {
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'annual' | 'last12months' | 'alltime';
 
 export function DashboardPage() {
-  const sanitizeChip = (value?: string) => {
-    if (!value) return '';
-    const v = String(value);
-    const lower = v.toLowerCase();
-    const looksFilePath = v.startsWith('/') || v.includes('/var/folders/') || lower.includes('temporaryitems') || lower.includes('screencaptureui');
-    const looksScreenshot = lower.includes('screenshot') || lower.endsWith('.png') || lower.includes('.png');
-    return (looksFilePath || looksScreenshot) ? '—' : v;
-  };
+  // Removed unused sanitizeChip function
   const [data, setData] = useState<DashboardData>({
     kpis: [],
     plantilla: [],
@@ -159,7 +151,23 @@ export function DashboardPage() {
   const categorized = categorizeKPIs(data.kpis);
 
   // Use shared filter util
-  const filterPlantilla = (plantillaData: PlantillaRecord[]) => applyRetentionFilters(plantillaData, retentionFilters);
+  const filterPlantilla = (plantillaData: PlantillaRecord[]) => {
+    const filtered = applyRetentionFilters(plantillaData, retentionFilters);
+    console.log('🎯 Dashboard - Applying filters:');
+    console.log('📊 Original plantilla:', plantillaData.length);
+    console.log('🔍 Active filters:', retentionFilters);
+    console.log('📋 Filtered plantilla:', filtered.length);
+    return filtered;
+  };
+
+  // Special filter for 12-month rolling calculations (no month restriction)
+  // Removed unused filterPlantillaFor12Months function
+
+  // No filters for general company rotation (should match table value)
+  const noFiltersForGeneralRotation = (plantillaData: PlantillaRecord[]) => {
+    // Use ALL employees for general company rotation calculation
+    return plantillaData;
+  };
 
   // ======= Headcount (Personal) derived metrics and datasets =======
   const getAge = (fechaNacimiento?: string | null) => {
@@ -297,11 +305,6 @@ export function DashboardPage() {
     
     const filteredPlantilla = filterPlantilla(data.plantilla);
     
-    console.log('🔍 Calculating filtered KPIs:');
-    console.log('📊 Total employees in plantilla:', data.plantilla.length);
-    console.log('📊 Filtered employees:', filteredPlantilla.length);
-    console.log('🎯 Active filters:', retentionFilters);
-    
     // Calcular Activos actuales
     // const activosActuales = filteredPlantilla.filter(emp => emp.activo).length;
     
@@ -356,31 +359,34 @@ export function DashboardPage() {
     // Calcular Rotación Mensual = (Bajas del mes / Activos promedio) * 100
     const rotacionMensual = activosPromedio > 0 ? (bajasDelMes / activosPromedio) * 100 : 0;
     
-    // Calcular Rotación Acumulada (últimos 12 meses)
+    // Calcular Rotación Acumulada (últimos 12 meses) - GENERAL DE EMPRESA
+    const filteredPlantilla12m = noFiltersForGeneralRotation(data.plantilla);
     const hace12Meses = new Date(currentYear, currentMonth - 11, 1);
     const finPeriodo12m = new Date(currentYear, currentMonth + 1, 0);
-    
-    const bajasUltimos12Meses = filteredPlantilla.filter(emp => {
+
+    const bajasUltimos12Meses = filteredPlantilla12m.filter(emp => {
       if (!emp.fecha_baja) return false;
       const fechaBaja = new Date(emp.fecha_baja);
       return fechaBaja >= hace12Meses && fechaBaja <= finPeriodo12m;
     }).length;
-    
-    // Calcular promedio de activos para los 12 meses
-    const empleadosInicio12m = filteredPlantilla.filter(emp => {
+
+    // Calcular promedio de activos para los 12 meses (sin restricción de mes)
+    const empleadosInicio12m = filteredPlantilla12m.filter(emp => {
       const fechaIngreso = new Date(emp.fecha_ingreso);
       const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
       return fechaIngreso <= hace12Meses && (!fechaBaja || fechaBaja > hace12Meses);
     }).length;
-    
-    const empleadosFin12m = empleadosFinMes; // Ya calculado arriba
+
+    const empleadosFin12m = filteredPlantilla12m.filter(emp => {
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      return fechaIngreso <= finMes && (!fechaBaja || fechaBaja > finMes);
+    }).length;
+
     const activosPromedio12m = (empleadosInicio12m + empleadosFin12m) / 2;
-    
+
     const rotacionAcumulada = activosPromedio12m > 0 ? (bajasUltimos12Meses / activosPromedio12m) * 100 : 0;
     
-    console.log('📊 Rotación Acumulada - Bajas 12 meses:', bajasUltimos12Meses);
-    console.log('📊 Rotación Acumulada - Promedio activos 12m:', activosPromedio12m);
-    console.log('📊 Rotación Acumulada - Resultado:', rotacionAcumulada);
     
     return {
       activosPromedio: Math.round(activosPromedio),
