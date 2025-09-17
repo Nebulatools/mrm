@@ -1,133 +1,469 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Calendar } from "lucide-react";
-import { format } from "date-fns";
+//
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
+//
+import { supabase } from "@/lib/supabase";
+import type { RetentionFilterOptions } from "@/lib/filters/retention";
 
-interface FilterPanelProps {
-  selectedPeriod: Date;
-  onPeriodChange: (date: Date) => void;
-  onClose: () => void;
+// Type moved to lib/filters/retention
+
+interface RetentionFilterPanelProps {
+  onFiltersChange: (filters: RetentionFilterOptions) => void;
+  className?: string;
 }
 
-export function FilterPanel({ selectedPeriod, onPeriodChange, onClose }: FilterPanelProps) {
-  const [tempPeriod, setTempPeriod] = useState(selectedPeriod);
+export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFilterPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const sanitize = (value: string | number) => {
+    const v = String(value);
+    const lower = v.toLowerCase();
+    const looksFilePath = v.startsWith('/') || v.includes('/var/folders/') || lower.includes('temporaryitems') || lower.includes('screencaptureui');
+    const looksScreenshot = lower.includes('screenshot') || lower.endsWith('.png') || lower.includes('.png');
+    return (looksFilePath || looksScreenshot) ? '—' : v;
+  };
+  const [filters, setFilters] = useState<RetentionFilterOptions>({
+    years: [],
+    months: [],
+    departamentos: [],
+    puestos: [], // Cambiado de areas a puestos
+    clasificaciones: [],
+    ubicaciones: []
+  });
 
-  const generatePeriodOptions = () => {
-    const options = [];
+  // Set default filters to current month and year
+  useEffect(() => {
     const now = new Date();
-    
-    // Quick time period options
-    options.push(
-      { value: 'current-week', label: 'Esta Semana', date: now, type: 'week' },
-      { value: 'last-week', label: 'Semana Pasada', date: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), type: 'week' },
-      { value: 'current-month', label: 'Este Mes', date: now, type: 'month' },
-      { value: 'last-month', label: 'Mes Pasado', date: new Date(now.getFullYear(), now.getMonth() - 1, 1), type: 'month' },
-      { value: 'current-year', label: 'Este Año', date: new Date(now.getFullYear(), 0, 1), type: 'year' },
-      { value: 'last-year', label: 'Año Pasado', date: new Date(now.getFullYear() - 1, 0, 1), type: 'year' },
-      { value: 'last-12-months', label: 'Últimos 12 Meses', date: new Date(now.getFullYear(), now.getMonth() - 11, 1), type: 'range' }
-    );
-    
-    // Add separator
-    options.push({ value: 'separator', label: '--- Meses Específicos ---', date: null, type: 'separator' });
-    
-    // Generate options for specific months (last 18 months)
-    for (let i = 0; i < 18; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      options.push({
-        value: format(date, 'yyyy-MM'),
-        label: format(date, 'MMMM yyyy'),
-        date: date,
-        type: 'month-specific'
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11, we need 1-12
+
+    const defaultFilters = {
+      years: [currentYear],
+      months: [currentMonth],
+      departamentos: [],
+      puestos: [],
+      clasificaciones: [],
+      ubicaciones: []
+    };
+
+    setFilters(defaultFilters);
+    onFiltersChange(defaultFilters);
+  }, []); // Empty dependency array means this runs once on component mount
+  
+  const [availableOptions, setAvailableOptions] = useState({
+    years: [] as number[],
+    months: [] as number[],
+    departamentos: [] as string[],
+    puestos: [] as string[], // Cambiado de areas a puestos
+    clasificaciones: [] as string[],
+    ubicaciones: [] as string[]
+  });
+
+  // Cargar opciones disponibles desde la base de datos
+  useEffect(() => {
+    loadAvailableOptions();
+  }, []);
+
+  const loadAvailableOptions = async () => {
+    try {
+      // Get empleados_sftp data 
+      const { data: empleadosSFTP } = await supabase
+        .from('empleados_sftp')
+        .select('fecha_baja, departamento, puesto, clasificacion, ubicacion'); // Agregado clasificacion y ubicacion
+      
+      // Extract all dates from fecha_baja
+      const allDates = [];
+      const departamentosSet = new Set<string>();
+      const puestosSet = new Set<string>(); // Cambiado de areasSet a puestosSet
+      const clasificacionesSet = new Set<string>();
+      const ubicacionesSet = new Set<string>();
+      
+      if (empleadosSFTP) {
+        empleadosSFTP.forEach(emp => {
+          // DEBUG: Imprimir un empleado para ver la estructura
+          if (departamentosSet.size === 0) {
+            console.log('🔍 EMPLEADO EJEMPLO:', emp);
+            console.log('🔍 Departamento:', emp.departamento);
+            console.log('🔍 Puesto:', emp.puesto);  
+            console.log('🔍 Clasificación:', emp.clasificacion);
+            console.log('🔍 Ubicación:', (emp as any).ubicacion);
+          }
+          
+          // Collect dates
+          if (emp.fecha_baja) {
+            allDates.push(emp.fecha_baja);
+          }
+          
+          // Collect unique departamentos
+          if (emp.departamento && emp.departamento !== 'null' && emp.departamento !== '') {
+            departamentosSet.add(emp.departamento);
+          }
+          
+          // Collect unique puestos
+          if (emp.puesto && emp.puesto !== 'null' && emp.puesto !== '') {
+            puestosSet.add(emp.puesto);
+          }
+          
+          // Collect unique clasificaciones
+          if (emp.clasificacion && emp.clasificacion !== 'null' && emp.clasificacion !== '') {
+            clasificacionesSet.add(emp.clasificacion);
+          }
+
+          // Collect unique ubicaciones
+          // @ts-ignore - runtime property
+          const ub = (emp as any).ubicacion as string | undefined;
+          if (ub && ub !== 'null' && ub !== '') {
+            ubicacionesSet.add(ub);
+          }
+        });
+      }
+      
+      // Add current year if not present
+      allDates.push(new Date().toISOString());
+      
+      // Extract unique years from dates (2022-2025 range)
+      const uniqueYears = Array.from(new Set(allDates.map(dateStr => {
+        const year = new Date(dateStr).getFullYear();
+        return year >= 2022 && year <= 2025 ? year : null;
+      }).filter(year => year !== null))) as number[];
+      uniqueYears.sort((a, b) => b - a);
+
+      // All months
+      const uniqueMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+      
+      // Convert sets to sorted arrays
+      const departamentos = Array.from(departamentosSet).sort();
+      const puestos = Array.from(puestosSet).sort(); // Cambiado de areas a puestos
+      const clasificaciones = Array.from(clasificacionesSet).sort();
+      const ubicaciones = Array.from(ubicacionesSet).sort();
+      
+      // If no departamentos/puestos found, use default values
+      const finalDepartamentos = departamentos.length > 0 ? departamentos : [
+        'Recursos Humanos',
+        'Tecnología',
+        'Ventas',
+        'Marketing',
+        'Operaciones',
+        'Finanzas'
+      ];
+      
+      const finalPuestos = puestos.length > 0 ? puestos : [
+        'Analista',
+        'Desarrollador',
+        'Supervisor',
+        'Gerente',
+        'Coordinador',
+        'Especialista'
+      ];
+      
+      const finalClasificaciones = clasificaciones.length > 0 ? clasificaciones : [
+        'CONFIANZA',
+        'SINDICALIZADO',
+        'HONORARIOS',
+        'EVENTUAL'
+      ];
+
+      const finalUbicaciones = ubicaciones.length > 0 ? ubicaciones : [
+        'Planta Norte',
+        'Planta Sur',
+        'Oficinas CDMX',
+        'Remoto'
+      ];
+
+      setAvailableOptions({
+        years: uniqueYears,
+        months: uniqueMonths,
+        departamentos: finalDepartamentos,
+        puestos: finalPuestos, // Cambiado de areas a puestos
+        clasificaciones: finalClasificaciones,
+        ubicaciones: finalUbicaciones
       });
+    } catch (error) {
+      console.error('Error loading available options:', error);
     }
-    
-    return options;
   };
 
-  const periodOptions = generatePeriodOptions();
+  const monthNames = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
 
-  const handlePeriodSelect = (value: string) => {
-    const option = periodOptions.find(opt => opt.value === value);
-    if (option && option.date) {
-      setTempPeriod(option.date);
-      // Actualizar inmediatamente y cerrar el modal
-      onPeriodChange(option.date);
-      onClose();
+  const handleMultiSelectChange = (filterType: keyof RetentionFilterOptions, selectedValues: string[]) => {
+    const newFilters = { ...filters };
+    
+    if (filterType === 'years') {
+      newFilters.years = selectedValues.map(v => parseInt(v));
+    } else if (filterType === 'months') {
+      newFilters.months = selectedValues.map(v => parseInt(v));
+    } else if (filterType === 'departamentos') {
+      newFilters.departamentos = selectedValues;
+    } else if (filterType === 'puestos') {
+      newFilters.puestos = selectedValues; // Cambiado de areas a puestos
+    } else if (filterType === 'clasificaciones') {
+      newFilters.clasificaciones = selectedValues;
+    } else if (filterType === 'ubicaciones') {
+      newFilters.ubicaciones = selectedValues;
     }
+    
+    setFilters(newFilters);
+    onFiltersChange(newFilters);
+  };
+
+  const clearAllFilters = () => {
+    const emptyFilters = {
+      years: [],
+      months: [],
+      departamentos: [],
+      puestos: [], // Cambiado de areas a puestos
+      clasificaciones: [],
+      ubicaciones: []
+    };
+    setFilters(emptyFilters);
+    onFiltersChange(emptyFilters);
+  };
+
+  const getActiveFiltersCount = () => {
+    return Object.values(filters).reduce((count, filterArray) => count + filterArray.length, 0);
+  };
+
+  const getFilterSummary = () => {
+    const parts = [];
+    
+    if (filters.years.length > 0) {
+      parts.push(`${filters.years.length} año${filters.years.length !== 1 ? 's' : ''}`);
+    }
+    if (filters.months.length > 0) {
+      parts.push(`${filters.months.length} mes${filters.months.length !== 1 ? 'es' : ''}`);
+    }
+    if ((filters.departamentos || []).length > 0) {
+      parts.push(`${(filters.departamentos || []).length} depto${(filters.departamentos || []).length !== 1 ? 's' : ''}`);
+    }
+    if ((filters.puestos || []).length > 0) {
+      parts.push(`${(filters.puestos || []).length} puesto${(filters.puestos || []).length !== 1 ? 's' : ''}`);
+    }
+    if ((filters.clasificaciones || []).length > 0) {
+      parts.push(`${(filters.clasificaciones || []).length} clasificación${(filters.clasificaciones || []).length !== 1 ? 'es' : ''}`);
+    }
+    if ((filters.ubicaciones || []).length > 0) {
+      parts.push(`${(filters.ubicaciones || []).length} ubicación${(filters.ubicaciones || []).length !== 1 ? 'es' : ''}`);
+    }
+    
+    return parts.join(', ');
+  };
+
+  // Estado para controlar qué dropdown está abierto
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  // Componente para multi-select con checkboxes en dropdown
+  const MultiSelectDropdown = ({ 
+    label, 
+    options, 
+    selectedValues, 
+    onSelectionChange,
+    renderOption 
+  }: {
+    label: string;
+    options: (string | number)[];
+    selectedValues: (string | number)[];
+    onSelectionChange: (values: string[]) => void;
+    renderOption: (option: string | number) => string;
+  }) => {
+    const isOpen = openDropdown === label;
+    
+    const toggleDropdown = () => {
+      setOpenDropdown(isOpen ? null : label);
+    };
+    
+    const toggleOption = (option: string | number) => {
+      const stringValue = option.toString();
+      const newValues = selectedValues.includes(option)
+        ? selectedValues.filter(v => v !== option).map(v => v.toString())
+        : [...selectedValues.map(v => v.toString()), stringValue];
+      onSelectionChange(newValues);
+    };
+
+    const clearSelection = () => {
+      onSelectionChange([]);
+    };
+
+    // Cerrar dropdown cuando se hace clic afuera
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        const target = event.target as Element;
+        if (isOpen && !target.closest(`[data-dropdown="${label}"]`)) {
+          setOpenDropdown(null);
+        }
+      };
+
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen, label]);
+
+    return (
+      <div className="relative" data-dropdown={label}>
+        <Label className="text-sm font-medium">{label}</Label>
+        <div className="mt-1">
+          <Button
+            variant="outline"
+            onClick={toggleDropdown}
+            className="w-full justify-between h-9 px-3"
+          >
+            <span className="truncate">
+              {selectedValues.length > 0 
+                ? `${selectedValues.length} seleccionado${selectedValues.length !== 1 ? 's' : ''}`
+                : `Seleccionar ${label.toLowerCase()}`
+              }
+            </span>
+            {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+          
+          {isOpen && (
+            <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+              {selectedValues.length > 0 && (
+                <div className="p-2 border-b">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSelection}
+                    className="text-xs text-red-600 hover:text-red-700"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Limpiar selección
+                  </Button>
+                </div>
+              )}
+              <div className="p-2">
+                {options.map(option => (
+                  <div key={option} className="flex items-center space-x-2 py-1">
+                    <Checkbox
+                      id={`${label}-${option}`}
+                      checked={selectedValues.includes(option)}
+                      onCheckedChange={() => toggleOption(option)}
+                    />
+                    <Label 
+                      htmlFor={`${label}-${option}`} 
+                      className="text-sm cursor-pointer flex-1"
+                    >
+                      {renderOption(option)}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="border-b bg-white dark:bg-gray-800 px-6 py-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Filtros del Dashboard
-            </CardTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Period Selection */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Período</label>
-              <Select value={format(tempPeriod, 'yyyy-MM')} onValueChange={handlePeriodSelect}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar período" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {periodOptions.map((option) => (
-                    option.type === 'separator' ? (
-                      <div key={option.value} className="px-2 py-1 text-xs font-medium text-gray-500 border-t mt-1 pt-2">
-                        {option.label}
-                      </div>
-                    ) : (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex items-center gap-2">
-                          <span>{option.label}</span>
-                          {(option.type === 'week' || option.type === 'month' || option.type === 'year' || option.type === 'range') && (
-                            <span className="text-xs bg-blue-100 text-blue-600 px-1 rounded">
-                              {option.type === 'week' ? 'Sem' : option.type === 'month' ? 'Mes' : option.type === 'year' ? 'Año' : 'Rango'}
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    )
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+    <div className={className}>
+      {/* Botón para expandir/colapsar filtros */}
+      <div className="mb-4">
+        <Button 
+          variant="outline" 
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="gap-2"
+        >
+          <Filter className="h-4 w-4" />
+          Filtros
+          {getActiveFiltersCount() > 0 && (
+            <span className="ml-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">
+              {getActiveFiltersCount()}
+            </span>
+          )}
+          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </Button>
+      </div>
 
-            {/* Department Filter - RH Department only */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Departamento</label>
-              <Select defaultValue="rh" disabled>
-                <SelectTrigger>
-                  <SelectValue placeholder="Recursos Humanos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rh">Recursos Humanos</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500">Solo departamento de RH disponible</p>
-            </div>
+      {/* Panel de filtros expandible */}
+      {isExpanded && (
+        <div className="bg-white border rounded-lg p-4 mb-6 shadow-sm">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium">Filtros de Retención</h3>
+            {getActiveFiltersCount() > 0 && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={clearAllFilters}
+                className="text-xs hover:text-red-600"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Limpiar todos
+              </Button>
+            )}
           </div>
 
-          <div className="flex justify-end gap-2 mt-6">
-            <Button variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
+          {/* Resumen de filtros activos */}
+          {getActiveFiltersCount() > 0 && (
+            <div className="text-xs text-muted-foreground bg-muted p-3 rounded mb-4">
+              <strong>Filtros activos:</strong> {getFilterSummary()}
+            </div>
+          )}
+
+          {/* Layout de dropdowns - Año, Mes, Departamento, Puesto, Clasificación, Ubicación */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            {/* Años */}
+            <MultiSelectDropdown
+              label="Año"
+              options={availableOptions.years}
+              selectedValues={filters.years}
+              onSelectionChange={(values) => handleMultiSelectChange('years', values)}
+              renderOption={(option) => option.toString()}
+            />
+
+            {/* Meses */}
+            <MultiSelectDropdown
+              label="Mes"
+              options={availableOptions.months}
+              selectedValues={filters.months}
+              onSelectionChange={(values) => handleMultiSelectChange('months', values)}
+              renderOption={(option) => monthNames[parseInt(option.toString()) - 1]}
+            />
+            
+            {/* Departamentos */}
+            <MultiSelectDropdown
+              label="Departamento"
+              options={availableOptions.departamentos}
+              selectedValues={filters.departamentos || []}
+              onSelectionChange={(values) => handleMultiSelectChange('departamentos', values)}
+              renderOption={(option) => sanitize(option)}
+            />
+            
+            {/* Puestos */}
+            <MultiSelectDropdown
+              label="Puesto"
+              options={availableOptions.puestos}
+              selectedValues={filters.puestos || []}
+              onSelectionChange={(values) => handleMultiSelectChange('puestos', values)}
+              renderOption={(option) => sanitize(option)}
+            />
+            
+            {/* Clasificaciones */}
+            <MultiSelectDropdown
+              label="Clasificación"
+              options={availableOptions.clasificaciones}
+              selectedValues={filters.clasificaciones || []}
+              onSelectionChange={(values) => handleMultiSelectChange('clasificaciones', values)}
+              renderOption={(option) => sanitize(option)}
+            />
+
+            {/* Ubicaciones */}
+            <MultiSelectDropdown
+              label="Ubicación"
+              options={availableOptions.ubicaciones}
+              selectedValues={filters.ubicaciones || []}
+              onSelectionChange={(values) => handleMultiSelectChange('ubicaciones', values)}
+              renderOption={(option) => sanitize(option)}
+            />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }

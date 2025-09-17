@@ -601,6 +601,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
                     <th className="text-left py-2 px-3" rowSpan={2}>Mes</th>
                     <th className="text-center py-2 px-3 bg-blue-50" colSpan={3}>{availableYears[0] || 2024}</th>
                     <th className="text-center py-2 px-3 bg-red-50" colSpan={3}>{availableYears[availableYears.length - 1] || 2025}</th>
+                    <th className="text-center py-2 px-3" rowSpan={2}>Variación</th>
                   </tr>
                   <tr className="border-b">
                     <th className="text-center py-2 px-3 bg-blue-50 text-xs">% Rotación</th>
@@ -617,7 +618,14 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
                     const year2 = availableYears[availableYears.length - 1] || 2025;
                     const monthYear1 = monthlyData.find(d => d.year === year1 && d.month === index + 1);
                     const monthYear2 = monthlyData.find(d => d.year === year2 && d.month === index + 1);
-                    
+
+                    // Calculate variation percentage for monthly rotation
+                    const rotation1 = monthYear1?.rotacionPorcentaje || 0;
+                    const rotation2 = monthYear2?.rotacionPorcentaje || 0;
+                    const variation = rotation1 && rotation2
+                      ? ((rotation2 - rotation1) / rotation1 * 100).toFixed(1)
+                      : null;
+
                     return (
                       <tr key={monthName} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
                         <td className="py-2 px-3 font-medium">{monthName}</td>
@@ -638,6 +646,13 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
                         </td>
                         <td className="py-2 px-3 text-center text-xs">
                           {monthYear2?.activos ?? '-'}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {variation && (
+                            <Badge variant={parseFloat(variation) > 0 ? "destructive" : "default"}>
+                              {variation}%
+                            </Badge>
+                          )}
                         </td>
                       </tr>
                     );

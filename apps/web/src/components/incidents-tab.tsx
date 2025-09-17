@@ -224,15 +224,15 @@ export function IncidentsTab({ plantilla }: Props) {
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Incidencias por empleado</CardTitle>
-            <p className="text-sm text-gray-600">X: # Empleados • Y: # Incidencias</p>
+            <p className="text-sm text-gray-600">X: # Incidencias • Y: # Empleados</p>
           </CardHeader>
           <CardContent className="flex-1">
             <div className="w-full h-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={histoData} layout="vertical" margin={{ left: 16, right: 16, top: 8, bottom: 24 }}>
+                <BarChart data={histoData} margin={{ left: 16, right: 16, top: 8, bottom: 24 }}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" dataKey="empleados" label={{ value: '# Empleados', position: 'insideBottom', offset: -10 }} />
-                  <YAxis type="category" dataKey="incidencias" width={80} label={{ value: '# Incidencias', angle: -90, position: 'insideLeft' }} />
+                  <XAxis type="number" dataKey="incidencias" label={{ value: '# Incidencias', position: 'insideBottom', offset: -10 }} />
+                  <YAxis type="number" dataKey="empleados" label={{ value: '# Empleados', angle: -90, position: 'insideLeft' }} />
                   <Tooltip />
                   <Bar dataKey="empleados" fill="#6366f1" />
                 </BarChart>

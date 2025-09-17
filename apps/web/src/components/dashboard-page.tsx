@@ -20,7 +20,7 @@ import { RetroactiveAdjustment } from "./retroactive-adjustment";
 import { DismissalReasonsTable } from "./dismissal-reasons-table";
 import { RetentionCharts } from "./retention-charts";
 import IncidentsTab from "./incidents-tab";
-import { RetentionFilterPanel } from "./retention-filter-panel";
+import { RetentionFilterPanel } from "./filter-panel";
 import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filters/retention";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord } from "@/lib/supabase";
