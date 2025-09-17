@@ -828,7 +828,7 @@ export function DashboardPage() {
             </div>
             
             {/* 3 Gráficas Especializadas de Retención */}
-            <RetentionCharts currentDate={selectedPeriod} filters={retentionFilters} />
+            <RetentionCharts currentDate={selectedPeriod} />
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
             <DismissalReasonsTable plantilla={filterPlantilla(data.plantilla || [])} />

@@ -43,7 +43,7 @@ interface RetentionChartsProps {
   filters?: RetentionFilters;
 }
 
-export function RetentionCharts({ currentDate = new Date(), filters }: RetentionChartsProps) {
+export function RetentionCharts({ currentDate = new Date() }: { currentDate?: Date }) {
   const [monthlyData, setMonthlyData] = useState<MonthlyRetentionData[]>([]);
   const [yearlyComparison, setYearlyComparison] = useState<YearlyComparisonData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +52,7 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
   useEffect(() => {
     loadMonthlyRetentionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, filters]);
+  }, [currentDate]);
 
   const loadMonthlyRetentionData = async () => {
     try {
@@ -116,34 +116,8 @@ export function RetentionCharts({ currentDate = new Date(), filters }: Retention
         allMonthsData[i].rotacionAcumulada12m = rotacionAcumulada12m;
       }
       
-      // Aplicar filtros si están definidos
+      // No aplicar filtros - mostrar siempre todos los datos históricos (gráficas generales)
       let filteredMonthsData = allMonthsData;
-      
-      if (filters && (filters.years.length > 0 || filters.months.length > 0)) {
-        console.log('🎯 Applying filters to retention charts:', filters);
-        
-        filteredMonthsData = allMonthsData.filter(monthData => {
-          const year = monthData.year;
-          const month = monthData.month;
-          
-          // Si hay filtros de año y mes, ambos deben coincidir
-          if (filters.years.length > 0 && filters.months.length > 0) {
-            return filters.years.includes(year) && filters.months.includes(month);
-          }
-          
-          // Si solo hay filtros de año
-          if (filters.years.length > 0 && filters.months.length === 0) {
-            return filters.years.includes(year);
-          }
-          
-          // Si solo hay filtros de mes
-          if (filters.months.length > 0 && filters.years.length === 0) {
-            return filters.months.includes(month);
-          }
-          
-          return true;
-        });
-      }
       
       // Preparar datos para comparación por año (año actual vs anterior)
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
