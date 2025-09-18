@@ -63,8 +63,21 @@ export function DashboardPage() {
   const [selectedPeriod] = useState<Date>(new Date());
   const [timePeriod] = useState<TimePeriod>('alltime');
   const [bajasPorMotivoData, setBajasPorMotivoData] = useState<BajasPorMotivoData[]>([]);
-  const [currentYear] = useState<number>(new Date().getFullYear());
-  
+
+  const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
+    years: [],
+    months: [],
+    departamentos: [],
+    puestos: [],
+    clasificaciones: [],
+    ubicaciones: []
+  });
+
+  // Calcular año actual basado en filtros
+  const currentYear = retentionFilters.years.length > 0
+    ? retentionFilters.years[0] // Usar primer año seleccionado
+    : new Date().getFullYear(); // Fallback al año actual
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -94,6 +107,7 @@ export function DashboardPage() {
   useEffect(() => {
     const loadBajasPorMotivo = async () => {
       try {
+        console.log('🔥 Loading bajas por motivo for year:', currentYear);
         const data = await kpiCalculator.getBajasPorMotivoYMes(currentYear);
         setBajasPorMotivoData(data);
       } catch (error) {
@@ -104,15 +118,6 @@ export function DashboardPage() {
     loadBajasPorMotivo();
   }, [currentYear]);
   
-  
-  const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
-    years: [],
-    months: [],
-    departamentos: [],
-    puestos: [],
-    clasificaciones: [],
-    ubicaciones: []
-  });
 
   const loadDashboardData = useCallback(async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
     console.log('🔥 loadDashboardData CALLED! Filter:', filter);
@@ -797,7 +802,7 @@ export function DashboardPage() {
 
           {/* Incidents Tab */}
           <TabsContent value="incidents" className="space-y-6">
-            <IncidentsTab plantilla={filterPlantilla(data.plantilla || [])} />
+            <IncidentsTab plantilla={filterPlantilla(data.plantilla || [])} currentYear={currentYear} />
           </TabsContent>
 
           {/* Retention Tab */}
@@ -867,7 +872,7 @@ export function DashboardPage() {
             </div>
             
             {/* 3 Gráficas Especializadas de Retención */}
-            <RetentionCharts currentDate={selectedPeriod} />
+            <RetentionCharts currentDate={selectedPeriod} currentYear={currentYear} />
 
             {/* Mapa de Calor de Bajas por Motivo */}
             <BajasPorMotivoHeatmap

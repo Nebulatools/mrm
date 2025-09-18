@@ -10,6 +10,7 @@ import { Info } from "lucide-react";
 
 type Props = {
   plantilla?: PlantillaRecord[];
+  currentYear?: number;
 };
 
 type EnrichedIncidencia = IncidenciaCSVRecord & {
@@ -33,7 +34,7 @@ const normalizeCode = (raw?: string | null) => {
   return c;
 };
 
-export function IncidentsTab({ plantilla }: Props) {
+export function IncidentsTab({ plantilla, currentYear }: Props) {
   const [empleados, setEmpleados] = useState<PlantillaRecord[]>([]);
   const [incidencias, setIncidencias] = useState<IncidenciaCSVRecord[]>([]);
   const [showTable, setShowTable] = useState(false); // false = mostrar 10, true = mostrar todo
@@ -196,7 +197,7 @@ export function IncidentsTab({ plantilla }: Props) {
 
   // Calcular tendencias mensuales para el año actual
   const monthlyTrendsData = useMemo(() => {
-    const currentYear = new Date().getFullYear();
+    const selectedYear = currentYear || new Date().getFullYear();
     const months = [
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
@@ -207,7 +208,7 @@ export function IncidentsTab({ plantilla }: Props) {
       const monthData = enriched.filter(inc => {
         if (!inc.fecha) return false;
         const date = new Date(inc.fecha);
-        return date.getFullYear() === currentYear && date.getMonth() === index;
+        return date.getFullYear() === selectedYear && date.getMonth() === index;
       });
 
       // Contar incidencias y permisos por mes
@@ -231,7 +232,7 @@ export function IncidentsTab({ plantilla }: Props) {
         permisos: permisosCount
       };
     });
-  }, [enriched]);
+  }, [enriched, currentYear]);
 
   const HoverHint = ({ text }: { text: string }) => (
     <div className="relative inline-block group">
@@ -276,7 +277,7 @@ export function IncidentsTab({ plantilla }: Props) {
       <div className="mb-6">
         <Card className="h-[400px] flex flex-col">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Tendencia Mensual - Incidencias y Permisos {new Date().getFullYear()}</CardTitle>
+            <CardTitle className="text-base">Tendencia Mensual - Incidencias y Permisos {currentYear || new Date().getFullYear()}</CardTitle>
             <p className="text-sm text-gray-600">Evolución de incidencias y permisos de enero a diciembre</p>
           </CardHeader>
           <CardContent className="flex-1">

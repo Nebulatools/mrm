@@ -40,10 +40,11 @@ interface RetentionFilters {
 
 interface RetentionChartsProps {
   currentDate?: Date;
+  currentYear?: number;
   filters?: RetentionFilters;
 }
 
-export function RetentionCharts({ currentDate = new Date() }: { currentDate?: Date }) {
+export function RetentionCharts({ currentDate = new Date(), currentYear }: RetentionChartsProps) {
   const [monthlyData, setMonthlyData] = useState<MonthlyRetentionData[]>([]);
   const [yearlyComparison, setYearlyComparison] = useState<YearlyComparisonData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +53,7 @@ export function RetentionCharts({ currentDate = new Date() }: { currentDate?: Da
   useEffect(() => {
     loadMonthlyRetentionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate]);
+  }, [currentDate, currentYear]);
 
   const loadMonthlyRetentionData = async () => {
     try {
@@ -119,14 +120,14 @@ export function RetentionCharts({ currentDate = new Date() }: { currentDate?: Da
       // No aplicar filtros - mostrar siempre todos los datos históricos (gráficas generales)
       let filteredMonthsData = allMonthsData;
       
-      // Preparar datos para comparación por año (año actual vs anterior)
+      // Preparar datos para comparación por año (año filtrado vs anterior)
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-      const currentYear = new Date().getFullYear();
-      const previousYear = currentYear - 1;
-      const lastTwoYears = [previousYear, currentYear]; // Año anterior y actual
+      const selectedYear = currentYear || new Date().getFullYear();
+      const previousYear = selectedYear - 1;
+      const lastTwoYears = [previousYear, selectedYear]; // Año anterior y filtrado
       
       const comparisonData: YearlyComparisonData[] = monthNames.map((monthName, index) => {
-        const dataByYear: Record<string, number | string> = {
+        const dataByYear: YearlyComparisonData = {
           mes: monthName
         };
         
@@ -373,7 +374,8 @@ export function RetentionCharts({ currentDate = new Date() }: { currentDate?: Da
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={monthlyData.filter(d => {
               const fecha = new Date(d.year, d.month - 1, 1);
-              return d.year === (availableYears[availableYears.length - 1] || new Date().getFullYear()) && fecha <= new Date();
+              const targetYear = currentYear || new Date().getFullYear();
+              return d.year === targetYear && fecha <= new Date();
             })}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
@@ -435,7 +437,8 @@ export function RetentionCharts({ currentDate = new Date() }: { currentDate?: Da
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={monthlyData.filter(d => {
               const fecha = new Date(d.year, d.month - 1, 1);
-              return d.year === (availableYears[availableYears.length - 1] || new Date().getFullYear()) && fecha <= new Date();
+              const targetYear = currentYear || new Date().getFullYear();
+              return d.year === targetYear && fecha <= new Date();
             })}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
