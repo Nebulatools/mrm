@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Users, UserMinus } from "lucide-react";
 import type { PlantillaRecord } from "@/lib/supabase";
-import { prettyMotivo } from "@/lib/normalizers";
+import { prettyMotivo, normalizePuesto, normalizeDepartamento } from "@/lib/normalizers";
 
 //
 
@@ -57,8 +57,8 @@ export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps)
   const empleadosDetalle: Employee[] = (showAll ? empleadosOrdenados : empleadosOrdenados.slice(0, 10))
     .map(emp => ({
       id: emp.emp_id || emp.numero_empleado || emp.id || 'N/A',
-      puesto: sanitizeText(emp.puesto || '') || 'Sin puesto',
-      departamento: sanitizeText(emp.departamento || '') || 'Sin departamento',
+      puesto: sanitizeText(normalizePuesto(emp.puesto)) || 'Sin puesto',
+      departamento: sanitizeText(normalizeDepartamento(emp.departamento)) || 'Sin departamento',
       clasificacion: sanitizeText(emp.clasificacion || '') || 'Sin clasificación',
       fecha_baja: emp.fecha_baja,
       motivo_baja: sanitizeText(prettyMotivo(emp.motivo_baja) || '') || 'No especificado',

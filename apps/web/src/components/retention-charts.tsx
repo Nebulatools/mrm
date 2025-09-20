@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { db, type PlantillaRecord } from '@/lib/supabase';
 import { format, subMonths, endOfMonth } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 //
@@ -121,7 +122,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
       let filteredMonthsData = allMonthsData;
       
       // Preparar datos para comparación por año (año filtrado vs anterior)
-      const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
       const selectedYear = currentYear || new Date().getFullYear();
       const previousYear = selectedYear - 1;
       const lastTwoYears = [previousYear, selectedYear]; // Año anterior y filtrado
@@ -259,7 +260,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
       }).length;
 
       return {
-        mes: format(startDate, 'MMM yyyy'),
+        mes: format(startDate, 'MMM yyyy', { locale: es }),
         year: startDate.getFullYear(),
         month: startDate.getMonth() + 1,
         rotacionPorcentaje: Number(rotacionPorcentaje.toFixed(2)),
@@ -275,7 +276,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
     } catch (error) {
       console.error('Error calculating monthly retention:', error);
       return {
-        mes: format(startDate, 'MMM yyyy'),
+        mes: format(startDate, 'MMM yyyy', { locale: es }),
         year: startDate.getFullYear(),
         month: startDate.getMonth() + 1,
         rotacionPorcentaje: 0,
@@ -325,7 +326,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
     );
   }
 
-  const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   
   return (
     <div className="space-y-6">
@@ -449,10 +450,16 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
                 textAnchor="end"
                 height={60}
               />
-              <YAxis 
+              <YAxis
                 tick={{ fontSize: 12 }}
                 width={90}
-                label={{ value: 'Número de Bajas', angle: -90, position: 'left' }}
+                label={{
+                  value: 'Número de Bajas',
+                  angle: -90,
+                  position: 'outside',
+                  offset: -5,
+                  style: { textAnchor: 'middle' }
+                }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />

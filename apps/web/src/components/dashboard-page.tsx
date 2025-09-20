@@ -25,6 +25,7 @@ import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filter
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord } from "@/lib/supabase";
 import { format } from "date-fns";
+import { es } from 'date-fns/locale';
 import { isMotivoClave } from "@/lib/normalizers";
 //
 
@@ -510,7 +511,7 @@ export function DashboardPage() {
               )}
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Período: {timePeriod === 'alltime' ? 'Todos los períodos' : format(selectedPeriod, 'MMMM yyyy')}
+              Período: {timePeriod === 'alltime' ? 'Todos los períodos' : format(selectedPeriod, 'MMMM yyyy', { locale: es })}
               {!data.loading && (
                 <span className="ml-2">
                   • Actualizado: {format(data.lastUpdated, 'dd/MM/yyyy HH:mm')}
@@ -865,6 +866,10 @@ export function DashboardPage() {
 
           {/* Retention Tab */}
           <TabsContent value="retention" className="space-y-6">
+            {/* Explicación de motivos clave */}
+            <div className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800 p-2 rounded border-l-4 border-blue-400">
+              <strong>Motivos clave:</strong> Rescisión por desempeño, Rescisión por disciplina, Término del contrato
+            </div>
 
             {/* 5 KPIs Principales de Retención con filtros aplicados */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
