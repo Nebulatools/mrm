@@ -1,4 +1,5 @@
 import { db, supabase, type PlantillaRecord, type AsistenciaDiariaRecord, type EmpleadoSFTPRecord } from './supabase';
+import { normalizeMotivo, prettyMotivo } from './normalizers';
 import { sftpClient } from './sftp-client';
 import { startOfMonth, endOfMonth, format, differenceInDays, isWithinInterval, subMonths } from 'date-fns';
 
@@ -726,9 +727,16 @@ export class KPICalculator {
       // Agrupar por motivo y mes
       const heatmapData: { [motivo: string]: { [mes: string]: number } } = {};
 
+      const isGeneric = (s?: string | null) => {
+        if (!s) return true;
+        const v = String(s).trim().toLowerCase();
+        return v === '' || v === 'baja' || v === 'sin motivo' || v === 'otra' || v === 'otro' || v === 'n/a' || v === 'na';
+      };
+
       motivosBaja.forEach((baja: any) => {
         const fechaBaja = new Date(baja.fecha_baja);
-        const motivo = baja.motivo || 'Sin motivo';
+        const raw = isGeneric(baja.descripcion) ? baja.motivo : baja.descripcion || baja.motivo || 'Otra razón';
+        const motivo = prettyMotivo(raw);
         const mes = fechaBaja.getMonth(); // 0-11
 
         // Inicializar motivo si no existe

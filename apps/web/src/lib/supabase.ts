@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { normalizeMotivo, normalizeDepartamento } from './normalizers'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -209,6 +210,8 @@ export const db = {
     // Transform to PlantillaRecord format for compatibility
     const transformed = (empleados || []).map(emp => {
       const motivosEmpleado = motivosMap.get(emp.numero_empleado) || [];
+      // Ordenar por fecha_baja desc para tomar el último motivo real
+      motivosEmpleado.sort((a: any, b: any) => new Date(b.fecha_baja).getTime() - new Date(a.fecha_baja).getTime());
       const ultimoMotivo = motivosEmpleado.length > 0 ? motivosEmpleado[0] : null;
       
       return {
@@ -216,12 +219,12 @@ export const db = {
         emp_id: String(emp.numero_empleado),
         numero_empleado: emp.numero_empleado, // Agregar campo numero_empleado
         nombre: emp.nombre_completo || `${emp.nombres || ''} ${emp.apellidos || ''}`.trim() || 'Sin Nombre',
-        departamento: emp.departamento || 'Sin Departamento',
+        departamento: normalizeDepartamento(emp.departamento) || 'Sin Departamento',
         activo: emp.activo === true || emp.activo === 'true' || emp.activo === 1,
         fecha_ingreso: emp.fecha_ingreso || emp.fecha_antiguedad || emp.fecha_creacion || new Date().toISOString(),
         fecha_baja: emp.fecha_baja || ultimoMotivo?.fecha_baja || null,
         puesto: emp.puesto || 'Sin Puesto',
-        motivo_baja: emp.motivo_baja || ultimoMotivo?.motivo || 'No especificado',
+        motivo_baja: normalizeMotivo(emp.motivo_baja || ultimoMotivo?.descripcion || ultimoMotivo?.motivo || 'No especificado'),
         area: emp.area || 'Sin Área',
         clasificacion: emp.clasificacion || 'Sin Clasificación',
         ubicacion: (emp as any).ubicacion || null,
@@ -302,34 +305,54 @@ export const db = {
   },
 
   async getDepartamentos() {
-    console.log('🗄️ Fetching departamentos...');
-    // Since we don't have departamento field in empleados_sftp, we'll create mock data
-    // You should add this field to your database
-    const mockDepartamentos = [
-      'Recursos Humanos',
-      'Tecnología',
-      'Ventas',
-      'Marketing',
-      'Operaciones',
-      'Finanzas',
-      'Administración'
-    ];
-    return mockDepartamentos;
+    console.log('🗄️ Fetching distinct departamentos from empleados_sftp...');
+    const { data, error } = await supabase
+      .from('empleados_sftp')
+      .select('departamento');
+    if (error) {
+      console.error('❌ Error fetching departamentos:', error);
+      throw error;
+    }
+    const set = new Set<string>();
+    (data || []).forEach((r: any) => {
+      const v = (r?.departamento ?? '').toString().trim();
+      if (v) set.add(v);
+    });
+    return Array.from(set).sort();
   },
 
   async getAreas() {
-    console.log('🗄️ Fetching areas...');
-    // Since we don't have area field in empleados_sftp, we'll create mock data
-    // You should add this field to your database
-    const mockAreas = [
-      'Desarrollo',
-      'Soporte',
-      'Gestión',
-      'Análisis',
-      'Diseño',
-      'Calidad'
-    ];
-    return mockAreas;
+    console.log('🗄️ Fetching distinct áreas from empleados_sftp...');
+    const { data, error } = await supabase
+      .from('empleados_sftp')
+      .select('area');
+    if (error) {
+      console.error('❌ Error fetching áreas:', error);
+      throw error;
+    }
+    const set = new Set<string>();
+    (data || []).forEach((r: any) => {
+      const v = (r?.area ?? '').toString().trim();
+      if (v) set.add(v);
+    });
+    return Array.from(set).sort();
+  },
+
+  async getIncidenciaCodes() {
+    console.log('🗄️ Fetching distinct incidencia codes (inci) from incidencias...');
+    const { data, error } = await supabase
+      .from('incidencias')
+      .select('inci');
+    if (error) {
+      console.error('❌ Error fetching incidencia codes:', error);
+      throw error;
+    }
+    const set = new Set<string>();
+    (data || []).forEach((r: any) => {
+      const v = (r?.inci ?? '').toString().trim();
+      if (v) set.add(v.toUpperCase());
+    });
+    return Array.from(set).sort();
   },
 
   async getActiveEmployees() {

@@ -31,10 +31,10 @@ export function KPIChart({ data, type = 'line', height = 300, showAll = false }:
 
   const formatValue = (value: number, label?: string): string => {
     if (label && (label.includes('%') || label.includes('Rotación'))) {
-      return `${value.toFixed(2)}%`;
+      return `${value.toFixed(1)}%`;
     }
     if (label && label.includes('Prom') && value < 10) {
-      return value.toFixed(2);
+      return value.toFixed(1);
     }
     return Math.round(value).toLocaleString('es-MX');
   };

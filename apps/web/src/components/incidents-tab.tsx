@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db, type IncidenciaCSVRecord, type PlantillaRecord } from "@/lib/supabase";
+import { normalizeIncidenciaCode, labelForIncidencia } from "@/lib/normalizers";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Info } from "lucide-react";
 
@@ -24,15 +25,7 @@ const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
 const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]); // Para card de empleados con incidencias
 const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3"]);
 
-const normalizeCode = (raw?: string | null) => {
-  const c = (raw || '').toUpperCase().trim();
-  if (c === 'ENF') return 'ENFE';
-  if (c === 'PSG') return 'PSIN';
-  if (c === 'PCG') return 'PCON';
-  if (c === 'SUSP') return 'SUS';
-  if (c.replace(/\s+/g, '') === 'MAT3') return 'MAT3';
-  return c;
-};
+// Normalización de código centralizada en lib/normalizers
 
 export function IncidentsTab({ plantilla, currentYear }: Props) {
   const [empleados, setEmpleados] = useState<PlantillaRecord[]>([]);
@@ -112,7 +105,7 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
   const empleadosConIncidencias = useMemo(() => {
     const set = new Set<number>();
     enriched.forEach(i => {
-      const code = normalizeCode(i.inci);
+      const code = normalizeIncidenciaCode(i.inci);
       if (code && EMPLOYEE_INCIDENT_CODES.has(code)) set.add(i.emp);
     });
     return set.size;
@@ -120,7 +113,7 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
   const countByType = useMemo(() => {
     const map = new Map<string, number>();
     enriched.forEach(i => {
-      const code = normalizeCode(i.inci);
+      const code = normalizeIncidenciaCode(i.inci);
       if (!code) return;
       map.set(code, (map.get(code) || 0) + 1);
     });
@@ -143,7 +136,7 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
   const histoData = useMemo(() => {
     const byEmp = new Map<number, number>();
     enriched.forEach(i => {
-      const code = normalizeCode(i.inci);
+      const code = normalizeIncidenciaCode(i.inci);
       if (!code || !INCIDENT_CODES.has(code)) return; // solo incidencias (no permisos)
       byEmp.set(i.emp, (byEmp.get(i.emp) || 0) + 1);
     });
@@ -157,13 +150,13 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
   // Resumen por tipo: #días (≈ registros) y #empleados únicos por tipo
   const tiposUnicos = useMemo(() => {
     // Incluir todos los códigos presentes (incidencias y permisos), normalizados
-    return Array.from(new Set(enriched.map(i => normalizeCode(i.inci)).filter((c): c is string => !!c))).sort();
+    return Array.from(new Set(enriched.map(i => normalizeIncidenciaCode(i.inci)).filter((c): c is string => !!c))).sort();
   }, [enriched]);
   const resumenPorTipo = useMemo(() => {
     const out = [] as { tipo: string; dias: number; empleados: number }[];
     const byTipo = new Map<string, IncidenciaCSVRecord[]>();
     enriched.forEach(i => {
-      const t = normalizeCode(i.inci);
+      const t = normalizeIncidenciaCode(i.inci);
       if (!t) return;
       if (!byTipo.has(t)) byTipo.set(t, []);
       byTipo.get(t)!.push(i);
@@ -216,7 +209,7 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
       let permisosCount = 0;
 
       monthData.forEach(inc => {
-        const code = normalizeCode(inc.inci);
+        const code = normalizeIncidenciaCode(inc.inci);
         if (!code) return;
 
         if (INCIDENT_CODES.has(code)) {
@@ -355,17 +348,17 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>#días de incidencias</TableHead>
-                    <TableHead>#empleados con incidencias</TableHead>
+                    <TableHead className="w-1/2">Tipo</TableHead>
+                    <TableHead className="w-1/4 text-center"># días</TableHead>
+                    <TableHead className="w-1/4 text-center"># emp</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {resumenPorTipo.map(r => (
                     <TableRow key={r.tipo}>
-                      <TableCell className="font-medium">{r.tipo}</TableCell>
-                      <TableCell>{r.dias.toLocaleString()}</TableCell>
-                      <TableCell>{r.empleados.toLocaleString()}</TableCell>
+                      <TableCell className="font-medium">{labelForIncidencia(r.tipo)}</TableCell>
+                      <TableCell className="text-center">{r.dias.toLocaleString()}</TableCell>
+                      <TableCell className="text-center">{r.empleados.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -423,7 +416,7 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
                   <TableRow key={i.id}>
                     <TableCell>{i.id}</TableCell>
                     <TableCell>{i.fecha}</TableCell>
-                    <TableCell>{normalizeCode(i.inci) || '-'}</TableCell>
+                    <TableCell>{labelForIncidencia(i.inci, i.incidencia) || '-'}</TableCell>
                     <TableCell>1</TableCell>
                     <TableCell>{i.empresa || '—'}</TableCell>
                     <TableCell>{i.departamento || '—'}</TableCell>

@@ -301,7 +301,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
               <span style={{ color: entry.color }}>
                 {entry.name}: {
                   entry.dataKey?.includes('Porcentaje') || entry.dataKey?.includes('rotacion') 
-                    ? `${entry.value?.toFixed(2)}%` 
+                    ? `${entry.value?.toFixed(1)}%` 
                     : entry.value?.toLocaleString()
                 }
               </span>
@@ -349,6 +349,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
               <YAxis 
                 tick={{ fontSize: 12 }}
                 label={{ value: 'Rotación %', angle: -90, position: 'insideLeft' }}
+                domain={[50, 100]}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
@@ -450,7 +451,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
               />
               <YAxis 
                 tick={{ fontSize: 12 }}
-                label={{ value: 'Número de Bajas', angle: -90, position: 'insideLeft' }}
+                width={90}
+                label={{ value: 'Número de Bajas', angle: -90, position: 'left' }}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
@@ -532,7 +534,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
                       <tr key={row.mes} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
                         <td className="py-2 px-3 font-medium">{row.mes}</td>
                         <td className="py-2 px-3 text-center text-xs">
-                          {rotacion1 ? `${rotacion1.toFixed(2)}%` : '-'}
+                          {rotacion1 ? `${rotacion1.toFixed(1)}%` : '-'}
                         </td>
                         <td className="py-2 px-3 text-center text-xs">
                           {bajas12M_1 || '-'}
@@ -541,7 +543,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
                           {monthData1?.activos ?? '-'}
                         </td>
                         <td className="py-2 px-3 text-center text-xs">
-                          {rotacion2 ? `${rotacion2.toFixed(2)}%` : '-'}
+                          {rotacion2 ? `${rotacion2.toFixed(1)}%` : '-'}
                         </td>
                         <td className="py-2 px-3 text-center text-xs">
                           {bajas12M_2 || '-'}

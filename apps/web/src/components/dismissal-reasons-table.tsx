@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Users, UserMinus } from "lucide-react";
 import type { PlantillaRecord } from "@/lib/supabase";
+import { prettyMotivo } from "@/lib/normalizers";
 
 //
 
@@ -60,7 +61,7 @@ export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps)
       departamento: sanitizeText(emp.departamento || '') || 'Sin departamento',
       clasificacion: sanitizeText(emp.clasificacion || '') || 'Sin clasificación',
       fecha_baja: emp.fecha_baja,
-      motivo_baja: sanitizeText(emp.motivo_baja || '') || 'No especificado',
+      motivo_baja: sanitizeText(prettyMotivo(emp.motivo_baja) || '') || 'No especificado',
       ubicacion: sanitizeText((emp as any).ubicacion || '') || 'Sin ubicación'
     }));
 

@@ -25,6 +25,7 @@ import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filter
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord } from "@/lib/supabase";
 import { format } from "date-fns";
+import { isMotivoClave } from "@/lib/normalizers";
 //
 
 interface DashboardData {
@@ -337,8 +338,14 @@ export function DashboardPage() {
         bajas: 0,
         bajasTempranas: 0,
         rotacionMensual: 0,
-        rotacionAcumulada: 0
-      };
+        rotacionAcumulada: 0,
+        rotacionAnioActual: 0,
+        // secundarios
+        bajasClaves: 0,
+        rotacionMensualClaves: 0,
+        rotacionAcumuladaClaves: 0,
+        rotacionAnioActualClaves: 0,
+      } as any;
     }
     
     const filteredPlantilla = filterPlantilla(data.plantilla);
@@ -362,6 +369,11 @@ export function DashboardPage() {
       if (!emp.fecha_baja) return false;
       const fechaBaja = new Date(emp.fecha_baja);
       return fechaBaja >= inicioMes && fechaBaja <= finMes;
+    }).length;
+    const bajasDelMesClaves = filteredPlantilla.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const fechaBaja = new Date(emp.fecha_baja);
+      return fechaBaja >= inicioMes && fechaBaja <= finMes && isMotivoClave((emp as any).motivo_baja);
     }).length;
     
     // Calcular empleados al inicio y fin del mes para el promedio
@@ -396,6 +408,7 @@ export function DashboardPage() {
     
     // Calcular Rotación Mensual = (Bajas del mes / Activos promedio) * 100
     const rotacionMensual = activosPromedio > 0 ? (bajasDelMes / activosPromedio) * 100 : 0;
+    const rotacionMensualClaves = activosPromedio > 0 ? (bajasDelMesClaves / activosPromedio) * 100 : 0;
     
     // Calcular Rotación Acumulada (últimos 12 meses) - GENERAL DE EMPRESA
     const filteredPlantilla12m = noFiltersForGeneralRotation(data.plantilla);
@@ -406,6 +419,11 @@ export function DashboardPage() {
       if (!emp.fecha_baja) return false;
       const fechaBaja = new Date(emp.fecha_baja);
       return fechaBaja >= hace12Meses && fechaBaja <= finPeriodo12m;
+    }).length;
+    const bajasUltimos12MesesClaves = filteredPlantilla12m.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const fechaBaja = new Date(emp.fecha_baja);
+      return fechaBaja >= hace12Meses && fechaBaja <= finPeriodo12m && isMotivoClave((emp as any).motivo_baja);
     }).length;
 
     // Calcular promedio de activos para los 12 meses (sin restricción de mes)
@@ -424,15 +442,55 @@ export function DashboardPage() {
     const activosPromedio12m = (empleadosInicio12m + empleadosFin12m) / 2;
 
     const rotacionAcumulada = activosPromedio12m > 0 ? (bajasUltimos12Meses / activosPromedio12m) * 100 : 0;
+    const rotacionAcumuladaClaves = activosPromedio12m > 0 ? (bajasUltimos12MesesClaves / activosPromedio12m) * 100 : 0;
+
+    // Rotación Año Actual (Ene a mes actual) - general de empresa
+    const filteredPlantillaYTD = noFiltersForGeneralRotation(data.plantilla);
+    const inicioAnio = new Date(currentYear, 0, 1);
+    const finAnioPeriodo = finMes;
+
+    const bajasYTD = filteredPlantillaYTD.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const fechaBaja = new Date(emp.fecha_baja);
+      return fechaBaja >= inicioAnio && fechaBaja <= finAnioPeriodo;
+    }).length;
+    const bajasYTDClaves = filteredPlantillaYTD.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const fechaBaja = new Date(emp.fecha_baja);
+      return fechaBaja >= inicioAnio && fechaBaja <= finAnioPeriodo && isMotivoClave((emp as any).motivo_baja);
+    }).length;
+
+    const empleadosInicioYTD = filteredPlantillaYTD.filter(emp => {
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      return fechaIngreso <= inicioAnio && (!fechaBaja || fechaBaja > inicioAnio);
+    }).length;
+    const empleadosFinYTD = filteredPlantillaYTD.filter(emp => {
+      const fechaIngreso = new Date(emp.fecha_ingreso);
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      return fechaIngreso <= finAnioPeriodo && (!fechaBaja || fechaBaja > finAnioPeriodo);
+    }).length;
+    const activosPromedioYTD = (empleadosInicioYTD + empleadosFinYTD) / 2;
+    const rotacionAnioActual = activosPromedioYTD > 0 ? (bajasYTD / activosPromedioYTD) * 100 : 0;
+    const rotacionAnioActualClaves = activosPromedioYTD > 0 ? (bajasYTDClaves / activosPromedioYTD) * 100 : 0;
+
+    // Bajas Clave (total sobre data filtrada)
+    const bajasClavesTotal = filteredPlantilla.filter(emp => emp.fecha_baja && isMotivoClave((emp as any).motivo_baja)).length;
     
     
     return {
       activosPromedio: Math.round(activosPromedio),
       bajas: bajasTotal,
       bajasTempranas: bajasTempranas,
-      rotacionMensual: Number(rotacionMensual.toFixed(2)),
-      rotacionAcumulada: Number(rotacionAcumulada.toFixed(2))
-    };
+      rotacionMensual: Number(rotacionMensual.toFixed(1)),
+      rotacionAcumulada: Number(rotacionAcumulada.toFixed(1)),
+      rotacionAnioActual: Number(rotacionAnioActual.toFixed(1)),
+      // secundarios
+      bajasClaves: bajasClavesTotal,
+      rotacionMensualClaves: Number(rotacionMensualClaves.toFixed(1)),
+      rotacionAcumuladaClaves: Number(rotacionAcumuladaClaves.toFixed(1)),
+      rotacionAnioActualClaves: Number(rotacionAnioActualClaves.toFixed(1)),
+    } as any;
   };
 
   const filteredRetentionKPIs = getFilteredRetentionKPIs();
@@ -832,18 +890,8 @@ export function DashboardPage() {
                   period_end: new Date().toISOString().split('T')[0]
                 }} 
                 icon={<UserMinus className="h-6 w-6" />}
-              />
-              
-              {/* Bajas Tempranas */}
-              <KPICard 
-                kpi={{
-                  name: 'Bajas Tempranas',
-                  category: 'retention',
-                  value: filteredRetentionKPIs.bajasTempranas,
-                  period_start: '1900-01-01',
-                  period_end: new Date().toISOString().split('T')[0]
-                }} 
-                icon={<UserMinus className="h-6 w-6" />}
+                secondaryLabel="Solo motivos clave"
+                secondaryValue={filteredRetentionKPIs.bajasClaves}
               />
 
               {/* Rotación Mensual */}
@@ -856,6 +904,9 @@ export function DashboardPage() {
                   period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0).toISOString().split('T')[0]
                 }} 
                 icon={<TrendingUp className="h-6 w-6" />}
+                secondaryLabel="Motivos clave"
+                secondaryValue={filteredRetentionKPIs.rotacionMensualClaves}
+                secondaryIsPercent
               />
               
               {/* Rotación Acumulada */}
@@ -868,6 +919,24 @@ export function DashboardPage() {
                   period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0).toISOString().split('T')[0]
                 }} 
                 icon={<TrendingDown className="h-6 w-6" />}
+                secondaryLabel="Motivos clave"
+                secondaryValue={filteredRetentionKPIs.rotacionAcumuladaClaves}
+                secondaryIsPercent
+              />
+
+              {/* Rotación Año Actual (Ene a mes actual) */}
+              <KPICard 
+                kpi={{
+                  name: 'Rotación Año Actual',
+                  category: 'retention',
+                  value: filteredRetentionKPIs.rotacionAnioActual,
+                  period_start: new Date(selectedPeriod.getFullYear(), 0, 1).toISOString().split('T')[0],
+                  period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0).toISOString().split('T')[0]
+                }} 
+                icon={<TrendingDown className="h-6 w-6" />}
+                secondaryLabel="Motivos clave"
+                secondaryValue={filteredRetentionKPIs.rotacionAnioActualClaves}
+                secondaryIsPercent
               />
             </div>
             

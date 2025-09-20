@@ -8,9 +8,13 @@ import { KPIResult } from "@/lib/kpi-calculator";
 interface KPICardProps {
   kpi: KPIResult;
   icon?: React.ReactNode;
+  // Valores secundarios opcionales (p.ej., solo motivos clave)
+  secondaryValue?: number;
+  secondaryLabel?: string;
+  secondaryIsPercent?: boolean;
 }
 
-export function KPICard({ kpi, icon }: KPICardProps) {
+export function KPICard({ kpi, icon, secondaryValue, secondaryLabel, secondaryIsPercent }: KPICardProps) {
   const getTrendIcon = (variance?: number) => {
     if (!variance || Math.abs(variance) < 1) return null;
     return variance > 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />;
@@ -26,10 +30,10 @@ export function KPICard({ kpi, icon }: KPICardProps) {
       return `$${value.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`;
     }
     if (kpi.name.includes('%') || kpi.name.includes('Rotación')) {
-      return `${value.toFixed(2)}%`;
+      return `${value.toFixed(1)}%`;
     }
     if (kpi.name.includes('Prom') && value < 10) {
-      return value.toFixed(2);
+      return value.toFixed(1);
     }
     return Math.round(value).toLocaleString('es-MX');
   };
@@ -58,6 +62,11 @@ export function KPICard({ kpi, icon }: KPICardProps) {
             </Badge>
           )}
         </div>
+        {secondaryValue !== undefined && secondaryLabel && (
+          <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+            {secondaryLabel}: {secondaryIsPercent ? `${secondaryValue.toFixed(1)}%` : secondaryValue.toLocaleString('es-MX')}
+          </div>
+        )}
         
         {/* Target and Previous Value */}
         <div className="mt-2 space-y-1">
