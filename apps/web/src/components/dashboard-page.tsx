@@ -20,6 +20,7 @@ import { DismissalReasonsTable } from "./dismissal-reasons-table";
 import { BajasPorMotivoHeatmap } from "./bajas-por-motivo-heatmap";
 import { RetentionCharts } from "./retention-charts";
 import IncidentsTab from "./incidents-tab";
+import { CorrelationMatrix } from "./correlation-matrix";
 import { RetentionFilterPanel } from "./filter-panel";
 import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filters/retention";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
@@ -895,7 +896,7 @@ export function DashboardPage() {
                   period_end: new Date().toISOString().split('T')[0]
                 }} 
                 icon={<UserMinus className="h-6 w-6" />}
-                secondaryLabel="Solo motivos clave"
+                secondaryLabel="Rotación voluntaria"
                 secondaryValue={filteredRetentionKPIs.bajasClaves}
               />
 
@@ -960,22 +961,7 @@ export function DashboardPage() {
 
           {/* Trends Tab */}
           <TabsContent value="trends" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Análisis de Tendencias</CardTitle>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Comparación mes a mes de todos los indicadores
-                </p>
-              </CardHeader>
-              <CardContent>
-                <KPIChart 
-                  data={data.kpis} 
-                  type="line" 
-                  height={500}
-                  showAll={true}
-                />
-              </CardContent>
-            </Card>
+            <CorrelationMatrix year={currentYear} />
           </TabsContent>
 
           {/* AI Insights Tab */}
