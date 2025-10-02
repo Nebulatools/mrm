@@ -288,4 +288,4 @@ Para soporte técnico o consultas sobre el dashboard:
 
 ---
 
-**Desarrollado con ❤️ usando Next.js 14, Supabase, y shadcn/ui**
+**Desarrollado con ❤️ usando Next.js 14, Supabase, y shadcn/ui**# Test deploy
