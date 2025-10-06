@@ -54,14 +54,21 @@ function parseDate(dateValue: unknown): string | null {
 }
 
 // FORZAR IMPORTACIÓN REAL SIN CACHÉ
-export async function POST() {
+export async function POST(request: Request) {
   console.log('🚀 FORZANDO IMPORTACIÓN REAL DE DATOS SFTP (SIN CACHÉ)...');
 
   try {
+    // Detectar URL base desde el request
+    const protocol = request.headers.get('x-forwarded-proto') || 'http';
+    const host = request.headers.get('host') || 'localhost:3004';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
+
+    console.log(`🌐 Base URL: ${baseUrl}`);
+
     // ========================================
     // PASO 1: CONECTAR DIRECTAMENTE AL SFTP
     // ========================================
-    const sftpResponse = await fetch(`${process.env.NEXT_PUBLIC_VERCEL_URL || 'http://localhost:3000'}/api/sftp?action=list&nocache=true`);
+    const sftpResponse = await fetch(`${baseUrl}/api/sftp?action=list&nocache=true`);
     const sftpFiles = await sftpResponse.json();
     
     console.log('📂 Archivos SFTP reales encontrados:', sftpFiles);
@@ -72,7 +79,7 @@ export async function POST() {
     
     // Descargar archivo de empleados (Excel) - DATOS TÉCNICOS
     console.log('📥 Descargando Validacion Alta de empleados.xls...');
-    const empleadosResponse = await fetch(`${process.env.NEXT_PUBLIC_VERCEL_URL || 'http://localhost:3000'}/api/sftp?action=download&filename=Validacion%20Alta%20de%20empleados.xls&nocache=true`);
+    const empleadosResponse = await fetch(`${baseUrl}/api/sftp?action=download&filename=Validacion%20Alta%20de%20empleados.xls&nocache=true`);
     const empleadosData = await empleadosResponse.json();
     
     console.log('👥 Empleados encontrados:', empleadosData.data?.length || 0);
@@ -85,7 +92,7 @@ export async function POST() {
 
     // Descargar archivo de nómina (CSV) - NOMBRES REALES
     console.log('📥 Descargando Prenomina Horizontal.csv...');
-    const nominaResponse = await fetch(`${process.env.NEXT_PUBLIC_VERCEL_URL || 'http://localhost:3000'}/api/sftp?action=download&filename=Prenomina%20Horizontal.csv&nocache=true`);
+    const nominaResponse = await fetch(`${baseUrl}/api/sftp?action=download&filename=Prenomina%20Horizontal.csv&nocache=true`);
     const nominaData = await nominaResponse.json();
     
     console.log('👥 Nómina encontrada:', nominaData.data?.length || 0);
@@ -99,7 +106,7 @@ export async function POST() {
 
     // Descargar archivo de bajas (CSV)
     console.log('📥 Descargando MotivosBaja.csv...');
-    const bajasResponse = await fetch(`${process.env.NEXT_PUBLIC_VERCEL_URL || 'http://localhost:3000'}/api/sftp?action=download&filename=MotivosBaja.csv&nocache=true`);
+    const bajasResponse = await fetch(`${baseUrl}/api/sftp?action=download&filename=MotivosBaja.csv&nocache=true`);
     const bajasData = await bajasResponse.json();
     
     console.log('📉 Bajas encontradas:', bajasData.data?.length || 0);
@@ -397,7 +404,7 @@ export async function POST() {
       .select('*', { count: 'exact', head: true });
 
     const { count: totalIncidencias } = await supabaseAdmin
-      .from('incidencias_detalle')
+      .from('incidencias')
       .select('*', { count: 'exact', head: true });
 
     console.log('✅ IMPORTACIÓN REAL COMPLETADA!');

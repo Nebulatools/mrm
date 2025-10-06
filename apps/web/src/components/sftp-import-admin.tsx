@@ -49,6 +49,8 @@ export function SFTPImportAdmin() {
   const [previewData, setPreviewData] = useState<Record<string, PreviewData>>({});
   const [loadingPreviews, setLoadingPreviews] = useState<Record<string, boolean>>({});
   const [expandedPreviews, setExpandedPreviews] = useState<Record<string, boolean>>({});
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const loadSFTPFiles = async () => {
     setIsLoadingFiles(true);
@@ -197,12 +199,31 @@ export function SFTPImportAdmin() {
   };
 
   const testConnection = async () => {
+    setIsTestingConnection(true);
+    setConnectionResult(null);
+
     try {
       const response = await fetch('/api/sftp?action=test');
       const result = await response.json();
-      console.log('Test connection result:', result);
+
+      if (result.success) {
+        setConnectionResult({
+          success: true,
+          message: `✅ Conexión exitosa: ${result.message || 'Conectado al servidor SFTP'}`
+        });
+      } else {
+        setConnectionResult({
+          success: false,
+          message: `❌ Error: ${result.error || 'No se pudo conectar'}`
+        });
+      }
     } catch (error) {
-      console.error('Error testing connection:', error);
+      setConnectionResult({
+        success: false,
+        message: `❌ Error de conexión: ${error instanceof Error ? error.message : 'Error desconocido'}`
+      });
+    } finally {
+      setIsTestingConnection(false);
     }
   };
 
@@ -238,15 +259,31 @@ export function SFTPImportAdmin() {
               )}
               Actualizar Lista
             </Button>
-            <Button 
+            <Button
               onClick={testConnection}
+              disabled={isTestingConnection}
               variant="outline"
               size="sm"
             >
-              <Database className="h-4 w-4 mr-2" />
+              {isTestingConnection ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Database className="h-4 w-4 mr-2" />
+              )}
               Probar Conexión
             </Button>
           </div>
+
+          {/* Resultado de la prueba de conexión */}
+          {connectionResult && (
+            <div className={`p-3 rounded-lg border mb-4 ${
+              connectionResult.success
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}>
+              {connectionResult.message}
+            </div>
+          )}
           
           {sftpFiles.length > 0 ? (
             <div className="space-y-3">

@@ -3,8 +3,6 @@ export const runtime = 'nodejs';
 import SftpClient from 'ssh2-sftp-client';
 import * as XLSX from 'xlsx';
 
-// PDF parsing is done server-side via dynamic import to avoid ESM/CJS issues
-
 interface SFTPConfig {
   host: string;
   port: number;
@@ -89,16 +87,13 @@ class SFTPService {
       // List files in directory
       const fileList = await sftp.list(this.config.directory);
 
-      // Filter and map files - Excel, Word, CSV, PDF
+      // Filter and map files - SOLO Excel y CSV (NO PDFs ni Word)
       const hrFiles: SFTPFile[] = fileList
         .filter(file => {
           const isFile = file.type === '-';
           const hasValidExtension = file.name.endsWith('.csv') ||
                                    file.name.endsWith('.xlsx') ||
-                                   file.name.endsWith('.xls') ||
-                                   file.name.endsWith('.docx') ||
-                                   file.name.endsWith('.doc') ||
-                                   file.name.endsWith('.pdf');
+                                   file.name.endsWith('.xls');
           return isFile && hasValidExtension;
         })
         .map(file => {
@@ -121,14 +116,7 @@ class SFTPService {
             type = 'act';
           }
 
-          // Handle PDF files specifically
-          if (file.name.endsWith('.pdf')) {
-            if (fileName.includes('motivos') && fileName.includes('bajas')) {
-              type = 'plantilla';
-            } else if (fileName.includes('incidencias')) {
-              type = 'incidencias';
-            }
-          }
+          // Solo procesamos Excel y CSV (sin lógica de PDFs)
 
           return {
             name: file.name,
@@ -259,22 +247,8 @@ class SFTPService {
           console.error('Error procesando Excel:', excelError);
           data = [];
         }
-      } else if (filename.toLowerCase().endsWith('.pdf')) {
-        // Por solicitud: omitir preview de PDFs por ahora
-        console.log('PDF preview omitido por configuración:', filename);
-        data = [];
-      } else if (filename.toLowerCase().endsWith('.docx') || filename.toLowerCase().endsWith('.doc')) {
-        // Para archivos Word, por ahora retornar datos mock
-        console.log('Archivo Word detectado, usando datos simulados');
-        data = [
-          {
-            emp_id: 'DOC001',
-            fecha: new Date().toISOString().split('T')[0],
-            presente: true,
-            documento: filename
-          }
-        ];
       }
+      // Solo procesamos Excel y CSV - PDFs y Word eliminados
 
       console.log(`Parsed ${data.length} rows from ${filename}`);
       return data;

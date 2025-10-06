@@ -81,14 +81,18 @@ export function CorrelationMatrix({ year = new Date().getFullYear() }: Correlati
   }
 
   const processDataForMatrix = (empleados: any[], bajas: any[], incidencias: any[]) => {
+    // Calcular totales para porcentajes
+    const totalEmpleados = empleados.length
+    const totalBajas = bajas.length
+
     return empleados.map(emp => {
       const edad = emp.fecha_nacimiento
         ? Math.floor((new Date().getTime() - new Date(emp.fecha_nacimiento).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-        : 30 // Edad promedio si no hay dato
+        : null
 
       const antiguedad = emp.fecha_ingreso
         ? Math.floor((new Date().getTime() - new Date(emp.fecha_ingreso).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-        : 1
+        : null
 
       const tuvoBaja = bajas.some(baja => baja.numero_empleado === emp.numero_empleado) ? 1 : 0
 
@@ -98,26 +102,30 @@ export function CorrelationMatrix({ year = new Date().getFullYear() }: Correlati
       const incidenciasVacaciones = incidenciasEmpleado.filter(inc => inc.inci === 'VAC').length
       const incidenciasPermisos = incidenciasEmpleado.filter(inc => inc.inci === 'INC').length
 
+      // Calcular días trabajados estimados (suponiendo 6 días/semana)
+      const diasEstimados = 26 // días laborales promedio por mes
+      const porcentajeAusentismo = diasEstimados > 0 ? (totalIncidencias / diasEstimados) * 100 : 0
+
       return {
         genero_masc: emp.genero?.toLowerCase() === 'masculino' ? 1 : 0,
-        edad: Math.min(Math.max(edad, 18), 70), // Normalizar edad
-        estado_for: emp.estado && emp.estado.toLowerCase() !== 'jalisco' ? 1 : 0,
-        antiguedad: Math.min(antiguedad, 20), // Normalizar antigüedad
+        edad: edad || 0, // Valores reales sin truncar
+        estado_for: emp.estado && !emp.estado.toLowerCase().includes('nuevo le') ? 1 : 0, // CORREGIDO: Nuevo León es local
+        antiguedad: antiguedad || 0, // Valores reales sin truncar
         puesto_op: emp.puesto?.toLowerCase().includes('operador') ? 1 : 0,
         turno_noc: emp.turno?.toLowerCase().includes('noche') ? 1 : 0,
-        total_inc: Math.min(totalIncidencias, 50), // Normalizar incidencias
-        faltas: Math.min(incidenciasFaltas, 20),
-        vacaciones: Math.min(incidenciasVacaciones, 15),
-        permisos: Math.min(incidenciasPermisos, 10),
+        total_inc: totalIncidencias, // Sin truncar - valores reales
+        faltas: incidenciasFaltas, // Sin truncar
+        vacaciones: incidenciasVacaciones, // Sin truncar
+        permisos: incidenciasPermisos, // Sin truncar
         tuvo_baja: tuvoBaja,
-        nivel_aus: totalIncidencias > 8 ? 1 : 0
+        pct_ausentismo: Math.min(porcentajeAusentismo, 100) // % de ausentismo (0-100)
       }
-    })
+    }).filter(emp => emp.edad > 0 && emp.antiguedad !== null) // Filtrar registros sin datos válidos
   }
 
   const createMasterMatrix = (data: any[]): CorrelationMatrixData => {
-    const variables = ['Género', 'Edad', 'Estado Foráneo', 'Antigüedad', 'Puesto Oper.', 'Turno Noct.', 'Tot. Incidenc.', 'Faltas', 'Vacaciones', 'Permisos', 'ROTACIÓN', 'AUSENTISMO']
-    const dataKeys = ['genero_masc', 'edad', 'estado_for', 'antiguedad', 'puesto_op', 'turno_noc', 'total_inc', 'faltas', 'vacaciones', 'permisos', 'tuvo_baja', 'nivel_aus']
+    const variables = ['Género', 'Edad', 'Estado Foráneo', 'Antigüedad', 'Puesto Oper.', 'Turno Noct.', 'Tot. Incidenc.', 'Faltas', 'Vacaciones', 'Permisos', 'ROTACIÓN', '% AUSENTISMO']
+    const dataKeys = ['genero_masc', 'edad', 'estado_for', 'antiguedad', 'puesto_op', 'turno_noc', 'total_inc', 'faltas', 'vacaciones', 'permisos', 'tuvo_baja', 'pct_ausentismo']
 
     const matrix = dataKeys.map(keyA =>
       dataKeys.map(keyB =>
@@ -278,7 +286,7 @@ export function CorrelationMatrix({ year = new Date().getFullYear() }: Correlati
       <CardHeader>
         <CardTitle>🔥 Matriz Maestra de Correlación RH ({year})</CardTitle>
         <CardDescription>
-          Análisis completo de correlaciones entre TODAS las variables - Rotación y Ausentismo incluidos
+          Análisis completo con valores reales sin normalización - Nuevo León como ubicación base
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -288,7 +296,7 @@ export function CorrelationMatrix({ year = new Date().getFullYear() }: Correlati
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
               <div>• ¿El turno nocturno aumenta las faltas?</div>
               <div>• ¿Los empleados jóvenes rotan más?</div>
-              <div>• ¿La gente foránea falta más?</div>
+              <div>• ¿La gente foránea (fuera de NL) falta más?</div>
               <div>• ¿Más incidencias = mayor rotación?</div>
             </div>
           </div>
@@ -296,8 +304,12 @@ export function CorrelationMatrix({ year = new Date().getFullYear() }: Correlati
           {masterMatrix && renderMatrix(masterMatrix)}
 
           <div className="text-xs text-gray-500 bg-yellow-50 p-3 rounded border-l-4 border-yellow-400">
-            <strong>💡 Tip de interpretación:</strong> Las últimas dos columnas (ROTACIÓN y AUSENTISMO)
+            <strong>💡 Tip de interpretación:</strong> Las últimas dos columnas (ROTACIÓN y % AUSENTISMO)
             son las más importantes - te dicen qué variables predicen mejor estos resultados críticos.
+            <div className="mt-2">
+              <strong>✅ Mejoras aplicadas:</strong> Valores reales sin truncar, Estado Foráneo = fuera de Nuevo León,
+              Ausentismo como % de días laborales.
+            </div>
           </div>
         </div>
       </CardContent>
