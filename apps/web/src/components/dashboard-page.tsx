@@ -22,6 +22,7 @@ import { RetentionCharts } from "./retention-charts";
 import IncidentsTab from "./incidents-tab";
 import { CorrelationMatrix } from "./correlation-matrix";
 import { RetentionFilterPanel } from "./filter-panel";
+import { SummaryComparison } from "./summary-comparison";
 import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filters/retention";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord } from "@/lib/supabase";
@@ -66,6 +67,8 @@ export function DashboardPage() {
   const [selectedPeriod] = useState<Date>(new Date());
   const [timePeriod] = useState<TimePeriod>('alltime');
   const [bajasPorMotivoData, setBajasPorMotivoData] = useState<BajasPorMotivoData[]>([]);
+  const [bajasData, setBajasData] = useState<any[]>([]);
+  const [incidenciasData, setIncidenciasData] = useState<any[]>([]);
 
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
     years: [],
@@ -105,6 +108,24 @@ export function DashboardPage() {
     
     loadData();
   }, [timePeriod, selectedPeriod]);
+
+  // Cargar bajas e incidencias para el resumen comparativo
+  useEffect(() => {
+    const loadBajasIncidencias = async () => {
+      try {
+        const [bajas, incidencias] = await Promise.all([
+          db.getMotivosBaja(),
+          db.getIncidenciasCSV()
+        ]);
+        setBajasData(bajas);
+        setIncidenciasData(incidencias);
+      } catch (error) {
+        console.error('Error loading bajas/incidencias:', error);
+      }
+    };
+
+    loadBajasIncidencias();
+  }, []);
 
   // Cargar datos del mapa de calor
   useEffect(() => {
@@ -547,177 +568,13 @@ export function DashboardPage() {
             <TabsTrigger value="adjustments">Ajustes</TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
+          {/* Overview Tab - Nuevo Resumen Comparativo */}
           <TabsContent value="overview" className="space-y-6">
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {data.kpis.slice(0, 4).map((kpi) => (
-                <Card key={kpi.name} className="relative overflow-hidden">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        {kpi.name}
-                      </CardTitle>
-                      {getTrendIcon(kpi.variance_percentage)}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <div className="text-2xl font-bold">
-                        {kpi.category === 'costs' ? `$${kpi.value.toLocaleString()}` : kpi.value.toLocaleString()}
-                      </div>
-                      {kpi.variance_percentage !== undefined && (
-                        <Badge variant={getTrendColor(kpi.variance_percentage)}>
-                          {kpi.variance_percentage > 0 ? '+' : ''}{kpi.variance_percentage.toFixed(1)}%
-                        </Badge>
-                      )}
-                    </div>
-                    {kpi.target && (
-                      <div className="mt-1 text-xs text-gray-500">
-                        Meta: {kpi.target.toLocaleString()}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Enhanced Charts - 3 types per category */}
-            <div className="space-y-8">
-              {/* Headcount Charts */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                  📊 Análisis de Personal - Múltiples Perspectivas
-                </h3>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Tendencias</CardTitle>
-                      <p className="text-sm text-gray-600">Evolución temporal</p>
-                    </CardHeader>
-                    <CardContent>
-                      <KPIChart 
-                        data={categorized.headcount} 
-                        type="trend" 
-                        height={250}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Distribución</CardTitle>
-                      <p className="text-sm text-gray-600">Proporción por métrica</p>
-                    </CardHeader>
-                    <CardContent>
-                      <KPIChart 
-                        data={categorized.headcount} 
-                        type="pie" 
-                        height={250}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Comparativo</CardTitle>
-                      <p className="text-sm text-gray-600">Actual vs anterior</p>
-                    </CardHeader>
-                    <CardContent>
-                      <KPIChart 
-                        data={categorized.headcount} 
-                        type="stacked-bar" 
-                        height={250}
-                      />
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Incidents Charts */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                  ⚠️ Análisis de Incidencias - Múltiples Perspectivas
-                </h3>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Barras Acumuladas</CardTitle>
-                      <p className="text-sm text-gray-600">Comparación apilada</p>
-                    </CardHeader>
-                    <CardContent>
-                      <KPIChart 
-                        data={categorized.incidents} 
-                        type="stacked-bar" 
-                        height={250}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Distribución Circular</CardTitle>
-                      <p className="text-sm text-gray-600">Proporción de incidentes</p>
-                    </CardHeader>
-                    <CardContent>
-                      <KPIChart 
-                        data={categorized.incidents} 
-                        type="pie" 
-                        height={250}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Tendencia Área</CardTitle>
-                      <p className="text-sm text-gray-600">Evolución de incidentes</p>
-                    </CardHeader>
-                    <CardContent>
-                      <KPIChart 
-                        data={categorized.incidents} 
-                        type="area" 
-                        height={250}
-                      />
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              {/* Summary Overview */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                  📈 Resumen Ejecutivo - Vista General
-                </h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Métricas de Retención</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <KPIChart 
-                        data={categorized.retention} 
-                        type="line" 
-                        height={300}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Productividad</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <KPIChart 
-                        data={categorized.productivity} 
-                        type="bar" 
-                        height={300}
-                      />
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </div>
+            <SummaryComparison
+              plantilla={data.plantilla}
+              bajas={bajasData}
+              incidencias={incidenciasData}
+            />
           </TabsContent>
 
           {/* Headcount Tab */}
@@ -867,9 +724,9 @@ export function DashboardPage() {
 
           {/* Retention Tab */}
           <TabsContent value="retention" className="space-y-6">
-            {/* Explicación de motivos clave */}
+            {/* Explicación de rotación voluntaria */}
             <div className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800 p-2 rounded border-l-4 border-blue-400">
-              <strong>Motivos clave:</strong> Rescisión por desempeño, Rescisión por disciplina, Término del contrato
+              <strong>Rotación voluntaria:</strong> Rescisión por desempeño, Rescisión por disciplina, Término del contrato
             </div>
 
             {/* 5 KPIs Principales de Retención con filtros aplicados */}
@@ -887,16 +744,16 @@ export function DashboardPage() {
               />
               
               {/* Bajas */}
-              <KPICard 
+              <KPICard
                 kpi={{
                   name: 'Bajas',
                   category: 'retention',
                   value: filteredRetentionKPIs.bajas,
                   period_start: '1900-01-01',
                   period_end: new Date().toISOString().split('T')[0]
-                }} 
+                }}
                 icon={<UserMinus className="h-6 w-6" />}
-                secondaryLabel="Rotación voluntaria"
+                secondaryLabel="Voluntaria"
                 secondaryValue={filteredRetentionKPIs.bajasClaves}
               />
 
@@ -956,7 +813,7 @@ export function DashboardPage() {
             />
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
-            <DismissalReasonsTable plantilla={filterPlantilla(data.plantilla || [])} />
+            <DismissalReasonsTable plantilla={data.plantilla || []} />
           </TabsContent>
 
           {/* Trends Tab */}

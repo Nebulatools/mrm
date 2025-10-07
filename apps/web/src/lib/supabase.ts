@@ -239,7 +239,21 @@ export const db = {
     
     console.log('✅ empleados_sftp data loaded:', transformed.length, 'records');
     console.log('✅ motivos_baja data loaded:', motivos?.length, 'records');
-    
+
+    // DEBUG: Diagnóstico de bajas
+    console.log('🔍 MOTIVOS DEBUG:', {
+      totalMotivos: motivos?.length,
+      empleadosConBaja: transformed.filter(e => e.fecha_baja !== null).length,
+      empleadosInactivos: transformed.filter(e => e.activo === false).length,
+      primerosConBaja: transformed.filter(e => e.fecha_baja !== null).slice(0, 3).map(e => ({
+        numero: e.numero_empleado,
+        nombre: e.nombre,
+        fecha_baja: e.fecha_baja,
+        motivo: e.motivo_baja,
+        activo: e.activo
+      }))
+    });
+
     // DEBUG: Ver qué puestos y clasificaciones hay
     console.log('🔍 DEBUGGING FILTROS:');
     console.log('🔍 Primeros 3 empleados:', transformed.slice(0, 3).map(emp => ({
