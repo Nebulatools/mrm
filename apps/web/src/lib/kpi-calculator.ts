@@ -2,6 +2,7 @@ import { db, supabase, type PlantillaRecord, type AsistenciaDiariaRecord, type E
 import { normalizeMotivo, prettyMotivo } from './normalizers';
 import { sftpClient } from './sftp-client';
 import { startOfMonth, endOfMonth, format, differenceInDays, isWithinInterval, subMonths } from 'date-fns';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface KPIResult {
   name: string;
@@ -23,7 +24,7 @@ export class KPICalculator {
   private cache = new Map<string, { data: KPIResult[]; timestamp: number }>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
-  async calculateAllKPIs(filter: TimeFilter = { period: 'alltime', date: new Date() }): Promise<KPIResult[]> {
+  async calculateAllKPIs(filter: TimeFilter = { period: 'alltime', date: new Date() }, client?: any): Promise<KPIResult[]> {
     console.log('🎯 calculateAllKPIs called for filter:', filter);
     
     const cacheKey = `${filter.period}-${format(filter.date, 'yyyy-MM-dd')}`;
@@ -40,7 +41,7 @@ export class KPICalculator {
       
       try {
         console.log('🗄️ Using Supabase database with SFTP tables...');
-        kpis = await this.calculateFromDatabase(filter);
+        kpis = await this.calculateFromDatabase(filter, client);
         console.log('✅ SFTP data loaded successfully:', kpis.length, 'KPIs');
       } catch (error) {
         console.error('❌ Database error:', error);
@@ -532,9 +533,10 @@ export class KPICalculator {
   }
 
 
-  private async calculateFromDatabase(filter: TimeFilter): Promise<KPIResult[]> {
+  private async calculateFromDatabase(filter: TimeFilter, client?: any): Promise<KPIResult[]> {
     console.log('🗄️ Calculating KPIs from Supabase database');
-    
+    const effectiveClient = client || supabase; // Use provided client or default
+
     const { period, date } = filter;
     let startDate: Date, endDate: Date, previousStartDate: Date, previousEndDate: Date;
 
@@ -585,8 +587,8 @@ export class KPICalculator {
     try {
       // Fetch data from Supabase - SOLO empleados_sftp tiene TODO lo que necesitamos
       const [empleados, asistencia] = await Promise.all([
-        db.getEmpleadosSFTP(),
-        db.getAsistenciaDiaria(format(previousStartDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd'))
+        db.getEmpleadosSFTP(effectiveClient),
+        db.getAsistenciaDiaria(format(previousStartDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd'), effectiveClient)
       ]);
 
       // Transform empleados - USAR EL CAMPO ACTIVO DE LA TABLA!
@@ -703,12 +705,13 @@ export class KPICalculator {
   }
 
   // Nueva función para obtener bajas por motivo y mes
-  async getBajasPorMotivoYMes(year: number): Promise<any[]> {
+  async getBajasPorMotivoYMes(year: number, client?: any): Promise<any[]> {
     try {
       console.log(`🚦 Getting bajas por motivo for year: ${year}`);
+      const effectiveClient = client || supabase; // Use provided client or default
 
       // Obtener datos de motivos_baja desde Supabase
-      const { data: motivosBaja, error } = await supabase
+      const { data: motivosBaja, error } = await effectiveClient
         .from('motivos_baja')
         .select('*')
         .gte('fecha_baja', `${year}-01-01`)

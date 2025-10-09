@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient as createClient } from '@supabase/ssr'
 import { normalizeMotivo, normalizeDepartamento } from './normalizers'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -11,6 +11,8 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+// IMPORTANTE: Este cliente ahora usa @supabase/ssr para incluir la sesión del usuario
+// Esto permite que Row Level Security (RLS) funcione correctamente
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Database types based on your actual Supabase schema
@@ -132,26 +134,26 @@ export interface ActividadRecord {
 // Database operations
 export const db = {
   // PLANTILLA operations (legacy - keeping for compatibility)
-  async getPlantilla() {
+  async getPlantilla(client = supabase) {
     console.log('🗄️ Fetching plantilla data...');
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('plantilla')
       .select('*')
       .order('emp_id')
-    
+
     if (error) {
       console.error('❌ Error fetching plantilla:', error);
       // Fallback to empleados_sftp if plantilla doesn't exist
-      return this.getEmpleadosSFTP();
+      return this.getEmpleadosSFTP(client);
     }
     console.log('✅ plantilla data loaded:', data?.length, 'records');
     return (data || []) as PlantillaRecord[]
   },
 
   // INCIDENCIAS (CSV) operations
-  async getIncidenciasCSV(startDate?: string, endDate?: string) {
+  async getIncidenciasCSV(startDate?: string, endDate?: string, client = supabase) {
     console.log('🗄️ Fetching incidencias (CSV table)...', { startDate, endDate });
-    let query = supabase
+    let query = client
       .from('incidencias')
       .select('*')
       .order('fecha', { ascending: false })
@@ -173,26 +175,34 @@ export const db = {
   },
 
   // EMPLEADOS_SFTP operations (new main employee table)
-  async getEmpleadosSFTP() {
+  async getEmpleadosSFTP(client = supabase) {
     console.log('🗄️ Fetching empleados_sftp data...');
     console.log('🔍 DEBUGGING: getEmpleadosSFTP called at', new Date().toISOString());
-    
+
+    // DIAGNÓSTICO: Verificar sesión del usuario
+    const { data: { session } } = await client.auth.getSession();
+    console.log('🔐 SESIÓN ACTIVA:', {
+      user_id: session?.user?.id,
+      email: session?.user?.email,
+      tiene_sesion: !!session
+    });
+
     // Obtener empleados con TODOS los campos incluyendo clasificacion
-    const { data: empleados, error: empleadosError } = await supabase
+    const { data: empleados, error: empleadosError } = await client
       .from('empleados_sftp')
       .select('*')
       .order('numero_empleado')
-    
+
     if (empleadosError) {
       console.error('❌ Error fetching empleados_sftp:', empleadosError);
       throw empleadosError;
     }
-    
+
     // Obtener motivos de baja
-    const { data: motivos, error: motivosError } = await supabase
+    const { data: motivos, error: motivosError } = await client
       .from('motivos_baja')
       .select('*')
-    
+
     if (motivosError) {
       console.error('❌ Error fetching motivos_baja:', motivosError);
       throw motivosError;
@@ -272,9 +282,9 @@ export const db = {
     return transformed as PlantillaRecord[];
   },
 
-  async getMotivosBaja(startDate?: string, endDate?: string) {
+  async getMotivosBaja(startDate?: string, endDate?: string, client = supabase) {
     console.log('🗄️ Fetching motivos_baja data...', { startDate, endDate });
-    let query = supabase
+    let query = client
       .from('motivos_baja')
       .select('*')
       .order('fecha_baja', { ascending: false })
@@ -295,9 +305,9 @@ export const db = {
     return (data || []) as MotivoBajaRecord[]
   },
 
-  async getAsistenciaDiaria(startDate?: string, endDate?: string) {
+  async getAsistenciaDiaria(startDate?: string, endDate?: string, client = supabase) {
     console.log('🗄️ Fetching asistencia_diaria data...', { startDate, endDate });
-    let query = supabase
+    let query = client
       .from('asistencia_diaria')
       .select('*')
       .order('fecha', { ascending: false })
@@ -318,9 +328,9 @@ export const db = {
     return (data || []) as AsistenciaDiariaRecord[]
   },
 
-  async getDepartamentos() {
+  async getDepartamentos(client = supabase) {
     console.log('🗄️ Fetching distinct departamentos from empleados_sftp...');
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('empleados_sftp')
       .select('departamento');
     if (error) {
@@ -335,9 +345,9 @@ export const db = {
     return Array.from(set).sort();
   },
 
-  async getAreas() {
+  async getAreas(client = supabase) {
     console.log('🗄️ Fetching distinct áreas from empleados_sftp...');
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('empleados_sftp')
       .select('area');
     if (error) {
@@ -352,9 +362,9 @@ export const db = {
     return Array.from(set).sort();
   },
 
-  async getIncidenciaCodes() {
+  async getIncidenciaCodes(client = supabase) {
     console.log('🗄️ Fetching distinct incidencia codes (inci) from incidencias...');
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('incidencias')
       .select('inci');
     if (error) {
@@ -369,21 +379,21 @@ export const db = {
     return Array.from(set).sort();
   },
 
-  async getActiveEmployees() {
-    const { data, error } = await supabase
+  async getActiveEmployees(client = supabase) {
+    const { data, error } = await client
       .from('plantilla')
       .select('*')
       .eq('activo', true)
       .order('emp_id')
-    
+
     if (error) throw error
     return (data || []) as PlantillaRecord[]
   },
 
   // Get incidencias from asistencia_diaria (where horas_incidencia > 0)
-  async getIncidenciasFromAsistencia(startDate?: string, endDate?: string) {
+  async getIncidenciasFromAsistencia(startDate?: string, endDate?: string, client = supabase) {
     console.log('🗄️ Fetching incidencias from asistencia_diaria...', { startDate, endDate });
-    let query = supabase
+    let query = client
       .from('asistencia_diaria')
       .select('*')
       .gt('horas_incidencia', 0) // Solo registros con incidencias
@@ -406,11 +416,11 @@ export const db = {
   },
 
   // Stats operations
-  async getKPIStats() {
+  async getKPIStats(client = supabase) {
     const [empleados, asistencia, bajas] = await Promise.all([
-      this.getEmpleadosSFTP(),
-      this.getAsistenciaDiaria(),
-      this.getMotivosBaja()
+      this.getEmpleadosSFTP(client),
+      this.getAsistenciaDiaria(undefined, undefined, client),
+      this.getMotivosBaja(undefined, undefined, client)
     ])
 
     // Contar incidencias (registros con horas_incidencia > 0)

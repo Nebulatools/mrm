@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { db, type PlantillaRecord } from '@/lib/supabase';
+import { createBrowserClient } from '@/lib/supabase-client';
 import { format, subMonths, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +47,9 @@ interface RetentionChartsProps {
 }
 
 export function RetentionCharts({ currentDate = new Date(), currentYear }: RetentionChartsProps) {
+  // Create authenticated Supabase client for RLS filtering
+  const supabase = createBrowserClient();
+
   const [monthlyData, setMonthlyData] = useState<MonthlyRetentionData[]>([]);
   const [yearlyComparison, setYearlyComparison] = useState<YearlyComparisonData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,15 +58,15 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
   useEffect(() => {
     loadMonthlyRetentionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, currentYear]);
+  }, [currentDate, currentYear, supabase]);
 
   const loadMonthlyRetentionData = async () => {
     try {
       setLoading(true);
       console.log('🔄 RetentionCharts: Loading monthly retention data...');
-      
+
       // Cargar empleados SFTP una sola vez para todos los meses (optimización)
-      const plantilla = await db.getEmpleadosSFTP();
+      const plantilla = await db.getEmpleadosSFTP(supabase);
       console.log('👥 Empleados SFTP loaded:', plantilla?.length, 'records');
       if (!plantilla) {
         throw new Error('No plantilla data found');

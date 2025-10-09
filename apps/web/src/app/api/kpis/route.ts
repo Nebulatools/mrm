@@ -1,24 +1,36 @@
 import { NextResponse } from 'next/server'
 import { kpiCalculator, type TimeFilter } from '@/lib/kpi-calculator'
 import { db } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export async function GET(request: Request) {
   console.log('🎯 API KPIs endpoint called')
-  
+
   const { searchParams } = new URL(request.url)
   const period = searchParams.get('period') || 'alltime'
   const dateParam = searchParams.get('date') || new Date().toISOString()
 
   try {
     console.log('⏳ Loading KPIs and plantilla data...')
-    
-    // Load both KPIs and plantilla in parallel
+
+    // Create authenticated Supabase client for RLS filtering
+    const supabase = await createServerSupabaseClient();
+
+    // Check user session for debugging
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('🔐 API KPIs - Session check:', {
+      user_id: session?.user?.id,
+      email: session?.user?.email,
+      has_session: !!session
+    });
+
+    // Load both KPIs and plantilla in parallel with authenticated client
     const [kpis, plantilla] = await Promise.all([
-      kpiCalculator.calculateAllKPIs({ 
-        period: period as TimeFilter['period'], 
-        date: new Date(dateParam) 
-      }),
-      db.getEmpleadosSFTP()
+      kpiCalculator.calculateAllKPIs({
+        period: period as TimeFilter['period'],
+        date: new Date(dateParam)
+      }, supabase),
+      db.getEmpleadosSFTP(supabase)
     ])
     
     console.log('✅ API KPIs loaded:', {

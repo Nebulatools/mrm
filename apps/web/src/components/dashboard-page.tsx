@@ -23,9 +23,11 @@ import IncidentsTab from "./incidents-tab";
 import { CorrelationMatrix } from "./correlation-matrix";
 import { RetentionFilterPanel } from "./filter-panel";
 import { SummaryComparison } from "./summary-comparison";
+import { UserMenu } from "./user-menu";
 import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filters/retention";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord } from "@/lib/supabase";
+import { createBrowserClient } from "@/lib/supabase-client";
 import { format } from "date-fns";
 import { es } from 'date-fns/locale';
 import { isMotivoClave } from "@/lib/normalizers";
@@ -57,6 +59,9 @@ interface BajasPorMotivoData {
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'annual' | 'last12months' | 'alltime';
 
 export function DashboardPage() {
+  // Create authenticated Supabase client for RLS filtering
+  const supabase = createBrowserClient();
+
   // Removed unused sanitizeChip function
   const [data, setData] = useState<DashboardData>({
     kpis: [],
@@ -114,8 +119,8 @@ export function DashboardPage() {
     const loadBajasIncidencias = async () => {
       try {
         const [bajas, incidencias] = await Promise.all([
-          db.getMotivosBaja(),
-          db.getIncidenciasCSV()
+          db.getMotivosBaja(undefined, undefined, supabase),
+          db.getIncidenciasCSV(undefined, undefined, supabase)
         ]);
         setBajasData(bajas);
         setIncidenciasData(incidencias);
@@ -125,14 +130,14 @@ export function DashboardPage() {
     };
 
     loadBajasIncidencias();
-  }, []);
+  }, [supabase]);
 
   // Cargar datos del mapa de calor
   useEffect(() => {
     const loadBajasPorMotivo = async () => {
       try {
         console.log('🔥 Loading bajas por motivo for year:', currentYear);
-        const data = await kpiCalculator.getBajasPorMotivoYMes(currentYear);
+        const data = await kpiCalculator.getBajasPorMotivoYMes(currentYear, supabase);
         setBajasPorMotivoData(data);
       } catch (error) {
         console.error('Error loading bajas por motivo data:', error);
@@ -140,7 +145,7 @@ export function DashboardPage() {
     };
 
     loadBajasPorMotivo();
-  }, [currentYear]);
+  }, [currentYear, supabase]);
   
 
   const loadDashboardData = useCallback(async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
@@ -164,12 +169,12 @@ export function DashboardPage() {
       }
       
       console.log('📊 Loading KPIs for filter:', effectiveFilter);
-      const kpis = await kpiCalculator.calculateAllKPIs(effectiveFilter);
+      const kpis = await kpiCalculator.calculateAllKPIs(effectiveFilter, supabase);
       console.log('📈 KPIs received:', kpis?.length, 'items');
-      
+
       // Load empleados_sftp data for dismissal analysis
       console.log('👥 Loading empleados_sftp data...');
-      const empleadosData = await db.getEmpleadosSFTP();
+      const empleadosData = await db.getEmpleadosSFTP(supabase);
       console.log('✅ Loaded', empleadosData.length, 'employees from empleados_sftp');
       
       setData({
@@ -184,7 +189,7 @@ export function DashboardPage() {
       console.error('❌ Error in loadDashboardData:', error);
       setData(prev => ({ ...prev, plantilla: [], loading: false }));
     }
-  }, [timePeriod, selectedPeriod, retentionFilters]); // Added retentionFilters to dependencies
+  }, [timePeriod, selectedPeriod, retentionFilters, supabase]); // Added supabase to dependencies
 
   // REMOVED: Duplicated useEffect moved up
 
@@ -543,7 +548,8 @@ export function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Información del dashboard - filtros van abajo */}
+            {/* Menú de usuario */}
+            <UserMenu />
           </div>
         </div>
       </div>
