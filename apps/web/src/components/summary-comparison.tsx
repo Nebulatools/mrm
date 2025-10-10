@@ -3,9 +3,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Users, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import { Users, TrendingDown, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { isMotivoClave } from '@/lib/normalizers';
+import { cn } from '@/lib/utils';
 
 interface PlantillaRecord {
   numero_empleado: number;
@@ -34,9 +35,10 @@ interface SummaryComparisonProps {
   plantilla: PlantillaRecord[];
   bajas: BajaRecord[];
   incidencias: IncidenciaRecord[];
+  refreshEnabled?: boolean;
 }
 
-export function SummaryComparison({ plantilla, bajas, incidencias }: SummaryComparisonProps) {
+export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnabled = false }: SummaryComparisonProps) {
 
   // Calcular antigüedad en años
   const getAntiguedad = (fechaIngreso: string): number => {
@@ -208,16 +210,16 @@ export function SummaryComparison({ plantilla, bajas, incidencias }: SummaryComp
     }));
 
     return (
-      <div className="space-y-6">
+      <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
         {/* 1. ACTIVOS POR ANTIGÜEDAD */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
+          <CardHeader className={cn(refreshEnabled && "pb-6")}>
+            <CardTitle className={cn("flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
               <Users className="h-5 w-5" />
               Empleados Activos por Antigüedad
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className={cn(refreshEnabled && "pt-0")}>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={datosActivos}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -236,16 +238,16 @@ export function SummaryComparison({ plantilla, bajas, incidencias }: SummaryComp
         </Card>
 
         {/* 2. ROTACIÓN */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Rotación Mensual */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
+          <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
+            <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
+              <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
                 Rotación Mensual
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className={cn(refreshEnabled && "pt-0")}>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
                   data={datos.map(d => ({
@@ -267,14 +269,14 @@ export function SummaryComparison({ plantilla, bajas, incidencias }: SummaryComp
           </Card>
 
           {/* Rotación 12 Meses Móviles */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
+          <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
+            <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
+              <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
                 12 Meses Móviles
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className={cn(refreshEnabled && "pt-0")}>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
                   data={datos.map(d => ({
@@ -296,14 +298,14 @@ export function SummaryComparison({ plantilla, bajas, incidencias }: SummaryComp
           </Card>
 
           {/* Rotación Año Actual (YTD) */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
+          <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
+            <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
+              <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
                 Lo que va del Año
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className={cn(refreshEnabled && "pt-0")}>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
                   data={datos.map(d => ({
@@ -326,26 +328,52 @@ export function SummaryComparison({ plantilla, bajas, incidencias }: SummaryComp
         </div>
 
         {/* 3. AUSENTISMO */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
+          <CardHeader className={cn(refreshEnabled && "pb-6")}>
+            <CardTitle className={cn("flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
               <AlertCircle className="h-5 w-5" />
               Ausentismo (Incidencias y Permisos)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className={cn("space-y-3", refreshEnabled && "space-y-4")}>
               {datos.map((d, idx) => (
-                <div key={idx} className="flex items-center justify-between border-b pb-3 last:border-0">
-                  <div className="font-medium text-sm">{d.nombre}</div>
-                  <div className="flex gap-4 text-xs">
-                    <Badge variant="outline">
+                <div
+                  key={idx}
+                  className={cn(
+                    "flex items-center justify-between border-b pb-3 last:border-0",
+                    refreshEnabled && "border-brand-border/60 pb-4 text-brand-ink"
+                  )}
+                >
+                  <div className={cn("text-sm font-medium", refreshEnabled && "font-heading text-base")}>
+                    {d.nombre}
+                  </div>
+                  <div className={cn("flex gap-4 text-xs", refreshEnabled && "gap-3 text-sm")}>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        refreshEnabled &&
+                          "border-none bg-brand-surface-accent px-3 py-1 text-[11px] font-semibold text-brand-ink"
+                      )}
+                    >
                       Total: {d.ausentismo.total}
                     </Badge>
-                    <Badge variant="secondary">
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        refreshEnabled &&
+                          "border-none bg-brand-surface-accent px-3 py-1 text-[11px] font-semibold text-brand-ink"
+                      )}
+                    >
                       Permisos: {d.ausentismo.permisos}
                     </Badge>
-                    <Badge variant="destructive">
+                    <Badge
+                      variant="destructive"
+                      className={cn(
+                        refreshEnabled &&
+                          "border-none bg-brand-surface-accent px-3 py-1 text-[11px] font-semibold text-brand-ink"
+                      )}
+                    >
                       Faltas: {d.ausentismo.faltas}
                     </Badge>
                   </div>
@@ -363,27 +391,56 @@ export function SummaryComparison({ plantilla, bajas, incidencias }: SummaryComp
   const departamentos = datosPorDepartamento();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">📊 Resumen Comparativo</h2>
+    <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
+      <div className={cn("flex items-center justify-between", refreshEnabled && "pb-2")}>
+        <h2 className={cn("text-2xl font-bold", refreshEnabled && "font-heading text-3xl text-brand-ink")}>📊 Resumen Comparativo</h2>
       </div>
 
       <Tabs defaultValue="negocio" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="negocio">Negocio</TabsTrigger>
-          <TabsTrigger value="area">Área</TabsTrigger>
-          <TabsTrigger value="departamento">Departamento</TabsTrigger>
+        <TabsList
+          className={cn(
+            "grid w-full grid-cols-3",
+            refreshEnabled && "rounded-full bg-brand-surface-accent p-1 text-brand-ink shadow-sm"
+          )}
+        >
+          <TabsTrigger
+            value="negocio"
+            className={cn(
+              refreshEnabled &&
+                "rounded-full text-xs font-semibold uppercase tracking-[0.12em] data-[state=active]:bg-brand text-brand-ink data-[state=active]:text-brand-foreground"
+            )}
+          >
+            Negocio
+          </TabsTrigger>
+          <TabsTrigger
+            value="area"
+            className={cn(
+              refreshEnabled &&
+                "rounded-full text-xs font-semibold uppercase tracking-[0.12em] data-[state=active]:bg-brand text-brand-ink data-[state=active]:text-brand-foreground"
+            )}
+          >
+            Área
+          </TabsTrigger>
+          <TabsTrigger
+            value="departamento"
+            className={cn(
+              refreshEnabled &&
+                "rounded-full text-xs font-semibold uppercase tracking-[0.12em] data-[state=active]:bg-brand text-brand-ink data-[state=active]:text-brand-foreground"
+            )}
+          >
+            Departamento
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="negocio" className="space-y-4">
+        <TabsContent value="negocio" className={cn("space-y-4", refreshEnabled && "space-y-6")}>
           {renderSeccion(negocio)}
         </TabsContent>
 
-        <TabsContent value="area" className="space-y-4">
+        <TabsContent value="area" className={cn("space-y-4", refreshEnabled && "space-y-6")}>
           {renderSeccion(areas)}
         </TabsContent>
 
-        <TabsContent value="departamento" className="space-y-4">
+        <TabsContent value="departamento" className={cn("space-y-4", refreshEnabled && "space-y-6")}>
           {renderSeccion(departamentos)}
         </TabsContent>
       </Tabs>

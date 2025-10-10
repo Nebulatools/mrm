@@ -3,11 +3,19 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Users, UserMinus } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import type { PlantillaRecord } from "@/lib/supabase";
 import { prettyMotivo, normalizePuesto, normalizeDepartamento } from "@/lib/normalizers";
+import { cn } from "@/lib/utils";
 
 //
 
@@ -23,11 +31,15 @@ interface Employee {
 
 interface DismissalReasonsTableProps {
   plantilla: PlantillaRecord[];
+  refreshEnabled?: boolean;
 }
 
 // Color mapping removed (not used)
 
-export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps) {
+export function DismissalReasonsTable({
+  plantilla,
+  refreshEnabled = false,
+}: DismissalReasonsTableProps) {
   const [showAll, setShowAll] = useState(false); // COLAPSADA POR DEFECTO
   
   const sanitizeText = (value?: string) => {
@@ -79,69 +91,168 @@ export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps)
   };
 
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
       {/* Resumen de Bajas removed as requested */}
       {/* Listado Detallado de Bajas Recientes */}
-      <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          📋 Detalle de Bajas (empleados_sftp)
-          <Badge variant="outline" className="ml-2">
-            {showAll ? `Mostrando todas las ${empleadosBaja.length} bajas` : `Últimas ${empleadosDetalle.length} de ${empleadosBaja.length} total`}
-          </Badge>
-        </CardTitle>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          ID, Departamento, Ubicación, Puesto, Clasificación - Datos completos de empleados_sftp
-        </p>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-20">ID</TableHead>
-              <TableHead>Departamento</TableHead>
-              <TableHead>Ubicación</TableHead>
-              <TableHead>Puesto</TableHead>
-              <TableHead>Clasificación</TableHead>
-              <TableHead>Fecha Baja</TableHead>
-              <TableHead>Motivo</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {empleadosDetalle.map((empleado, index) => (
-              <TableRow key={index}>
-                <TableCell className="font-mono text-xs">
-                  {empleado.id}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="text-xs bg-blue-50">
-                    {empleado.departamento || 'Sin Depto'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="text-xs">
-                    {empleado.ubicacion || 'Sin Ubicación'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary" className="text-xs">
-                    {empleado.puesto || 'Sin Puesto'}
-                  </Badge>
-                </TableCell>
+      <Card
+        className={cn(
+          "border border-border bg-white shadow-sm dark:bg-gray-900",
+          refreshEnabled &&
+            "rounded-2xl border-brand-border/60 bg-white/95 shadow-brand transition-shadow dark:border-brand-border/50 dark:bg-gray-900/80"
+        )}
+      >
+        <CardHeader className={cn(refreshEnabled && "pb-6")}>
+          <CardTitle
+            className={cn(
+              "flex items-center gap-2 text-lg",
+              refreshEnabled && "font-heading text-xl text-brand-ink"
+            )}
+          >
+            📋 Detalle de Bajas (empleados_sftp)
+            <Badge
+              variant="outline"
+              className={cn(
+                "ml-2 text-xs",
+                refreshEnabled &&
+                  "border-none bg-brand-surface-accent px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-ink/80"
+              )}
+            >
+              {showAll
+                ? `Mostrando todas las ${empleadosBaja.length} bajas`
+                : `Últimas ${empleadosDetalle.length} de ${empleadosBaja.length} total`}
+            </Badge>
+          </CardTitle>
+          <p
+            className={cn(
+              "text-sm text-gray-600 dark:text-gray-400",
+              refreshEnabled && "font-body text-sm text-brand-ink/70"
+            )}
+          >
+            ID, Departamento, Ubicación, Puesto, Clasificación - Datos completos de
+            empleados_sftp
+          </p>
+        </CardHeader>
+        <CardContent className={cn(refreshEnabled && "px-0 pb-0 pt-0")}>
+          <Table
+            className={cn(
+              refreshEnabled &&
+                "text-sm text-brand-ink [&_td]:px-4 [&_td]:py-3 [&_th]:px-4 [&_th]:py-3"
+            )}
+          >
+            <TableHeader
+              className={cn(
+                refreshEnabled &&
+                  "[&_th]:bg-brand-surface-accent [&_th]:font-heading [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-[0.14em] [&_th]:text-brand-ink"
+              )}
+            >
+              <TableRow
+                className={cn(
+                  refreshEnabled &&
+                    "border-none [&_th:first-child]:rounded-tl-2xl [&_th:last-child]:rounded-tr-2xl"
+                )}
+              >
+                <TableHead className="w-20">ID</TableHead>
+                <TableHead>Departamento</TableHead>
+                <TableHead>Ubicación</TableHead>
+                <TableHead>Puesto</TableHead>
+                <TableHead>Clasificación</TableHead>
+                <TableHead>Fecha Baja</TableHead>
+                <TableHead>Motivo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody
+              className={cn(
+                refreshEnabled &&
+                  "bg-white [&_tr:last-child]:rounded-b-2xl [&_tr]:border-none [&_tr]:odd:bg-white/95 [&_tr]:even:bg-brand-surface/50"
+              )}
+            >
+              {empleadosDetalle.map((empleado, index) => (
+                <TableRow
+                  key={index}
+                  className={cn(
+                    refreshEnabled &&
+                      "hover:bg-brand-surface-accent/70 focus-within:bg-brand-surface-accent/70 transition-colors"
+                  )}
+                >
+                  <TableCell
+                    className={cn(
+                      "font-mono text-xs",
+                      refreshEnabled && "text-sm text-brand-ink/80"
+                    )}
+                  >
+                    {empleado.id}
+                  </TableCell>
                   <TableCell>
-                    <Badge 
-                      variant={empleado.clasificacion === 'CONFIANZA' ? 'default' : 
-                               empleado.clasificacion === 'SINDICALIZADO' ? 'destructive' : 'secondary'} 
-                      className="text-xs font-semibold"
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs bg-blue-50",
+                        refreshEnabled &&
+                          "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-medium text-brand-ink/80"
+                      )}
                     >
-                      {empleado.clasificacion || 'Sin Clasificación'}
+                      {empleado.departamento || "Sin Depto"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs",
+                        refreshEnabled &&
+                          "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-medium text-brand-ink/80"
+                      )}
+                    >
+                      {empleado.ubicacion || "Sin Ubicación"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-xs",
+                        refreshEnabled &&
+                          "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-medium text-brand-ink/80"
+                      )}
+                    >
+                      {empleado.puesto || "Sin Puesto"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        empleado.clasificacion === "CONFIANZA"
+                          ? "default"
+                          : empleado.clasificacion === "SINDICALIZADO"
+                          ? "destructive"
+                          : "secondary"
+                      }
+                      className={cn(
+                        "text-xs font-semibold",
+                        refreshEnabled &&
+                          "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-semibold text-brand-ink"
+                      )}
+                    >
+                      {empleado.clasificacion || "Sin Clasificación"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell
+                    className={cn(
+                      "text-sm",
+                      refreshEnabled && "font-medium text-brand-ink/80"
+                    )}
+                  >
                     {formatDate(empleado.fecha_baja)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs",
+                        refreshEnabled &&
+                          "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-medium text-brand-ink"
+                      )}
+                    >
                       {empleado.motivo_baja}
                     </Badge>
                   </TableCell>
@@ -149,13 +260,18 @@ export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps)
               ))}
             </TableBody>
           </Table>
-          
+
           {empleadosBaja.length > 10 && (
-            <div className="mt-4 text-center">
+            <div
+              className={cn(
+                "mt-4 text-center",
+                refreshEnabled && "mt-6 border-t border-brand-border/50 pt-4"
+              )}
+            >
               <Button
-                variant="outline"
+                variant={refreshEnabled ? "cta" : "outline"}
                 onClick={() => setShowAll(!showAll)}
-                className="gap-2"
+                className={cn("gap-2", refreshEnabled && "px-6 py-2 text-sm font-semibold")}
               >
                 {showAll ? (
                   <>
@@ -171,9 +287,14 @@ export function DismissalReasonsTable({ plantilla }: DismissalReasonsTableProps)
               </Button>
             </div>
           )}
-          
+
           {empleadosDetalle.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
+            <div
+              className={cn(
+                "py-8 text-center text-gray-500",
+                refreshEnabled && "text-brand-ink/60"
+              )}
+            >
               No hay registros de bajas disponibles
             </div>
           )}
