@@ -12,8 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter } from 'recharts';
-import { KPICard } from "./kpi-card";
-import { KPIChart } from "./kpi-chart";
+import { KPICard, KPICardSkeleton } from "./kpi-card";
 import { AIInsights } from "./ai-insights";
 import { RetroactiveAdjustment } from "./retroactive-adjustment";
 import { DismissalReasonsTable } from "./dismissal-reasons-table";
@@ -31,6 +30,7 @@ import { createBrowserClient } from "@/lib/supabase-client";
 import { format } from "date-fns";
 import { es } from 'date-fns/locale';
 import { isMotivoClave } from "@/lib/normalizers";
+import { cn } from "@/lib/utils";
 //
 
 interface DashboardData {
@@ -58,9 +58,13 @@ interface BajasPorMotivoData {
 
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'annual' | 'last12months' | 'alltime';
 
+const DASHBOARD_UI_REFRESH_ENABLED =
+  process.env.NEXT_PUBLIC_FEATURE_DASHBOARD_UI_REFRESH === "true";
+
 export function DashboardPage() {
   // Create authenticated Supabase client for RLS filtering
   const supabase = createBrowserClient();
+  const refreshEnabled = DASHBOARD_UI_REFRESH_ENABLED;
 
   // Removed unused sanitizeChip function
   const [data, setData] = useState<DashboardData>({
@@ -522,56 +526,167 @@ export function DashboardPage() {
   };
 
   const filteredRetentionKPIs = getFilteredRetentionKPIs();
+  const periodLabel =
+    timePeriod === "alltime"
+      ? "Todos los períodos"
+      : format(selectedPeriod, "MMMM yyyy", { locale: es });
+  const lastUpdatedDisplay = !data.loading
+    ? format(data.lastUpdated, "dd/MM/yyyy HH:mm")
+    : null;
+  const tabTriggerClass = refreshEnabled
+    ? "rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] data-[state=active]:bg-brand data-[state=active]:text-brand-foreground"
+    : undefined;
+  const elevatedCardClass = refreshEnabled
+    ? "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow"
+    : undefined;
+  const elevatedCardHeaderClass = refreshEnabled ? "pb-6" : undefined;
+  const elevatedTitleClass = refreshEnabled ? "font-heading text-brand-ink" : undefined;
+  const elevatedSubtleTextClass = refreshEnabled ? "text-brand-ink/70" : undefined;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="border-b bg-white dark:bg-gray-800 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Dashboard MRM - KPIs de RRHH
-              {data.loading && (
-                <span className="ml-3 text-sm px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                  Cargando datos...
-                </span>
-              )}
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Período: {timePeriod === 'alltime' ? 'Todos los períodos' : format(selectedPeriod, 'MMMM yyyy', { locale: es })}
-              {!data.loading && (
-                <span className="ml-2">
-                  • Actualizado: {format(data.lastUpdated, 'dd/MM/yyyy HH:mm')}
-                  • {data.kpis.length} KPIs • {data.plantilla.length} empleados
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Menú de usuario */}
-            <UserMenu />
-          </div>
+    <div
+      className={cn(
+        "min-h-screen transition-colors",
+        refreshEnabled ? "bg-brand-surface text-brand-ink" : "bg-gray-50 dark:bg-gray-900"
+      )}
+    >
+      <header
+        className={cn(
+          "border-b bg-white dark:bg-gray-800",
+          refreshEnabled && "border-brand-border/60 bg-white/90 shadow-sm backdrop-blur"
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center justify-between px-6 py-4",
+            refreshEnabled &&
+              "mx-auto max-w-7xl flex-col gap-6 px-6 py-8 sm:flex-row sm:items-end sm:justify-between sm:gap-8 lg:px-10"
+          )}
+        >
+          {refreshEnabled ? (
+            <div className="flex w-full flex-col gap-4">
+              <span className="text-xs font-semibold uppercase tracking-[0.28em] text-brand-ink/60">
+                Panel de Talento
+              </span>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="font-heading text-4xl tracking-tight text-brand-ink">
+                      Dashboard MRM · KPIs de RRHH
+                    </h1>
+                    {data.loading ? (
+                      <span className="inline-flex h-7 w-28 animate-pulse rounded-full bg-brand-muted" />
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="border-none bg-brand-surface-accent px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-brand-ink/80"
+                      >
+                        Datos al día
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-brand-ink/60">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 px-4 py-1 text-[11px] text-brand-ink/70">
+                      Período: {periodLabel}
+                    </span>
+                    {lastUpdatedDisplay ? (
+                      <>
+                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 px-4 py-1 text-[11px] text-brand-ink/70">
+                          Actualizado: {lastUpdatedDisplay}
+                        </span>
+                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 px-4 py-1 text-[11px] text-brand-ink/70">
+                          {data.kpis.length} KPIs
+                        </span>
+                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 px-4 py-1 text-[11px] text-brand-ink/70">
+                          {data.plantilla.length} empleados
+                        </span>
+                      </>
+                    ) : (
+                      <span className="inline-flex h-4 w-24 animate-pulse rounded-full bg-brand-muted" />
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-end">
+                  <UserMenu />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Dashboard MRM - KPIs de RRHH
+                  {data.loading && (
+                    <span className="ml-3 rounded bg-blue-100 px-2 py-1 text-sm text-blue-800">
+                      Cargando datos...
+                    </span>
+                  )}
+                </h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Período: {periodLabel}
+                  {!data.loading && (
+                    <span className="ml-2">
+                      • Actualizado: {lastUpdatedDisplay}
+                      • {data.kpis.length} KPIs • {data.plantilla.length} empleados
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <UserMenu />
+              </div>
+            </>
+          )}
         </div>
-      </div>
+      </header>
 
-      {/* Filtros debajo del header */}
-      <div className="px-6 pb-2">
-        <RetentionFilterPanel 
+      <section
+        className={cn(
+          "px-6 pb-2",
+          refreshEnabled && "mx-auto max-w-7xl px-6 pb-4 pt-4 lg:px-10"
+        )}
+      >
+        <RetentionFilterPanel
           onFiltersChange={setRetentionFilters}
+          refreshEnabled={refreshEnabled}
+          className={refreshEnabled ? "mx-auto max-w-5xl" : undefined}
         />
-      </div>
+      </section>
 
-
-      <div className="p-6">
+      <main
+        className={cn(
+          "p-6",
+          refreshEnabled && "mx-auto max-w-7xl px-6 pb-12 pt-6 lg:px-10"
+        )}
+      >
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">Resumen</TabsTrigger>
-            <TabsTrigger value="headcount">Personal</TabsTrigger>
-            <TabsTrigger value="incidents">Incidencias</TabsTrigger>
-            <TabsTrigger value="retention">Retención</TabsTrigger>
-            <TabsTrigger value="trends">Tendencias</TabsTrigger>
-            <TabsTrigger value="ai-insights">IA Generativa</TabsTrigger>
-            <TabsTrigger value="adjustments">Ajustes</TabsTrigger>
+          <TabsList
+            className={cn(
+              refreshEnabled &&
+                "w-full flex-wrap gap-2 rounded-full bg-brand-surface-accent/80 p-2 text-brand-ink shadow-brand/10"
+            )}
+          >
+            <TabsTrigger value="overview" className={tabTriggerClass}>
+              Resumen
+            </TabsTrigger>
+            <TabsTrigger value="headcount" className={tabTriggerClass}>
+              Personal
+            </TabsTrigger>
+            <TabsTrigger value="incidents" className={tabTriggerClass}>
+              Incidencias
+            </TabsTrigger>
+            <TabsTrigger value="retention" className={tabTriggerClass}>
+              Retención
+            </TabsTrigger>
+            <TabsTrigger value="trends" className={tabTriggerClass}>
+              Tendencias
+            </TabsTrigger>
+            <TabsTrigger value="ai-insights" className={tabTriggerClass}>
+              IA Generativa
+            </TabsTrigger>
+            <TabsTrigger value="adjustments" className={tabTriggerClass}>
+              Ajustes
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab - Nuevo Resumen Comparativo */}
@@ -580,26 +695,63 @@ export function DashboardPage() {
               plantilla={data.plantilla}
               bajas={bajasData}
               incidencias={incidenciasData}
+              refreshEnabled={refreshEnabled}
             />
           </TabsContent>
 
           {/* Headcount Tab */}
           <TabsContent value="headcount" className="space-y-6">
             {/* 5 KPIs solicitados */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <KPICard kpi={{ name: 'Activos', category: 'headcount', value: activosNow, period_start: '', period_end: '' }} icon={<Users className="h-6 w-6" />} />
-              <KPICard kpi={{ name: 'Bajas', category: 'headcount', value: bajasTotal, period_start: '', period_end: '' }} icon={<UserMinus className="h-6 w-6" />} />
-              <KPICard kpi={{ name: 'Ingresos', category: 'headcount', value: ingresosHistorico, period_start: '1900-01-01', period_end: new Date().toISOString().slice(0,10) }} icon={<TrendingUp className="h-6 w-6" />} />
-              <KPICard kpi={{ name: 'Antigüedad Promedio (meses)', category: 'headcount', value: antigPromMeses, period_start: '', period_end: '' }} icon={<Calendar className="h-6 w-6" />} />
-              <KPICard kpi={{ name: 'Empl. < 3 meses', category: 'headcount', value: menores3m, period_start: '', period_end: '' }} icon={<Calendar className="h-6 w-6" />} />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+              {refreshEnabled && data.loading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <KPICardSkeleton key={`headcount-skeleton-${index}`} refreshEnabled />
+                ))
+              ) : (
+                <>
+                  <KPICard
+                    refreshEnabled={refreshEnabled}
+                    kpi={{ name: 'Activos', category: 'headcount', value: activosNow, period_start: '', period_end: '' }}
+                    icon={<Users className="h-6 w-6" />}
+                  />
+                  <KPICard
+                    refreshEnabled={refreshEnabled}
+                    kpi={{ name: 'Bajas', category: 'headcount', value: bajasTotal, period_start: '', period_end: '' }}
+                    icon={<UserMinus className="h-6 w-6" />}
+                  />
+                  <KPICard
+                    refreshEnabled={refreshEnabled}
+                    kpi={{
+                      name: 'Ingresos',
+                      category: 'headcount',
+                      value: ingresosHistorico,
+                      period_start: '1900-01-01',
+                      period_end: new Date().toISOString().slice(0, 10)
+                    }}
+                    icon={<TrendingUp className="h-6 w-6" />}
+                  />
+                  <KPICard
+                    refreshEnabled={refreshEnabled}
+                    kpi={{ name: 'Antigüedad Promedio (meses)', category: 'headcount', value: antigPromMeses, period_start: '', period_end: '' }}
+                    icon={<Calendar className="h-6 w-6" />}
+                  />
+                  <KPICard
+                    refreshEnabled={refreshEnabled}
+                    kpi={{ name: 'Empl. < 3 meses', category: 'headcount', value: menores3m, period_start: '', period_end: '' }}
+                    icon={<Calendar className="h-6 w-6" />}
+                  />
+                </>
+              )}
             </div>
 
             {/* Gráficas intermedias: Clasificación, Género, Edad (scatter) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Clasificación</CardTitle>
-                  <p className="text-sm text-gray-600">Confianza vs Sindicalizado</p>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <Card className={cn(elevatedCardClass)}>
+                <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
+                  <CardTitle className={cn("text-base", elevatedTitleClass)}>Clasificación</CardTitle>
+                  <p className={cn("text-sm text-gray-600", elevatedSubtleTextClass)}>
+                    Confianza vs Sindicalizado
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <div style={{ width: '100%', height: 280 }}>
@@ -616,10 +768,12 @@ export function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Género</CardTitle>
-                  <p className="text-sm text-gray-600">Hombre / Mujer</p>
+              <Card className={cn(elevatedCardClass)}>
+                <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
+                  <CardTitle className={cn("text-base", elevatedTitleClass)}>Género</CardTitle>
+                  <p className={cn("text-sm text-gray-600", elevatedSubtleTextClass)}>
+                    Hombre / Mujer
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <div style={{ width: '100%', height: 280 }}>
@@ -636,10 +790,14 @@ export function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Distribución por Edad</CardTitle>
-                  <p className="text-sm text-gray-600">Gráfica de dispersión</p>
+              <Card className={cn(elevatedCardClass)}>
+                <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
+                  <CardTitle className={cn("text-base", elevatedTitleClass)}>
+                    Distribución por Edad
+                  </CardTitle>
+                  <p className={cn("text-sm text-gray-600", elevatedSubtleTextClass)}>
+                    Gráfica de dispersión
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <div style={{ width: '100%', height: 280 }}>
@@ -658,10 +816,12 @@ export function DashboardPage() {
             </div>
 
             {/* Gráficas inferiores: HC por Depto, HC por Área, Antigüedad por Área */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">HC por Departamento</CardTitle>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <Card className={cn(elevatedCardClass)}>
+                <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
+                  <CardTitle className={cn("text-base", elevatedTitleClass)}>
+                    HC por Departamento
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div style={{ width: '100%', height: 300 }}>
@@ -678,9 +838,9 @@ export function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">HC por Área</CardTitle>
+              <Card className={cn(elevatedCardClass)}>
+                <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
+                  <CardTitle className={cn("text-base", elevatedTitleClass)}>HC por Área</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div style={{ width: '100%', height: 300 }}>
@@ -697,10 +857,14 @@ export function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Antigüedad por Área</CardTitle>
-                  <p className="text-sm text-gray-600">Barras horizontales por grupos</p>
+              <Card className={cn(elevatedCardClass)}>
+                <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
+                  <CardTitle className={cn("text-base", elevatedTitleClass)}>
+                    Antigüedad por Área
+                  </CardTitle>
+                  <p className={cn("text-sm text-gray-600", elevatedSubtleTextClass)}>
+                    Barras horizontales por grupos
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <div style={{ width: '100%', height: 300 }}>
@@ -731,82 +895,109 @@ export function DashboardPage() {
           {/* Retention Tab */}
           <TabsContent value="retention" className="space-y-6">
             {/* Explicación de rotación voluntaria */}
-            <div className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800 p-2 rounded border-l-4 border-blue-400">
+            <div
+              className={cn(
+                "rounded border-l-4 border-blue-400 bg-gray-50 p-2 text-xs text-gray-500 dark:bg-gray-800",
+                refreshEnabled && "border-brand-border/80 bg-brand-surface-accent/70 text-brand-ink/70"
+              )}
+            >
               <strong>Rotación voluntaria:</strong> Rescisión por desempeño, Rescisión por disciplina, Término del contrato
             </div>
 
             {/* 5 KPIs Principales de Retención con filtros aplicados */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-              {/* Activos Promedio */}
-              <KPICard 
-                kpi={{
-                  name: 'Activos Promedio',
-                  category: 'headcount',
-                  value: filteredRetentionKPIs.activosPromedio,
-                  period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1).toISOString().split('T')[0],
-                  period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0).toISOString().split('T')[0]
-                }} 
-                icon={<Users className="h-6 w-6" />}
-              />
-              
-              {/* Bajas */}
-              <KPICard
-                kpi={{
-                  name: 'Bajas',
-                  category: 'retention',
-                  value: filteredRetentionKPIs.bajas,
-                  period_start: '1900-01-01',
-                  period_end: new Date().toISOString().split('T')[0]
-                }}
-                icon={<UserMinus className="h-6 w-6" />}
-                secondaryLabel="Voluntaria"
-                secondaryValue={filteredRetentionKPIs.bajasClaves}
-              />
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+              {refreshEnabled && data.loading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <KPICardSkeleton key={`retention-skeleton-${index}`} refreshEnabled />
+                ))
+              ) : (
+                <>
+                  <KPICard
+                    refreshEnabled={refreshEnabled}
+                    kpi={{
+                      name: 'Activos Promedio',
+                      category: 'headcount',
+                      value: filteredRetentionKPIs.activosPromedio,
+                      period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1)
+                        .toISOString()
+                        .split('T')[0],
+                      period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0)
+                        .toISOString()
+                        .split('T')[0]
+                    }}
+                    icon={<Users className="h-6 w-6" />}
+                  />
 
-              {/* Rotación Mensual */}
-              <KPICard 
-                kpi={{
-                  name: 'Rotación Mensual',
-                  category: 'retention',
-                  value: filteredRetentionKPIs.rotacionMensual,
-                  period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1).toISOString().split('T')[0],
-                  period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0).toISOString().split('T')[0]
-                }} 
-                icon={<TrendingUp className="h-6 w-6" />}
-                secondaryLabel="Motivos clave"
-                secondaryValue={filteredRetentionKPIs.rotacionMensualClaves}
-                secondaryIsPercent
-              />
-              
-              {/* Rotación Acumulada */}
-              <KPICard 
-                kpi={{
-                  name: 'Rotación Acumulada',
-                  category: 'retention',
-                  value: filteredRetentionKPIs.rotacionAcumulada,
-                  period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() - 11, 1).toISOString().split('T')[0],
-                  period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0).toISOString().split('T')[0]
-                }} 
-                icon={<TrendingDown className="h-6 w-6" />}
-                secondaryLabel="Motivos clave"
-                secondaryValue={filteredRetentionKPIs.rotacionAcumuladaClaves}
-                secondaryIsPercent
-              />
+                  <KPICard
+                    refreshEnabled={refreshEnabled}
+                    kpi={{
+                      name: 'Bajas',
+                      category: 'retention',
+                      value: filteredRetentionKPIs.bajas,
+                      period_start: '1900-01-01',
+                      period_end: new Date().toISOString().split('T')[0]
+                    }}
+                    icon={<UserMinus className="h-6 w-6" />}
+                    secondaryLabel="Voluntaria"
+                    secondaryValue={filteredRetentionKPIs.bajasClaves}
+                  />
 
-              {/* Rotación Año Actual (Ene a mes actual) */}
-              <KPICard 
-                kpi={{
-                  name: 'Rotación Año Actual',
-                  category: 'retention',
-                  value: filteredRetentionKPIs.rotacionAnioActual,
-                  period_start: new Date(selectedPeriod.getFullYear(), 0, 1).toISOString().split('T')[0],
-                  period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0).toISOString().split('T')[0]
-                }} 
-                icon={<TrendingDown className="h-6 w-6" />}
-                secondaryLabel="Motivos clave"
-                secondaryValue={filteredRetentionKPIs.rotacionAnioActualClaves}
-                secondaryIsPercent
-              />
+                  <KPICard
+                    refreshEnabled={refreshEnabled}
+                    kpi={{
+                      name: 'Rotación Mensual',
+                      category: 'retention',
+                      value: filteredRetentionKPIs.rotacionMensual,
+                      period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1)
+                        .toISOString()
+                        .split('T')[0],
+                      period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0)
+                        .toISOString()
+                        .split('T')[0]
+                    }}
+                    icon={<TrendingUp className="h-6 w-6" />}
+                    secondaryLabel="Motivos clave"
+                    secondaryValue={filteredRetentionKPIs.rotacionMensualClaves}
+                    secondaryIsPercent
+                  />
+
+                  <KPICard
+                    refreshEnabled={refreshEnabled}
+                    kpi={{
+                      name: 'Rotación Acumulada',
+                      category: 'retention',
+                      value: filteredRetentionKPIs.rotacionAcumulada,
+                      period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() - 11, 1)
+                        .toISOString()
+                        .split('T')[0],
+                      period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0)
+                        .toISOString()
+                        .split('T')[0]
+                    }}
+                    icon={<TrendingDown className="h-6 w-6" />}
+                    secondaryLabel="Motivos clave"
+                    secondaryValue={filteredRetentionKPIs.rotacionAcumuladaClaves}
+                    secondaryIsPercent
+                  />
+
+                  <KPICard
+                    refreshEnabled={refreshEnabled}
+                    kpi={{
+                      name: 'Rotación Año Actual',
+                      category: 'retention',
+                      value: filteredRetentionKPIs.rotacionAnioActual,
+                      period_start: new Date(selectedPeriod.getFullYear(), 0, 1).toISOString().split('T')[0],
+                      period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0)
+                        .toISOString()
+                        .split('T')[0]
+                    }}
+                    icon={<TrendingDown className="h-6 w-6" />}
+                    secondaryLabel="Motivos clave"
+                    secondaryValue={filteredRetentionKPIs.rotacionAnioActualClaves}
+                    secondaryIsPercent
+                  />
+                </>
+              )}
             </div>
             
             {/* 3 Gráficas Especializadas de Retención */}
@@ -819,7 +1010,10 @@ export function DashboardPage() {
             />
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
-            <DismissalReasonsTable plantilla={data.plantilla || []} />
+            <DismissalReasonsTable
+              plantilla={data.plantilla || []}
+              refreshEnabled={refreshEnabled}
+            />
           </TabsContent>
 
           {/* Trends Tab */}
@@ -840,7 +1034,7 @@ export function DashboardPage() {
             />
           </TabsContent>
         </Tabs>
-      </div>
+      </main>
     </div>
   );
 }

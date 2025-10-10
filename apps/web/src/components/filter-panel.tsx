@@ -9,15 +9,21 @@ import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 //
 import { supabase } from "@/lib/supabase";
 import type { RetentionFilterOptions } from "@/lib/filters/retention";
+import { cn } from "@/lib/utils";
 
 // Type moved to lib/filters/retention
 
 interface RetentionFilterPanelProps {
   onFiltersChange: (filters: RetentionFilterOptions) => void;
   className?: string;
+  refreshEnabled?: boolean;
 }
 
-export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFilterPanelProps) {
+export function RetentionFilterPanel({
+  onFiltersChange,
+  className,
+  refreshEnabled = false,
+}: RetentionFilterPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const sanitize = (value: string | number) => {
     const v = String(value);
@@ -360,19 +366,33 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
     );
   };
 
+  const wrapperClassName = cn(
+    className,
+    refreshEnabled &&
+      "rounded-2xl border border-brand-border/60 bg-white/95 p-4 shadow-brand/20 backdrop-blur-sm"
+  );
+
   return (
-    <div className={className}>
+    <div className={wrapperClassName}>
       {/* Botón para expandir/colapsar filtros */}
       <div className="mb-4">
         <Button 
-          variant="outline" 
+          variant={refreshEnabled ? "cta" : "outline"} 
           onClick={() => setIsExpanded(!isExpanded)}
-          className="gap-2"
+          className={cn(
+            "gap-2",
+            refreshEnabled && "rounded-full px-4 py-2 text-sm font-semibold shadow-brand"
+          )}
         >
           <Filter className="h-4 w-4" />
           Filtros
           {getActiveFiltersCount() > 0 && (
-            <span className="ml-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">
+            <span
+              className={cn(
+                "ml-1 rounded-full px-2 py-0.5 text-xs",
+                refreshEnabled ? "bg-brand-surface-accent text-brand-ink font-semibold" : "bg-blue-100 text-blue-700"
+              )}
+            >
               {getActiveFiltersCount()}
             </span>
           )}
@@ -382,16 +402,31 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
 
       {/* Panel de filtros expandible */}
       {isExpanded && (
-        <div className="bg-white border rounded-lg p-4 mb-6 shadow-sm">
+        <div
+          className={cn(
+            "mb-6 rounded-lg border bg-white p-4 shadow-sm",
+            refreshEnabled && "rounded-2xl border-brand-border/40 bg-brand-surface-accent/60 shadow-none"
+          )}
+        >
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium">Filtros de Retención</h3>
+            <h3
+              className={cn(
+                "font-medium",
+                refreshEnabled && "font-heading text-sm uppercase tracking-[0.16em] text-brand-ink/80"
+              )}
+            >
+              Filtros de Retención
+            </h3>
             {getActiveFiltersCount() > 0 && (
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={clearAllFilters}
-                className="text-xs hover:text-red-600"
+                className={cn(
+                  "text-xs hover:text-red-600",
+                  refreshEnabled && "font-medium text-brand-ink/70 hover:text-brand-ink"
+                )}
               >
                 <X className="h-3 w-3 mr-1" />
                 Limpiar todos
@@ -401,13 +436,18 @@ export function RetentionFilterPanel({ onFiltersChange, className }: RetentionFi
 
           {/* Resumen de filtros activos */}
           {getActiveFiltersCount() > 0 && (
-            <div className="text-xs text-muted-foreground bg-muted p-3 rounded mb-4">
+            <div
+              className={cn(
+                "mb-4 rounded bg-muted p-3 text-xs text-muted-foreground",
+                refreshEnabled && "bg-brand-surface-accent/70 text-brand-ink/70"
+              )}
+            >
               <strong>Filtros activos:</strong> {getFilterSummary()}
             </div>
           )}
 
           {/* Layout de dropdowns - Año, Mes, Departamento, Puesto, Clasificación, Ubicación */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
             {/* Años */}
             <MultiSelectDropdown
               label="Año"
