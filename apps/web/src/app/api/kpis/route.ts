@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { kpiCalculator, type TimeFilter } from '@/lib/kpi-calculator'
 import { db } from '@/lib/supabase'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import type { KpisApiResponse } from './contract'
 
 export async function GET(request: Request) {
   console.log('🎯 API KPIs endpoint called')
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
       plantilla: plantilla?.length || 0
     })
 
-    return NextResponse.json({
+    return NextResponse.json<KpisApiResponse>({
       success: true,
       data: {
         kpis: kpis || [],
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
   } catch (e) {
     const error = e as Error;
     console.error('❌ API KPIs error:', error)
-    return NextResponse.json({ 
+    return NextResponse.json<KpisApiResponse>({ 
       success: false, 
       error: error.message,
       data: {
