@@ -3,20 +3,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Users, TrendingDown, AlertCircle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Users, TrendingDown, AlertCircle, TrendingUp, Minus, ArrowUp, ArrowDown } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { isMotivoClave } from '@/lib/normalizers';
 import { cn } from '@/lib/utils';
-
-interface PlantillaRecord {
-  numero_empleado: number;
-  nombre_completo: string;
-  empresa: string;
-  area: string;
-  departamento: string;
-  fecha_ingreso: string;
-  activo: boolean;
-}
+import type { PlantillaRecord } from '@/lib/supabase';
 
 interface BajaRecord {
   numero_empleado: number;
@@ -57,23 +48,28 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
   };
 
   // Calcular rotación
-  const calcularRotacion = (grupo: PlantillaRecord[], periodo: 'mensual' | '12meses' | 'ytd') => {
+  const calcularRotacion = (grupo: PlantillaRecord[], periodo: 'mensual' | '12meses' | 'ytd', mesOffset = 0) => {
     const hoy = new Date();
     const activos = grupo.filter(e => e.activo).length;
 
     let fechaInicio: Date;
+    let fechaFin: Date;
+
     if (periodo === 'mensual') {
-      fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset, 1);
+      fechaFin = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset + 1, 0);
     } else if (periodo === '12meses') {
-      fechaInicio = new Date(hoy.getFullYear() - 1, hoy.getMonth(), hoy.getDate());
+      fechaFin = mesOffset === 0 ? hoy : new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset + 1, 0);
+      fechaInicio = new Date(fechaFin.getFullYear() - 1, fechaFin.getMonth(), fechaFin.getDate());
     } else {
       fechaInicio = new Date(hoy.getFullYear(), 0, 1);
+      fechaFin = hoy;
     }
 
     const bajasDelPeriodo = bajas.filter(b => {
       const fechaBaja = new Date(b.fecha_baja);
-      const empleado = grupo.find(e => e.numero_empleado === b.numero_empleado);
-      return empleado && fechaBaja >= fechaInicio && fechaBaja <= hoy;
+      const empleado = grupo.find(e => (e.numero_empleado || Number(e.emp_id)) === b.numero_empleado);
+      return empleado && fechaBaja >= fechaInicio && fechaBaja <= fechaFin;
     });
 
     // Rotación voluntaria usa motivos clave: Rescisión por desempeño, disciplina, término del contrato
@@ -90,9 +86,112 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
     };
   };
 
+  // Calcular KPIs para un mes específico
+  const calcularKPIsDelMes = (grupo: PlantillaRecord[], mesOffset = 0) => {
+    const hoy = new Date();
+    const mesActual = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset, 1);
+    const mesFin = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset + 1, 0);
+
+    // Empleados activos al final del mes
+    const empleadosActivos = grupo.filter(e => {
+      const fechaIngreso = new Date(e.fecha_ingreso);
+      // Activo si: ingresó antes del fin del mes Y no tiene baja O su baja es después del mes
+      return fechaIngreso <= mesFin && e.activo;
+    }).length;
+
+    // Rotaciones
+    const rotacionMensual = calcularRotacion(grupo, 'mensual', mesOffset);
+    const rotacionAcumulada = calcularRotacion(grupo, '12meses', mesOffset);
+    const rotacionAnioActual = calcularRotacion(grupo, 'ytd', mesOffset);
+
+    // Incidencias del mes
+    const empleadosIds = grupo.map(e => e.numero_empleado || Number(e.emp_id));
+    const incidenciasDelMes = incidencias.filter(i => {
+      if (!empleadosIds.includes(i.emp)) return false;
+      const fecha = new Date(i.fecha);
+      return fecha >= mesActual && fecha <= mesFin;
+    });
+
+    const totalIncidencias = incidenciasDelMes.length;
+    const permisos = incidenciasDelMes.filter(i =>
+      i.inci?.toUpperCase() === 'INC' ||
+      i.inci?.toUpperCase().includes('PERMISO') ||
+      i.inci?.toUpperCase() === 'PCON' ||
+      i.inci?.toUpperCase() === 'VAC'
+    ).length;
+
+    return {
+      empleadosActivos,
+      rotacionMensual: rotacionMensual.total,
+      rotacionAcumulada: rotacionAcumulada.total,
+      rotacionAnioActual: rotacionAnioActual.total,
+      incidencias: totalIncidencias,
+      permisos
+    };
+  };
+
+  // Renderizar tarjeta KPI con indicador de tendencia
+  const renderKPICard = (
+    titulo: string,
+    valorActual: number,
+    valorAnterior: number,
+    esPercentaje: boolean,
+    icon: React.ReactNode
+  ) => {
+    const diferencia = valorActual - valorAnterior;
+    const porcentajeCambio = valorAnterior !== 0 ? ((diferencia / valorAnterior) * 100) : 0;
+
+    // Para rotación e incidencias: menor es mejor (verde), mayor es peor (rojo)
+    // Para empleados activos: mayor es mejor (verde), menor es peor (rojo)
+    const esMejor = titulo === 'Empleados Activos' || titulo === 'Permisos'
+      ? diferencia > 0
+      : diferencia < 0;
+
+    const colorIndicador = Math.abs(diferencia) < 0.01
+      ? 'text-gray-500'
+      : esMejor
+      ? 'text-green-600'
+      : 'text-red-600';
+
+    const IconoTendencia = Math.abs(diferencia) < 0.01
+      ? Minus
+      : diferencia > 0
+      ? ArrowUp
+      : ArrowDown;
+
+    return (
+      <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand")}>
+        <CardHeader className={cn("pb-3", refreshEnabled && "pb-4")}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {icon}
+              <CardTitle className={cn("text-sm font-medium", refreshEnabled && "font-heading text-brand-ink")}>
+                {titulo}
+              </CardTitle>
+            </div>
+            <IconoTendencia className={cn("h-5 w-5", colorIndicador)} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-1">
+            <div className={cn("text-2xl font-bold", refreshEnabled && "font-heading text-3xl text-brand-ink")}>
+              {valorActual.toFixed(esPercentaje ? 1 : 0)}
+              {esPercentaje && '%'}
+            </div>
+            <div className={cn("text-xs", colorIndicador)}>
+              {diferencia > 0 ? '+' : ''}
+              {diferencia.toFixed(esPercentaje ? 1 : 0)}
+              {esPercentaje && '%'} vs mes anterior
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   // Calcular ausentismo
   const calcularAusentismo = (grupo: PlantillaRecord[]) => {
-    const empleadosIds = grupo.map(e => e.numero_empleado);
+    const empleadosIds = grupo.map(e => e.numero_empleado || Number(e.emp_id));
     const incidenciasGrupo = incidencias.filter(i => empleadosIds.includes(i.emp));
 
     const permisos = incidenciasGrupo.filter(i =>
@@ -118,7 +217,7 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
     const negocios = [...new Set(plantilla.map(e => e.empresa))].filter(Boolean);
 
     return negocios.map(negocio => {
-      const empleados = plantilla.filter(e => e.empresa === negocio && e.activo);
+      const empleados = plantilla.filter(e => (e.empresa || '') === negocio && e.activo);
 
       // Activos por antigüedad
       const porAntiguedad = empleados.reduce((acc, emp) => {
@@ -129,7 +228,7 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
       }, {} as Record<string, number>);
 
       return {
-        nombre: negocio,
+        nombre: negocio || 'Sin Negocio',
         total: empleados.length,
         antiguedad: porAntiguedad,
         rotacion: {
@@ -147,7 +246,7 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
     const areas = [...new Set(plantilla.map(e => e.area))].filter(Boolean);
 
     return areas.map(area => {
-      const empleados = plantilla.filter(e => e.area === area && e.activo);
+      const empleados = plantilla.filter(e => (e.area || '') === area && e.activo);
 
       const porAntiguedad = empleados.reduce((acc, emp) => {
         const anos = getAntiguedad(emp.fecha_ingreso);
@@ -157,7 +256,7 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
       }, {} as Record<string, number>);
 
       return {
-        nombre: area,
+        nombre: area || 'Sin Área',
         total: empleados.length,
         antiguedad: porAntiguedad,
         rotacion: {
@@ -198,7 +297,24 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
     });
   };
 
-  const renderSeccion = (datos: ReturnType<typeof datosPorNegocio>) => {
+  const renderSeccion = (datos: ReturnType<typeof datosPorNegocio>, tipoGrupo: 'negocio' | 'area' | 'departamento') => {
+    // Calcular empleados filtrados según el tipo de grupo
+    let empleadosDelGrupo: PlantillaRecord[] = [];
+    if (tipoGrupo === 'negocio') {
+      const negociosActivos = datos.map(d => d.nombre);
+      empleadosDelGrupo = plantilla.filter(e => negociosActivos.includes(e.empresa || ''));
+    } else if (tipoGrupo === 'area') {
+      const areasActivas = datos.map(d => d.nombre);
+      empleadosDelGrupo = plantilla.filter(e => areasActivas.includes(e.area || ''));
+    } else {
+      const deptosActivos = datos.map(d => d.nombre);
+      empleadosDelGrupo = plantilla.filter(e => deptosActivos.includes(e.departamento));
+    }
+
+    // Calcular KPIs del mes actual y anterior para comparación
+    const kpisActuales = calcularKPIsDelMes(empleadosDelGrupo, 0);
+    const kpisAnteriores = calcularKPIsDelMes(empleadosDelGrupo, -1);
+
     // Preparar datos para gráfico de activos por antigüedad
     const datosActivos = datos.map(d => ({
       nombre: d.nombre.length > 20 ? d.nombre.substring(0, 20) + '...' : d.nombre,
@@ -211,6 +327,16 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
 
     return (
       <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
+        {/* KPI CARDS CON SEMAFORIZACIÓN */}
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+          {renderKPICard('Empleados Activos', kpisActuales.empleadosActivos, kpisAnteriores.empleadosActivos, false, <Users className="h-4 w-4" />)}
+          {renderKPICard('Rotación Mensual', kpisActuales.rotacionMensual, kpisAnteriores.rotacionMensual, true, <TrendingDown className="h-4 w-4" />)}
+          {renderKPICard('Rotación Acumulada', kpisActuales.rotacionAcumulada, kpisAnteriores.rotacionAcumulada, true, <TrendingDown className="h-4 w-4" />)}
+          {renderKPICard('Rotación Año Actual', kpisActuales.rotacionAnioActual, kpisAnteriores.rotacionAnioActual, true, <TrendingDown className="h-4 w-4" />)}
+          {renderKPICard('Incidencias', kpisActuales.incidencias, kpisAnteriores.incidencias, false, <AlertCircle className="h-4 w-4" />)}
+          {renderKPICard('Permisos', kpisActuales.permisos, kpisAnteriores.permisos, false, <TrendingUp className="h-4 w-4" />)}
+        </div>
+
         {/* 1. ACTIVOS POR ANTIGÜEDAD */}
         <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
           <CardHeader className={cn(refreshEnabled && "pb-6")}>
@@ -249,7 +375,7 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart
+                <LineChart
                   data={datos.map(d => ({
                     nombre: d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre,
                     Voluntaria: Number(d.rotacion.mensual.voluntaria.toFixed(1)),
@@ -261,9 +387,9 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
                   <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Voluntaria" fill="#22c55e" />
-                  <Bar dataKey="Involuntaria" fill="#ef4444" />
-                </BarChart>
+                  <Line type="monotone" dataKey="Voluntaria" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
+                  <Line type="monotone" dataKey="Involuntaria" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
+                </LineChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -278,7 +404,7 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart
+                <LineChart
                   data={datos.map(d => ({
                     nombre: d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre,
                     Voluntaria: Number(d.rotacion.doce_meses.voluntaria.toFixed(1)),
@@ -290,9 +416,9 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
                   <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Voluntaria" fill="#22c55e" />
-                  <Bar dataKey="Involuntaria" fill="#ef4444" />
-                </BarChart>
+                  <Line type="monotone" dataKey="Voluntaria" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
+                  <Line type="monotone" dataKey="Involuntaria" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
+                </LineChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -307,7 +433,7 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart
+                <LineChart
                   data={datos.map(d => ({
                     nombre: d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre,
                     Voluntaria: Number(d.rotacion.ytd.voluntaria.toFixed(1)),
@@ -319,9 +445,9 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
                   <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="Voluntaria" fill="#22c55e" />
-                  <Bar dataKey="Involuntaria" fill="#ef4444" />
-                </BarChart>
+                  <Line type="monotone" dataKey="Voluntaria" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
+                  <Line type="monotone" dataKey="Involuntaria" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
+                </LineChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -336,49 +462,55 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={cn("space-y-3", refreshEnabled && "space-y-4")}>
-              {datos.map((d, idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    "flex items-center justify-between border-b pb-3 last:border-0",
-                    refreshEnabled && "border-brand-border/60 pb-4 text-brand-ink"
-                  )}
-                >
-                  <div className={cn("text-sm font-medium", refreshEnabled && "font-heading text-base")}>
-                    {d.nombre}
-                  </div>
-                  <div className={cn("flex gap-4 text-xs", refreshEnabled && "gap-3 text-sm")}>
-                    <Badge
-                      variant="outline"
+            <div className="overflow-x-auto">
+              <table className={cn("w-full text-sm", refreshEnabled && "text-brand-ink")}>
+                <thead>
+                  <tr className={cn("border-b", refreshEnabled && "border-brand-border/60")}>
+                    <th className={cn("pb-3 text-left font-medium", refreshEnabled && "font-heading")}>
+                      Nombre
+                    </th>
+                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading")}>
+                      Total
+                    </th>
+                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading")}>
+                      Permisos
+                    </th>
+                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading")}>
+                      Faltas
+                    </th>
+                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading")}>
+                      Otros
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {datos.map((d, idx) => (
+                    <tr
+                      key={idx}
                       className={cn(
-                        refreshEnabled &&
-                          "border-none bg-brand-surface-accent px-3 py-1 text-[11px] font-semibold text-brand-ink"
+                        "border-b last:border-0",
+                        refreshEnabled && "border-brand-border/60"
                       )}
                     >
-                      Total: {d.ausentismo.total}
-                    </Badge>
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        refreshEnabled &&
-                          "border-none bg-brand-surface-accent px-3 py-1 text-[11px] font-semibold text-brand-ink"
-                      )}
-                    >
-                      Permisos: {d.ausentismo.permisos}
-                    </Badge>
-                    <Badge
-                      variant="destructive"
-                      className={cn(
-                        refreshEnabled &&
-                          "border-none bg-brand-surface-accent px-3 py-1 text-[11px] font-semibold text-brand-ink"
-                      )}
-                    >
-                      Faltas: {d.ausentismo.faltas}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                      <td className={cn("py-3 font-medium", refreshEnabled && "font-heading")}>
+                        {d.nombre}
+                      </td>
+                      <td className="py-3 text-right">
+                        {d.ausentismo.total}
+                      </td>
+                      <td className="py-3 text-right text-blue-600">
+                        {d.ausentismo.permisos}
+                      </td>
+                      <td className="py-3 text-right text-red-600">
+                        {d.ausentismo.faltas}
+                      </td>
+                      <td className="py-3 text-right text-gray-600">
+                        {d.ausentismo.otros}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>
@@ -433,15 +565,15 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
         </TabsList>
 
         <TabsContent value="negocio" className={cn("space-y-4", refreshEnabled && "space-y-6")}>
-          {renderSeccion(negocio)}
+          {renderSeccion(negocio, 'negocio')}
         </TabsContent>
 
         <TabsContent value="area" className={cn("space-y-4", refreshEnabled && "space-y-6")}>
-          {renderSeccion(areas)}
+          {renderSeccion(areas, 'area')}
         </TabsContent>
 
         <TabsContent value="departamento" className={cn("space-y-4", refreshEnabled && "space-y-6")}>
-          {renderSeccion(departamentos)}
+          {renderSeccion(departamentos, 'departamento')}
         </TabsContent>
       </Tabs>
     </div>

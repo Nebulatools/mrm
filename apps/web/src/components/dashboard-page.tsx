@@ -11,6 +11,7 @@ import {
   TrendingDown,
   Calendar,
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter } from 'recharts';
 import { KPICard, KPICardSkeleton } from "./kpi-card";
 import { AIInsights } from "./ai-insights";
@@ -65,6 +66,7 @@ export function DashboardPage() {
   // Create authenticated Supabase client for RLS filtering
   const supabase = createBrowserClient();
   const refreshEnabled = DASHBOARD_UI_REFRESH_ENABLED;
+  const { isAdmin } = useAuth();
 
   // Removed unused sanitizeChip function
   const [data, setData] = useState<DashboardData>({
@@ -597,9 +599,6 @@ export function DashboardPage() {
                         <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 px-4 py-1 text-[11px] text-brand-ink/70">
                           {data.kpis.length} KPIs
                         </span>
-                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 px-4 py-1 text-[11px] text-brand-ink/70">
-                          {data.plantilla.length} empleados
-                        </span>
                       </>
                     ) : (
                       <span className="inline-flex h-4 w-24 animate-pulse rounded-full bg-brand-muted" />
@@ -627,7 +626,7 @@ export function DashboardPage() {
                   {!data.loading && (
                     <span className="ml-2">
                       • Actualizado: {lastUpdatedDisplay}
-                      • {data.kpis.length} KPIs • {data.plantilla.length} empleados
+                      • {data.kpis.length} KPIs
                     </span>
                   )}
                 </p>
@@ -678,12 +677,16 @@ export function DashboardPage() {
             <TabsTrigger value="retention" className={tabTriggerClass}>
               Retención
             </TabsTrigger>
-            <TabsTrigger value="trends" className={tabTriggerClass}>
-              Tendencias
-            </TabsTrigger>
-            <TabsTrigger value="ai-insights" className={tabTriggerClass}>
-              IA Generativa
-            </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="trends" className={tabTriggerClass}>
+                Tendencias
+              </TabsTrigger>
+            )}
+            {isAdmin && (
+              <TabsTrigger value="ai-insights" className={tabTriggerClass}>
+                IA Generativa
+              </TabsTrigger>
+            )}
             <TabsTrigger value="adjustments" className={tabTriggerClass}>
               Ajustes
             </TabsTrigger>
@@ -711,8 +714,14 @@ export function DashboardPage() {
                 <>
                   <KPICard
                     refreshEnabled={refreshEnabled}
-                    kpi={{ name: 'Activos', category: 'headcount', value: activosNow, period_start: '', period_end: '' }}
-                    icon={<Users className="h-6 w-6" />}
+                    kpi={{
+                      name: 'Ingresos Nuevos',
+                      category: 'headcount',
+                      value: ingresosMes,
+                      period_start: startMonth.toISOString().slice(0, 10),
+                      period_end: endMonth.toISOString().slice(0, 10)
+                    }}
+                    icon={<TrendingUp className="h-6 w-6" />}
                   />
                   <KPICard
                     refreshEnabled={refreshEnabled}

@@ -19,6 +19,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export interface PlantillaRecord {
   id: number
   emp_id: string
+  numero_empleado?: number // Added from transformation
   nombre: string
   departamento: string
   activo: boolean

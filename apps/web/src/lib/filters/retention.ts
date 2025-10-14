@@ -7,6 +7,8 @@ export interface RetentionFilterOptions {
   puestos?: string[];
   clasificaciones?: string[];
   ubicaciones?: string[];
+  empresas?: string[];  // Negocio/Empresa filter
+  areas?: string[];     // Área filter
 }
 
 // Apply retention filters to empleados_sftp-derived records efficiently
@@ -23,8 +25,19 @@ export function applyRetentionFilters(
   const deptosSet = new Set(filters.departamentos || []);
   const clasifSet = new Set(filters.clasificaciones || []);
   const ubicSet = new Set(filters.ubicaciones || []);
+  const empresasSet = new Set(filters.empresas || []);
+  const areasSet = new Set(filters.areas || []);
 
   const filtered = (plantilla as PlantillaRecord[]).filter((emp) => {
+    // Empresa/Negocio
+    if (empresasSet.size) {
+      const empEmpresa: string = (emp as any).empresa || '';
+      if (!empresasSet.has(empEmpresa)) return false;
+    }
+
+    // Área
+    if (areasSet.size && !areasSet.has(emp.area || '')) return false;
+
     // Departamento
     if (deptosSet.size && !deptosSet.has(emp.departamento || '')) return false;
 

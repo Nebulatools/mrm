@@ -98,9 +98,9 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
         ejemploSinDatos: processedData[0]
       })
 
-      // Crear matrices operativa y administrativa
-      const opMatrix = createOperationalMatrix(processedData)
-      const admMatrix = createAdministrativeMatrix(processedData)
+      // Crear matrices de personal operativo y administrativo
+      const opMatrix = createOperationalPersonnelMatrix(processedData)
+      const admMatrix = createAdministrativePersonnelMatrix(processedData)
       setOperationalMatrix(opMatrix)
       setAdministrativeMatrix(admMatrix)
 
@@ -166,6 +166,17 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
     // Calcular totales para porcentajes
     const totalEmpleados = empleados.length
     const totalBajas = bajas.length
+
+    // Calcular el estado más común para determinar cuál es "local" vs "foráneo"
+    const estadosCounts = empleados.reduce((acc: Record<string, number>, emp) => {
+      const estado = (emp.estado || '').trim().toUpperCase()
+      if (estado && estado !== 'NULL' && estado !== '') {
+        acc[estado] = (acc[estado] || 0) + 1
+      }
+      return acc
+    }, {})
+    const estadoLocal = Object.entries(estadosCounts).sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0] || 'NUEVO LEON'
+    console.log('🏠 Estado Local detectado:', estadoLocal, 'Distribución:', estadosCounts)
 
     // DEBUG: Ver primeros empleados e incidencias para verificar join
     console.log('🔍 DEBUG JOIN:', {
@@ -242,14 +253,21 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
         debugPrinted = true
       }
 
+      // Calcular antigüedad en MESES (no años)
+      const antiguedadMeses = emp.fecha_ingreso
+        ? Math.floor((new Date().getTime() - new Date(emp.fecha_ingreso).getTime()) / (30.44 * 24 * 60 * 60 * 1000))
+        : 0
+
       return {
         // Variables administrativas
         genero_masc: emp.genero?.toLowerCase() === 'masculino' ? 1 : 0,
         edad: edad || 0,
-        estado_for: emp.estado && !emp.estado.toLowerCase().includes('nuevo le') ? 1 : 0,
+        estado_for: emp.estado && emp.estado.trim().toUpperCase() !== estadoLocal ? 1 : 0,
+        antiguedad_meses: antiguedadMeses,
         antiguedad: antiguedad || 0,
         puesto_op: emp.puesto?.toLowerCase().includes('operador') ? 1 : 0,
         tuvo_baja: tuvoBaja,
+        departamento: emp.departamento || '',
 
         // Variables operativas - Incidencias por tipo
         total_inc: totalIncidencias, // Total de TODAS las incidencias (incluye VAC, PCON, MAT3, FI, ENFE, PSIN, SUSP)
@@ -276,32 +294,44 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
     }).filter(emp => emp.edad > 0 && emp.antiguedad !== null) // Filtrar registros sin datos válidos
   }
 
-  // Matriz de Variables Operativas (SIMPLIFICADA + ROTACIÓN)
-  const createOperationalMatrix = (data: any[]): CorrelationMatrixData => {
+  // Matriz para Personal Operativo (OPERACIONES Y LOGÍSTICA)
+  const createOperationalPersonnelMatrix = (data: any[]): CorrelationMatrixData => {
+    // Filtrar solo personal operativo
+    const operationalData = data.filter(emp =>
+      emp.departamento?.toUpperCase().includes('OPERACIONES Y LOGÍSTICA') ||
+      emp.departamento?.toUpperCase().includes('OPERACIONES Y LOGISTICA')
+    )
+
+    console.log('👷 Personal Operativo:', operationalData.length, 'de', data.length, 'empleados')
+
     const variables = [
-      'Tot. Inc.',
-      'Días 2d+',
-      'Días 3d+',
-      'Días 5d+',
-      'Días 10d+',
-      'Turno Noct.',
-      'ROTACIÓN'
+      'Inc 2d+',
+      'Inc 3d+',
+      'Inc 5d+',
+      'Inc 10d+',
+      'Turno Noc.',
+      'Género M',
+      'Edad',
+      'Estado For.',
+      'Antig. (m)'
     ]
     const dataKeys = [
-      'total_inc',
       'ausentismo_2d',
       'ausentismo_3d',
       'ausentismo_5d',
       'ausentismo_10d',
       'turno_noc',
-      'tuvo_baja'
+      'genero_masc',
+      'edad',
+      'estado_for',
+      'antiguedad_meses'
     ]
 
     const matrix = dataKeys.map(keyA =>
       dataKeys.map(keyB =>
         calculateCorrelation(
-          data.map(d => d[keyA]),
-          data.map(d => d[keyB])
+          operationalData.map(d => d[keyA]),
+          operationalData.map(d => d[keyB])
         )
       )
     )
@@ -313,30 +343,44 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
     }
   }
 
-  // Matriz de Variables Administrativas (características demográficas/contractuales)
-  const createAdministrativeMatrix = (data: any[]): CorrelationMatrixData => {
+  // Matriz para Personal Administrativo (todos excepto OPERACIONES Y LOGÍSTICA)
+  const createAdministrativePersonnelMatrix = (data: any[]): CorrelationMatrixData => {
+    // Filtrar solo personal administrativo
+    const administrativeData = data.filter(emp =>
+      !emp.departamento?.toUpperCase().includes('OPERACIONES Y LOGÍSTICA') &&
+      !emp.departamento?.toUpperCase().includes('OPERACIONES Y LOGISTICA')
+    )
+
+    console.log('💼 Personal Administrativo:', administrativeData.length, 'de', data.length, 'empleados')
+
     const variables = [
-      'Género',
+      'Inc 2d+',
+      'Inc 3d+',
+      'Inc 5d+',
+      'Inc 10d+',
+      'Turno Noc.',
+      'Género M',
       'Edad',
       'Estado For.',
-      'Antigüedad',
-      'Puesto Op.',
-      'ROTACIÓN'
+      'Antig. (m)'
     ]
     const dataKeys = [
+      'ausentismo_2d',
+      'ausentismo_3d',
+      'ausentismo_5d',
+      'ausentismo_10d',
+      'turno_noc',
       'genero_masc',
       'edad',
       'estado_for',
-      'antiguedad',
-      'puesto_op',
-      'tuvo_baja'
+      'antiguedad_meses'
     ]
 
     const matrix = dataKeys.map(keyA =>
       dataKeys.map(keyB =>
         calculateCorrelation(
-          data.map(d => d[keyA]),
-          data.map(d => d[keyB])
+          administrativeData.map(d => d[keyA]),
+          administrativeData.map(d => d[keyB])
         )
       )
     )
@@ -491,7 +535,7 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
       <CardHeader>
         <CardTitle>🔥 Matriz de Correlación RH ({year})</CardTitle>
         <CardDescription>
-          Análisis SIMPLIFICADO: 7 variables operativas (incluye ROTACIÓN) + 6 variables administrativas
+          Análisis de incidencias por tipo de personal: Operativo vs Administrativo
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -499,30 +543,31 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
           <div className="text-sm text-gray-700 bg-gradient-to-r from-blue-50 to-green-50 p-4 rounded-lg border-l-4 border-blue-400">
             <div className="font-bold mb-2">📊 ¿Qué puedes descubrir aquí?</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              <div>• <strong>Variables Operativas:</strong> Total incidencias + rachas de ausentismo (2, 3, 5, 10+ días) + ROTACIÓN</div>
-              <div>• <strong>Variables Administrativas:</strong> Edad, género, antigüedad, rotación</div>
-              <div>• <strong className="text-red-600">¿Las rachas de ausentismo predicen rotación (bajas)?</strong></div>
-              <div>• ¿El turno nocturno correlaciona con ausentismo largo?</div>
+              <div>• <strong>Personal Operativo:</strong> Empleados del departamento OPERACIONES Y LOGÍSTICA</div>
+              <div>• <strong>Personal Administrativo:</strong> Todos los demás departamentos</div>
+              <div>• <strong className="text-red-600">¿Qué patrones de incidencias predicen bajas?</strong></div>
+              <div>• ¿El turno nocturno, edad o estado foráneo correlacionan con ausentismo?</div>
             </div>
           </div>
 
           <Tabs defaultValue="operational" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="operational">⚙️ Variables Operativas</TabsTrigger>
-              <TabsTrigger value="administrative">📋 Variables Administrativas</TabsTrigger>
+              <TabsTrigger value="operational">👷 Personal Operativo</TabsTrigger>
+              <TabsTrigger value="administrative">💼 Personal Administrativo</TabsTrigger>
             </TabsList>
 
             <TabsContent value="operational" className="space-y-4 mt-4">
               <div className="text-xs text-gray-600 bg-blue-50 p-3 rounded">
-                <strong>Variables Operativas (SIMPLIFICADAS):</strong> Total Incidencias,
-                Días en rachas 2+/3+/5+/10+ días consecutivos, Turno Nocturno, <strong className="text-red-600">ROTACIÓN (Bajas)</strong>
+                <strong>Personal Operativo (OPERACIONES Y LOGÍSTICA):</strong> Análisis de 9 variables -
+                Incidencias 2d+, 3d+, 5d+, 10d+, Turno Nocturno, Género Masculino, Edad, Estado Foráneo, Antigüedad (meses)
               </div>
               {operationalMatrix && renderMatrix(operationalMatrix)}
             </TabsContent>
 
             <TabsContent value="administrative" className="space-y-4 mt-4">
               <div className="text-xs text-gray-600 bg-green-50 p-3 rounded">
-                <strong>Variables Administrativas:</strong> Género, Edad, Estado Foráneo, Antigüedad, Puesto Operador, Rotación
+                <strong>Personal Administrativo (todos excepto OPERACIONES Y LOGÍSTICA):</strong> Análisis de 9 variables -
+                Incidencias 2d+, 3d+, 5d+, 10d+, Turno Nocturno, Género Masculino, Edad, Estado Foráneo, Antigüedad (meses)
               </div>
               {administrativeMatrix && renderMatrix(administrativeMatrix)}
             </TabsContent>
@@ -531,10 +576,10 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
           <div className="text-xs text-gray-500 bg-yellow-50 p-3 rounded border-l-4 border-yellow-400">
             <strong>💡 Tip de interpretación:</strong> Las correlaciones altas ({'>'}0.7 o {'<'}-0.7) indican relaciones fuertes entre variables.
             <div className="mt-2">
-              <strong>✅ PREGUNTA CLAVE:</strong> ¿Las rachas de ausentismo predicen la rotación (bajas)? Busca correlación entre "Días 2d+/3d+/5d+/10d+" y "ROTACIÓN".
+              <strong>✅ PREGUNTA CLAVE:</strong> ¿Qué patrones de incidencias se asocian con bajas? Busca correlaciones entre rachas de ausentismo y otras variables demográficas.
             </div>
             <div className="mt-2">
-              <strong>📊 Variables:</strong> Matriz operativa con 7 variables: Total incidencias + rachas de ausentismo (2+, 3+, 5+, 10+ días) + Turno nocturno + ROTACIÓN.
+              <strong>📊 Variables analizadas:</strong> 9 variables por segmento - Incidencias (2d+, 3d+, 5d+, 10d+), Turno Nocturno, Género Masculino, Edad, Estado Foráneo, Antigüedad en meses.
             </div>
           </div>
         </div>

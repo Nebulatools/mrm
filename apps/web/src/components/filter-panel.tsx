@@ -36,9 +36,11 @@ export function RetentionFilterPanel({
     years: [],
     months: [],
     departamentos: [],
-    puestos: [], // Cambiado de areas a puestos
+    puestos: [],
     clasificaciones: [],
-    ubicaciones: []
+    ubicaciones: [],
+    empresas: [],  // Negocio/Empresa
+    areas: []      // Área
   });
 
   // Set default filters to current month and year
@@ -53,7 +55,9 @@ export function RetentionFilterPanel({
       departamentos: [],
       puestos: [],
       clasificaciones: [],
-      ubicaciones: []
+      ubicaciones: [],
+      empresas: [],
+      areas: []
     };
 
     setFilters(defaultFilters);
@@ -64,9 +68,11 @@ export function RetentionFilterPanel({
     years: [] as number[],
     months: [] as number[],
     departamentos: [] as string[],
-    puestos: [] as string[], // Cambiado de areas a puestos
+    puestos: [] as string[],
     clasificaciones: [] as string[],
-    ubicaciones: [] as string[]
+    ubicaciones: [] as string[],
+    empresas: [] as string[],  // Negocio/Empresa
+    areas: [] as string[]      // Área
   });
 
   // Cargar opciones disponibles desde la base de datos
@@ -76,17 +82,19 @@ export function RetentionFilterPanel({
 
   const loadAvailableOptions = async () => {
     try {
-      // Get empleados_sftp data 
+      // Get empleados_sftp data
       const { data: empleadosSFTP } = await supabase
         .from('empleados_sftp')
-        .select('fecha_baja, departamento, puesto, clasificacion, ubicacion'); // Agregado clasificacion y ubicacion
-      
+        .select('fecha_baja, departamento, puesto, clasificacion, ubicacion, empresa, area');
+
       // Extract all dates from fecha_baja
       const allDates = [];
       const departamentosSet = new Set<string>();
-      const puestosSet = new Set<string>(); // Cambiado de areasSet a puestosSet
+      const puestosSet = new Set<string>();
       const clasificacionesSet = new Set<string>();
       const ubicacionesSet = new Set<string>();
+      const empresasSet = new Set<string>();
+      const areasSet = new Set<string>();
       
       if (empleadosSFTP) {
         empleadosSFTP.forEach(emp => {
@@ -125,6 +133,20 @@ export function RetentionFilterPanel({
           if (ub && ub !== 'null' && ub !== '') {
             ubicacionesSet.add(ub);
           }
+
+          // Collect unique empresas (negocio)
+          // @ts-ignore - runtime property
+          const empresa = (emp as any).empresa as string | undefined;
+          if (empresa && empresa !== 'null' && empresa !== '') {
+            empresasSet.add(empresa);
+          }
+
+          // Collect unique áreas
+          // @ts-ignore - runtime property
+          const area = (emp as any).area as string | undefined;
+          if (area && area !== 'null' && area !== '') {
+            areasSet.add(area);
+          }
         });
       }
       
@@ -143,9 +165,11 @@ export function RetentionFilterPanel({
       
       // Convert sets to sorted arrays
       const departamentos = Array.from(departamentosSet).sort();
-      const puestos = Array.from(puestosSet).sort(); // Cambiado de areas a puestos
+      const puestos = Array.from(puestosSet).sort();
       const clasificaciones = Array.from(clasificacionesSet).sort();
       const ubicaciones = Array.from(ubicacionesSet).sort();
+      const empresas = Array.from(empresasSet).sort();
+      const areas = Array.from(areasSet).sort();
       
       // If no departamentos/puestos found, use default values
       const finalDepartamentos = departamentos.length > 0 ? departamentos : [
@@ -184,9 +208,11 @@ export function RetentionFilterPanel({
         years: uniqueYears,
         months: uniqueMonths,
         departamentos: finalDepartamentos,
-        puestos: finalPuestos, // Cambiado de areas a puestos
+        puestos: finalPuestos,
         clasificaciones: finalClasificaciones,
-        ubicaciones: finalUbicaciones
+        ubicaciones: finalUbicaciones,
+        empresas: empresas.length > 0 ? empresas : ['MOTO REPUESTOS MONTERREY', 'MOTO TOTAL', 'REPUESTOS Y MOTOCICLETAS DEL NORTE'],
+        areas: areas.length > 0 ? areas : []
       });
     } catch (error) {
       console.error('Error loading available options:', error);
@@ -200,7 +226,7 @@ export function RetentionFilterPanel({
 
   const handleMultiSelectChange = (filterType: keyof RetentionFilterOptions, selectedValues: string[]) => {
     const newFilters = { ...filters };
-    
+
     if (filterType === 'years') {
       newFilters.years = selectedValues.map(v => parseInt(v));
     } else if (filterType === 'months') {
@@ -208,13 +234,17 @@ export function RetentionFilterPanel({
     } else if (filterType === 'departamentos') {
       newFilters.departamentos = selectedValues;
     } else if (filterType === 'puestos') {
-      newFilters.puestos = selectedValues; // Cambiado de areas a puestos
+      newFilters.puestos = selectedValues;
     } else if (filterType === 'clasificaciones') {
       newFilters.clasificaciones = selectedValues;
     } else if (filterType === 'ubicaciones') {
       newFilters.ubicaciones = selectedValues;
+    } else if (filterType === 'empresas') {
+      newFilters.empresas = selectedValues;
+    } else if (filterType === 'areas') {
+      newFilters.areas = selectedValues;
     }
-    
+
     setFilters(newFilters);
     onFiltersChange(newFilters);
   };
@@ -224,9 +254,11 @@ export function RetentionFilterPanel({
       years: [],
       months: [],
       departamentos: [],
-      puestos: [], // Cambiado de areas a puestos
+      puestos: [],
       clasificaciones: [],
-      ubicaciones: []
+      ubicaciones: [],
+      empresas: [],
+      areas: []
     };
     setFilters(emptyFilters);
     onFiltersChange(emptyFilters);
@@ -238,12 +270,18 @@ export function RetentionFilterPanel({
 
   const getFilterSummary = () => {
     const parts = [];
-    
+
     if (filters.years.length > 0) {
       parts.push(`${filters.years.length} año${filters.years.length !== 1 ? 's' : ''}`);
     }
     if (filters.months.length > 0) {
       parts.push(`${filters.months.length} mes${filters.months.length !== 1 ? 'es' : ''}`);
+    }
+    if ((filters.empresas || []).length > 0) {
+      parts.push(`${(filters.empresas || []).length} negocio${(filters.empresas || []).length !== 1 ? 's' : ''}`);
+    }
+    if ((filters.areas || []).length > 0) {
+      parts.push(`${(filters.areas || []).length} área${(filters.areas || []).length !== 1 ? 's' : ''}`);
     }
     if ((filters.departamentos || []).length > 0) {
       parts.push(`${(filters.departamentos || []).length} depto${(filters.departamentos || []).length !== 1 ? 's' : ''}`);
@@ -257,7 +295,7 @@ export function RetentionFilterPanel({
     if ((filters.ubicaciones || []).length > 0) {
       parts.push(`${(filters.ubicaciones || []).length} ubicación${(filters.ubicaciones || []).length !== 1 ? 'es' : ''}`);
     }
-    
+
     return parts.join(', ');
   };
 
@@ -446,8 +484,8 @@ export function RetentionFilterPanel({
             </div>
           )}
 
-          {/* Layout de dropdowns - Año, Mes, Departamento, Puesto, Clasificación, Ubicación */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
+          {/* Layout de dropdowns - Año, Mes, Negocio, Área, Departamento, Puesto, Clasificación, Ubicación */}
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-8">
             {/* Años */}
             <MultiSelectDropdown
               label="Año"
@@ -464,6 +502,24 @@ export function RetentionFilterPanel({
               selectedValues={filters.months}
               onSelectionChange={(values) => handleMultiSelectChange('months', values)}
               renderOption={(option) => monthNames[parseInt(option.toString()) - 1]}
+            />
+
+            {/* Negocio/Empresa */}
+            <MultiSelectDropdown
+              label="Negocio"
+              options={availableOptions.empresas}
+              selectedValues={filters.empresas || []}
+              onSelectionChange={(values) => handleMultiSelectChange('empresas', values)}
+              renderOption={(option) => sanitize(option)}
+            />
+
+            {/* Área */}
+            <MultiSelectDropdown
+              label="Área"
+              options={availableOptions.areas}
+              selectedValues={filters.areas || []}
+              onSelectionChange={(values) => handleMultiSelectChange('areas', values)}
+              renderOption={(option) => sanitize(option)}
             />
             
             {/* Departamentos */}

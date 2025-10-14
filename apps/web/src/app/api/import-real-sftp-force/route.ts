@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 export const runtime = 'nodejs';
 import SftpClient from 'ssh2-sftp-client';
+import * as XLSX from 'xlsx';
 
 // Helper function to safely parse dates
 function parseDate(dateValue: unknown): string | null {
@@ -53,72 +54,118 @@ function parseDate(dateValue: unknown): string | null {
   }
 }
 
+// Helper function to download and parse files directly from SFTP
+async function downloadFromSFTP(filename: string): Promise<Record<string, unknown>[]> {
+  const sftp = new SftpClient();
+  try {
+    const host = process.env.SFTP_HOST;
+    const port = process.env.SFTP_PORT;
+    const username = process.env.SFTP_USER;
+    const password = process.env.SFTP_PASSWORD;
+    const directory = process.env.SFTP_DIRECTORY || 'ReportesRH';
+
+    if (!host || !port || !username || !password) {
+      throw new Error('Missing SFTP configuration');
+    }
+
+    console.log(`📥 Descargando ${filename} directamente desde SFTP...`);
+
+    await sftp.connect({
+      host,
+      port: parseInt(String(port)),
+      username,
+      password,
+      readyTimeout: 10000
+    });
+
+    const filePath = `${directory}/${filename}`;
+    const fileContent = await sftp.get(filePath);
+    await sftp.end();
+
+    let data: Record<string, unknown>[] = [];
+
+    if (filename.toLowerCase().endsWith('.csv')) {
+      const csvText = fileContent.toString('utf8');
+      const lines = csvText.split('\n').filter(line => line.trim());
+
+      if (lines.length > 0) {
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+          if (values.length === headers.length) {
+            const row: Record<string, unknown> = {};
+            headers.forEach((header, index) => {
+              row[header] = values[index];
+            });
+            data.push(row);
+          }
+        }
+      }
+    } else if (filename.toLowerCase().endsWith('.xlsx') || filename.toLowerCase().endsWith('.xls')) {
+      const workbook = XLSX.read(fileContent, { type: 'buffer' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' }) as unknown[];
+      const headerRow = (rows[0] as unknown[]) || [];
+      const headers: string[] = headerRow.map((h: unknown) => String(h || ''));
+      const bodyRows = rows.slice(1) as unknown[];
+
+      data = bodyRows.map((rowUnknown: unknown) => {
+        const row = rowUnknown as unknown[];
+        const obj: Record<string, unknown> = {};
+        headers.forEach((header, i) => {
+          const cell = row && row[i] !== undefined ? row[i] : null;
+          obj[header || `col_${i}`] = cell as unknown;
+        });
+        return obj;
+      });
+    }
+
+    console.log(`✅ ${filename}: ${data.length} registros descargados`);
+    return data;
+  } catch (error) {
+    console.error(`❌ Error descargando ${filename}:`, error);
+    await sftp.end();
+    return [];
+  }
+}
+
 // FORZAR IMPORTACIÓN REAL SIN CACHÉ
 export async function POST(request: Request) {
   console.log('🚀 FORZANDO IMPORTACIÓN REAL DE DATOS SFTP (SIN CACHÉ)...');
 
   try {
-    // Detectar URL base desde el request
-    const protocol = request.headers.get('x-forwarded-proto') || 'http';
-    const host = request.headers.get('host') || 'localhost:3004';
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
+    // ========================================
+    // PASO 1 & 2: DESCARGAR ARCHIVOS DIRECTAMENTE DESDE SFTP
+    // ========================================
 
-    console.log(`🌐 Base URL: ${baseUrl}`);
-
-    // ========================================
-    // PASO 1: CONECTAR DIRECTAMENTE AL SFTP
-    // ========================================
-    const sftpResponse = await fetch(`${baseUrl}/api/sftp?action=list&nocache=true`);
-    const sftpFiles = await sftpResponse.json();
-    
-    console.log('📂 Archivos SFTP reales encontrados:', sftpFiles);
-
-    // ========================================
-    // PASO 2: DESCARGAR ARCHIVOS REALES
-    // ========================================
-    
-    // Descargar archivo de empleados (Excel) - DATOS TÉCNICOS
-    console.log('📥 Descargando Validacion Alta de empleados.xls...');
-    const empleadosResponse = await fetch(`${baseUrl}/api/sftp?action=download&filename=Validacion%20Alta%20de%20empleados.xls&nocache=true`);
-    const empleadosData = await empleadosResponse.json();
-    
-    console.log('👥 Empleados encontrados:', empleadosData.data?.length || 0);
-    console.log('📋 Muestra empleado:', empleadosData.data?.[0]);
-    
-    // Debug: mostrar todas las columnas del archivo de empleados
-    if (empleadosData.data?.[0]) {
-      console.log('📊 Columnas en archivo de empleados:', Object.keys(empleadosData.data[0]));
+    const empleadosData = await downloadFromSFTP('Validacion Alta de empleados.xls');
+    console.log('👥 Empleados encontrados:', empleadosData.length);
+    if (empleadosData[0]) {
+      console.log('📊 Columnas en archivo de empleados:', Object.keys(empleadosData[0]));
     }
 
-    // Descargar archivo de nómina (CSV) - NOMBRES REALES
-    console.log('📥 Descargando Prenomina Horizontal.csv...');
-    const nominaResponse = await fetch(`${baseUrl}/api/sftp?action=download&filename=Prenomina%20Horizontal.csv&nocache=true`);
-    const nominaData = await nominaResponse.json();
-    
-    console.log('👥 Nómina encontrada:', nominaData.data?.length || 0);
-    console.log('📋 Muestra nómina:', nominaData.data?.[0]);
-    
-    // Debug: mostrar todas las columnas del archivo de nómina
-    if (nominaData.data?.[0]) {
-      console.log('📊 Columnas en archivo de nómina:', Object.keys(nominaData.data[0]));
-      console.log('📊 Primer registro completo:', nominaData.data[0]);
+    const nominaData = await downloadFromSFTP('Prenomina Horizontal.csv');
+    console.log('👥 Nómina encontrada:', nominaData.length);
+    if (nominaData[0]) {
+      console.log('📊 Columnas en archivo de nómina:', Object.keys(nominaData[0]));
     }
 
-    // Descargar archivo de bajas (CSV)
-    console.log('📥 Descargando MotivosBaja.csv...');
-    const bajasResponse = await fetch(`${baseUrl}/api/sftp?action=download&filename=MotivosBaja.csv&nocache=true`);
-    const bajasData = await bajasResponse.json();
-    
-    console.log('📉 Bajas encontradas:', bajasData.data?.length || 0);
-    console.log('📋 Muestra baja:', bajasData.data?.[0]);
+    const bajasData = await downloadFromSFTP('MotivosBaja.csv');
+    console.log('📉 Bajas encontradas:', bajasData.length);
+    if (bajasData[0]) {
+      console.log('📊 Columnas en archivo de bajas:', Object.keys(bajasData[0]));
+    }
 
     // ========================================
     // PASO 3: COMBINAR Y MAPEAR DATOS REALES
     // ========================================
-    
+
     // Crear mapa de nómina para buscar nombres por número de empleado
     const nominaMap = new Map();
-    (nominaData.data || []).forEach((nomina: Record<string, unknown>, index: number) => {
+    nominaData.forEach((nomina: Record<string, unknown>, index: number) => {
       // Probar múltiples variaciones de campos para el número
       const numero = String(
         nomina['Número'] || 
@@ -142,8 +189,8 @@ export async function POST(request: Request) {
     
     // Debug: mostrar las primeras claves del mapa
     console.log('🔍 Primeras 5 claves del mapa:', Array.from(nominaMap.keys()).slice(0, 5));
-    
-    const empleadosReales = (empleadosData.data || []).map((emp: Record<string, unknown>, index: number) => {
+
+    const empleadosReales = empleadosData.map((emp: Record<string, unknown>, index: number) => {
       // Probar múltiples variaciones para el número de empleado
       const numero = String(
         emp['Número'] || 
@@ -221,7 +268,7 @@ export async function POST(request: Request) {
       };
     });
 
-    const bajasReales = (bajasData.data || []).map((baja: Record<string, unknown>, index: number) => {
+    const bajasReales = bajasData.map((baja: Record<string, unknown>, index: number) => {
       return {
         numero_empleado: parseInt(String(baja['#'] || baja['Número'] || baja['N?mero'])) || (index + 1),
         fecha_baja: parseDate(baja['Fecha']) || new Date().toISOString().split('T')[0],
@@ -295,10 +342,10 @@ export async function POST(request: Request) {
     console.log('💾 Insertando asistencia diaria...');
     
     let asistenciaInsertada = 0;
-    const asistenciaReales: Array<{ numero_empleado: number; fecha: string; horas: number } > = [];
-    
+    const asistenciaReales: Array<{ numero_empleado: number; fecha: string; horas_trabajadas: number; presente: boolean; fecha_creacion: string }> = [];
+
     // Procesar datos de Prenomina Horizontal para asistencia
-    (nominaData.data || []).forEach((nomina: Record<string, unknown>, index: number) => {
+    nominaData.forEach((nomina: Record<string, unknown>, index: number) => {
       const numeroEmpleado = parseInt(String(
         nomina['Número'] || 
         nomina['N?mero'] || 
