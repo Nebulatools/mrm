@@ -33,32 +33,73 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchUser = async () => {
       try {
+        console.log('🔄 [useAuth] Fetching user...');
         const { data: { user: currentUser } } = await supabase.auth.getUser();
 
+        if (!isMounted) return;
+
         if (!currentUser) {
+          console.log('⚠️ [useAuth] No user found');
           setUser(null);
           setProfile(null);
           setLoading(false);
           return;
         }
 
+        console.log('✅ [useAuth] User found:', currentUser.email);
         setUser(currentUser);
 
-        // Obtener perfil del usuario CON TIMEOUT (5 segundos)
-        const profileQuery = supabase
+        // Obtener perfil del usuario CON TIMEOUT (3 segundos)
+        console.log('🔍 [useAuth] Fetching profile...');
+
+        const profilePromise = supabase
           .from('user_profiles')
           .select('*')
           .eq('id', currentUser.id)
           .single();
 
-        const { data: userProfile, error } = await withTimeout(profileQuery, 5000);
+        const { data: userProfile, error } = await withTimeout(profilePromise, 3000);
+
+        if (!isMounted) return;
 
         if (error) {
-          console.error('❌ Error fetching user profile:', error);
-          console.error('⚠️ User will be logged out due to profile fetch failure');
-          // Si no podemos cargar el perfil, mejor cerrar sesión
+          console.error('❌ [useAuth] Error fetching profile:', error);
+
+          // Si el error es de timeout, intentar una vez más con timeout más largo
+          if (error.message === 'Query timeout') {
+            console.log('⏳ [useAuth] Timeout, retrying with longer timeout...');
+
+            const retryPromise = supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('id', currentUser.id)
+              .single();
+
+            const { data: retryProfile, error: retryError } = await withTimeout(retryPromise, 5000);
+
+            if (!isMounted) return;
+
+            if (retryError) {
+              console.error('❌ [useAuth] Retry failed, signing out');
+              await supabase.auth.signOut();
+              setUser(null);
+              setProfile(null);
+              setLoading(false);
+              router.push('/login');
+              return;
+            }
+
+            console.log('✅ [useAuth] Profile loaded on retry:', retryProfile?.email);
+            setProfile(retryProfile);
+            setLoading(false);
+            return;
+          }
+
+          // Otros errores: cerrar sesión
           await supabase.auth.signOut();
           setUser(null);
           setProfile(null);
@@ -67,16 +108,19 @@ export function useAuth() {
           return;
         }
 
+        console.log('✅ [useAuth] Profile loaded:', userProfile?.email);
         setProfile(userProfile);
+        setLoading(false);
       } catch (error) {
-        console.error('❌ Critical error in fetchUser:', error);
+        if (!isMounted) return;
+
+        console.error('❌ [useAuth] Critical error:', error);
         // En caso de timeout o error crítico, cerrar sesión y redirigir
         await supabase.auth.signOut();
         setUser(null);
         setProfile(null);
-        router.push('/login');
-      } finally {
         setLoading(false);
+        router.push('/login');
       }
     };
 
@@ -121,6 +165,7 @@ export function useAuth() {
     );
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [supabase, router]);
