@@ -131,6 +131,7 @@ export function useAuth() {
       async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
+          setLoading(true);
 
           try {
             // Obtener perfil CON TIMEOUT
@@ -145,20 +146,24 @@ export function useAuth() {
             if (error) {
               console.error('❌ Error loading profile after sign in:', error);
               // Si falla, cerrar sesión
+              setLoading(false);
               await supabase.auth.signOut();
               router.push('/login');
               return;
             }
 
             setProfile(userProfile);
+            setLoading(false);
           } catch (error) {
             console.error('❌ Timeout loading profile after sign in:', error);
+            setLoading(false);
             await supabase.auth.signOut();
             router.push('/login');
           }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setProfile(null);
+          setLoading(false);
           router.push('/login');
         }
       }
