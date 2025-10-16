@@ -53,16 +53,34 @@ export function useAuth() {
         console.log('✅ [useAuth] User found:', currentUser.email);
         setUser(currentUser);
 
-        // Obtener perfil del usuario CON TIMEOUT (3 segundos)
-        console.log('🔍 [useAuth] Fetching profile...');
+        // Obtener perfil del usuario DIRECTAMENTE desde el servidor
+        // para evitar problemas de RLS timeout en el browser client
+        console.log('🔍 [useAuth] Fetching profile via /api/auth/me...');
 
+        try {
+          const res = await fetch('/api/auth/me', { cache: 'no-store' });
+          const json = await res.json();
+
+          if (!isMounted) return;
+
+          if (json?.ok && json?.profile) {
+            console.log('✅ [useAuth] Profile loaded via /api/auth/me:', json.profile.email);
+            setProfile(json.profile as any);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.error('❌ [useAuth] Failed to fetch via /api/auth/me:', e);
+        }
+
+        // Fallback: intentar query directa si el endpoint falla
         const profilePromise = supabase
           .from('user_profiles')
           .select('*')
           .eq('id', currentUser.id)
           .single();
 
-        const { data: userProfile, error } = await withTimeout(profilePromise, 8000);
+        const { data: userProfile, error } = await withTimeout(profilePromise, 3000);
 
         if (!isMounted) return;
 
@@ -157,15 +175,29 @@ export function useAuth() {
           setUser(session.user);
           setLoading(true);
 
+          // Usar endpoint del servidor directamente para evitar RLS timeouts
           try {
-            // Obtener perfil CON TIMEOUT
+            const res = await fetch('/api/auth/me', { cache: 'no-store' });
+            const json = await res.json();
+            if (json?.ok && json?.profile) {
+              console.log('✅ [useAuth] Profile loaded via /api/auth/me (after sign in)');
+              setProfile(json.profile as any);
+              setLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.error('❌ [useAuth] Failed to fetch via /api/auth/me after sign in:', e);
+          }
+
+          // Fallback: query directa
+          try {
             const profileQuery = supabase
               .from('user_profiles')
               .select('*')
               .eq('id', session.user.id)
               .single();
 
-            const { data: userProfile, error } = await withTimeout(profileQuery, 8000);
+            const { data: userProfile, error } = await withTimeout(profileQuery, 3000);
 
             if (error) {
               console.error('❌ Error loading profile after sign in:', error);
