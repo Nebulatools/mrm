@@ -62,7 +62,7 @@ export function useAuth() {
           .eq('id', currentUser.id)
           .single();
 
-        const { data: userProfile, error } = await withTimeout(profilePromise, 3000);
+        const { data: userProfile, error } = await withTimeout(profilePromise, 8000);
 
         if (!isMounted) return;
 
@@ -79,7 +79,7 @@ export function useAuth() {
               .eq('id', currentUser.id)
               .single();
 
-            const { data: retryProfile, error: retryError } = await withTimeout(retryPromise, 5000);
+            const { data: retryProfile, error: retryError } = await withTimeout(retryPromise, 12000);
 
             if (!isMounted) return;
 
@@ -141,7 +141,7 @@ export function useAuth() {
               .eq('id', session.user.id)
               .single();
 
-            const { data: userProfile, error } = await withTimeout(profileQuery, 5000);
+            const { data: userProfile, error } = await withTimeout(profileQuery, 8000);
 
             if (error) {
               console.error('❌ Error loading profile after sign in:', error);
