@@ -26,17 +26,13 @@ CREATE POLICY "Users can view own profile"
   FOR SELECT
   USING (auth.uid() = id);
 
--- Política: solo admins pueden ver todos los perfiles
+-- Política: solo admins pueden ver todos los perfiles (SIN RECURSIÓN)
+-- IMPORTANTE: Usar is_admin() que tiene SECURITY DEFINER para evitar deadlock
 DROP POLICY IF EXISTS "Admins can view all profiles" ON user_profiles;
 CREATE POLICY "Admins can view all profiles"
   ON user_profiles
   FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE id = auth.uid() AND role = 'admin'
-    )
-  );
+  USING (public.is_admin());  -- ✅ Sin recursión, usa SECURITY DEFINER
 
 -- ========================================
 -- 2. FUNCIONES HELPER (en esquema public)
