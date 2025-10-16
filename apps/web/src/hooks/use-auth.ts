@@ -66,12 +66,12 @@ export function useAuth() {
 
         if (!isMounted) return;
 
-        if (error) {
-          console.error('❌ [useAuth] Error fetching profile:', error);
+          if (error) {
+            console.error('❌ [useAuth] Error fetching profile:', error);
 
-          // Si el error es de timeout, intentar una vez más con timeout más largo
-          if (error.message === 'Query timeout') {
-            console.log('⏳ [useAuth] Timeout, retrying with longer timeout...');
+            // Si el error es de timeout, intentar una vez más con timeout más largo
+            if (error.message === 'Query timeout') {
+              console.log('⏳ [useAuth] Timeout, retrying with longer timeout...');
 
             const retryPromise = supabase
               .from('user_profiles')
@@ -84,7 +84,20 @@ export function useAuth() {
             if (!isMounted) return;
 
             if (retryError) {
-              console.error('❌ [useAuth] Retry failed, signing out');
+              console.warn('⚠️ [useAuth] Retry failed, attempting server-side fallback /api/auth/me');
+              try {
+                const res = await fetch('/api/auth/me', { cache: 'no-store' });
+                const json = await res.json();
+                if (json?.ok && json?.profile) {
+                  console.log('✅ [useAuth] Fallback profile loaded via /api/auth/me');
+                  setProfile(json.profile as any);
+                  setLoading(false);
+                  return;
+                }
+              } catch (e) {
+                console.error('❌ [useAuth] Fallback /api/auth/me failed:', e);
+              }
+              console.error('❌ [useAuth] Retry+fallback failed, signing out');
               await supabase.auth.signOut();
               setUser(null);
               setProfile(null);
@@ -100,6 +113,17 @@ export function useAuth() {
           }
 
           // Otros errores: cerrar sesión
+          // Intentar fallback final antes de cerrar sesión
+          try {
+            const res = await fetch('/api/auth/me', { cache: 'no-store' });
+            const json = await res.json();
+            if (json?.ok && json?.profile) {
+              console.log('✅ [useAuth] Fallback profile loaded via /api/auth/me (non-timeout error branch)');
+              setProfile(json.profile as any);
+              setLoading(false);
+              return;
+            }
+          } catch {}
           await supabase.auth.signOut();
           setUser(null);
           setProfile(null);
@@ -145,6 +169,19 @@ export function useAuth() {
 
             if (error) {
               console.error('❌ Error loading profile after sign in:', error);
+              // Fallback via server endpoint
+              try {
+                const res = await fetch('/api/auth/me', { cache: 'no-store' });
+                const json = await res.json();
+                if (json?.ok && json?.profile) {
+                  console.log('✅ [useAuth] Fallback profile loaded via /api/auth/me (after sign in)');
+                  setProfile(json.profile as any);
+                  setLoading(false);
+                  return;
+                }
+              } catch (e) {
+                console.error('❌ [useAuth] Fallback /api/auth/me failed after sign in:', e);
+              }
               // Si falla, cerrar sesión
               setLoading(false);
               await supabase.auth.signOut();
@@ -156,6 +193,19 @@ export function useAuth() {
             setLoading(false);
           } catch (error) {
             console.error('❌ Timeout loading profile after sign in:', error);
+            // Fallback via server endpoint
+            try {
+              const res = await fetch('/api/auth/me', { cache: 'no-store' });
+              const json = await res.json();
+              if (json?.ok && json?.profile) {
+                console.log('✅ [useAuth] Fallback profile loaded via /api/auth/me (timeout after sign in)');
+                setProfile(json.profile as any);
+                setLoading(false);
+                return;
+              }
+            } catch (e) {
+              console.error('❌ [useAuth] Fallback /api/auth/me failed (timeout path):', e);
+            }
             setLoading(false);
             await supabase.auth.signOut();
             router.push('/login');
