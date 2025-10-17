@@ -1,6 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { isMotivoClave } from '@/lib/normalizers'
 
 interface BajasPorMotivoData {
   motivo: string
@@ -21,6 +22,7 @@ interface BajasPorMotivoData {
 interface BajasPorMotivoHeatmapProps {
   data: BajasPorMotivoData[]
   year: number
+  motivoFilter?: 'involuntaria' | 'complementaria'
 }
 
 const MESES = [
@@ -33,10 +35,20 @@ const MESES_LABELS = [
   'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
 ]
 
-export function BajasPorMotivoHeatmap({ data, year }: BajasPorMotivoHeatmapProps) {
+export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria' }: BajasPorMotivoHeatmapProps) {
+  // Filtrar datos según el tipo de motivo
+  const filteredData = data.filter(row => {
+    if (motivoFilter === 'involuntaria') {
+      return isMotivoClave(row.motivo);
+    } else if (motivoFilter === 'complementaria') {
+      return !isMotivoClave(row.motivo);
+    }
+    return true; // Si no hay filtro, mostrar todo
+  });
+
   // Calcular el máximo valor para escalar los colores
   const maxValue = Math.max(
-    ...data.flatMap(row =>
+    ...filteredData.flatMap(row =>
       MESES.map(mes => row[mes as keyof BajasPorMotivoData] as number)
     ),
     1 // Evitar división por 0
@@ -92,7 +104,7 @@ export function BajasPorMotivoHeatmap({ data, year }: BajasPorMotivoHeatmapProps
               </tr>
             </thead>
             <tbody>
-              {data.map((row, rowIndex) => {
+              {filteredData.map((row, rowIndex) => {
                 const total = MESES.reduce((sum, mes) =>
                   sum + (row[mes as keyof BajasPorMotivoData] as number), 0
                 )

@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { PlantillaRecord } from "@/lib/supabase";
-import { prettyMotivo, normalizePuesto, normalizeDepartamento } from "@/lib/normalizers";
+import { prettyMotivo, normalizePuesto, normalizeDepartamento, isMotivoClave } from "@/lib/normalizers";
 import { cn } from "@/lib/utils";
 
 //
@@ -32,6 +32,7 @@ interface Employee {
 interface DismissalReasonsTableProps {
   plantilla: PlantillaRecord[];
   refreshEnabled?: boolean;
+  motivoFilter?: 'involuntaria' | 'complementaria';
 }
 
 // Color mapping removed (not used)
@@ -39,9 +40,10 @@ interface DismissalReasonsTableProps {
 export function DismissalReasonsTable({
   plantilla,
   refreshEnabled = false,
+  motivoFilter = 'involuntaria',
 }: DismissalReasonsTableProps) {
   const [showAll, setShowAll] = useState(false); // COLAPSADA POR DEFECTO
-  
+
   const sanitizeText = (value?: string) => {
     if (!value) return 'N/A';
     const v = String(value);
@@ -51,12 +53,19 @@ export function DismissalReasonsTable({
     if (isFilePath || looksLikeScreenshot) return '—';
     return v;
   };
-  
+
   // Filtrar empleados dados de baja - usar fecha_baja O activo = false
-  const empleadosBaja = plantilla.filter(emp => {
+  let empleadosBaja = plantilla.filter(emp => {
     // Tiene fecha de baja O está marcado como inactivo
     return (emp.fecha_baja && emp.fecha_baja !== null) || emp.activo === false;
   });
+
+  // Aplicar filtro por motivo
+  if (motivoFilter === 'involuntaria') {
+    empleadosBaja = empleadosBaja.filter(emp => isMotivoClave(emp.motivo_baja));
+  } else if (motivoFilter === 'complementaria') {
+    empleadosBaja = empleadosBaja.filter(emp => !isMotivoClave(emp.motivo_baja));
+  }
   
   // Calcular razones de baja agrupadas
   // Razones agregadas (si se requiere mostrar en otra vista)

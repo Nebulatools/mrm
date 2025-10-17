@@ -8,6 +8,7 @@ import { format, subMonths, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { isMotivoClave } from '@/lib/normalizers';
 //
 
 interface MonthlyRetentionData {
@@ -44,9 +45,10 @@ interface RetentionChartsProps {
   currentDate?: Date;
   currentYear?: number;
   filters?: RetentionFilters;
+  motivoFilter?: 'involuntaria' | 'complementaria';
 }
 
-export function RetentionCharts({ currentDate = new Date(), currentYear }: RetentionChartsProps) {
+export function RetentionCharts({ currentDate = new Date(), currentYear, motivoFilter = 'involuntaria' }: RetentionChartsProps) {
   // Create authenticated Supabase client for RLS filtering
   const supabase = createBrowserClient();
 
@@ -58,7 +60,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
   useEffect(() => {
     loadMonthlyRetentionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, currentYear, supabase]);
+  }, [currentDate, currentYear, supabase, motivoFilter]);
 
   const loadMonthlyRetentionData = async () => {
     try {
@@ -66,10 +68,27 @@ export function RetentionCharts({ currentDate = new Date(), currentYear }: Reten
       console.log('🔄 RetentionCharts: Loading monthly retention data...');
 
       // Cargar empleados SFTP una sola vez para todos los meses (optimización)
-      const plantilla = await db.getEmpleadosSFTP(supabase);
+      let plantilla = await db.getEmpleadosSFTP(supabase);
       console.log('👥 Empleados SFTP loaded:', plantilla?.length, 'records');
       if (!plantilla) {
         throw new Error('No plantilla data found');
+      }
+
+      // Filtrar por motivo si hay bajas
+      if (motivoFilter === 'involuntaria') {
+        // Solo incluir empleados con motivos involuntarios
+        plantilla = plantilla.filter(emp => {
+          if (!emp.fecha_baja) return true; // Mantener empleados activos
+          return isMotivoClave((emp as any).motivo_baja);
+        });
+        console.log(`🔍 Filtered to involuntaria motivos: ${plantilla.length} employees`);
+      } else if (motivoFilter === 'complementaria') {
+        // Solo incluir empleados con motivos complementarios (no involuntarios)
+        plantilla = plantilla.filter(emp => {
+          if (!emp.fecha_baja) return true; // Mantener empleados activos
+          return !isMotivoClave((emp as any).motivo_baja);
+        });
+        console.log(`🔍 Filtered to complementaria motivos: ${plantilla.length} employees`);
       }
       
       // Detectar el rango de años con datos reales de bajas - DINÁMICO

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users,
@@ -80,6 +81,9 @@ export function DashboardPage() {
   const [bajasPorMotivoData, setBajasPorMotivoData] = useState<BajasPorMotivoData[]>([]);
   const [bajasData, setBajasData] = useState<any[]>([]);
   const [incidenciasData, setIncidenciasData] = useState<any[]>([]);
+
+  // Toggle para filtrar visualizaciones por rotación involuntaria vs complementaria
+  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'complementaria'>('involuntaria');
 
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
     years: [],
@@ -903,14 +907,14 @@ export function DashboardPage() {
 
           {/* Retention Tab */}
           <TabsContent value="retention" className="space-y-6">
-            {/* Explicación de rotación voluntaria */}
+            {/* Explicación de rotación involuntaria */}
             <div
               className={cn(
                 "rounded border-l-4 border-blue-400 bg-gray-50 p-2 text-xs text-gray-500 dark:bg-gray-800",
                 refreshEnabled && "border-brand-border/80 bg-brand-surface-accent/70 text-brand-ink/70"
               )}
             >
-              <strong>Rotación voluntaria:</strong> Rescisión por desempeño, Rescisión por disciplina, Término del contrato
+              <strong>Rotación involuntaria:</strong> Rescisión por desempeño, Rescisión por disciplina, Término del contrato
             </div>
 
             {/* 5 KPIs Principales de Retención con filtros aplicados */}
@@ -942,12 +946,12 @@ export function DashboardPage() {
                     kpi={{
                       name: 'Bajas',
                       category: 'retention',
-                      value: filteredRetentionKPIs.bajas,
+                      value: filteredRetentionKPIs.bajas - filteredRetentionKPIs.bajasClaves,
                       period_start: '1900-01-01',
                       period_end: new Date().toISOString().split('T')[0]
                     }}
                     icon={<UserMinus className="h-6 w-6" />}
-                    secondaryLabel="Voluntaria"
+                    secondaryLabel="Involuntaria"
                     secondaryValue={filteredRetentionKPIs.bajasClaves}
                   />
 
@@ -956,7 +960,7 @@ export function DashboardPage() {
                     kpi={{
                       name: 'Rotación Mensual',
                       category: 'retention',
-                      value: filteredRetentionKPIs.rotacionMensual,
+                      value: Number((filteredRetentionKPIs.rotacionMensual - filteredRetentionKPIs.rotacionMensualClaves).toFixed(1)),
                       period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1)
                         .toISOString()
                         .split('T')[0],
@@ -965,7 +969,7 @@ export function DashboardPage() {
                         .split('T')[0]
                     }}
                     icon={<TrendingUp className="h-6 w-6" />}
-                    secondaryLabel="Motivos clave"
+                    secondaryLabel="Rotación Involuntaria"
                     secondaryValue={filteredRetentionKPIs.rotacionMensualClaves}
                     secondaryIsPercent
                   />
@@ -975,7 +979,7 @@ export function DashboardPage() {
                     kpi={{
                       name: 'Rotación Acumulada',
                       category: 'retention',
-                      value: filteredRetentionKPIs.rotacionAcumulada,
+                      value: Number((filteredRetentionKPIs.rotacionAcumulada - filteredRetentionKPIs.rotacionAcumuladaClaves).toFixed(1)),
                       period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() - 11, 1)
                         .toISOString()
                         .split('T')[0],
@@ -984,7 +988,7 @@ export function DashboardPage() {
                         .split('T')[0]
                     }}
                     icon={<TrendingDown className="h-6 w-6" />}
-                    secondaryLabel="Motivos clave"
+                    secondaryLabel="Rotación Involuntaria"
                     secondaryValue={filteredRetentionKPIs.rotacionAcumuladaClaves}
                     secondaryIsPercent
                   />
@@ -994,34 +998,75 @@ export function DashboardPage() {
                     kpi={{
                       name: 'Rotación Año Actual',
                       category: 'retention',
-                      value: filteredRetentionKPIs.rotacionAnioActual,
+                      value: Number((filteredRetentionKPIs.rotacionAnioActual - filteredRetentionKPIs.rotacionAnioActualClaves).toFixed(1)),
                       period_start: new Date(selectedPeriod.getFullYear(), 0, 1).toISOString().split('T')[0],
                       period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0)
                         .toISOString()
                         .split('T')[0]
                     }}
                     icon={<TrendingDown className="h-6 w-6" />}
-                    secondaryLabel="Motivos clave"
+                    secondaryLabel="Rotación Involuntaria"
                     secondaryValue={filteredRetentionKPIs.rotacionAnioActualClaves}
                     secondaryIsPercent
                   />
                 </>
               )}
             </div>
-            
+
+            {/* Toggle para filtrar visualizaciones por motivo */}
+            <div className={cn(
+              "flex items-center justify-center gap-4 rounded-lg border bg-white p-4",
+              refreshEnabled && "rounded-2xl border-brand-border/40 bg-brand-surface-accent/60"
+            )}>
+              <span className={cn(
+                "text-sm font-medium",
+                refreshEnabled && "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink/80"
+              )}>
+                Filtrar visualizaciones por:
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant={motivoFilterType === 'involuntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+                  size="sm"
+                  onClick={() => setMotivoFilterType('involuntaria')}
+                  className={cn(
+                    "transition-all",
+                    refreshEnabled && "rounded-full font-semibold",
+                    motivoFilterType === 'involuntaria' && refreshEnabled && "shadow-brand"
+                  )}
+                >
+                  Rotación Involuntaria
+                </Button>
+                <Button
+                  variant={motivoFilterType === 'complementaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+                  size="sm"
+                  onClick={() => setMotivoFilterType('complementaria')}
+                  className={cn(
+                    "transition-all",
+                    refreshEnabled && "rounded-full font-semibold",
+                    motivoFilterType === 'complementaria' && refreshEnabled && "shadow-brand"
+                  )}
+                >
+                  Rotación Complementaria
+                </Button>
+              </div>
+            </div>
+
             {/* 3 Gráficas Especializadas de Retención */}
-            <RetentionCharts currentDate={selectedPeriod} currentYear={currentYear} />
+            <RetentionCharts currentDate={selectedPeriod} currentYear={currentYear} motivoFilter={motivoFilterType} />
 
             {/* Mapa de Calor de Bajas por Motivo */}
             <BajasPorMotivoHeatmap
               data={bajasPorMotivoData}
               year={currentYear}
+              motivoFilter={motivoFilterType}
             />
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
             <DismissalReasonsTable
               plantilla={data.plantilla || []}
               refreshEnabled={refreshEnabled}
+              motivoFilter={motivoFilterType}
             />
           </TabsContent>
 
