@@ -155,20 +155,47 @@ export function DashboardPage() {
     loadBajasIncidencias();
   }, [supabase]);
 
-  // Cargar datos del mapa de calor
+  // Cargar datos del mapa de calor con filtros (excepto mes)
   useEffect(() => {
     const loadBajasPorMotivo = async () => {
       try {
         console.log('🔥 Loading bajas por motivo for year:', currentYear);
-        const data = await kpiCalculator.getBajasPorMotivoYMes(currentYear, supabase);
+
+        // ✅ Cargar empleados y aplicar filtros (excepto mes)
+        const plantilla = await db.getEmpleadosSFTP(supabase);
+
+        // Construir filtros sin mes (año SÍ aplica)
+        const filtersWithoutMonth: RetentionFilterOptions = {
+          years: [currentYear], // Año SÍ aplica para el mapa de calor
+          months: [], // ⚠️ NO filtrar por mes
+          departamentos: retentionFilters.departamentos,
+          puestos: retentionFilters.puestos,
+          clasificaciones: retentionFilters.clasificaciones,
+          empresas: retentionFilters.empresas,
+          areas: retentionFilters.areas,
+          ubicaciones: retentionFilters.ubicaciones
+        };
+
+        // Aplicar filtros a la plantilla
+        const plantillaFiltrada = applyRetentionFilters(plantilla, filtersWithoutMonth);
+
+        // Calcular datos del mapa de calor con plantilla filtrada
+        const data = await kpiCalculator.getBajasPorMotivoYMesFromPlantilla(plantillaFiltrada, currentYear);
         setBajasPorMotivoData(data);
+
+        console.log('🗺️ Mapa de Calor filtrado:', {
+          original: plantilla.length,
+          filtrado: plantillaFiltrada.length,
+          año: currentYear,
+          aplicaFiltros: 'Depto, Puesto, Empresa, Área (NO mes)'
+        });
       } catch (error) {
         console.error('Error loading bajas por motivo data:', error);
       }
     };
 
     loadBajasPorMotivo();
-  }, [currentYear, supabase]);
+  }, [currentYear, supabase, retentionFilters]);
   
 
   const loadDashboardData = useCallback(async (filter: TimeFilter = { period: timePeriod, date: selectedPeriod }, forceRefresh = false) => {
@@ -280,6 +307,13 @@ export function DashboardPage() {
   };
 
   const plantillaFiltered = filterPlantilla(data.plantilla || []);
+
+  // ✅ NUEVO: Filtrar bajas e incidencias basándose en empleados filtrados
+  const empleadosFiltradosIds = new Set(plantillaFiltered.map(e => e.numero_empleado || Number(e.emp_id)));
+  const bajasFiltered = bajasData.filter(b => empleadosFiltradosIds.has(b.numero_empleado));
+  const incidenciasFiltered = incidenciasData.filter(i => empleadosFiltradosIds.has(i.emp));
+
+  // ✅ CORREGIDO: Usar plantillaFiltered para empleados activos (filtros específicos)
   const activosNow = plantillaFiltered.filter(e => e.activo).length;
   const bajasTotal = plantillaFiltered.filter(e => !!e.fecha_baja).length;
   // Ingresos: contrataciones históricas y del mes actual
@@ -294,12 +328,12 @@ export function DashboardPage() {
     const fi = new Date(e.fecha_ingreso);
     return !isNaN(fi.getTime()) && fi >= startMonth && fi <= endMonth;
   }).length;
-  // Antigüedad promedio (meses) sobre activos
+  // ✅ CORREGIDO: Antigüedad promedio (meses) sobre activos FILTRADOS (filtros específicos)
   const activeEmployees = plantillaFiltered.filter(e => e.activo);
-  const antigPromMeses = activeEmployees.length > 0 
+  const antigPromMeses = activeEmployees.length > 0
     ? Math.round(activeEmployees.reduce((acc, e) => acc + monthsBetween(e.fecha_antiguedad || e.fecha_ingreso), 0) / activeEmployees.length)
     : 0;
-  // Empleados con antigüedad < 3 meses (activos)
+  // ✅ CORREGIDO: Empleados con antigüedad < 3 meses (activos FILTRADOS - filtros específicos)
   const menores3m = activeEmployees.filter(e => monthsBetween(e.fecha_antiguedad || e.fecha_ingreso) < 3).length;
 
   // Clasificación: horizontal bar
@@ -382,6 +416,7 @@ export function DashboardPage() {
   // ============================================================================
   // 🆕 FUNCIÓN REFACTORIZADA: Calcular KPIs filtrados para retención
   // Usa funciones helper centralizadas para eliminar duplicación
+  // ⚠️ ACTUALIZACIÓN: Ahora TODAS las métricas usan filtros específicos
   // ============================================================================
   const getFilteredRetentionKPIs = () => {
     // Solo calcular si tenemos datos de plantilla cargados
@@ -401,13 +436,10 @@ export function DashboardPage() {
       } as any;
     }
 
-    console.log('🎯 Calculando KPIs de retención con funciones centralizadas...');
+    console.log('🎯 Calculando KPIs de retención con filtros ESPECÍFICOS...');
 
-    // Datos filtrados según los filtros del usuario
+    // ✅ CORREGIDO: Datos filtrados según los filtros del usuario (ESPECÍFICO)
     const filteredPlantilla = filterPlantilla(data.plantilla);
-
-    // Datos SIN filtros (generales de empresa)
-    const plantillaGeneral = noFiltersForGeneralRotation(data.plantilla);
 
     // Fechas del período actual
     const currentMonth = selectedPeriod.getMonth();
@@ -416,30 +448,28 @@ export function DashboardPage() {
     const finMes = new Date(currentYear, currentMonth + 1, 0);
 
     // ========================================================================
-    // KPIs PRINCIPALES (con filtros aplicados)
+    // KPIs PRINCIPALES (con filtros ESPECÍFICOS aplicados)
     // ========================================================================
 
-    // 1. Activos Promedio del mes
+    // 1. Activos Promedio del mes (ESPECÍFICO - con filtros)
     const activosProm = calculateActivosPromedio(filteredPlantilla, inicioMes, finMes);
 
-    // 2. Total de Bajas (histórico)
+    // 2. Total de Bajas (histórico - ESPECÍFICO - con filtros)
     const bajasTotal = calculateTotalBajas(filteredPlantilla);
 
-    // 3. Bajas Tempranas (<3 meses)
+    // 3. Bajas Tempranas (<3 meses - ESPECÍFICO - con filtros)
     const bajasTemp = calculateBajasTempranas(filteredPlantilla);
 
-    // 4. Rotación Mensual (ESPECÍFICO - usa filtros)
+    // 4. Rotación Mensual (ESPECÍFICO - con filtros)
     const rotMensual = calcularRotacionMensual(filteredPlantilla, selectedPeriod);
 
-    // 5. Rotación Acumulada 12m (GENERAL - sin filtros, con desglose por motivo)
-    // ⚠️ CRÍTICO: Usa desglose para garantizar que Inv + Comp = Total
-    const rotAcumuladaDesglose = calcularRotacionAcumulada12mConDesglose(plantillaGeneral, selectedPeriod);
+    // 5. ✅ CORREGIDO: Rotación Acumulada 12m (ESPECÍFICO - con filtros, con desglose por motivo)
+    const rotAcumuladaDesglose = calcularRotacionAcumulada12mConDesglose(filteredPlantilla, selectedPeriod);
     const rotAcumulada = rotAcumuladaDesglose.total;
     const rotAcumuladaInv = rotAcumuladaDesglose.involuntaria;
 
-    // 6. Rotación Año Actual / YTD (GENERAL - sin filtros, con desglose por motivo)
-    // ⚠️ CRÍTICO: Usa desglose para garantizar que Inv + Comp = Total
-    const rotYTDDesglose = calcularRotacionYTDConDesglose(plantillaGeneral, selectedPeriod);
+    // 6. ✅ CORREGIDO: Rotación Año Actual / YTD (ESPECÍFICO - con filtros, con desglose por motivo)
+    const rotYTDDesglose = calcularRotacionYTDConDesglose(filteredPlantilla, selectedPeriod);
     const rotYTD = rotYTDDesglose.total;
     const rotYTDInv = rotYTDDesglose.involuntaria;
 
@@ -456,11 +486,12 @@ export function DashboardPage() {
     // Rotación mensual involuntaria (ESPECÍFICO - usa filtros)
     const rotMensualInv = calcularRotacionMensual(plantillaInvoluntaria, selectedPeriod);
 
-    console.log('✅ KPIs calculados correctamente:', {
+    console.log('✅ KPIs calculados correctamente con filtros ESPECÍFICOS:', {
       activosPromedio: Math.round(activosProm),
       bajas: bajasTotal,
       rotacionMensual: rotMensual.toFixed(1) + '%',
-      rotacionAcumulada: rotAcumulada.toFixed(1) + '%'
+      rotacionAcumulada: rotAcumulada.toFixed(1) + '%',
+      rotacionYTD: rotYTD.toFixed(1) + '%'
     });
 
     return {
@@ -646,9 +677,11 @@ export function DashboardPage() {
           {/* Overview Tab - Nuevo Resumen Comparativo */}
           <TabsContent value="overview" className="space-y-6">
             <SummaryComparison
-              plantilla={data.plantilla}
-              bajas={bajasData}
-              incidencias={incidenciasData}
+              plantilla={plantillaFiltered}
+              bajas={bajasFiltered}
+              incidencias={incidenciasFiltered}
+              selectedYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}
+              selectedMonth={retentionFilters.months.length > 0 ? retentionFilters.months[0] : undefined}
               refreshEnabled={refreshEnabled}
             />
           </TabsContent>
@@ -849,7 +882,11 @@ export function DashboardPage() {
 
           {/* Incidents Tab */}
           <TabsContent value="incidents" className="space-y-6">
-            <IncidentsTab plantilla={filterPlantilla(data.plantilla || [])} currentYear={currentYear} />
+            <IncidentsTab
+              plantilla={filterPlantilla(data.plantilla || [])}
+              currentYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}
+              currentMonth={retentionFilters.months.length > 0 ? retentionFilters.months[0] : undefined}
+            />
           </TabsContent>
 
           {/* Retention Tab */}
@@ -1000,7 +1037,20 @@ export function DashboardPage() {
             </div>
 
             {/* 3 Gráficas Especializadas de Retención */}
-            <RetentionCharts currentDate={selectedPeriod} currentYear={currentYear} motivoFilter={motivoFilterType} />
+            <RetentionCharts
+              currentDate={selectedPeriod}
+              currentYear={currentYear}
+              filters={{
+                years: [], // ⚠️ NO filtrar por año - mostrar histórico completo
+                months: [], // ⚠️ NO filtrar por mes - mostrar histórico completo
+                departamentos: retentionFilters.departamentos,
+                puestos: retentionFilters.puestos,
+                clasificaciones: retentionFilters.clasificaciones,
+                empresas: retentionFilters.empresas,
+                areas: retentionFilters.areas
+              }}
+              motivoFilter={motivoFilterType}
+            />
 
             {/* Mapa de Calor de Bajas por Motivo */}
             <BajasPorMotivoHeatmap

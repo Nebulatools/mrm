@@ -774,6 +774,65 @@ export class KPICalculator {
       return [];
     }
   }
+
+  // Función para calcular bajas por motivo y mes desde plantilla pre-filtrada
+  getBajasPorMotivoYMesFromPlantilla(plantilla: PlantillaRecord[], year: number): any[] {
+    try {
+      console.log(`🚦 Calculating bajas por motivo from filtered plantilla for year: ${year}`);
+
+      // Filtrar bajas del año especificado
+      const bajasDelAño = plantilla.filter(emp => {
+        if (!emp.fecha_baja) return false;
+        const fechaBaja = new Date(emp.fecha_baja);
+        return fechaBaja.getFullYear() === year;
+      });
+
+      if (bajasDelAño.length === 0) {
+        console.log('No bajas found in filtered plantilla for year:', year);
+        return [];
+      }
+
+      // Agrupar por motivo y mes
+      const heatmapData: { [motivo: string]: { [mes: string]: number } } = {};
+
+      bajasDelAño.forEach(emp => {
+        const fechaBaja = new Date(emp.fecha_baja!);
+        const raw = emp.motivo_baja || 'Otra razón';
+        const motivo = prettyMotivo(raw);
+        const mes = fechaBaja.getMonth(); // 0-11
+
+        // Inicializar motivo si no existe
+        if (!heatmapData[motivo]) {
+          heatmapData[motivo] = {
+            enero: 0, febrero: 0, marzo: 0, abril: 0,
+            mayo: 0, junio: 0, julio: 0, agosto: 0,
+            septiembre: 0, octubre: 0, noviembre: 0, diciembre: 0
+          };
+        }
+
+        // Mapear número de mes a nombre
+        const meses = [
+          'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+          'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+        ];
+
+        heatmapData[motivo][meses[mes]]++;
+      });
+
+      // Convertir a array para el componente
+      const result = Object.entries(heatmapData).map(([motivo, meses]) => ({
+        motivo,
+        ...meses
+      }));
+
+      console.log(`📊 Found ${result.length} motivos with data from filtered plantilla for ${year}`);
+      return result;
+
+    } catch (error) {
+      console.error('Error in getBajasPorMotivoYMesFromPlantilla:', error);
+      return [];
+    }
+  }
 }
 
 export const kpiCalculator = new KPICalculator();

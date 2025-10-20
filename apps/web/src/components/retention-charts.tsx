@@ -37,8 +37,10 @@ interface RetentionFilters {
   years: number[];
   months: number[];
   departamentos?: string[];
-  puestos?: string[]; // Cambiado de areas a puestos
-  clasificaciones?: string[]; // Agregado clasificaciones
+  puestos?: string[];
+  clasificaciones?: string[];
+  empresas?: string[];
+  areas?: string[];
 }
 
 interface RetentionChartsProps {
@@ -48,7 +50,7 @@ interface RetentionChartsProps {
   motivoFilter?: 'involuntaria' | 'complementaria';
 }
 
-export function RetentionCharts({ currentDate = new Date(), currentYear, motivoFilter = 'involuntaria' }: RetentionChartsProps) {
+export function RetentionCharts({ currentDate = new Date(), currentYear, filters, motivoFilter = 'involuntaria' }: RetentionChartsProps) {
   // Create authenticated Supabase client for RLS filtering
   const supabase = createBrowserClient();
 
@@ -60,7 +62,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, motivoF
   useEffect(() => {
     loadMonthlyRetentionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, currentYear, supabase, motivoFilter]);
+  }, [currentDate, currentYear, supabase, motivoFilter, filters]);
 
   const loadMonthlyRetentionData = async () => {
     try {
@@ -72,6 +74,45 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, motivoF
       console.log('👥 Empleados SFTP loaded:', plantilla?.length, 'records');
       if (!plantilla) {
         throw new Error('No plantilla data found');
+      }
+
+      // ✅ APLICAR FILTROS ESPECÍFICOS (Departamento, Puesto, Empresa, Área)
+      // ⚠️ NO filtrar por año/mes para mostrar tendencias históricas completas
+      if (filters) {
+        const deptosSet = new Set(filters.departamentos || []);
+        const puestosSet = new Set((filters.puestos || []).map(p => String(p).trim()));
+        const empresasSet = new Set(filters.empresas || []);
+        const areasSet = new Set(filters.areas || []);
+
+        plantilla = plantilla.filter(emp => {
+          // Filtro por Empresa/Negocio
+          if (empresasSet.size) {
+            const empEmpresa: string = (emp as any).empresa || '';
+            if (!empresasSet.has(empEmpresa)) return false;
+          }
+
+          // Filtro por Área
+          if (areasSet.size && !areasSet.has(emp.area || '')) return false;
+
+          // Filtro por Departamento
+          if (deptosSet.size && !deptosSet.has(emp.departamento || '')) return false;
+
+          // Filtro por Puesto
+          if (puestosSet.size) {
+            const empPuesto = String(emp.puesto || '').trim();
+            if (!puestosSet.has(empPuesto)) return false;
+          }
+
+          return true;
+        });
+
+        console.log('🔍 Filtros aplicados a RetentionCharts:', {
+          original: plantilla.length,
+          departamentos: filters.departamentos?.length || 0,
+          puestos: filters.puestos?.length || 0,
+          empresas: filters.empresas?.length || 0,
+          areas: filters.areas?.length || 0
+        });
       }
 
       // Filtrar por motivo usando función centralizada

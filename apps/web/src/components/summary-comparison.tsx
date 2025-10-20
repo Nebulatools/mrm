@@ -1,11 +1,12 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Users, TrendingDown, AlertCircle, TrendingUp, Minus, ArrowUp, ArrowDown } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { isMotivoClave } from '@/lib/normalizers';
+import { isMotivoClave, normalizeIncidenciaCode } from '@/lib/normalizers';
 import { cn } from '@/lib/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
 import {
@@ -32,25 +33,77 @@ interface SummaryComparisonProps {
   plantilla: PlantillaRecord[];
   bajas: BajaRecord[];
   incidencias: IncidenciaRecord[];
+  selectedYear?: number;    // ✅ Opcional: undefined = SIN filtro (mostrar TODO)
+  selectedMonth?: number;   // ✅ Opcional: undefined = SIN filtro (mostrar TODO)
   refreshEnabled?: boolean;
 }
 
-export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnabled = false }: SummaryComparisonProps) {
+// ✅ Códigos de incidencias y permisos (igual que en incidents-tab.tsx)
+const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
+const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3"]);
 
-  // Calcular antigüedad en años
-  const getAntiguedad = (fechaIngreso: string): number => {
+export function SummaryComparison({ plantilla, bajas, incidencias, selectedYear, selectedMonth, refreshEnabled = false }: SummaryComparisonProps) {
+
+  // ✅ LÓGICA CORRECTA: Filtrar incidencias/permisos con filtros aplicados
+  const { totalIncidencias, totalPermisos } = useMemo(() => {
+    // Crear mapa de empleados filtrados
+    const empleadosMap = new Map<number, PlantillaRecord>();
+    plantilla.forEach((e: any) => {
+      const num = Number(e.numero_empleado ?? e.emp_id);
+      if (!Number.isNaN(num)) empleadosMap.set(num, e);
+    });
+
+    // Filtrar incidencias: solo empleados filtrados + fecha si aplica
+    const incidenciasFiltradas = incidencias.filter(inc => {
+      // ✅ FILTRO 1: Solo empleados en plantilla filtrada
+      if (!empleadosMap.has(inc.emp)) return false;
+
+      // ✅ FILTRO 2: Por fecha SOLO si hay filtros de año/mes seleccionados
+      if (selectedYear !== undefined && selectedMonth !== undefined) {
+        const mesInicio = new Date(selectedYear, selectedMonth - 1, 1);
+        const mesFin = new Date(selectedYear, selectedMonth, 0, 23, 59, 59);
+        const fechaInc = new Date(inc.fecha);
+        if (fechaInc < mesInicio || fechaInc > mesFin) return false;
+      }
+
+      return true;
+    });
+
+    // Contar por tipo usando normalización
+    const countByType = new Map<string, number>();
+    incidenciasFiltradas.forEach(i => {
+      const code = normalizeIncidenciaCode(i.inci);
+      if (!code) return;
+      countByType.set(code, (countByType.get(code) || 0) + 1);
+    });
+
+    // Sumar incidencias (FI, SUS, PSIN, ENFE)
+    let totalInc = 0;
+    countByType.forEach((v, k) => { if (INCIDENT_CODES.has(k)) totalInc += v; });
+
+    // Sumar permisos (PCON, VAC, MAT3)
+    let totalPerm = 0;
+    countByType.forEach((v, k) => { if (PERMISO_CODES.has(k)) totalPerm += v; });
+
+    return { totalIncidencias: totalInc, totalPermisos: totalPerm };
+  }, [plantilla, incidencias, selectedYear, selectedMonth]);
+
+  // ✅ ACTUALIZADO: Calcular antigüedad en meses y categorizar según nuevas especificaciones
+  const getAntiguedadMeses = (fechaIngreso: string): number => {
     const ingreso = new Date(fechaIngreso);
     const hoy = new Date();
-    return Math.floor((hoy.getTime() - ingreso.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    const diffTime = hoy.getTime() - ingreso.getTime();
+    return Math.floor(diffTime / (30.44 * 24 * 60 * 60 * 1000)); // Promedio de días por mes
   };
 
-  // Clasificar antigüedad
-  const clasificarAntiguedad = (anos: number): string => {
-    if (anos < 1) return '0-1 años';
-    if (anos < 3) return '1-3 años';
-    if (anos < 5) return '3-5 años';
-    if (anos < 10) return '5-10 años';
-    return '10+ años';
+  // ✅ ACTUALIZADO: Clasificar antigüedad según nuevas categorías
+  // NUEVAS CATEGORÍAS: 0-3 meses, 3-6 meses, 6-12 meses, 1-3 años, +3 años
+  const clasificarAntiguedad = (meses: number): string => {
+    if (meses < 3) return '0-3 meses';
+    if (meses < 6) return '3-6 meses';
+    if (meses < 12) return '6-12 meses';
+    if (meses < 36) return '1-3 años'; // 1-3 años = 12-36 meses
+    return '+3 años';
   };
 
   // ✅ ELIMINADA función duplicada - ahora usa funciones centralizadas de kpi-helpers.ts
@@ -203,11 +256,11 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
       // para que calcularRotacion() pueda encontrar las bajas
       const empleados = plantilla.filter(e => (e.empresa || '') === negocio);
 
-      // Activos por antigüedad (solo empleados activos)
+      // ✅ ACTUALIZADO: Activos por antigüedad usando nueva clasificación (solo empleados activos)
       const empleadosActivos = empleados.filter(e => e.activo);
       const porAntiguedad = empleadosActivos.reduce((acc, emp) => {
-        const anos = getAntiguedad(emp.fecha_ingreso);
-        const categoria = clasificarAntiguedad(anos);
+        const meses = getAntiguedadMeses(emp.fecha_ingreso);
+        const categoria = clasificarAntiguedad(meses);
         acc[categoria] = (acc[categoria] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
@@ -238,11 +291,11 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
       // ✅ CORREGIDO: Incluir TODOS los empleados (activos Y dados de baja)
       const empleados = plantilla.filter(e => (e.area || '') === area);
 
-      // Activos por antigüedad (solo empleados activos)
+      // ✅ ACTUALIZADO: Activos por antigüedad usando nueva clasificación (solo empleados activos)
       const empleadosActivos = empleados.filter(e => e.activo);
       const porAntiguedad = empleadosActivos.reduce((acc, emp) => {
-        const anos = getAntiguedad(emp.fecha_ingreso);
-        const categoria = clasificarAntiguedad(anos);
+        const meses = getAntiguedadMeses(emp.fecha_ingreso);
+        const categoria = clasificarAntiguedad(meses);
         acc[categoria] = (acc[categoria] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
@@ -273,11 +326,11 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
       // ✅ CORREGIDO: Incluir TODOS los empleados (activos Y dados de baja)
       const empleados = plantilla.filter(e => e.departamento === depto);
 
-      // Activos por antigüedad (solo empleados activos)
+      // ✅ ACTUALIZADO: Activos por antigüedad usando nueva clasificación (solo empleados activos)
       const empleadosActivos = empleados.filter(e => e.activo);
       const porAntiguedad = empleadosActivos.reduce((acc, emp) => {
-        const anos = getAntiguedad(emp.fecha_ingreso);
-        const categoria = clasificarAntiguedad(anos);
+        const meses = getAntiguedadMeses(emp.fecha_ingreso);
+        const categoria = clasificarAntiguedad(meses);
         acc[categoria] = (acc[categoria] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
@@ -301,22 +354,11 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
   };
 
   const renderSeccion = (datos: ReturnType<typeof datosPorNegocio>, tipoGrupo: 'negocio' | 'area' | 'departamento') => {
-    // Calcular empleados filtrados según el tipo de grupo
-    let empleadosDelGrupo: PlantillaRecord[] = [];
-    if (tipoGrupo === 'negocio') {
-      const negociosActivos = datos.map(d => d.nombre);
-      empleadosDelGrupo = plantilla.filter(e => negociosActivos.includes(e.empresa || ''));
-    } else if (tipoGrupo === 'area') {
-      const areasActivas = datos.map(d => d.nombre);
-      empleadosDelGrupo = plantilla.filter(e => areasActivas.includes(e.area || ''));
-    } else {
-      const deptosActivos = datos.map(d => d.nombre);
-      empleadosDelGrupo = plantilla.filter(e => deptosActivos.includes(e.departamento));
-    }
-
-    // Calcular KPIs del mes actual y anterior para comparación
-    const kpisActuales = calcularKPIsDelMes(empleadosDelGrupo, 0);
-    const kpisAnteriores = calcularKPIsDelMes(empleadosDelGrupo, -1);
+    // ✅ CORREGIDO: Los KPIs de arriba (Incidencias, Permisos) usan TODA la plantilla filtrada
+    // No deben reagruparse, ya vienen filtrados desde dashboard-page.tsx
+    // Calcular KPIs del mes actual y anterior para comparación usando TODA la plantilla filtrada
+    const kpisActuales = calcularKPIsDelMes(plantilla, 0);
+    const kpisAnteriores = calcularKPIsDelMes(plantilla, -1);
 
     // Preparar datos para gráfico de activos por antigüedad
     const datosActivos = datos.map(d => {
@@ -339,11 +381,11 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
         nombre: nombreCorto,
         nombreCompleto: d.nombre, // Para tooltip
         total: d.total,
-        '0-1 años': d.antiguedad['0-1 años'] || 0,
+        '0-3 meses': d.antiguedad['0-3 meses'] || 0,
+        '3-6 meses': d.antiguedad['3-6 meses'] || 0,
+        '6-12 meses': d.antiguedad['6-12 meses'] || 0,
         '1-3 años': d.antiguedad['1-3 años'] || 0,
-        '3-5 años': d.antiguedad['3-5 años'] || 0,
-        '5-10 años': d.antiguedad['5-10 años'] || 0,
-        '10+ años': d.antiguedad['10+ años'] || 0,
+        '+3 años': d.antiguedad['+3 años'] || 0,
       };
     });
 
@@ -355,8 +397,8 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
           {renderKPICard('Rotación Mensual', kpisActuales.rotacionMensual, kpisAnteriores.rotacionMensual, true, <TrendingDown className="h-4 w-4" />)}
           {renderKPICard('Rotación Acumulada', kpisActuales.rotacionAcumulada, kpisAnteriores.rotacionAcumulada, true, <TrendingDown className="h-4 w-4" />)}
           {renderKPICard('Rotación Año Actual', kpisActuales.rotacionAnioActual, kpisAnteriores.rotacionAnioActual, true, <TrendingDown className="h-4 w-4" />)}
-          {renderKPICard('Incidencias', kpisActuales.incidencias, kpisAnteriores.incidencias, false, <AlertCircle className="h-4 w-4" />)}
-          {renderKPICard('Permisos', kpisActuales.permisos, kpisAnteriores.permisos, false, <TrendingUp className="h-4 w-4" />)}
+          {renderKPICard('Incidencias', totalIncidencias, totalIncidencias, false, <AlertCircle className="h-4 w-4" />)}
+          {renderKPICard('Permisos', totalPermisos, totalPermisos, false, <TrendingUp className="h-4 w-4" />)}
         </div>
 
         {/* 1. ACTIVOS POR ANTIGÜEDAD - DISEÑO MEJORADO */}
@@ -404,11 +446,11 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
                   }}
                 />
                 <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="rect" iconSize={12} />
-                <Bar dataKey="0-1 años" stackId="a" fill="#ef4444" />
-                <Bar dataKey="1-3 años" stackId="a" fill="#f97316" />
-                <Bar dataKey="3-5 años" stackId="a" fill="#eab308" />
-                <Bar dataKey="5-10 años" stackId="a" fill="#22c55e" />
-                <Bar dataKey="10+ años" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="0-3 meses" stackId="a" fill="#ef4444" />
+                <Bar dataKey="3-6 meses" stackId="a" fill="#f97316" />
+                <Bar dataKey="6-12 meses" stackId="a" fill="#eab308" />
+                <Bar dataKey="1-3 años" stackId="a" fill="#22c55e" />
+                <Bar dataKey="+3 años" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -588,9 +630,10 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
     );
   };
 
-  const negocio = datosPorNegocio();
-  const areas = datosPorArea();
-  const departamentos = datosPorDepartamento();
+  // ✅ CORREGIDO: Usar useMemo para recalcular cuando cambien plantilla, bajas, o incidencias
+  const negocio = useMemo(() => datosPorNegocio(), [plantilla, bajas, incidencias]);
+  const areas = useMemo(() => datosPorArea(), [plantilla, bajas, incidencias]);
+  const departamentos = useMemo(() => datosPorDepartamento(), [plantilla, bajas, incidencias]);
 
   return (
     <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>

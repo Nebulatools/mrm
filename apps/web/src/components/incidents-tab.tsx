@@ -12,6 +12,7 @@ import { Info } from "lucide-react";
 type Props = {
   plantilla?: PlantillaRecord[];
   currentYear?: number;
+  currentMonth?: number;
 };
 
 type EnrichedIncidencia = IncidenciaCSVRecord & {
@@ -27,7 +28,7 @@ const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3"]);
 
 // Normalización de código centralizada en lib/normalizers
 
-export function IncidentsTab({ plantilla, currentYear }: Props) {
+export function IncidentsTab({ plantilla, currentYear, currentMonth }: Props) {
   const [empleados, setEmpleados] = useState<PlantillaRecord[]>([]);
   const [incidencias, setIncidencias] = useState<IncidenciaCSVRecord[]>([]);
   const [showTable, setShowTable] = useState(false); // false = mostrar 10, true = mostrar todo
@@ -78,12 +79,23 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
     console.log('📊 Total incidencias:', incidencias.length);
     console.log('👥 Empleados en mapa filtrado:', empleadosMap.size);
     console.log('👤 Plantilla recibida:', plantilla?.length || 0);
+    console.log('📅 Año filtrado:', currentYear || 'SIN FILTRO (TODO)');
+    console.log('📅 Mes filtrado:', currentMonth || 'SIN FILTRO (TODO)');
 
     const filtered = incidencias
       .filter(inc => {
-        // Solo incluir incidencias de empleados que están en la plantilla filtrada
-        const hasEmployee = empleadosMap.has(inc.emp);
-        return hasEmployee;
+        // ✅ FILTRO 1: Solo empleados en plantilla filtrada
+        if (!empleadosMap.has(inc.emp)) return false;
+
+        // ✅ FILTRO 2: Por fecha SOLO si hay filtros de año/mes seleccionados
+        if (currentYear !== undefined && currentMonth !== undefined) {
+          const mesInicio = new Date(currentYear, currentMonth - 1, 1);
+          const mesFin = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+          const fechaInc = new Date(inc.fecha);
+          if (fechaInc < mesInicio || fechaInc > mesFin) return false;
+        }
+
+        return true;
       })
       .map(inc => {
         const emp = empleadosMap.get(inc.emp);
@@ -99,7 +111,7 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
     console.log('📋 Incidencias filtradas:', filtered.length);
     console.log('🎯 Ejemplo filtrado:', filtered.slice(0, 2));
     return filtered;
-  }, [incidencias, empleadosMap, plantilla]);
+  }, [incidencias, empleadosMap, plantilla, currentYear, currentMonth]);
 
   const activosCount = useMemo(() => (empleados || []).filter(e => e.activo).length, [empleados]);
   const empleadosConIncidencias = useMemo(() => {
@@ -343,10 +355,10 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
         {/* Resumen por tipo */}
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2"><CardTitle className="text-base">Incidencias por tipo</CardTitle></CardHeader>
-          <CardContent className="flex-1 pt-2 pb-4">
-            <div className="h-full overflow-auto pr-2">
+          <CardContent className="flex-1 overflow-hidden pt-2 pb-4">
+            <div className="h-full overflow-y-auto overflow-x-hidden pr-2">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-white z-10">
                   <TableRow>
                     <TableHead className="w-1/2">Tipo</TableHead>
                     <TableHead className="w-1/4 text-center"># días</TableHead>
