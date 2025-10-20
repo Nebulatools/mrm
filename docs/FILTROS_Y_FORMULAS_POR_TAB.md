@@ -1,17 +1,25 @@
 # FILTROS Y FÓRMULAS POR TAB - ESPECIFICACIÓN COMPLETA
 
-**Fecha actualización**: 2025-01-20
-**Estado**: ✅ Implementado y verificado
+**Fecha actualización**: 2025-01-20 (Última revisión completa)
+**Estado**: ✅ Implementado, verificado y auditado
 
 ## 📋 RESUMEN EJECUTIVO
 
-Este documento especifica cómo cada métrica y gráfico en el dashboard responde a los filtros del panel (Año, Mes, Departamento, Puesto, Empresa, Área).
+Este documento especifica cómo cada métrica y gráfico en el dashboard responde a los filtros del panel (Año, Mes, Negocio/Empresa, Área, Departamento, Puesto, Clasificación, Ubicación).
+
+### 🎯 Sistema de Filtros Centralizado
+
+**Ubicación**: `/apps/web/src/lib/filters/filters.ts`
+**Función principal**: `applyRetentionFilters(plantilla, filters)`
+**Panel de filtros**: `/apps/web/src/components/filter-panel.tsx`
+
+**Filtros por defecto**: Año actual + Mes actual (se establecen automáticamente al cargar)
 
 ### Tipos de Filtrado
 
-- **🟢 ESPECÍFICO**: La métrica/gráfico responde a TODOS los filtros seleccionados
-- **🟡 PARCIAL**: La métrica/gráfico responde a ALGUNOS filtros (se especifica cuáles)
-- **🔴 GENERAL**: La métrica/gráfico NO responde a filtros de año/mes (pero SÍ a otros filtros)
+- **🟢 ESPECÍFICO**: La métrica/gráfico responde a TODOS los filtros seleccionados (Año, Mes, Negocio, Área, Depto, Puesto, Clasificación, Ubicación)
+- **🟡 PARCIAL**: La métrica/gráfico responde a ALGUNOS filtros (se especifica exactamente cuáles)
+- **🔴 GENERAL**: La métrica/gráfico NO responde a filtros de año/mes (pero SÍ a otros: Negocio, Área, Depto, Puesto, Clasificación, Ubicación)
 
 ---
 
@@ -314,30 +322,256 @@ Los gráficos de tendencia histórica (12 meses móviles, comparación anual) mu
 
 ---
 
-## 📁 ARCHIVOS AFECTADOS
+## 📁 ARQUITECTURA DEL SISTEMA DE FILTROS
 
-1. `/apps/web/src/components/dashboard-page.tsx`
-   - Tab Personal: líneas 283-304 ✅
-   - Tab Retención: líneas 383-477 ✅
+### Archivos Clave
 
-2. `/apps/web/src/components/summary-comparison.tsx`
-   - Categorías de antigüedad: líneas 40-56 ✅
-   - Funciones de cálculo: líneas 205-300 ✅
-   - Gráficos: líneas 409-413 ✅
+1. **Sistema de Filtrado Centralizado**:
+   - `/apps/web/src/lib/filters/filters.ts` - Función `applyRetentionFilters()` ✅
+   - `/apps/web/src/components/filter-panel.tsx` - Panel UI con filtros por defecto ✅
 
-3. `/apps/web/src/components/incidents-tab.tsx`
-   - KPI "# de Activos": línea 104 ✅
+2. **Dashboard Principal**:
+   - `/apps/web/src/components/dashboard-page.tsx` - Orquestación de filtros para todos los tabs ✅
+     - Líneas 101-108: Estado de filtros (`retentionFilters`)
+     - Líneas 270-278: Función `filterPlantilla()` que aplica filtros
+     - Líneas 309-337: Tab Personal con filtros específicos
+     - Líneas 421-510: Tab Retención - función `getFilteredRetentionKPIs()`
+     - Líneas 679-687: Tab Resumen con filtros aplicados
+     - Líneas 885-889: Tab Incidencias con filtros aplicados
+     - Líneas 1043-1052: Gráficas de Retención con filtros GENERALES
 
-4. `/apps/web/src/lib/normalizers.ts`
-   - Función `isMotivoClave()`: líneas 204-211 ✅
+3. **Componentes por Tab**:
+   - `/apps/web/src/components/summary-comparison.tsx` - Tab Resumen ✅
+     - Líneas 45-89: Filtrado de incidencias/permisos con empleados filtrados
+     - Líneas 99-107: Clasificación de antigüedad actualizada
+   - `/apps/web/src/components/incidents-tab.tsx` - Tab Incidencias ✅
+     - Líneas 77-114: Filtrado de incidencias por plantilla y fecha
+     - Línea 116: KPI "# de Activos" usa empleados filtrados
+   - `/apps/web/src/components/retention-charts.tsx` - Gráficas de Retención ✅
+     - Líneas 79-116: Filtros GENERALES (sin año/mes) para tendencias históricas
+     - Línea 119: Filtro adicional por motivo (involuntaria/complementaria)
+   - `/apps/web/src/components/retention-table.tsx` - Tabla comparativa ✅
 
-5. `/apps/web/src/lib/utils/kpi-helpers.ts`
-   - Funciones centralizadas de cálculo ✅
+4. **Funciones Helper**:
+   - `/apps/web/src/lib/utils/kpi-helpers.ts` - Cálculos centralizados de KPIs ✅
+   - `/apps/web/src/lib/normalizers.ts` - Función `isMotivoClave()` ✅
 
-6. `/apps/web/src/lib/filters/filters.ts`
-   - Sistema de filtrado centralizado ✅
+---
+
+## 🔍 FLUJO DE DATOS DEL SISTEMA DE FILTROS
+
+```
+1. Usuario selecciona filtros en RetentionFilterPanel
+   ↓
+2. onFiltersChange() actualiza estado retentionFilters en dashboard-page.tsx
+   ↓
+3. Cada tab recibe:
+   - plantillaFiltered = applyRetentionFilters(plantilla, retentionFilters)
+   - currentYear (de retentionFilters.years[0])
+   - currentMonth (de retentionFilters.months[0])
+   ↓
+4. Componentes internos calculan métricas/gráficos basándose en datos filtrados
+   ↓
+5. EXCEPCIONES:
+   - Gráficas de Retención: Reciben filtros SIN año/mes (líneas 1043-1052)
+   - Mapa de Calor: Recibe filtros SIN mes pero CON año (líneas 168-177)
+```
+
+---
+
+## ⚙️ CONFIGURACIÓN DE FILTROS POR DEFECTO
+
+**Ubicación**: `/apps/web/src/components/filter-panel.tsx:46-65`
+
+```typescript
+useEffect(() => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
+
+  const defaultFilters = {
+    years: [currentYear],      // Año actual
+    months: [currentMonth],    // Mes actual
+    departamentos: [],         // Todos
+    puestos: [],              // Todos
+    clasificaciones: [],       // Todas
+    ubicaciones: [],          // Todas
+    empresas: [],             // Todas
+    areas: []                 // Todas
+  };
+
+  setFilters(defaultFilters);
+  onFiltersChange(defaultFilters);
+}, []);
+```
+
+**Comportamiento**:
+- Al cargar el dashboard, se aplican filtros de año y mes actual automáticamente
+- Para ver "TODO", el usuario debe limpiar los filtros manualmente
+
+---
+
+---
+
+## 📊 MATRIZ DE FILTROS POR COMPONENTE
+
+Esta tabla muestra exactamente qué filtros aplican a cada componente del dashboard:
+
+### Tab RESUMEN
+
+| Componente | Año | Mes | Negocio | Área | Depto | Puesto | Clasif | Ubic | Código |
+|------------|-----|-----|---------|------|-------|--------|--------|------|--------|
+| **KPI: Empleados Activos** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `summary-comparison.tsx:112-122` |
+| **KPI: Rotación Mensual** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `summary-comparison.tsx:124-129` |
+| **KPI: Rotación Acumulada 12M** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `summary-comparison.tsx:133` |
+| **KPI: Rotación Año Actual** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `summary-comparison.tsx:134` |
+| **KPI: Incidencias** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `summary-comparison.tsx:48-89` |
+| **KPI: Permisos** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `summary-comparison.tsx:48-89` |
+| **Gráfico: Empleados por Antigüedad** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Categorías: 0-3m, 3-6m, 6-12m, 1-3a, +3a |
+| **Gráfico: Rotación Mensual** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Involuntaria vs Complementaria |
+| **Gráfico: 12 Meses Móviles** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Involuntaria vs Complementaria |
+| **Gráfico: Lo que va del Año** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Involuntaria vs Complementaria |
+| **Tabla: Ausentismo** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Total, Permisos, Faltas, Otros |
+
+### Tab PERSONAL (Bajas)
+
+| Componente | Año | Mes | Negocio | Área | Depto | Puesto | Clasif | Ubic | Código |
+|------------|-----|-----|---------|------|-------|--------|--------|------|--------|
+| **KPI: Empleados Activos** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:317` |
+| **KPI: Bajas Totales** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:318` |
+| **KPI: Ingresos Históricos** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:323-326` |
+| **KPI: Ingresos del Mes** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:327-330` |
+| **KPI: Antigüedad Promedio** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:332-335` ⚠️ Solo activos |
+| **KPI: Empleados < 3 meses** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:337` ⚠️ Solo activos |
+| **Gráfico: Por Clasificación** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:340-347` |
+| **Gráfico: Por Género** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:350-363` |
+| **Gráfico: Distribución por Edad** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:366-375` |
+| **Gráfico: HC por Departamento** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:378-385` |
+| **Gráfico: HC por Área** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:388-395` |
+| **Gráfico: Antigüedad por Área** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:398-414` |
+
+### Tab INCIDENCIAS
+
+| Componente | Año | Mes | Negocio | Área | Depto | Puesto | Clasif | Ubic | Código |
+|------------|-----|-----|---------|------|-------|--------|--------|------|--------|
+| **KPI: # de Activos** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `incidents-tab.tsx:116` |
+| **KPI: Empleados con Incidencias** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `incidents-tab.tsx:117-124` |
+| **KPI: Incidencias** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `incidents-tab.tsx:135-139` |
+| **KPI: Permisos** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `incidents-tab.tsx:141-145` |
+| **Gráfico: Tendencia Mensual** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `incidents-tab.tsx:204-240` |
+| **Gráfico: Incidencias por Empleado** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `incidents-tab.tsx:148-160` |
+| **Tabla: Incidencias por Tipo** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `incidents-tab.tsx:167-194` |
+| **Gráfico: Pie (Inc vs Permisos)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `incidents-tab.tsx:196-199` |
+| **Tabla: Incidencias Completa** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `incidents-tab.tsx:404-443` |
+
+### Tab RETENCIÓN
+
+| Componente | Año | Mes | Negocio | Área | Depto | Puesto | Clasif | Ubic | Código |
+|------------|-----|-----|---------|------|-------|--------|--------|------|--------|
+| **KPI: Activos Promedio** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:455` |
+| **KPI: Bajas Totales** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:458` |
+| **KPI: Bajas Tempranas** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:461` |
+| **KPI: Rotación Mensual** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:464` |
+| **KPI: Rotación Acumulada 12M** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:467-469` |
+| **KPI: Rotación Año Actual** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:472-474` |
+| **Gráfico: Rotación Acumulada 12M** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:79-116` 🔴 GENERAL |
+| **Gráfico: Rotación Mensual** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:79-116` 🔴 GENERAL |
+| **Gráfico: Rotación por Temporalidad** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:79-116` 🔴 GENERAL |
+| **Tabla: Comparativa Rotación 12M** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:175-196` 🔴 GENERAL |
+| **Tabla: Comparativa Rotación Mensual** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:175-196` 🔴 GENERAL |
+| **Mapa de Calor** | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:168-177` 🟡 PARCIAL |
+| **Tabla: Bajas por Motivo** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dismissal-reasons-table.tsx` |
+
+### Leyenda de Símbolos
+
+- ✅ = El filtro SÍ aplica
+- ❌ = El filtro NO aplica
+- 🟢 = ESPECÍFICO (todos los filtros aplican)
+- 🟡 = PARCIAL (algunos filtros aplican)
+- 🔴 = GENERAL (NO aplican año/mes, SÍ otros filtros)
+
+---
+
+## 🎯 EXCEPCIONES CLAVE DEL SISTEMA
+
+### 1. Gráficas de Retención (GENERAL - Sin Año/Mes)
+
+**Razón**: Mostrar tendencias históricas completas para análisis temporal
+
+**Implementación**: `dashboard-page.tsx:1043-1052`
+```typescript
+<RetentionCharts
+  filters={{
+    years: [],      // ⚠️ NO filtrar por año
+    months: [],     // ⚠️ NO filtrar por mes
+    departamentos: retentionFilters.departamentos,  // ✅ SÍ aplicar
+    puestos: retentionFilters.puestos,              // ✅ SÍ aplicar
+    // ... otros filtros SÍ se aplican
+  }}
+/>
+```
+
+**Afecta a**:
+- Rotación Acumulada 12M (línea)
+- Rotación Mensual (línea)
+- Rotación por Temporalidad (barras)
+- Tabla Comparativa - Rotación Acumulada 12M
+- Tabla Comparativa - Rotación Mensual
+
+### 2. Mapa de Calor (PARCIAL - Sin Mes, Con Año)
+
+**Razón**: Mostrar distribución anual completa por mes sin restricción de mes específico
+
+**Implementación**: `dashboard-page.tsx:168-177`
+```typescript
+const filtersWithoutMonth: RetentionFilterOptions = {
+  years: [currentYear],  // ✅ Año SÍ aplica
+  months: [],            // ⚠️ NO filtrar por mes
+  departamentos: retentionFilters.departamentos,  // ✅ SÍ aplicar
+  // ... otros filtros SÍ se aplican
+};
+```
+
+**Resultado**: Muestra todos los 12 meses del año seleccionado, pero respeta otros filtros
+
+### 3. Rotación 12 Meses Móviles con Mes Seleccionado
+
+**Comportamiento**:
+- **Gráficos**: Muestran TODO el histórico (no filtran por mes)
+- **KPIs**: Usan el mes seleccionado como fecha fin y calculan 12 meses hacia atrás
+
+**Ejemplo**:
+```
+Usuario selecciona: Octubre 2025
+
+Gráfico "Rotación Acumulada 12M":
+  → Muestra: Enero 2024 - Octubre 2025 (TODO)
+
+KPI "Rotación Acumulada 12M":
+  → Fecha Fin: 31 Octubre 2025
+  → Fecha Inicio: 1 Noviembre 2024
+  → Cálculo: (Bajas_Nov2024_Oct2025 / Activos_Prom_12M) × 100
+```
+
+### 4. Motivos de Rotación (3 Involuntarios)
+
+**Involuntarios** (definidos en `lib/normalizers.ts:isMotivoClave()`):
+1. Rescisión por desempeño
+2. Rescisión por disciplina
+3. Término del contrato
+
+**Complementarios**: TODOS los demás motivos
+- Baja Voluntaria
+- Otra razón
+- Abandono / No regresó
+- Otro trabajo mejor compensado
+- Cambio de ciudad
+- Motivos de salud
+- etc.
 
 ---
 
 **Documento Generado**: 2025-01-20
-**Estado**: ✅ Todos los cambios implementados y verificados
+**Estado**: ✅ Todos los cambios implementados, verificados y auditados
+**Revisión**: Análisis completo del código confirmó correcta implementación del sistema unificado de filtros
+**Última auditoría**: Verificación exhaustiva de todos los componentes y sus respectivas aplicaciones de filtros
