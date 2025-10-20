@@ -343,8 +343,8 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
         {/* Resumen por tipo */}
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2"><CardTitle className="text-base">Incidencias por tipo</CardTitle></CardHeader>
-          <CardContent className="flex-1">
-            <div className="h-full overflow-auto">
+          <CardContent className="flex-1 pt-2 pb-4">
+            <div className="h-full overflow-auto pr-2">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -356,9 +356,9 @@ export function IncidentsTab({ plantilla, currentYear }: Props) {
                 <TableBody>
                   {resumenPorTipo.map(r => (
                     <TableRow key={r.tipo}>
-                      <TableCell className="font-medium">{labelForIncidencia(r.tipo)}</TableCell>
-                      <TableCell className="text-center">{r.dias.toLocaleString()}</TableCell>
-                      <TableCell className="text-center">{r.empleados.toLocaleString()}</TableCell>
+                      <TableCell className="font-medium py-2">{labelForIncidencia(r.tipo)}</TableCell>
+                      <TableCell className="text-center py-2">{r.dias.toLocaleString()}</TableCell>
+                      <TableCell className="text-center py-2">{r.empleados.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

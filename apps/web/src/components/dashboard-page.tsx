@@ -25,7 +25,7 @@ import { CorrelationMatrix } from "./correlation-matrix";
 import { RetentionFilterPanel } from "./filter-panel";
 import { SummaryComparison } from "./summary-comparison";
 import { UserMenu } from "./user-menu";
-import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filters/retention";
+import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filters/filters";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord } from "@/lib/supabase";
 import { createBrowserClient } from "@/lib/supabase-client";
@@ -33,6 +33,19 @@ import { format } from "date-fns";
 import { es } from 'date-fns/locale';
 import { isMotivoClave } from "@/lib/normalizers";
 import { cn } from "@/lib/utils";
+// 🆕 Import helper functions
+import {
+  calculateActivosPromedio,
+  calculateBajasEnPeriodo,
+  calcularRotacionMensual,
+  calcularRotacionAcumulada12m,
+  calcularRotacionYTD,
+  calculateTotalBajas,
+  calculateBajasTempranas,
+  filterByMotivo,
+  calcularRotacionAcumulada12mConDesglose,
+  calcularRotacionYTDConDesglose
+} from "@/lib/utils/kpi-helpers";
 //
 
 interface DashboardData {
@@ -83,7 +96,7 @@ export function DashboardPage() {
   const [incidenciasData, setIncidenciasData] = useState<any[]>([]);
 
   // Toggle para filtrar visualizaciones por rotación involuntaria vs complementaria
-  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'complementaria'>('involuntaria');
+  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'complementaria'>('complementaria');
 
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
     years: [],
@@ -366,7 +379,10 @@ export function DashboardPage() {
     return Array.from(map.entries()).map(([area, counts]) => ({ area, ...counts }));
   })();
 
-  // Función para calcular KPIs filtrados para retención
+  // ============================================================================
+  // 🆕 FUNCIÓN REFACTORIZADA: Calcular KPIs filtrados para retención
+  // Usa funciones helper centralizadas para eliminar duplicación
+  // ============================================================================
   const getFilteredRetentionKPIs = () => {
     // Solo calcular si tenemos datos de plantilla cargados
     if (!data.plantilla || data.plantilla.length === 0) {
@@ -378,156 +394,87 @@ export function DashboardPage() {
         rotacionMensual: 0,
         rotacionAcumulada: 0,
         rotacionAnioActual: 0,
-        // secundarios
         bajasClaves: 0,
         rotacionMensualClaves: 0,
         rotacionAcumuladaClaves: 0,
         rotacionAnioActualClaves: 0,
       } as any;
     }
-    
+
+    console.log('🎯 Calculando KPIs de retención con funciones centralizadas...');
+
+    // Datos filtrados según los filtros del usuario
     const filteredPlantilla = filterPlantilla(data.plantilla);
-    
-    // Calcular Activos actuales
-    // const activosActuales = filteredPlantilla.filter(emp => emp.activo).length;
-    
-    // Calcular TODAS las Bajas (empleados con fecha_baja)
-    const bajasTotal = filteredPlantilla.filter(emp => {
-      return emp.fecha_baja !== null && emp.fecha_baja !== undefined;
-    }).length;
-    
-    // Calcular Bajas del periodo actual para rotación mensual
+
+    // Datos SIN filtros (generales de empresa)
+    const plantillaGeneral = noFiltersForGeneralRotation(data.plantilla);
+
+    // Fechas del período actual
     const currentMonth = selectedPeriod.getMonth();
     const currentYear = selectedPeriod.getFullYear();
     const inicioMes = new Date(currentYear, currentMonth, 1);
     const finMes = new Date(currentYear, currentMonth + 1, 0);
-    
-    // Bajas del mes actual
-    const bajasDelMes = filteredPlantilla.filter(emp => {
-      if (!emp.fecha_baja) return false;
-      const fechaBaja = new Date(emp.fecha_baja);
-      return fechaBaja >= inicioMes && fechaBaja <= finMes;
-    }).length;
-    const bajasDelMesClaves = filteredPlantilla.filter(emp => {
-      if (!emp.fecha_baja) return false;
-      const fechaBaja = new Date(emp.fecha_baja);
-      return fechaBaja >= inicioMes && fechaBaja <= finMes && isMotivoClave((emp as any).motivo_baja);
-    }).length;
-    
-    // Calcular empleados al inicio y fin del mes para el promedio
-    const empleadosInicioMes = filteredPlantilla.filter(emp => {
-      const fechaIngreso = new Date(emp.fecha_ingreso);
-      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-      return fechaIngreso <= inicioMes && (!fechaBaja || fechaBaja > inicioMes);
-    }).length;
-    
-    const empleadosFinMes = filteredPlantilla.filter(emp => {
-      const fechaIngreso = new Date(emp.fecha_ingreso);
-      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-      return fechaIngreso <= finMes && (!fechaBaja || fechaBaja > finMes);
-    }).length;
-    
-    const activosPromedio = (empleadosInicioMes + empleadosFinMes) / 2;
-    
-    console.log('📊 Empleados inicio mes:', empleadosInicioMes);
-    console.log('📊 Empleados fin mes:', empleadosFinMes);
-    console.log('📊 Activos promedio:', activosPromedio);
-    console.log('📉 Bajas del mes:', bajasDelMes);
-    console.log('📉 Bajas totales histórico:', bajasTotal);
-    
-    // Calcular Bajas Tempranas (menos de 3 meses)
-    const bajasTempranas = filteredPlantilla.filter(emp => {
-      if (!emp.fecha_baja) return false;
-      const fechaIngreso = new Date(emp.fecha_ingreso);
-      const fechaBaja = new Date(emp.fecha_baja);
-      const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
-      return mesesTrabajados < 3;
-    }).length;
-    
-    // Calcular Rotación Mensual = (Bajas del mes / Activos promedio) * 100
-    const rotacionMensual = activosPromedio > 0 ? (bajasDelMes / activosPromedio) * 100 : 0;
-    const rotacionMensualClaves = activosPromedio > 0 ? (bajasDelMesClaves / activosPromedio) * 100 : 0;
-    
-    // Calcular Rotación Acumulada (últimos 12 meses) - GENERAL DE EMPRESA
-    const filteredPlantilla12m = noFiltersForGeneralRotation(data.plantilla);
-    const hace12Meses = new Date(currentYear, currentMonth - 11, 1);
-    const finPeriodo12m = new Date(currentYear, currentMonth + 1, 0);
 
-    const bajasUltimos12Meses = filteredPlantilla12m.filter(emp => {
-      if (!emp.fecha_baja) return false;
-      const fechaBaja = new Date(emp.fecha_baja);
-      return fechaBaja >= hace12Meses && fechaBaja <= finPeriodo12m;
-    }).length;
-    const bajasUltimos12MesesClaves = filteredPlantilla12m.filter(emp => {
-      if (!emp.fecha_baja) return false;
-      const fechaBaja = new Date(emp.fecha_baja);
-      return fechaBaja >= hace12Meses && fechaBaja <= finPeriodo12m && isMotivoClave((emp as any).motivo_baja);
-    }).length;
+    // ========================================================================
+    // KPIs PRINCIPALES (con filtros aplicados)
+    // ========================================================================
 
-    // Calcular promedio de activos para los 12 meses (sin restricción de mes)
-    const empleadosInicio12m = filteredPlantilla12m.filter(emp => {
-      const fechaIngreso = new Date(emp.fecha_ingreso);
-      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-      return fechaIngreso <= hace12Meses && (!fechaBaja || fechaBaja > hace12Meses);
-    }).length;
+    // 1. Activos Promedio del mes
+    const activosProm = calculateActivosPromedio(filteredPlantilla, inicioMes, finMes);
 
-    const empleadosFin12m = filteredPlantilla12m.filter(emp => {
-      const fechaIngreso = new Date(emp.fecha_ingreso);
-      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-      return fechaIngreso <= finMes && (!fechaBaja || fechaBaja > finMes);
-    }).length;
+    // 2. Total de Bajas (histórico)
+    const bajasTotal = calculateTotalBajas(filteredPlantilla);
 
-    const activosPromedio12m = (empleadosInicio12m + empleadosFin12m) / 2;
+    // 3. Bajas Tempranas (<3 meses)
+    const bajasTemp = calculateBajasTempranas(filteredPlantilla);
 
-    const rotacionAcumulada = activosPromedio12m > 0 ? (bajasUltimos12Meses / activosPromedio12m) * 100 : 0;
-    const rotacionAcumuladaClaves = activosPromedio12m > 0 ? (bajasUltimos12MesesClaves / activosPromedio12m) * 100 : 0;
+    // 4. Rotación Mensual (ESPECÍFICO - usa filtros)
+    const rotMensual = calcularRotacionMensual(filteredPlantilla, selectedPeriod);
 
-    // Rotación Año Actual (Ene a mes actual) - general de empresa
-    const filteredPlantillaYTD = noFiltersForGeneralRotation(data.plantilla);
-    const inicioAnio = new Date(currentYear, 0, 1);
-    const finAnioPeriodo = finMes;
+    // 5. Rotación Acumulada 12m (GENERAL - sin filtros, con desglose por motivo)
+    // ⚠️ CRÍTICO: Usa desglose para garantizar que Inv + Comp = Total
+    const rotAcumuladaDesglose = calcularRotacionAcumulada12mConDesglose(plantillaGeneral, selectedPeriod);
+    const rotAcumulada = rotAcumuladaDesglose.total;
+    const rotAcumuladaInv = rotAcumuladaDesglose.involuntaria;
 
-    const bajasYTD = filteredPlantillaYTD.filter(emp => {
-      if (!emp.fecha_baja) return false;
-      const fechaBaja = new Date(emp.fecha_baja);
-      return fechaBaja >= inicioAnio && fechaBaja <= finAnioPeriodo;
-    }).length;
-    const bajasYTDClaves = filteredPlantillaYTD.filter(emp => {
-      if (!emp.fecha_baja) return false;
-      const fechaBaja = new Date(emp.fecha_baja);
-      return fechaBaja >= inicioAnio && fechaBaja <= finAnioPeriodo && isMotivoClave((emp as any).motivo_baja);
-    }).length;
+    // 6. Rotación Año Actual / YTD (GENERAL - sin filtros, con desglose por motivo)
+    // ⚠️ CRÍTICO: Usa desglose para garantizar que Inv + Comp = Total
+    const rotYTDDesglose = calcularRotacionYTDConDesglose(plantillaGeneral, selectedPeriod);
+    const rotYTD = rotYTDDesglose.total;
+    const rotYTDInv = rotYTDDesglose.involuntaria;
 
-    const empleadosInicioYTD = filteredPlantillaYTD.filter(emp => {
-      const fechaIngreso = new Date(emp.fecha_ingreso);
-      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-      return fechaIngreso <= inicioAnio && (!fechaBaja || fechaBaja > inicioAnio);
-    }).length;
-    const empleadosFinYTD = filteredPlantillaYTD.filter(emp => {
-      const fechaIngreso = new Date(emp.fecha_ingreso);
-      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-      return fechaIngreso <= finAnioPeriodo && (!fechaBaja || fechaBaja > finAnioPeriodo);
-    }).length;
-    const activosPromedioYTD = (empleadosInicioYTD + empleadosFinYTD) / 2;
-    const rotacionAnioActual = activosPromedioYTD > 0 ? (bajasYTD / activosPromedioYTD) * 100 : 0;
-    const rotacionAnioActualClaves = activosPromedioYTD > 0 ? (bajasYTDClaves / activosPromedioYTD) * 100 : 0;
+    // ========================================================================
+    // KPIs SECUNDARIOS - INVOLUNTARIA (bajas clave)
+    // ========================================================================
 
-    // Bajas Clave (total sobre data filtrada)
-    const bajasClavesTotal = filteredPlantilla.filter(emp => emp.fecha_baja && isMotivoClave((emp as any).motivo_baja)).length;
-    
-    
-    return {
-      activosPromedio: Math.round(activosPromedio),
+    // Filtrar solo bajas involuntarias para plantilla filtrada (ESPECÍFICO)
+    const plantillaInvoluntaria = filterByMotivo(filteredPlantilla, 'involuntaria');
+
+    // Cantidad de bajas involuntarias (filtradas)
+    const bajasInvoluntarias = calculateTotalBajas(plantillaInvoluntaria);
+
+    // Rotación mensual involuntaria (ESPECÍFICO - usa filtros)
+    const rotMensualInv = calcularRotacionMensual(plantillaInvoluntaria, selectedPeriod);
+
+    console.log('✅ KPIs calculados correctamente:', {
+      activosPromedio: Math.round(activosProm),
       bajas: bajasTotal,
-      bajasTempranas: bajasTempranas,
-      rotacionMensual: Number(rotacionMensual.toFixed(1)),
-      rotacionAcumulada: Number(rotacionAcumulada.toFixed(1)),
-      rotacionAnioActual: Number(rotacionAnioActual.toFixed(1)),
-      // secundarios
-      bajasClaves: bajasClavesTotal,
-      rotacionMensualClaves: Number(rotacionMensualClaves.toFixed(1)),
-      rotacionAcumuladaClaves: Number(rotacionAcumuladaClaves.toFixed(1)),
-      rotacionAnioActualClaves: Number(rotacionAnioActualClaves.toFixed(1)),
+      rotacionMensual: rotMensual.toFixed(1) + '%',
+      rotacionAcumulada: rotAcumulada.toFixed(1) + '%'
+    });
+
+    return {
+      activosPromedio: Math.round(activosProm),
+      bajas: bajasTotal,
+      bajasTempranas: bajasTemp,
+      rotacionMensual: Number(rotMensual.toFixed(1)),
+      rotacionAcumulada: Number(rotAcumulada.toFixed(1)),
+      rotacionAnioActual: Number(rotYTD.toFixed(1)),
+      // Secundarios - Involuntaria
+      bajasClaves: bajasInvoluntarias,
+      rotacionMensualClaves: Number(rotMensualInv.toFixed(1)),
+      rotacionAcumuladaClaves: Number(rotAcumuladaInv.toFixed(1)),
+      rotacionAnioActualClaves: Number(rotYTDInv.toFixed(1)),
     } as any;
   };
 

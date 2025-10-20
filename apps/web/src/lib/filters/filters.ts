@@ -1,5 +1,22 @@
-import type { PlantillaRecord } from '@/lib/supabase';
+/**
+ * Filtros Centralizados del Dashboard
+ *
+ * Este archivo contiene la lógica de filtrado que se usa en TODOS los tabs del dashboard.
+ * Anteriormente se llamaba "retention.ts" pero se renombró a "filters.ts" para reflejar
+ * su uso general en toda la aplicación.
+ *
+ * @module lib/filters/filters
+ */
 
+import type { PlantillaRecord } from '@/lib/supabase';
+import { isMotivoClave } from '@/lib/normalizers';
+
+/**
+ * Opciones de filtrado para el dashboard
+ *
+ * Estos filtros se aplican a empleados en todos los tabs excepto donde se especifique
+ * que se usa filtrado GENERAL (sin filtros).
+ */
 export interface RetentionFilterOptions {
   years: number[];
   months: number[];
@@ -9,9 +26,22 @@ export interface RetentionFilterOptions {
   ubicaciones?: string[];
   empresas?: string[];  // Negocio/Empresa filter
   areas?: string[];     // Área filter
+
+  // 🆕 NUEVOS FILTROS CENTRALIZADOS
+  motivoFilter?: 'involuntaria' | 'complementaria' | 'all';  // Filtro de tipo de baja
+  includeInactive?: boolean;  // Incluir empleados con fecha_baja
 }
 
-// Apply retention filters to empleados_sftp-derived records efficiently
+/**
+ * Aplica filtros a la plantilla de empleados
+ *
+ * Esta es la función CENTRALIZADA que aplica todos los filtros del dashboard.
+ * Se usa en TODOS los tabs (Resumen, Personal, Incidencias, Retención).
+ *
+ * @param plantilla Lista completa de empleados
+ * @param filters Opciones de filtrado (año, mes, departamento, puesto, etc.)
+ * @returns Lista filtrada de empleados que cumplen con los criterios
+ */
 export function applyRetentionFilters(
   plantilla: PlantillaRecord[],
   filters: RetentionFilterOptions
@@ -28,7 +58,7 @@ export function applyRetentionFilters(
   const empresasSet = new Set(filters.empresas || []);
   const areasSet = new Set(filters.areas || []);
 
-  const filtered = (plantilla as PlantillaRecord[]).filter((emp) => {
+  let filtered = (plantilla as PlantillaRecord[]).filter((emp) => {
     // Empresa/Negocio
     if (empresasSet.size) {
       const empEmpresa: string = (emp as any).empresa || '';
@@ -99,6 +129,49 @@ export function applyRetentionFilters(
     }
 
     return true;
+  });
+
+  // 🆕 FILTRO DE MOTIVO (Involuntaria vs Complementaria)
+  // Solo aplicar si se especifica un filtro de motivo
+  if (filters.motivoFilter && filters.motivoFilter !== 'all') {
+    filtered = filtered.filter(emp => {
+      // Mantener empleados activos (sin fecha_baja)
+      if (!emp.fecha_baja) {
+        return true;
+      }
+
+      // Verificar si el motivo es involuntario (clave)
+      const esInvoluntaria = isMotivoClave((emp as any).motivo_baja);
+
+      // Filtrar según el tipo solicitado
+      if (filters.motivoFilter === 'involuntaria') {
+        return esInvoluntaria;
+      } else if (filters.motivoFilter === 'complementaria') {
+        return !esInvoluntaria;
+      }
+
+      return true;
+    });
+  }
+
+  // 🆕 FILTRO DE INACTIVOS
+  // Por defecto incluye todos (activos e inactivos)
+  // Si includeInactive = false, solo incluir activos
+  if (filters.includeInactive === false) {
+    filtered = filtered.filter(emp => emp.activo);
+  }
+
+  console.log('🔍 Filtros aplicados:', {
+    original: plantilla.length,
+    filtrado: filtered.length,
+    filtros: {
+      años: filters.years.length,
+      meses: filters.months.length,
+      departamentos: filters.departamentos?.length || 0,
+      puestos: filters.puestos?.length || 0,
+      motivoFilter: filters.motivoFilter || 'all',
+      includeInactive: filters.includeInactive !== false
+    }
   });
 
   return filtered;

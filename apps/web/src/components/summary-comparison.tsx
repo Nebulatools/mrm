@@ -8,6 +8,12 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { isMotivoClave } from '@/lib/normalizers';
 import { cn } from '@/lib/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
+import {
+  calculateActivosPromedio,
+  calcularRotacionConDesglose,
+  calcularRotacionAcumulada12mConDesglose,
+  calcularRotacionYTDConDesglose
+} from '@/lib/utils/kpi-helpers';
 
 interface BajaRecord {
   numero_empleado: number;
@@ -47,44 +53,7 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
     return '10+ años';
   };
 
-  // Calcular rotación
-  const calcularRotacion = (grupo: PlantillaRecord[], periodo: 'mensual' | '12meses' | 'ytd', mesOffset = 0) => {
-    const hoy = new Date();
-    const activos = grupo.filter(e => e.activo).length;
-
-    let fechaInicio: Date;
-    let fechaFin: Date;
-
-    if (periodo === 'mensual') {
-      fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset, 1);
-      fechaFin = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset + 1, 0);
-    } else if (periodo === '12meses') {
-      fechaFin = mesOffset === 0 ? hoy : new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset + 1, 0);
-      fechaInicio = new Date(fechaFin.getFullYear() - 1, fechaFin.getMonth(), fechaFin.getDate());
-    } else {
-      fechaInicio = new Date(hoy.getFullYear(), 0, 1);
-      fechaFin = hoy;
-    }
-
-    const bajasDelPeriodo = bajas.filter(b => {
-      const fechaBaja = new Date(b.fecha_baja);
-      const empleado = grupo.find(e => (e.numero_empleado || Number(e.emp_id)) === b.numero_empleado);
-      return empleado && fechaBaja >= fechaInicio && fechaBaja <= fechaFin;
-    });
-
-    // Rotación voluntaria usa motivos clave: Rescisión por desempeño, disciplina, término del contrato
-    const voluntarias = bajasDelPeriodo.filter(b => isMotivoClave(b.motivo)).length;
-    const involuntarias = bajasDelPeriodo.length - voluntarias;
-    const promedioActivos = activos > 0 ? activos : 1;
-    const rotacionTotal = (bajasDelPeriodo.length / promedioActivos) * 100;
-
-    return {
-      total: rotacionTotal,
-      voluntaria: (voluntarias / promedioActivos) * 100,
-      involuntaria: (involuntarias / promedioActivos) * 100,
-      cantidad: bajasDelPeriodo.length
-    };
-  };
+  // ✅ ELIMINADA función duplicada - ahora usa funciones centralizadas de kpi-helpers.ts
 
   // Calcular KPIs para un mes específico
   const calcularKPIsDelMes = (grupo: PlantillaRecord[], mesOffset = 0) => {
@@ -99,10 +68,17 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
       return fechaIngreso <= mesFin && e.activo;
     }).length;
 
-    // Rotaciones
-    const rotacionMensual = calcularRotacion(grupo, 'mensual', mesOffset);
-    const rotacionAcumulada = calcularRotacion(grupo, '12meses', mesOffset);
-    const rotacionAnioActual = calcularRotacion(grupo, 'ytd', mesOffset);
+    // Rotaciones usando funciones centralizadas (CORREGIDO)
+    // ⚠️ CRÍTICO: Usar funciones centralizadas para garantizar consistencia con Tab Retención
+    const fechaRef = mesOffset === 0 ? hoy : new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset + 1, 0);
+    const mesActualStart = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset, 1);
+    const mesActualEnd = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset + 1, 0);
+    const rotacionMensual = calcularRotacionConDesglose(grupo, mesActualStart, mesActualEnd);
+
+    // Para métricas GENERALES, usar funciones centralizadas con desglose
+    // Esto garantiza que los valores coincidan con el Tab Retención
+    const rotacionAcumuladaDesglose = calcularRotacionAcumulada12mConDesglose(plantilla, fechaRef);
+    const rotacionAnioActualDesglose = calcularRotacionYTDConDesglose(plantilla, fechaRef);
 
     // Incidencias del mes
     const empleadosIds = grupo.map(e => e.numero_empleado || Number(e.emp_id));
@@ -120,11 +96,17 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
       i.inci?.toUpperCase() === 'VAC'
     ).length;
 
+    console.log('📊 Tab Resumen - KPIs calculados:', {
+      rotacionAcumulada: rotacionAcumuladaDesglose.total.toFixed(1) + '%',
+      rotacionAnioActual: rotacionAnioActualDesglose.total.toFixed(1) + '%',
+      rotacionMensual: rotacionMensual.total.toFixed(1) + '%'
+    });
+
     return {
       empleadosActivos,
       rotacionMensual: rotacionMensual.total,
-      rotacionAcumulada: rotacionAcumulada.total,
-      rotacionAnioActual: rotacionAnioActual.total,
+      rotacionAcumulada: rotacionAcumuladaDesglose.total,  // ✅ Ahora usa funciones centralizadas
+      rotacionAnioActual: rotacionAnioActualDesglose.total,  // ✅ Ahora usa funciones centralizadas
       incidencias: totalIncidencias,
       permisos
     };
@@ -217,24 +199,31 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
     const negocios = [...new Set(plantilla.map(e => e.empresa))].filter(Boolean);
 
     return negocios.map(negocio => {
-      const empleados = plantilla.filter(e => (e.empresa || '') === negocio && e.activo);
+      // ✅ CORREGIDO: Incluir TODOS los empleados (activos Y dados de baja)
+      // para que calcularRotacion() pueda encontrar las bajas
+      const empleados = plantilla.filter(e => (e.empresa || '') === negocio);
 
-      // Activos por antigüedad
-      const porAntiguedad = empleados.reduce((acc, emp) => {
+      // Activos por antigüedad (solo empleados activos)
+      const empleadosActivos = empleados.filter(e => e.activo);
+      const porAntiguedad = empleadosActivos.reduce((acc, emp) => {
         const anos = getAntiguedad(emp.fecha_ingreso);
         const categoria = clasificarAntiguedad(anos);
         acc[categoria] = (acc[categoria] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
+      const hoy = new Date();
+      const mesInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      const mesFin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+
       return {
         nombre: negocio || 'Sin Negocio',
-        total: empleados.length,
+        total: empleadosActivos.length, // Solo activos para el conteo
         antiguedad: porAntiguedad,
         rotacion: {
-          mensual: calcularRotacion(empleados, 'mensual'),
-          doce_meses: calcularRotacion(empleados, '12meses'),
-          ytd: calcularRotacion(empleados, 'ytd')
+          mensual: calcularRotacionConDesglose(empleados, mesInicio, mesFin),
+          doce_meses: calcularRotacionAcumulada12mConDesglose(empleados, hoy),
+          ytd: calcularRotacionYTDConDesglose(empleados, hoy)
         },
         ausentismo: calcularAusentismo(empleados)
       };
@@ -246,23 +235,30 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
     const areas = [...new Set(plantilla.map(e => e.area))].filter(Boolean);
 
     return areas.map(area => {
-      const empleados = plantilla.filter(e => (e.area || '') === area && e.activo);
+      // ✅ CORREGIDO: Incluir TODOS los empleados (activos Y dados de baja)
+      const empleados = plantilla.filter(e => (e.area || '') === area);
 
-      const porAntiguedad = empleados.reduce((acc, emp) => {
+      // Activos por antigüedad (solo empleados activos)
+      const empleadosActivos = empleados.filter(e => e.activo);
+      const porAntiguedad = empleadosActivos.reduce((acc, emp) => {
         const anos = getAntiguedad(emp.fecha_ingreso);
         const categoria = clasificarAntiguedad(anos);
         acc[categoria] = (acc[categoria] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
+      const hoy = new Date();
+      const mesInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      const mesFin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+
       return {
         nombre: area || 'Sin Área',
-        total: empleados.length,
+        total: empleadosActivos.length, // Solo activos
         antiguedad: porAntiguedad,
         rotacion: {
-          mensual: calcularRotacion(empleados, 'mensual'),
-          doce_meses: calcularRotacion(empleados, '12meses'),
-          ytd: calcularRotacion(empleados, 'ytd')
+          mensual: calcularRotacionConDesglose(empleados, mesInicio, mesFin),
+          doce_meses: calcularRotacionAcumulada12mConDesglose(empleados, hoy),
+          ytd: calcularRotacionYTDConDesglose(empleados, hoy)
         },
         ausentismo: calcularAusentismo(empleados)
       };
@@ -274,23 +270,30 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
     const departamentos = [...new Set(plantilla.map(e => e.departamento))].filter(Boolean);
 
     return departamentos.map(depto => {
-      const empleados = plantilla.filter(e => e.departamento === depto && e.activo);
+      // ✅ CORREGIDO: Incluir TODOS los empleados (activos Y dados de baja)
+      const empleados = plantilla.filter(e => e.departamento === depto);
 
-      const porAntiguedad = empleados.reduce((acc, emp) => {
+      // Activos por antigüedad (solo empleados activos)
+      const empleadosActivos = empleados.filter(e => e.activo);
+      const porAntiguedad = empleadosActivos.reduce((acc, emp) => {
         const anos = getAntiguedad(emp.fecha_ingreso);
         const categoria = clasificarAntiguedad(anos);
         acc[categoria] = (acc[categoria] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
+      const hoy = new Date();
+      const mesInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      const mesFin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+
       return {
         nombre: depto,
-        total: empleados.length,
+        total: empleadosActivos.length, // Solo activos
         antiguedad: porAntiguedad,
         rotacion: {
-          mensual: calcularRotacion(empleados, 'mensual'),
-          doce_meses: calcularRotacion(empleados, '12meses'),
-          ytd: calcularRotacion(empleados, 'ytd')
+          mensual: calcularRotacionConDesglose(empleados, mesInicio, mesFin),
+          doce_meses: calcularRotacionAcumulada12mConDesglose(empleados, hoy),
+          ytd: calcularRotacionYTDConDesglose(empleados, hoy)
         },
         ausentismo: calcularAusentismo(empleados)
       };
@@ -316,14 +319,33 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
     const kpisAnteriores = calcularKPIsDelMes(empleadosDelGrupo, -1);
 
     // Preparar datos para gráfico de activos por antigüedad
-    const datosActivos = datos.map(d => ({
-      nombre: d.nombre.length > 20 ? d.nombre.substring(0, 20) + '...' : d.nombre,
-      '0-1 años': d.antiguedad['0-1 años'] || 0,
-      '1-3 años': d.antiguedad['1-3 años'] || 0,
-      '3-5 años': d.antiguedad['3-5 años'] || 0,
-      '5-10 años': d.antiguedad['5-10 años'] || 0,
-      '10+ años': d.antiguedad['10+ años'] || 0,
-    }));
+    const datosActivos = datos.map(d => {
+      // Acortar nombres muy largos pero mantener legibilidad
+      let nombreCorto = d.nombre;
+      if (nombreCorto.length > 18) {
+        // Tomar primeras 2 palabras o primeros 15 caracteres
+        const palabras = nombreCorto.split(' ');
+        if (palabras.length > 1) {
+          nombreCorto = palabras.slice(0, 2).join(' ');
+          if (nombreCorto.length > 18) {
+            nombreCorto = nombreCorto.substring(0, 15) + '...';
+          }
+        } else {
+          nombreCorto = nombreCorto.substring(0, 15) + '...';
+        }
+      }
+
+      return {
+        nombre: nombreCorto,
+        nombreCompleto: d.nombre, // Para tooltip
+        total: d.total,
+        '0-1 años': d.antiguedad['0-1 años'] || 0,
+        '1-3 años': d.antiguedad['1-3 años'] || 0,
+        '3-5 años': d.antiguedad['3-5 años'] || 0,
+        '5-10 años': d.antiguedad['5-10 años'] || 0,
+        '10+ años': d.antiguedad['10+ años'] || 0,
+      };
+    });
 
     return (
       <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
@@ -337,27 +359,56 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
           {renderKPICard('Permisos', kpisActuales.permisos, kpisAnteriores.permisos, false, <TrendingUp className="h-4 w-4" />)}
         </div>
 
-        {/* 1. ACTIVOS POR ANTIGÜEDAD */}
-        <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
-          <CardHeader className={cn(refreshEnabled && "pb-6")}>
-            <CardTitle className={cn("flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
-              <Users className="h-5 w-5" />
+        {/* 1. ACTIVOS POR ANTIGÜEDAD - DISEÑO MEJORADO */}
+        <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white shadow-brand transition-shadow")}>
+          <CardHeader className={cn("pb-3", refreshEnabled && "pb-4")}>
+            <CardTitle className={cn("flex items-center gap-2 text-base", refreshEnabled && "font-heading text-brand-ink")}>
+              <Users className="h-4 w-4" />
               Empleados Activos por Antigüedad
             </CardTitle>
           </CardHeader>
           <CardContent className={cn(refreshEnabled && "pt-0")}>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={datosActivos}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="nombre" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
-                <Tooltip />
-                <Legend />
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart
+                data={datosActivos}
+                margin={{ top: 5, right: 20, left: 10, bottom: 65 }}
+                barSize={datosActivos.length > 5 ? undefined : 80}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="nombre"
+                  angle={-35}
+                  textAnchor="end"
+                  height={75}
+                  interval={0}
+                  tick={{ fontSize: 11, fill: '#374151' }}
+                />
+                <YAxis tick={{ fontSize: 11, fill: '#374151' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '12px'
+                  }}
+                  formatter={(value: any, name: string, props: any) => {
+                    const total = props.payload.total || 0;
+                    const percentage = total > 0 ? ((Number(value) / total) * 100).toFixed(1) : '0.0';
+                    return [`${value} (${percentage}%)`, name];
+                  }}
+                  labelFormatter={(label: string, payload: any) => {
+                    if (payload && payload.length > 0 && payload[0].payload.nombreCompleto) {
+                      return `${payload[0].payload.nombreCompleto} - Total: ${payload[0].payload.total || 0}`;
+                    }
+                    return label;
+                  }}
+                />
+                <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="rect" iconSize={12} />
                 <Bar dataKey="0-1 años" stackId="a" fill="#ef4444" />
                 <Bar dataKey="1-3 años" stackId="a" fill="#f97316" />
                 <Bar dataKey="3-5 años" stackId="a" fill="#eab308" />
                 <Bar dataKey="5-10 años" stackId="a" fill="#22c55e" />
-                <Bar dataKey="10+ años" stackId="a" fill="#3b82f6" />
+                <Bar dataKey="10+ años" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -374,23 +425,42 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
               </CardTitle>
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart
-                  data={datos.map(d => ({
-                    nombre: d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre,
-                    Voluntaria: Number(d.rotacion.mensual.voluntaria.toFixed(1)),
-                    Involuntaria: Number(d.rotacion.mensual.involuntaria.toFixed(1))
-                  }))}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="nombre" angle={-45} textAnchor="end" height={80} fontSize={11} />
-                  <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="Voluntaria" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
-                  <Line type="monotone" dataKey="Involuntaria" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
+              {(() => {
+                const datosGrafico = datos.map(d => ({
+                  nombre: d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre,
+                  Voluntaria: Number(d.rotacion.mensual.complementaria.toFixed(1)),
+                  Involuntaria: Number(d.rotacion.mensual.involuntaria.toFixed(1))
+                }));
+
+                const hayDatos = datosGrafico.some(d => d.Voluntaria > 0 || d.Involuntaria > 0);
+
+                if (!hayDatos) {
+                  return (
+                    <div className="flex h-[300px] items-center justify-center">
+                      <div className="text-center text-gray-500">
+                        <p className="text-sm">Sin bajas en el mes actual</p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          {new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={datosGrafico}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="nombre" angle={-45} textAnchor="end" height={80} fontSize={11} />
+                      <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="Voluntaria" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
+                      <Line type="monotone" dataKey="Involuntaria" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                );
+              })()}
             </CardContent>
           </Card>
 
@@ -407,7 +477,7 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
                 <LineChart
                   data={datos.map(d => ({
                     nombre: d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre,
-                    Voluntaria: Number(d.rotacion.doce_meses.voluntaria.toFixed(1)),
+                    Voluntaria: Number(d.rotacion.doce_meses.complementaria.toFixed(1)),
                     Involuntaria: Number(d.rotacion.doce_meses.involuntaria.toFixed(1))
                   }))}
                 >
@@ -436,7 +506,7 @@ export function SummaryComparison({ plantilla, bajas, incidencias, refreshEnable
                 <LineChart
                   data={datos.map(d => ({
                     nombre: d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre,
-                    Voluntaria: Number(d.rotacion.ytd.voluntaria.toFixed(1)),
+                    Voluntaria: Number(d.rotacion.ytd.complementaria.toFixed(1)),
                     Involuntaria: Number(d.rotacion.ytd.involuntaria.toFixed(1))
                   }))}
                 >

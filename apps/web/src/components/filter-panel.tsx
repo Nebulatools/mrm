@@ -8,10 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 //
 import { supabase } from "@/lib/supabase";
-import type { RetentionFilterOptions } from "@/lib/filters/retention";
+import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { cn } from "@/lib/utils";
 
-// Type moved to lib/filters/retention
+// Type moved to lib/filters/filters (renamed from retention)
 
 interface RetentionFilterPanelProps {
   onFiltersChange: (filters: RetentionFilterOptions) => void;

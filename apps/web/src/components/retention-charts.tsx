@@ -8,7 +8,7 @@ import { format, subMonths, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { isMotivoClave } from '@/lib/normalizers';
+import { filterByMotivo } from '@/lib/utils/kpi-helpers';
 //
 
 interface MonthlyRetentionData {
@@ -74,22 +74,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, motivoF
         throw new Error('No plantilla data found');
       }
 
-      // Filtrar por motivo si hay bajas
-      if (motivoFilter === 'involuntaria') {
-        // Solo incluir empleados con motivos involuntarios
-        plantilla = plantilla.filter(emp => {
-          if (!emp.fecha_baja) return true; // Mantener empleados activos
-          return isMotivoClave((emp as any).motivo_baja);
-        });
-        console.log(`🔍 Filtered to involuntaria motivos: ${plantilla.length} employees`);
-      } else if (motivoFilter === 'complementaria') {
-        // Solo incluir empleados con motivos complementarios (no involuntarios)
-        plantilla = plantilla.filter(emp => {
-          if (!emp.fecha_baja) return true; // Mantener empleados activos
-          return !isMotivoClave((emp as any).motivo_baja);
-        });
-        console.log(`🔍 Filtered to complementaria motivos: ${plantilla.length} employees`);
-      }
+      // Filtrar por motivo usando función centralizada
+      plantilla = filterByMotivo(plantilla, motivoFilter);
       
       // Detectar el rango de años con datos reales de bajas - DINÁMICO
       const hoy = new Date();
