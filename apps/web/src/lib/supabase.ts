@@ -55,28 +55,52 @@ export const db = {
     return (data || []) as PlantillaRecord[]
   },
 
-  // INCIDENCIAS (CSV) operations
+  // INCIDENCIAS (CSV) operations - CON PAGINACIÓN para cargar TODOS los registros
   async getIncidenciasCSV(startDate?: string, endDate?: string, client = supabase) {
-    console.log('🗄️ Fetching incidencias (CSV table)...', { startDate, endDate });
-    let query = client
-      .from('incidencias')
-      .select('*')
-      .order('fecha', { ascending: false })
+    console.log('🗄️ Fetching incidencias (CSV table) con paginación...', { startDate, endDate });
 
-    if (startDate) {
-      query = query.gte('fecha', startDate)
-    }
-    if (endDate) {
-      query = query.lte('fecha', endDate)
+    let allData: IncidenciaCSVRecord[] = [];
+    let from = 0;
+    const pageSize = 1000; // Máximo de Supabase por página
+    let hasMore = true;
+
+    while (hasMore) {
+      let query = client
+        .from('incidencias')
+        .select('*')
+        .order('fecha', { ascending: false })
+        .range(from, from + pageSize - 1);
+
+      if (startDate) {
+        query = query.gte('fecha', startDate);
+      }
+      if (endDate) {
+        query = query.lte('fecha', endDate);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('❌ Error fetching incidencias página', from / pageSize + 1, ':', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        hasMore = false;
+      } else {
+        allData = allData.concat(data);
+        console.log(`📄 Página ${Math.floor(from / pageSize) + 1}: ${data.length} registros (total acumulado: ${allData.length})`);
+        from += pageSize;
+
+        // Si recibimos menos registros que el tamaño de página, ya no hay más
+        if (data.length < pageSize) {
+          hasMore = false;
+        }
+      }
     }
 
-    const { data, error } = await query
-    if (error) {
-      console.error('❌ Error fetching incidencias (CSV):', error);
-      throw error;
-    }
-    console.log('✅ incidencias (CSV) loaded:', data?.length, 'records');
-    return (data || []) as IncidenciaCSVRecord[]
+    console.log('✅ incidencias (CSV) loaded:', allData.length, 'records (todas las páginas cargadas)');
+    return allData as IncidenciaCSVRecord[];
   },
 
   // EMPLEADOS_SFTP operations (new main employee table)

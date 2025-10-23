@@ -238,23 +238,27 @@ export class KPICalculator {
     // Empleados activos al inicio del periodo
     const empleadosInicioPeriodo = plantilla.filter(emp => {
       const fechaIngreso = new Date(emp.fecha_ingreso);
-      // Activo al inicio = ingresó antes del inicio Y (no tiene fecha_baja O fecha_baja es después del inicio)
-      if (emp.fecha_baja) {
-        const fechaBaja = new Date(emp.fecha_baja);
+      // ✅ Activo al inicio = ingresó antes del inicio Y (no tiene fecha_baja O fecha_baja es después del inicio)
+      // NO usar emp.activo - solo usar fechas para determinar si estaba activo en ese momento
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      if (fechaBaja) {
         return fechaIngreso <= startDate && fechaBaja > startDate;
       }
-      return fechaIngreso <= startDate && emp.activo === true;
+      // Si no tiene fecha_baja, estaba activo (no importa el valor del campo activo)
+      return fechaIngreso <= startDate;
     }).length;
-    
+
     // Empleados activos al final del periodo
     const empleadosFinPeriodo = plantilla.filter(emp => {
       const fechaIngreso = new Date(emp.fecha_ingreso);
-      // Activo al final = ingresó antes del fin Y (no tiene fecha_baja O fecha_baja es después del fin)
-      if (emp.fecha_baja) {
-        const fechaBaja = new Date(emp.fecha_baja);
+      // ✅ Activo al final = ingresó antes del fin Y (no tiene fecha_baja O fecha_baja es después del fin)
+      // NO usar emp.activo - solo usar fechas para determinar si estaba activo en ese momento
+      const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+      if (fechaBaja) {
         return fechaIngreso <= endDate && fechaBaja > endDate;
       }
-      return fechaIngreso <= endDate && emp.activo === true;
+      // Si no tiene fecha_baja, estaba activo (no importa el valor del campo activo)
+      return fechaIngreso <= endDate;
     }).length;
     
     const activosProm = (empleadosInicioPeriodo + empleadosFinPeriodo) / 2;

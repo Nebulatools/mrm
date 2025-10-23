@@ -79,7 +79,9 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     console.log('📅 Año filtrado:', currentYear || 'SIN FILTRO (TODO)');
     console.log('📅 Mes filtrado:', selectedMonths && selectedMonths.length ? selectedMonths : 'SIN FILTRO (TODO)');
 
-    const scopedByEmployee = incidencias.filter(inc => empleadosAnualesMap.has(inc.emp));
+    // ✅ CAMBIO: NO filtrar por empleadosAnualesMap - mostrar TODAS las incidencias históricas
+    // Esto permite ver incidencias de empleados que se dieron de baja antes del periodo
+    const scopedByEmployee = incidencias;
 
     const scopedByYear = scopedByEmployee.filter(inc => {
       if (currentYear === undefined) return true;
@@ -90,8 +92,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
     const monthsFilter = (selectedMonths || []).filter(m => Number.isFinite(m)) as number[];
 
+    // ✅ CAMBIO: NO filtrar por empleadosPeriodoSet - mostrar TODAS las incidencias del periodo
     const scopedByPeriod = scopedByYear.filter(inc => {
-      if (empleadosPeriodoSet.size > 0 && !empleadosPeriodoSet.has(inc.emp)) return false;
       if (!monthsFilter.length) return true;
       if (!inc.fecha) return false;
       const fecha = new Date(inc.fecha);
