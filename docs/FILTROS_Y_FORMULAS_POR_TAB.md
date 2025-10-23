@@ -17,11 +17,10 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 
 ### Tipos de Filtrado
 
-- **🟢 ESPECÍFICO**: La métrica/gráfico responde a TODOS los filtros seleccionados (Año, Mes, Negocio, Área, Depto, Puesto, Clasificación, Ubicación)
-- **🟡 PARCIAL**: La métrica/gráfico responde a ALGUNOS filtros (se especifica exactamente cuáles)
-- **🔴 GENERAL**: La métrica/gráfico NO responde a filtros de año/mes (pero SÍ a otros: Negocio, Área, Depto, Puesto, Clasificación, Ubicación)
+- **🟢 ESPECÍFICO**: La métrica/gráfico responde a TODOS los filtros seleccionados (Año, Mes, Negocio, Área, Depto, Puesto, Clasificación, Ubicación).
+- **🟡 PARCIAL**: La métrica/gráfico responde a TODOS los filtros excepto al de Mes (ignora Mes, pero respeta Año, Negocio/Empresa, Área, Departamento, Puesto, Clasificación y Ubicación).
 
-**Excepciones predefinidas del filtro de mes**
+**Excepciones predefinidas del filtro de mes (operan como 🟡 PARCIAL)**
 
 - Rotación Acumulada (12M) y Lo que va del Año (Resumen)
 - Gráficos de Rotación Mensual y Rotación Año Actual (Resumen y Retención)
@@ -48,11 +47,11 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 | Gráfico | Tipo Filtro | Notas |
 |---------|-------------|-------|
 | Empleados Activos por Antigüedad | 🟢 ESPECÍFICO | Barras apiladas con categorías: 0-3m, 3-6m, 6-12m, 1-3a, +3a |
-| Rotación Mensual | 🔴 GENERAL | Ignora filtro de mes; muestra 12 meses consecutivos (aplica filtros de negocio, área, etc.) |
-| 12 Meses Móviles | 🔴 GENERAL | Serie acumulada de 12M; ignora filtro de mes |
-| Lo que va del Año | 🔴 GENERAL | Rotación YTD; no usa filtro de mes |
-| Incidencias - Últimos 12 meses | 🔴 GENERAL | Incidencias totales por mes (no responde al filtro de mes) |
-| Permisos - Últimos 12 meses | 🔴 GENERAL | Permisos totales por mes (no responde al filtro de mes) |
+| Rotación Mensual | 🟡 PARCIAL | Ignora el filtro de Mes; muestra 12 meses consecutivos y respeta Año, Negocio, Área, etc. |
+| 12 Meses Móviles | 🟡 PARCIAL | Serie acumulada de 12M; ignora Mes pero respeta el resto de filtros. |
+| Lo que va del Año | 🟡 PARCIAL | Rotación YTD; ignora Mes, mantiene Año y filtros organizacionales. |
+| Incidencias - Últimos 12 meses | 🟡 PARCIAL | Incidencias totales por mes; ignora Mes y respeta Año/Negocio/Área/etc. |
+| Permisos - Últimos 12 meses | 🟡 PARCIAL | Permisos totales por mes; ignora Mes y respeta Año/Negocio/Área/etc. |
 | Tabla Ausentismo | 🟢 ESPECÍFICO | Desglose: Total, Permisos, Faltas, Otros |
 
 **Categorías de Antigüedad Actualizadas**:
@@ -101,7 +100,7 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 
 | Gráfico | Tipo Filtro | Notas |
 |---------|-------------|-------|
-| Tendencia Mensual (Línea) | 🔴 GENERAL | Ignora filtro de mes; usa plantilla anual filtrada por año |
+| Tendencia Mensual (Línea) | 🟡 PARCIAL | Ignora el filtro de Mes; usa plantilla anual filtrada por Año y respeta los demás filtros |
 | Incidencias por Empleado (Histograma) | 🟢 ESPECÍFICO | X: # Incidencias, Y: # Empleados |
 | Incidencias por Tipo (Tabla) | 🟢 ESPECÍFICO | Columnas: Tipo, # días, # emp |
 | Distribución Pie (Incidencias vs Permisos) | 🟢 ESPECÍFICO | 2 categorías |
@@ -128,11 +127,11 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 
 | Gráfico | Tipo Filtro | Notas |
 |---------|-------------|-------|
-| **Rotación Acumulada 12M (Línea)** | 🔴 GENERAL | Muestra TODOS los meses históricos. NO responde a filtros año/mes, pero SÍ a otros filtros (Depto, Puesto, Empresa, Área) |
-| **Rotación Mensual (Línea)** | 🔴 GENERAL | Muestra TODOS los meses del año filtrado. NO responde a filtro de mes, pero SÍ a otros filtros |
-| **Rotación por Temporalidad (Barras)** | 🔴 GENERAL | Muestra TODOS los meses del año filtrado. NO responde a filtro de mes, pero SÍ a otros filtros |
-| **Tabla Comparativa - Rotación Acumulada 12M** | 🔴 GENERAL | Compara 2 años completos. NO responde a filtros año/mes, pero SÍ a otros filtros |
-| **Tabla Comparativa - Rotación Mensual** | 🔴 GENERAL | Compara 2 años completos. NO responde a filtros año/mes, pero SÍ a otros filtros |
+| **Rotación Acumulada 12M (Línea)** | 🟡 PARCIAL | Muestra todos los meses históricos; ignora Mes y respeta Año, Depto, Puesto, Empresa, Área, Clasificación, Ubicación. |
+| **Rotación Mensual (Línea)** | 🟡 PARCIAL | Muestra todos los meses del año filtrado; ignora Mes, respeta Año y filtros organizacionales. |
+| **Rotación por Temporalidad (Barras)** | 🟡 PARCIAL | Muestra todos los meses del año filtrado; ignora Mes, respeta Año, Negocio, Área, etc. |
+| **Tabla Comparativa - Rotación Acumulada 12M** | 🟡 PARCIAL | Compara 2 años completos; ignora Mes, respeta Año y los demás filtros. |
+| **Tabla Comparativa - Rotación Mensual** | 🟡 PARCIAL | Compara 2 años completos; ignora Mes, respeta Año y los demás filtros. |
 | **Mapa de Calor** | 🟡 PARCIAL | Responde a todos los filtros EXCEPTO mes (año SÍ aplica) |
 | **Tabla Detalle de Bajas (empleados_sftp)** | 🟢 ESPECÍFICO | Responde a TODOS los filtros (usa `plantillaFiltered`, incluyendo mes) |
 
@@ -277,7 +276,7 @@ Rotación_Total = Rotación_Involuntaria + Rotación_Complementaria
 
 ## 🔟 NOTAS IMPORTANTES
 
-### Diferencia entre Específico y General
+### Diferencia entre Específico y Parcial
 
 **🟢 ESPECÍFICO** = La métrica/gráfico **SÍ responde** a TODOS los filtros:
 - Año
@@ -287,19 +286,22 @@ Rotación_Total = Rotación_Involuntaria + Rotación_Complementaria
 - Empresa
 - Área
 
-**🔴 GENERAL** = La métrica/gráfico **NO responde** a filtros de año/mes, pero **SÍ responde** a:
+**🟡 PARCIAL** = La métrica/gráfico **IGNORA el filtro de Mes**, pero **SÍ responde** (o administra internamente) a:
+- Año (para acotar la ventana histórica; en series largas se recalcula la ventana internamente)
 - Departamento
 - Puesto
 - Empresa
 - Área
+- Clasificación
+- Ubicación
 
-### ¿Por qué algunos gráficos son GENERALES?
+### ¿Por qué algunos gráficos son PARCIALES (sin filtro de Mes)?
 
-Los gráficos de tendencia histórica (12 meses móviles, comparación anual) muestran TODOS los meses para permitir análisis temporal completo. Sin embargo:
+Los componentes de tendencia histórica (12 meses móviles, acumulados, comparativas) necesitan mantener una serie continua para el análisis temporal. Por eso ignoramos el filtro de Mes, pero:
 
-1. Los **cálculos internos** SÍ responden a los demás filtros
-2. Los **KPIs en las cajitas** SÍ responden a TODOS los filtros
-3. Esto permite ver tendencias completas mientras se filtra por departamento, empresa, etc.
+1. Los **cálculos internos** y promedios se recalculan con los filtros vigentes (excepto Mes).
+2. Los **KPIs** asociados SÍ responden a TODOS los filtros (incluyendo Mes).
+3. Esto permite comparar tendencias completas sin perder el contexto del resto de filtros seleccionados.
 
 ---
 
@@ -347,7 +349,7 @@ Los gráficos de tendencia histórica (12 meses móviles, comparación anual) mu
      - Líneas 421-510: Tab Retención - función `getFilteredRetentionKPIs()`
      - Líneas 679-687: Tab Resumen con filtros aplicados
      - Líneas 885-889: Tab Incidencias con filtros aplicados
-     - Líneas 1043-1052: Gráficas de Retención con filtros GENERALES
+     - Líneas 1043-1052: Gráficas de Retención con filtros PARCIALES (ignoran Mes)
 
 3. **Componentes por Tab**:
    - `/apps/web/src/components/summary-comparison.tsx` - Tab Resumen ✅
@@ -357,7 +359,7 @@ Los gráficos de tendencia histórica (12 meses móviles, comparación anual) mu
      - Líneas 77-114: Filtrado de incidencias por plantilla y fecha
      - Línea 116: KPI "# de Activos" usa empleados filtrados
    - `/apps/web/src/components/retention-charts.tsx` - Gráficas de Retención ✅
-     - Líneas 79-116: Filtros GENERALES (sin año/mes) para tendencias históricas
+     - Líneas 79-116: Filtros PARCIALES (ignoran Mes; el rango de años se controla internamente) para tendencias históricas
      - Línea 119: Filtro adicional por motivo (involuntaria/complementaria)
    - `/apps/web/src/components/retention-table.tsx` - Tabla comparativa ✅
 
@@ -382,8 +384,8 @@ Los gráficos de tendencia histórica (12 meses móviles, comparación anual) mu
 4. Componentes internos calculan métricas/gráficos basándose en datos filtrados
    ↓
 5. EXCEPCIONES:
-   - Gráficas de Retención: Reciben filtros SIN año/mes (líneas 1043-1052)
-   - Mapa de Calor: Recibe filtros SIN mes pero CON año (líneas 168-177)
+   - Gráficas de Retención: Aplican filtros PARCIALES (ignoran Mes y manejan su propia ventana anual) — ver líneas 1043-1052
+   - Mapa de Calor: Aplica filtros PARCIALES (ignora Mes, respeta Año) — ver líneas 168-177
 ```
 
 ---
@@ -483,11 +485,11 @@ Esta tabla muestra exactamente qué filtros aplican a cada componente del dashbo
 | **KPI: Rotación Mensual** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:464` |
 | **KPI: Rotación Acumulada 12M** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:467-469` |
 | **KPI: Rotación Año Actual** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:472-474` |
-| **Gráfico: Rotación Acumulada 12M** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:79-116` 🔴 GENERAL |
-| **Gráfico: Rotación Mensual** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:79-116` 🔴 GENERAL |
-| **Gráfico: Rotación por Temporalidad** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:79-116` 🔴 GENERAL |
-| **Tabla: Comparativa Rotación 12M** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:175-196` 🔴 GENERAL |
-| **Tabla: Comparativa Rotación Mensual** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:175-196` 🔴 GENERAL |
+| **Gráfico: Rotación Acumulada 12M** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:79-116` 🟡 PARCIAL (ignora Mes; ventana anual interna) |
+| **Gráfico: Rotación Mensual** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:79-116` 🟡 PARCIAL (ignora Mes; ventana anual interna) |
+| **Gráfico: Rotación por Temporalidad** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:79-116` 🟡 PARCIAL (ignora Mes; ventana anual interna) |
+| **Tabla: Comparativa Rotación 12M** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:175-196` 🟡 PARCIAL (ignora Mes; ventana anual interna) |
+| **Tabla: Comparativa Rotación Mensual** | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `retention-charts.tsx:175-196` 🟡 PARCIAL (ignora Mes; ventana anual interna) |
 | **Mapa de Calor** | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dashboard-page.tsx:168-177` 🟡 PARCIAL |
 | **Tabla: Bajas por Motivo** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `dismissal-reasons-table.tsx` |
 
@@ -496,23 +498,22 @@ Esta tabla muestra exactamente qué filtros aplican a cada componente del dashbo
 - ✅ = El filtro SÍ aplica
 - ❌ = El filtro NO aplica
 - 🟢 = ESPECÍFICO (todos los filtros aplican)
-- 🟡 = PARCIAL (algunos filtros aplican)
-- 🔴 = GENERAL (NO aplican año/mes, SÍ otros filtros)
+- 🟡 = PARCIAL (ignoran Mes; el resto de filtros aplica. En componentes históricos, la ventana anual se controla internamente)
 
 ---
 
 ## 🎯 EXCEPCIONES CLAVE DEL SISTEMA
 
-### 1. Gráficas de Retención (GENERAL - Sin Año/Mes)
+### 1. Gráficas de Retención (PARCIAL - Ignoran Mes)
 
-**Razón**: Mostrar tendencias históricas completas para análisis temporal
+**Razón**: Mostrar tendencias históricas completas para análisis temporal.
 
 **Implementación**: `dashboard-page.tsx:1043-1052`
 ```typescript
 <RetentionCharts
   filters={{
-    years: [],      // ⚠️ NO filtrar por año
-    months: [],     // ⚠️ NO filtrar por mes
+    years: [],      // ⚠️ Ventana anual controlada internamente
+    months: [],     // ⚠️ Ignorar filtro de Mes
     departamentos: retentionFilters.departamentos,  // ✅ SÍ aplicar
     puestos: retentionFilters.puestos,              // ✅ SÍ aplicar
     // ... otros filtros SÍ se aplican
