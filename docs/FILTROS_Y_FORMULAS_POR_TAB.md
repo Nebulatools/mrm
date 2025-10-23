@@ -1,6 +1,6 @@
 # FILTROS Y FÓRMULAS POR TAB - ESPECIFICACIÓN COMPLETA
 
-**Fecha actualización**: 2025-01-20 (Última revisión completa)
+**Fecha actualización**: 2025-10-23 (Última revisión completa)
 **Estado**: ✅ Implementado, verificado y auditado
 
 ## 📋 RESUMEN EJECUTIVO
@@ -20,6 +20,13 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 - **🟢 ESPECÍFICO**: La métrica/gráfico responde a TODOS los filtros seleccionados (Año, Mes, Negocio, Área, Depto, Puesto, Clasificación, Ubicación)
 - **🟡 PARCIAL**: La métrica/gráfico responde a ALGUNOS filtros (se especifica exactamente cuáles)
 - **🔴 GENERAL**: La métrica/gráfico NO responde a filtros de año/mes (pero SÍ a otros: Negocio, Área, Depto, Puesto, Clasificación, Ubicación)
+
+**Excepciones predefinidas del filtro de mes**
+
+- Rotación Acumulada (12M) y Lo que va del Año (Resumen)
+- Gráficos de Rotación Mensual y Rotación Año Actual (Resumen y Retención)
+- Tendencia de Incidencias/Permisos (Resumen e Incidencias)
+- Visualizaciones principales del tab Retención (solo la tabla final usa todos los filtros)
 
 ---
 
@@ -41,9 +48,11 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 | Gráfico | Tipo Filtro | Notas |
 |---------|-------------|-------|
 | Empleados Activos por Antigüedad | 🟢 ESPECÍFICO | Barras apiladas con categorías: 0-3m, 3-6m, 6-12m, 1-3a, +3a |
-| Rotación Mensual | 🟢 ESPECÍFICO | Línea comparativa Voluntaria vs Involuntaria |
-| 12 Meses Móviles | 🟢 ESPECÍFICO | Línea comparativa Voluntaria vs Involuntaria |
-| Lo que va del Año | 🟢 ESPECÍFICO | Línea comparativa Voluntaria vs Involuntaria |
+| Rotación Mensual | 🔴 GENERAL | Ignora filtro de mes; muestra 12 meses consecutivos (aplica filtros de negocio, área, etc.) |
+| 12 Meses Móviles | 🔴 GENERAL | Serie acumulada de 12M; ignora filtro de mes |
+| Lo que va del Año | 🔴 GENERAL | Rotación YTD; no usa filtro de mes |
+| Incidencias - Últimos 12 meses | 🔴 GENERAL | Incidencias totales por mes (no responde al filtro de mes) |
+| Permisos - Últimos 12 meses | 🔴 GENERAL | Permisos totales por mes (no responde al filtro de mes) |
 | Tabla Ausentismo | 🟢 ESPECÍFICO | Desglose: Total, Permisos, Faltas, Otros |
 
 **Categorías de Antigüedad Actualizadas**:
@@ -92,7 +101,7 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 
 | Gráfico | Tipo Filtro | Notas |
 |---------|-------------|-------|
-| Tendencia Mensual (Línea) | 🟢 ESPECÍFICO | Muestra todos los meses del año seleccionado |
+| Tendencia Mensual (Línea) | 🔴 GENERAL | Ignora filtro de mes; usa plantilla anual filtrada por año |
 | Incidencias por Empleado (Histograma) | 🟢 ESPECÍFICO | X: # Incidencias, Y: # Empleados |
 | Incidencias por Tipo (Tabla) | 🟢 ESPECÍFICO | Columnas: Tipo, # días, # emp |
 | Distribución Pie (Incidencias vs Permisos) | 🟢 ESPECÍFICO | 2 categorías |
@@ -125,7 +134,7 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 | **Tabla Comparativa - Rotación Acumulada 12M** | 🔴 GENERAL | Compara 2 años completos. NO responde a filtros año/mes, pero SÍ a otros filtros |
 | **Tabla Comparativa - Rotación Mensual** | 🔴 GENERAL | Compara 2 años completos. NO responde a filtros año/mes, pero SÍ a otros filtros |
 | **Mapa de Calor** | 🟡 PARCIAL | Responde a todos los filtros EXCEPTO mes (año SÍ aplica) |
-| **Tabla Bajas por Motivo** | 🟢 ESPECÍFICO | Responde a TODOS los filtros |
+| **Tabla Detalle de Bajas (empleados_sftp)** | 🟢 ESPECÍFICO | Responde a TODOS los filtros (usa `plantillaFiltered`, incluyendo mes) |
 
 ---
 

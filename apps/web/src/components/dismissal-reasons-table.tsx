@@ -72,12 +72,19 @@ export function DismissalReasonsTable({
   // const motivos = aggregate dismissal reasons here if needed
 
   // Lista detallada de empleados - ordenar primero y luego decidir cuántos mostrar
-  const empleadosOrdenados = empleadosBaja
-    .sort((a, b) => new Date(b.fecha_baja).getTime() - new Date(a.fecha_baja).getTime());
+  const parseFechaToTime = (value: string | null) => {
+    if (!value) return 0;
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? 0 : date.getTime();
+  };
+
+  const empleadosOrdenados = [...empleadosBaja].sort(
+    (a, b) => parseFechaToTime(b.fecha_baja) - parseFechaToTime(a.fecha_baja)
+  );
   
   const empleadosDetalle: Employee[] = (showAll ? empleadosOrdenados : empleadosOrdenados.slice(0, 10))
     .map(emp => ({
-      id: emp.emp_id || emp.numero_empleado || emp.id || 'N/A',
+      id: String(emp.emp_id || emp.numero_empleado || emp.id || 'N/A'),
       puesto: sanitizeText(normalizePuesto(emp.puesto)) || 'Sin puesto',
       departamento: sanitizeText(normalizeDepartamento(emp.departamento)) || 'Sin departamento',
       clasificacion: sanitizeText(emp.clasificacion || '') || 'Sin clasificación',

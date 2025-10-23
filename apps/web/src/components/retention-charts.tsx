@@ -9,6 +9,7 @@ import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { filterByMotivo } from '@/lib/utils/kpi-helpers';
+import { applyFiltersWithScope } from '@/lib/filters/filters';
 //
 
 interface MonthlyRetentionData {
@@ -41,6 +42,7 @@ interface RetentionFilters {
   clasificaciones?: string[];
   empresas?: string[];
   areas?: string[];
+  ubicaciones?: string[];
 }
 
 interface RetentionChartsProps {
@@ -76,43 +78,32 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         throw new Error('No plantilla data found');
       }
 
-      // ✅ APLICAR FILTROS ESPECÍFICOS (Departamento, Puesto, Empresa, Área)
-      // ⚠️ NO filtrar por año/mes para mostrar tendencias históricas completas
+      // ✅ Aplicar filtros generales (sin año/mes) usando helper centralizado
       if (filters) {
-        const deptosSet = new Set(filters.departamentos || []);
-        const puestosSet = new Set((filters.puestos || []).map(p => String(p).trim()));
-        const empresasSet = new Set(filters.empresas || []);
-        const areasSet = new Set(filters.areas || []);
+        const scopedFilters = {
+          years: filters.years || [],
+          months: filters.months || [],
+          departamentos: filters.departamentos,
+          puestos: filters.puestos,
+          clasificaciones: filters.clasificaciones,
+          empresas: filters.empresas,
+          areas: filters.areas,
+          ubicaciones: filters.ubicaciones,
+          includeInactive: true
+        };
 
-        plantilla = plantilla.filter(emp => {
-          // Filtro por Empresa/Negocio
-          if (empresasSet.size) {
-            const empEmpresa: string = (emp as any).empresa || '';
-            if (!empresasSet.has(empEmpresa)) return false;
-          }
+        const filteredByScope = applyFiltersWithScope(plantilla, scopedFilters, 'general');
 
-          // Filtro por Área
-          if (areasSet.size && !areasSet.has(emp.area || '')) return false;
-
-          // Filtro por Departamento
-          if (deptosSet.size && !deptosSet.has(emp.departamento || '')) return false;
-
-          // Filtro por Puesto
-          if (puestosSet.size) {
-            const empPuesto = String(emp.puesto || '').trim();
-            if (!puestosSet.has(empPuesto)) return false;
-          }
-
-          return true;
-        });
-
-        console.log('🔍 Filtros aplicados a RetentionCharts:', {
+        console.log('🔍 Filtros aplicados a RetentionCharts (GENERAL):', {
           original: plantilla.length,
+          filtrado: filteredByScope.length,
           departamentos: filters.departamentos?.length || 0,
           puestos: filters.puestos?.length || 0,
           empresas: filters.empresas?.length || 0,
           areas: filters.areas?.length || 0
         });
+
+        plantilla = filteredByScope;
       }
 
       // Filtrar por motivo usando función centralizada

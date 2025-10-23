@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Users, TrendingDown, AlertCircle, TrendingUp, Minus, ArrowUp, ArrowDown } from 'lucide-react';
@@ -31,6 +32,7 @@ interface IncidenciaRecord {
 
 interface SummaryComparisonProps {
   plantilla: PlantillaRecord[];
+  plantillaYearScope?: PlantillaRecord[];
   bajas: BajaRecord[];
   incidencias: IncidenciaRecord[];
   selectedYear?: number;    // ✅ Opcional: undefined = SIN filtro (mostrar TODO)
@@ -42,7 +44,122 @@ interface SummaryComparisonProps {
 const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
 const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3"]);
 
-export function SummaryComparison({ plantilla, bajas, incidencias, selectedYear, selectedMonth, refreshEnabled = false }: SummaryComparisonProps) {
+const formatMonthLabel = (date: Date) => {
+  const monthLabel = date.toLocaleDateString('es-MX', { month: 'short' });
+  const cleanedLabel = monthLabel.replace('.', '').trim();
+  const monthWithCase = `${cleanedLabel.charAt(0).toUpperCase()}${cleanedLabel.slice(1)}`;
+  return `${monthWithCase} ${date.getFullYear().toString().slice(-2)}`;
+};
+
+export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incidencias, selectedYear, selectedMonth, refreshEnabled = false }: SummaryComparisonProps) {
+
+  const plantillaRotacion = plantillaYearScope && plantillaYearScope.length > 0 ? plantillaYearScope : plantilla;
+
+  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'complementaria'>('involuntaria');
+
+  const referenceDate = useMemo(() => {
+    const today = new Date();
+    if (selectedYear === undefined) {
+      return today;
+    }
+
+    const currentYear = today.getFullYear();
+    const targetYear = selectedYear;
+    if (targetYear > currentYear) {
+      return today;
+    }
+
+    const targetMonth = targetYear === currentYear ? today.getMonth() : 11;
+    return new Date(targetYear, targetMonth, 1);
+  }, [selectedYear]);
+
+  const rotationSeries = useMemo(() => {
+    const baseDate = referenceDate;
+    const points: Array<{
+      key: string;
+      label: string;
+      month: number;
+      year: number;
+      mensual: ReturnType<typeof calcularRotacionConDesglose>;
+      rolling: ReturnType<typeof calcularRotacionAcumulada12mConDesglose>;
+      ytd: ReturnType<typeof calcularRotacionYTDConDesglose>;
+    }> = [];
+
+    for (let offset = 11; offset >= 0; offset--) {
+      const current = new Date(baseDate.getFullYear(), baseDate.getMonth() - offset, 1);
+      const startDate = new Date(current.getFullYear(), current.getMonth(), 1);
+      const endDate = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+
+      const monthlyRotation = calcularRotacionConDesglose(plantillaRotacion, startDate, endDate);
+      const rollingRotation = calcularRotacionAcumulada12mConDesglose(plantillaRotacion, endDate);
+      const ytdRotation = calcularRotacionYTDConDesglose(plantillaRotacion, endDate);
+
+      points.push({
+        key: `${current.getFullYear()}-${current.getMonth() + 1}`,
+        label: formatMonthLabel(current),
+        month: current.getMonth() + 1,
+        year: current.getFullYear(),
+        mensual: monthlyRotation,
+        rolling: rollingRotation,
+        ytd: ytdRotation
+      });
+    }
+
+    return points;
+  }, [plantillaRotacion, referenceDate]);
+
+  const plantillaRotacionIds = useMemo(() => {
+    const ids = new Set<number>();
+    plantillaRotacion.forEach((emp: any) => {
+      const num = Number(emp.numero_empleado ?? emp.emp_id);
+      if (!Number.isNaN(num)) {
+        ids.add(num);
+      }
+    });
+    return ids;
+  }, [plantillaRotacion]);
+
+  const incidenciasPermisosSeries = useMemo(() => {
+    if (!incidencias || incidencias.length === 0) {
+      return [] as Array<{ mes: string; incidencias: number; permisos: number }>;
+    }
+
+    const baseDate = referenceDate;
+    const series: Array<{ mes: string; incidencias: number; permisos: number }> = [];
+
+    for (let offset = 11; offset >= 0; offset--) {
+      const current = new Date(baseDate.getFullYear(), baseDate.getMonth() - offset, 1);
+      const startDate = new Date(current.getFullYear(), current.getMonth(), 1);
+      const endDate = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      let incidenciasCount = 0;
+      let permisosCount = 0;
+
+      incidencias.forEach((inc) => {
+        const empleadoId = Number(inc.emp);
+        if (Number.isNaN(empleadoId)) return;
+        if (plantillaRotacionIds.size > 0 && !plantillaRotacionIds.has(empleadoId)) return;
+
+        const fechaInc = new Date(inc.fecha);
+        if (fechaInc < startDate || fechaInc > endDate) return;
+
+        const code = normalizeIncidenciaCode(inc.inci);
+        if (code && INCIDENT_CODES.has(code)) {
+          incidenciasCount += 1;
+        } else if (code && PERMISO_CODES.has(code)) {
+          permisosCount += 1;
+        }
+      });
+
+      series.push({
+        mes: formatMonthLabel(current),
+        incidencias: incidenciasCount,
+        permisos: permisosCount
+      });
+    }
+
+    return series;
+  }, [incidencias, plantillaRotacionIds, referenceDate]);
 
   // ✅ LÓGICA CORRECTA: Filtrar incidencias/permisos con filtros aplicados
   const { totalIncidencias, totalPermisos } = useMemo(() => {
@@ -389,6 +506,49 @@ export function SummaryComparison({ plantilla, bajas, incidencias, selectedYear,
       };
     });
 
+    const rotationLabel = motivoFilterType === 'involuntaria' ? 'Rotación Involuntaria' : 'Rotación Complementaria';
+    const rotationColor = motivoFilterType === 'involuntaria' ? '#ef4444' : '#22c55e';
+    const getRotationValue = (input: { involuntaria: number; complementaria: number }) =>
+      motivoFilterType === 'involuntaria' ? input.involuntaria : input.complementaria;
+
+    const monthlyChartData = rotationSeries.map(point => ({
+      mes: point.label,
+      rotacion: Number(getRotationValue(point.mensual).toFixed(2))
+    }));
+
+    const rollingChartData = rotationSeries.map(point => ({
+      mes: point.label,
+      rotacion: Number(getRotationValue(point.rolling).toFixed(2))
+    }));
+
+    const currentYear = new Date().getFullYear();
+    let ytdSeries = rotationSeries.filter(point => point.year === currentYear);
+    if (ytdSeries.length === 0) {
+      ytdSeries = rotationSeries;
+    }
+
+    const ytdChartData = ytdSeries.map(point => ({
+      mes: point.label,
+      rotacion: Number(getRotationValue(point.ytd).toFixed(2))
+    }));
+
+    const hasMonthlyData = monthlyChartData.some(d => d.rotacion > 0);
+    const hasRollingData = rollingChartData.some(d => d.rotacion > 0);
+    const hasYtdData = ytdChartData.some(d => d.rotacion > 0);
+
+    const incidenciasChartData = incidenciasPermisosSeries.map(point => ({
+      mes: point.mes,
+      incidencias: point.incidencias
+    }));
+
+    const permisosChartData = incidenciasPermisosSeries.map(point => ({
+      mes: point.mes,
+      permisos: point.permisos
+    }));
+
+    const hasIncidenciasSeries = incidenciasChartData.some(d => d.incidencias > 0);
+    const hasPermisosSeries = permisosChartData.some(d => d.permisos > 0);
+
     return (
       <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
         {/* KPI CARDS CON SEMAFORIZACIÓN */}
@@ -456,6 +616,54 @@ export function SummaryComparison({ plantilla, bajas, incidencias, selectedYear,
           </CardContent>
         </Card>
 
+        {/* Toggle para rotación */}
+        <div
+          className={cn(
+            "flex flex-col items-center gap-3 rounded-lg border bg-white p-4",
+            refreshEnabled && "rounded-2xl border-brand-border/40 bg-brand-surface-accent/60 shadow-brand/10"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className={cn(
+                "text-sm font-medium text-gray-700",
+                refreshEnabled && "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink/80"
+              )}
+            >
+              Filtrar visualizaciones por:
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant={motivoFilterType === 'involuntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+                size="sm"
+                onClick={() => setMotivoFilterType('involuntaria')}
+                className={cn(
+                  "transition-all",
+                  refreshEnabled && "rounded-full font-semibold",
+                  motivoFilterType === 'involuntaria' && refreshEnabled && "shadow-brand"
+                )}
+              >
+                Rotación Involuntaria
+              </Button>
+              <Button
+                variant={motivoFilterType === 'complementaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+                size="sm"
+                onClick={() => setMotivoFilterType('complementaria')}
+                className={cn(
+                  "transition-all",
+                  refreshEnabled && "rounded-full font-semibold",
+                  motivoFilterType === 'complementaria' && refreshEnabled && "shadow-brand"
+                )}
+              >
+                Rotación Complementaria
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 text-center">
+            Rotación involuntaria incluye Rescisión por desempeño, Rescisión por disciplina y Término del contrato.
+          </p>
+        </div>
+
         {/* 2. ROTACIÓN */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Rotación Mensual */}
@@ -467,42 +675,27 @@ export function SummaryComparison({ plantilla, bajas, incidencias, selectedYear,
               </CardTitle>
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
-              {(() => {
-                const datosGrafico = datos.map(d => ({
-                  nombre: d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre,
-                  Voluntaria: Number(d.rotacion.mensual.complementaria.toFixed(1)),
-                  Involuntaria: Number(d.rotacion.mensual.involuntaria.toFixed(1))
-                }));
-
-                const hayDatos = datosGrafico.some(d => d.Voluntaria > 0 || d.Involuntaria > 0);
-
-                if (!hayDatos) {
-                  return (
-                    <div className="flex h-[300px] items-center justify-center">
-                      <div className="text-center text-gray-500">
-                        <p className="text-sm">Sin bajas en el mes actual</p>
-                        <p className="mt-1 text-xs text-gray-400">
-                          {new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={datosGrafico}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="nombre" angle={-45} textAnchor="end" height={80} fontSize={11} />
-                      <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="Voluntaria" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
-                      <Line type="monotone" dataKey="Involuntaria" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                );
-              })()}
+              {!hasMonthlyData ? (
+                <div className="flex h-[300px] items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <p className="text-sm">Sin bajas registradas en los últimos meses</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Último corte: {new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={monthlyChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
+                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, rotationLabel]} />
+                    <Legend />
+                    <Line type="monotone" dataKey="rotacion" stroke={rotationColor} strokeWidth={2} dot={{ fill: rotationColor, r: 4 }} name={rotationLabel} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
@@ -515,23 +708,24 @@ export function SummaryComparison({ plantilla, bajas, incidencias, selectedYear,
               </CardTitle>
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart
-                  data={datos.map(d => ({
-                    nombre: d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre,
-                    Voluntaria: Number(d.rotacion.doce_meses.complementaria.toFixed(1)),
-                    Involuntaria: Number(d.rotacion.doce_meses.involuntaria.toFixed(1))
-                  }))}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="nombre" angle={-45} textAnchor="end" height={80} fontSize={11} />
-                  <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="Voluntaria" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
-                  <Line type="monotone" dataKey="Involuntaria" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
+              {!hasRollingData ? (
+                <div className="flex h-[300px] items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <p className="text-sm">Sin información suficiente para calcular 12 meses móviles</p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={rollingChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
+                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, rotationLabel]} />
+                    <Legend />
+                    <Line type="monotone" dataKey="rotacion" stroke={rotationColor} strokeWidth={2} dot={{ fill: rotationColor, r: 4 }} name={`${rotationLabel} (12m)`} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
@@ -544,23 +738,99 @@ export function SummaryComparison({ plantilla, bajas, incidencias, selectedYear,
               </CardTitle>
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart
-                  data={datos.map(d => ({
-                    nombre: d.nombre.length > 15 ? d.nombre.substring(0, 15) + '...' : d.nombre,
-                    Voluntaria: Number(d.rotacion.ytd.complementaria.toFixed(1)),
-                    Involuntaria: Number(d.rotacion.ytd.involuntaria.toFixed(1))
-                  }))}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="nombre" angle={-45} textAnchor="end" height={80} fontSize={11} />
-                  <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="Voluntaria" stroke="#22c55e" strokeWidth={2} dot={{ fill: '#22c55e', r: 4 }} />
-                  <Line type="monotone" dataKey="Involuntaria" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
+              {!hasYtdData ? (
+                <div className="flex h-[300px] items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <p className="text-sm">Sin datos del año en curso para mostrar</p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={ytdChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
+                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, rotationLabel]} />
+                    <Legend />
+                    <Line type="monotone" dataKey="rotacion" stroke={rotationColor} strokeWidth={2} dot={{ fill: rotationColor, r: 4 }} name={`${rotationLabel} (YTD)`} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 2.b Incidencias y Permisos 12 Meses */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}
+          >
+            <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
+              <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
+                <AlertCircle className="h-4 w-4" />
+                Incidencias - Últimos 12 meses
+              </CardTitle>
+            </CardHeader>
+            <CardContent className={cn(refreshEnabled && "pt-0")}> 
+              {!hasIncidenciasSeries ? (
+                <div className="flex h-[300px] items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <p className="text-sm">Sin incidencias registradas en los últimos 12 meses</p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={incidenciasChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip
+                      formatter={(value: number | string) => {
+                        const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                        const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+                        return [`${safeValue} registros`, 'Incidencias'];
+                      }}
+                    />
+                    <Legend />
+                    <Line type="monotone" dataKey="incidencias" stroke="#f97316" strokeWidth={2} dot={{ fill: '#f97316', r: 4 }} name="Incidencias" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}
+          >
+            <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
+              <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
+                <TrendingUp className="h-4 w-4" />
+                Permisos - Últimos 12 meses
+              </CardTitle>
+            </CardHeader>
+            <CardContent className={cn(refreshEnabled && "pt-0")}> 
+              {!hasPermisosSeries ? (
+                <div className="flex h-[300px] items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <p className="text-sm">Sin permisos registrados en los últimos 12 meses</p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={permisosChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip
+                      formatter={(value: number | string) => {
+                        const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                        const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+                        return [`${safeValue} registros`, 'Permisos'];
+                      }}
+                    />
+                    <Legend />
+                    <Line type="monotone" dataKey="permisos" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', r: 4 }} name="Permisos" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </div>

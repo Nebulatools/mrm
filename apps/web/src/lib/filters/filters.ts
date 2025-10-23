@@ -8,8 +8,193 @@
  * @module lib/filters/filters
  */
 
-import type { PlantillaRecord } from '@/lib/supabase';
+import type { PlantillaRecord } from '@/lib/types/records';
 import { isMotivoClave } from '@/lib/normalizers';
+
+type Nullable<T> = T | null | undefined;
+
+interface TemporalWindow {
+  start: Date;
+  end: Date;
+}
+
+interface NormalizedFilterSets {
+  empresas: Set<string>;
+  areas: Set<string>;
+  departamentos: Set<string>;
+  puestos: Set<string>;
+  clasificaciones: Set<string>;
+  ubicaciones: Set<string>;
+}
+
+interface DatasetYearBounds {
+  minYear: number;
+  maxYear: number;
+}
+
+const EMPTY_SET = new Set<string>();
+
+function isEmployeeActiveFlag(emp: PlantillaRecord): boolean {
+  const raw = (emp as any).activo;
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'number') return raw === 1;
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 'si' || normalized === 'sí';
+  }
+  return false;
+}
+
+/**
+ * Normaliza una cadena para comparaciones insensibles a mayúsculas/acentos.
+ */
+function normalizeValue(value: Nullable<string | number>): string | null {
+  if (value === null || value === undefined) return null;
+  const strValue = String(value).trim();
+  if (!strValue) return null;
+  return strValue
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function buildNormalizedSet(values?: Nullable<(string | number)[]>): Set<string> {
+  if (!values || values.length === 0) return EMPTY_SET;
+  const set = new Set<string>();
+  values.forEach((value) => {
+    const normalized = normalizeValue(value);
+    if (normalized) {
+      set.add(normalized);
+    }
+  });
+  return set;
+}
+
+function matchesFilter(value: Nullable<string | number>, filterSet: Set<string>): boolean {
+  if (!filterSet.size) return true;
+  const normalized = normalizeValue(value);
+  if (!normalized) return false;
+  return filterSet.has(normalized);
+}
+
+function parseDate(value: Nullable<string>, fallback?: Date): Date | null {
+  if (!value) return fallback ?? null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return fallback ?? null;
+  }
+  return parsed;
+}
+
+function getDatasetYearBounds(plantilla: PlantillaRecord[]): DatasetYearBounds {
+  let minYear = Number.POSITIVE_INFINITY;
+  let maxYear = Number.NEGATIVE_INFINITY;
+
+  for (const emp of plantilla) {
+    const ingreso = parseDate(emp.fecha_ingreso);
+    const baja = parseDate(emp.fecha_baja);
+
+    if (ingreso) {
+      minYear = Math.min(minYear, ingreso.getFullYear());
+      maxYear = Math.max(maxYear, ingreso.getFullYear());
+    }
+
+    if (baja) {
+      minYear = Math.min(minYear, baja.getFullYear());
+      maxYear = Math.max(maxYear, baja.getFullYear());
+    }
+  }
+
+  if (!Number.isFinite(minYear) || !Number.isFinite(maxYear)) {
+    const currentYear = new Date().getFullYear();
+    return { minYear: currentYear, maxYear: currentYear };
+  }
+
+  return { minYear, maxYear };
+}
+
+function buildTemporalWindows(
+  plantilla: PlantillaRecord[],
+  filters: RetentionFilterOptions
+): TemporalWindow[] {
+  const years = Array.isArray(filters.years) ? filters.years.filter((y) => Number.isFinite(y)) : [];
+  const months = Array.isArray(filters.months) ? filters.months.filter((m) => Number.isFinite(m)) : [];
+
+  const hasYearFilters = years.length > 0;
+  const hasMonthFilters = months.length > 0;
+
+  if (!hasYearFilters && !hasMonthFilters) {
+    return [];
+  }
+
+  const windows: TemporalWindow[] = [];
+
+  if (hasYearFilters && hasMonthFilters) {
+    for (const year of years) {
+      for (const month of months) {
+        const monthIndex = Math.max(1, Math.min(12, Math.trunc(month)));
+        const start = new Date(year, monthIndex - 1, 1);
+        const end = new Date(year, monthIndex, 0, 23, 59, 59, 999);
+        windows.push({ start, end });
+      }
+    }
+    return windows;
+  }
+
+  if (hasYearFilters) {
+    for (const year of years) {
+      const start = new Date(year, 0, 1);
+      const end = new Date(year, 11, 31, 23, 59, 59, 999);
+      windows.push({ start, end });
+    }
+    return windows;
+  }
+
+  // Solo filtros de mes: usar rango dinámico basado en datos disponibles.
+  const { minYear, maxYear } = getDatasetYearBounds(plantilla);
+  for (let year = minYear; year <= maxYear; year++) {
+    for (const month of months) {
+      const monthIndex = Math.max(1, Math.min(12, Math.trunc(month)));
+      const start = new Date(year, monthIndex - 1, 1);
+      const end = new Date(year, monthIndex, 0, 23, 59, 59, 999);
+      windows.push({ start, end });
+    }
+  }
+
+  return windows;
+}
+
+function employeeActiveInWindow(emp: PlantillaRecord, window: TemporalWindow): boolean {
+  const ingreso = parseDate(emp.fecha_ingreso);
+  const baja = parseDate(emp.fecha_baja);
+
+  if (!ingreso) {
+    return false;
+  }
+
+  const activeAtEnd = !baja || baja >= window.start;
+  const joinedBeforeEnd = ingreso <= window.end;
+  return joinedBeforeEnd && activeAtEnd;
+}
+
+function filterByTemporalWindows(
+  plantilla: PlantillaRecord[],
+  windows: TemporalWindow[]
+): PlantillaRecord[] {
+  if (!windows.length) return plantilla;
+  return plantilla.filter((emp) => windows.some((window) => employeeActiveInWindow(emp, window)));
+}
+
+function buildNormalizedFilters(filters: RetentionFilterOptions): NormalizedFilterSets {
+  return {
+    empresas: buildNormalizedSet(filters.empresas),
+    areas: buildNormalizedSet(filters.areas),
+    departamentos: buildNormalizedSet(filters.departamentos),
+    puestos: buildNormalizedSet(filters.puestos),
+    clasificaciones: buildNormalizedSet(filters.clasificaciones),
+    ubicaciones: buildNormalizedSet(filters.ubicaciones)
+  };
+}
 
 /**
  * Opciones de filtrado para el dashboard
@@ -32,6 +217,8 @@ export interface RetentionFilterOptions {
   includeInactive?: boolean;  // Incluir empleados con fecha_baja
 }
 
+export type FilterScope = 'specific' | 'general' | 'year-only';
+
 /**
  * Aplica filtros a la plantilla de empleados
  *
@@ -46,133 +233,102 @@ export function applyRetentionFilters(
   plantilla: PlantillaRecord[],
   filters: RetentionFilterOptions
 ): PlantillaRecord[] {
-  if (!plantilla || plantilla.length === 0) return [] as PlantillaRecord[];
+  if (!plantilla || plantilla.length === 0) {
+    return [];
+  }
 
-  const hasYearFilters = (filters.years?.length || 0) > 0;
-  const hasMonthFilters = (filters.months?.length || 0) > 0;
+  const normalizedFilters = buildNormalizedFilters(filters);
+  const temporalWindows = buildTemporalWindows(plantilla, filters);
 
-  const puestosSet = new Set((filters.puestos || []).map(p => String(p).trim()));
-  const deptosSet = new Set(filters.departamentos || []);
-  const clasifSet = new Set(filters.clasificaciones || []);
-  const ubicSet = new Set(filters.ubicaciones || []);
-  const empresasSet = new Set(filters.empresas || []);
-  const areasSet = new Set(filters.areas || []);
-
-  let filtered = (plantilla as PlantillaRecord[]).filter((emp) => {
-    // Empresa/Negocio
-    if (empresasSet.size) {
-      const empEmpresa: string = (emp as any).empresa || '';
-      if (!empresasSet.has(empEmpresa)) return false;
+  let filtered = plantilla.filter((emp) => {
+    if (!matchesFilter((emp as any).empresa ?? emp.empresa, normalizedFilters.empresas)) {
+      return false;
     }
 
-    // Área
-    if (areasSet.size && !areasSet.has(emp.area || '')) return false;
-
-    // Departamento
-    if (deptosSet.size && !deptosSet.has(emp.departamento || '')) return false;
-
-    // Puesto (trim to avoid whitespace mismatches)
-    if (puestosSet.size) {
-      const empPuesto = String(emp.puesto || '').trim();
-      if (!puestosSet.has(empPuesto)) return false;
+    if (!matchesFilter(emp.area, normalizedFilters.areas)) {
+      return false;
     }
 
-    // Clasificación
-    if (clasifSet.size && !clasifSet.has(emp.clasificacion || '')) return false;
+    if (!matchesFilter(emp.departamento, normalizedFilters.departamentos)) {
+      return false;
+    }
 
-    // Ubicación
-    // Some datasets might have missing ubicacion; default to empty string
-    // Only filter when there are selected ubicaciones
-    // @ts-ignore - PlantillaRecord may be extended to include ubicacion
-    const empUbicacion: string = (emp as any).ubicacion || '';
-    if (ubicSet.size && !ubicSet.has(empUbicacion)) return false;
+    if (!matchesFilter(emp.puesto, normalizedFilters.puestos)) {
+      return false;
+    }
 
-    // Year/Month filters: employee considered included if active within any selected period
-    if (hasYearFilters || hasMonthFilters) {
-      const ingreso = new Date(emp.fecha_ingreso);
-      const baja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+    if (!matchesFilter(emp.clasificacion, normalizedFilters.clasificaciones)) {
+      return false;
+    }
 
-      if (hasYearFilters && hasMonthFilters) {
-        // Check any year-month pair
-        for (const year of filters.years) {
-          for (const month of filters.months) {
-            const start = new Date(year, month - 1, 1);
-            const end = new Date(year, month, 0);
-            if (ingreso <= end && (!baja || baja >= start)) return true;
-          }
-        }
-        return false;
-      }
-
-      if (hasYearFilters) {
-        // Active at any time in the year
-        for (const year of filters.years) {
-          const start = new Date(year, 0, 1);
-          const end = new Date(year, 11, 31);
-          if (ingreso <= end && (!baja || baja >= start)) return true;
-        }
-        return false;
-      }
-
-      if (hasMonthFilters) {
-        // Active in that month of any year from 2022..current
-        const currentYear = new Date().getFullYear();
-        for (let y = 2022; y <= currentYear; y++) {
-          for (const m of filters.months) {
-            const start = new Date(y, m - 1, 1);
-            const end = new Date(y, m, 0);
-            if (ingreso <= end && (!baja || baja >= start)) return true;
-          }
-        }
-        return false;
-      }
+    if (!matchesFilter((emp as any).ubicacion ?? emp.ubicacion, normalizedFilters.ubicaciones)) {
+      return false;
     }
 
     return true;
   });
 
-  // 🆕 FILTRO DE MOTIVO (Involuntaria vs Complementaria)
-  // Solo aplicar si se especifica un filtro de motivo
+  filtered = filterByTemporalWindows(filtered, temporalWindows);
+
   if (filters.motivoFilter && filters.motivoFilter !== 'all') {
-    filtered = filtered.filter(emp => {
-      // Mantener empleados activos (sin fecha_baja)
+    filtered = filtered.filter((emp) => {
       if (!emp.fecha_baja) {
         return true;
       }
-
-      // Verificar si el motivo es involuntario (clave)
-      const esInvoluntaria = isMotivoClave((emp as any).motivo_baja);
-
-      // Filtrar según el tipo solicitado
-      if (filters.motivoFilter === 'involuntaria') {
-        return esInvoluntaria;
-      } else if (filters.motivoFilter === 'complementaria') {
-        return !esInvoluntaria;
-      }
-
-      return true;
+      const motivo = (emp as any).motivo_baja ?? emp.motivo_baja ?? '';
+      const esInvoluntaria = isMotivoClave(motivo);
+      return filters.motivoFilter === 'involuntaria' ? esInvoluntaria : !esInvoluntaria;
     });
   }
 
-  // 🆕 FILTRO DE INACTIVOS
-  // Por defecto incluye todos (activos e inactivos)
-  // Si includeInactive = false, solo incluir activos
   if (filters.includeInactive === false) {
-    filtered = filtered.filter(emp => emp.activo);
+    filtered = filtered.filter((emp) => isEmployeeActiveFlag(emp));
   }
 
   console.log('🔍 Filtros aplicados:', {
     original: plantilla.length,
     filtrado: filtered.length,
     filtros: {
-      años: filters.years.length,
-      meses: filters.months.length,
+      años: filters.years?.length || 0,
+      meses: filters.months?.length || 0,
       departamentos: filters.departamentos?.length || 0,
       puestos: filters.puestos?.length || 0,
-      motivoFilter: filters.motivoFilter || 'all',
+      clasificaciones: filters.clasificaciones?.length || 0,
+      ubicaciones: filters.ubicaciones?.length || 0,
+      empresas: filters.empresas?.length || 0,
+      areas: filters.areas?.length || 0,
+      motivoFilter: filters.motivoFilter ?? 'all',
       includeInactive: filters.includeInactive !== false
     }
   });
 
   return filtered;
+}
+
+export function applyFiltersWithScope(
+  plantilla: PlantillaRecord[],
+  filters: RetentionFilterOptions,
+  scope: FilterScope = 'specific'
+): PlantillaRecord[] {
+  const scopedFilters: RetentionFilterOptions = {
+    years: filters.years ? [...filters.years] : [],
+    months: filters.months ? [...filters.months] : [],
+    departamentos: filters.departamentos ? [...filters.departamentos] : [],
+    puestos: filters.puestos ? [...filters.puestos] : [],
+    clasificaciones: filters.clasificaciones ? [...filters.clasificaciones] : [],
+    ubicaciones: filters.ubicaciones ? [...filters.ubicaciones] : [],
+    empresas: filters.empresas ? [...filters.empresas] : [],
+    areas: filters.areas ? [...filters.areas] : [],
+    motivoFilter: filters.motivoFilter,
+    includeInactive: filters.includeInactive
+  };
+
+  if (scope === 'general') {
+    scopedFilters.years = [];
+    scopedFilters.months = [];
+  } else if (scope === 'year-only') {
+    scopedFilters.months = [];
+  }
+
+  return applyRetentionFilters(plantilla, scopedFilters);
 }

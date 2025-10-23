@@ -36,8 +36,17 @@ function parseDate(dateValue: unknown): string | null {
       } else {
         date = new Date(cleaned);
       }
-    } else {
+    } else if (dateValue instanceof Date) {
+      date = dateValue;
+    } else if (typeof dateValue === 'number') {
       date = new Date(dateValue);
+    } else {
+      const coerced = String(dateValue);
+      if (!coerced || coerced === '[object Object]') {
+        console.log(`⚠️ Unsupported date value: ${JSON.stringify(dateValue)}`);
+        return null;
+      }
+      date = new Date(coerced);
     }
     
     // Validate the date

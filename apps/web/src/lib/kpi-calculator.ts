@@ -591,41 +591,50 @@ export class KPICalculator {
         db.getAsistenciaDiaria(format(previousStartDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd'), effectiveClient)
       ]);
 
-      // Transform empleados - USAR EL CAMPO ACTIVO DE LA TABLA!
-      const plantillaWithDates: PlantillaRecord[] = (empleados as EmpleadoSFTPRecord[]).map((emp) => {
+      // Normalizar plantilla garantizando campos obligatorios
+      const plantillaWithDates: PlantillaRecord[] = (empleados as PlantillaRecord[]).map((emp) => {
+        const numeroEmpleado = emp.numero_empleado ?? Number(emp.emp_id ?? 0);
+        const empId = emp.emp_id ? String(emp.emp_id) : numeroEmpleado ? String(numeroEmpleado) : '';
+        const activo =
+          typeof emp.activo === 'boolean'
+            ? emp.activo
+            : String(emp.activo).toLowerCase() === 'true' || Number(emp.activo) === 1;
+
+        const nombreAlternativo = typeof (emp as any).nombre_completo === 'string'
+          ? (emp as any).nombre_completo
+          : '';
+
         return {
           ...emp,
-          emp_id: emp.numero_empleado, // Add emp_id for compatibility
-          nombre: `${emp.nombres || ''} ${emp.apellidos || ''}`.trim() || emp.nombre_completo || 'Sin Nombre',
-          fecha_ingreso: emp.fecha_ingreso || emp.fecha_antiguedad || '2024-01-01',
+          emp_id: empId,
+          numero_empleado: numeroEmpleado,
+          nombre: emp.nombre && emp.nombre.trim().length > 0
+            ? emp.nombre
+            : nombreAlternativo || 'Sin Nombre',
+          fecha_ingreso: emp.fecha_ingreso || emp.fecha_antiguedad || new Date().toISOString(),
           fecha_baja: emp.fecha_baja || null,
           motivo_baja: emp.motivo_baja || null,
           puesto: emp.puesto || 'Sin puesto',
           departamento: emp.departamento || 'Sin departamento',
           area: emp.area || 'Sin área',
           clasificacion: emp.clasificacion || 'No especificado',
-          // USAR EL CAMPO ACTIVO DIRECTAMENTE DE LA TABLA!
-          activo: emp.activo === true || emp.activo === 'true' || emp.activo === 1
+          activo,
+          created_at: emp.created_at || new Date().toISOString(),
+          updated_at: emp.updated_at || new Date().toISOString()
         };
       });
 
-      // Transform asistencia dates for calculations
-      const asistenciaWithDates = asistencia.map(a => ({
-        ...a,
-        fecha: new Date(a.fecha)
-      }));
-
       // Filter asistencia for current period
-      const currentAsistencia = asistenciaWithDates.filter(a => 
-        isWithinInterval(a.fecha, { start: startDate, end: endDate })
+      const currentAsistencia = asistencia.filter(a =>
+        isWithinInterval(new Date(a.fecha), { start: startDate, end: endDate })
       );
       
       // Get incidencias (records with horas_incidencia > 0)
       const currentIncidencias = currentAsistencia.filter(a => (a.horas_incidencia || 0) > 0);
 
       // Filter asistencia for previous period
-      const previousAsistencia = asistenciaWithDates.filter(a => 
-        isWithinInterval(a.fecha, { start: previousStartDate, end: previousEndDate })
+      const previousAsistencia = asistencia.filter(a =>
+        isWithinInterval(new Date(a.fecha), { start: previousStartDate, end: previousEndDate })
       );
       
       // Get previous incidencias

@@ -223,13 +223,45 @@ IMPORTANTE:
         summary: parsed.summary || 'Análisis generado por Gemini AI',
         overallScore: typeof parsed.overallScore === 'number' ? 
           Math.max(0, Math.min(100, parsed.overallScore)) : 75,
-        insights: Array.isArray(parsed.insights) ? parsed.insights.map((insight: Record<string, unknown>) => ({
-          type: ['positive', 'negative', 'warning', 'neutral'].includes(insight.type) ? insight.type : 'neutral',
-          kpi: insight.kpi || 'KPI General',
-          insight: insight.insight || 'Análisis no disponible',
-          recommendation: insight.recommendation || 'Recomendación no disponible',
-          priority: ['high', 'medium', 'low'].includes(insight.priority) ? insight.priority : 'medium'
-        })) : [],
+        insights: Array.isArray(parsed.insights)
+          ? parsed.insights.map((insight: unknown) => {
+              const record = (typeof insight === 'object' && insight !== null)
+                ? insight as Record<string, unknown>
+                : {};
+
+              const allowedTypes: AIInsight['type'][] = ['positive', 'negative', 'warning', 'neutral'];
+              const rawType = typeof record.type === 'string' ? record.type.toLowerCase() : '';
+              const type: AIInsight['type'] = allowedTypes.includes(rawType as AIInsight['type'])
+                ? rawType as AIInsight['type']
+                : 'neutral';
+
+              const kpi = typeof record.kpi === 'string' && record.kpi.trim().length > 0
+                ? record.kpi
+                : 'KPI General';
+
+              const insightText = typeof record.insight === 'string' && record.insight.trim().length > 0
+                ? record.insight
+                : 'Análisis no disponible';
+
+              const recommendationText = typeof record.recommendation === 'string' && record.recommendation.trim().length > 0
+                ? record.recommendation
+                : 'Recomendación no disponible';
+
+              const allowedPriorities: AIInsight['priority'][] = ['high', 'medium', 'low'];
+              const rawPriority = typeof record.priority === 'string' ? record.priority.toLowerCase() : '';
+              const priority: AIInsight['priority'] = allowedPriorities.includes(rawPriority as AIInsight['priority'])
+                ? rawPriority as AIInsight['priority']
+                : 'medium';
+
+              return {
+                type,
+                kpi,
+                insight: insightText,
+                recommendation: recommendationText,
+                priority
+              };
+            })
+          : [],
         trends: {
           improving: Array.isArray(parsed.trends?.improving) ? parsed.trends.improving : [],
           declining: Array.isArray(parsed.trends?.declining) ? parsed.trends.declining : [],

@@ -11,8 +11,9 @@ import { Info } from "lucide-react";
 
 type Props = {
   plantilla?: PlantillaRecord[];
+  plantillaAnual?: PlantillaRecord[];
   currentYear?: number;
-  currentMonth?: number;
+  selectedMonths?: number[];
 };
 
 type EnrichedIncidencia = IncidenciaCSVRecord & {
@@ -26,10 +27,7 @@ const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
 const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]); // Para card de empleados con incidencias
 const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3"]);
 
-// Normalización de código centralizada en lib/normalizers
-
-export function IncidentsTab({ plantilla, currentYear, currentMonth }: Props) {
-  const [empleados, setEmpleados] = useState<PlantillaRecord[]>([]);
+export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedMonths }: Props) {
   const [incidencias, setIncidencias] = useState<IncidenciaCSVRecord[]>([]);
   const [showTable, setShowTable] = useState(false); // false = mostrar 10, true = mostrar todo
 
@@ -48,57 +46,62 @@ export function IncidentsTab({ plantilla, currentYear, currentMonth }: Props) {
     loadInc();
   }, []);
 
-  // Actualizar empleados cuando cambie la plantilla filtrada
-  useEffect(() => {
-    const loadEmps = async () => {
-      if (plantilla && plantilla.length > 0) {
-        setEmpleados(plantilla);
-      } else {
-        try {
-          const emps = await db.getEmpleadosSFTP();
-          setEmpleados(emps);
-        } catch (e) {
-          console.error('Error cargando empleados:', e);
-        }
-      }
-    };
-    loadEmps();
-  }, [plantilla]);
+  const empleadosPeriodo = useMemo(() => plantilla ?? [], [plantilla]);
 
-  const empleadosMap = useMemo(() => {
+  const empleadosAnuales = useMemo(() => {
+    if (plantillaAnual && plantillaAnual.length > 0) return plantillaAnual;
+    return empleadosPeriodo;
+  }, [plantillaAnual, empleadosPeriodo]);
+
+  const empleadosAnualesMap = useMemo(() => {
     const m = new Map<number, PlantillaRecord & { numero_empleado?: number }>();
-    empleados.forEach((e: any) => {
+    empleadosAnuales.forEach((e: any) => {
       const num = Number(e.numero_empleado ?? e.emp_id);
       if (!Number.isNaN(num)) m.set(num, e as any);
     });
     return m;
-  }, [empleados]);
+  }, [empleadosAnuales]);
 
-  const enriched: EnrichedIncidencia[] = useMemo(() => {
+  const empleadosPeriodoSet = useMemo(() => {
+    const set = new Set<number>();
+    empleadosPeriodo.forEach((e: any) => {
+      const num = Number(e.numero_empleado ?? e.emp_id);
+      if (!Number.isNaN(num)) set.add(num);
+    });
+    return set;
+  }, [empleadosPeriodo]);
+
+  const { enrichedAnual, enrichedPeriodo } = useMemo(() => {
     console.log('🔍 Incidents Tab - Filtering data:');
     console.log('📊 Total incidencias:', incidencias.length);
-    console.log('👥 Empleados en mapa filtrado:', empleadosMap.size);
-    console.log('👤 Plantilla recibida:', plantilla?.length || 0);
+    console.log('👥 Empleados anuales considerados:', empleadosAnualesMap.size);
+    console.log('👤 Plantilla periodo recibida:', plantilla?.length || 0);
     console.log('📅 Año filtrado:', currentYear || 'SIN FILTRO (TODO)');
-    console.log('📅 Mes filtrado:', currentMonth || 'SIN FILTRO (TODO)');
+    console.log('📅 Mes filtrado:', selectedMonths && selectedMonths.length ? selectedMonths : 'SIN FILTRO (TODO)');
 
-    const filtered = incidencias
-      .filter(inc => {
-        // ✅ FILTRO 1: Solo empleados en plantilla filtrada
-        if (!empleadosMap.has(inc.emp)) return false;
+    const scopedByEmployee = incidencias.filter(inc => empleadosAnualesMap.has(inc.emp));
 
-        // ✅ FILTRO 2: Por fecha SOLO si hay filtros de año/mes seleccionados
-        if (currentYear !== undefined && currentMonth !== undefined) {
-          const mesInicio = new Date(currentYear, currentMonth - 1, 1);
-          const mesFin = new Date(currentYear, currentMonth, 0, 23, 59, 59);
-          const fechaInc = new Date(inc.fecha);
-          if (fechaInc < mesInicio || fechaInc > mesFin) return false;
-        }
+    const scopedByYear = scopedByEmployee.filter(inc => {
+      if (currentYear === undefined) return true;
+      if (!inc.fecha) return false;
+      const fecha = new Date(inc.fecha);
+      return fecha.getFullYear() === currentYear;
+    });
 
-        return true;
-      })
-      .map(inc => {
-        const emp = empleadosMap.get(inc.emp);
+    const monthsFilter = (selectedMonths || []).filter(m => Number.isFinite(m)) as number[];
+
+    const scopedByPeriod = scopedByYear.filter(inc => {
+      if (empleadosPeriodoSet.size > 0 && !empleadosPeriodoSet.has(inc.emp)) return false;
+      if (!monthsFilter.length) return true;
+      if (!inc.fecha) return false;
+      const fecha = new Date(inc.fecha);
+      const month = fecha.getMonth() + 1; // 1-12
+      return monthsFilter.includes(month);
+    });
+
+    const toEnriched = (collection: IncidenciaCSVRecord[]): EnrichedIncidencia[] =>
+      collection.map(inc => {
+        const emp = empleadosAnualesMap.get(inc.emp);
         return {
           ...inc,
           empresa: emp?.empresa ?? null,
@@ -108,29 +111,36 @@ export function IncidentsTab({ plantilla, currentYear, currentMonth }: Props) {
         };
       });
 
-    console.log('📋 Incidencias filtradas:', filtered.length);
-    console.log('🎯 Ejemplo filtrado:', filtered.slice(0, 2));
-    return filtered;
-  }, [incidencias, empleadosMap, plantilla, currentYear, currentMonth]);
+    const annual = toEnriched(scopedByYear);
+    const period = toEnriched(scopedByPeriod);
 
-  const activosCount = useMemo(() => (empleados || []).filter(e => e.activo).length, [empleados]);
+    console.log('📋 Incidencias filtradas (año):', annual.length);
+    console.log('📋 Incidencias filtradas (periodo actual):', period.length);
+    if (period.length === 0) {
+      console.warn('⚠️ No hay incidencias en el periodo filtrado; se usarán valores anuales para la gráfica.');
+    }
+
+    return { enrichedAnual: annual, enrichedPeriodo: period };
+  }, [incidencias, empleadosAnualesMap, empleadosPeriodoSet, plantilla, currentYear, selectedMonths]);
+
+  const activosCount = useMemo(() => (empleadosPeriodo || []).filter(e => e.activo).length, [empleadosPeriodo]);
   const empleadosConIncidencias = useMemo(() => {
     const set = new Set<number>();
-    enriched.forEach(i => {
+    enrichedPeriodo.forEach(i => {
       const code = normalizeIncidenciaCode(i.inci);
       if (code && EMPLOYEE_INCIDENT_CODES.has(code)) set.add(i.emp);
     });
     return set.size;
-  }, [enriched]);
+  }, [enrichedPeriodo]);
   const countByType = useMemo(() => {
     const map = new Map<string, number>();
-    enriched.forEach(i => {
+    enrichedPeriodo.forEach(i => {
       const code = normalizeIncidenciaCode(i.inci);
       if (!code) return;
       map.set(code, (map.get(code) || 0) + 1);
     });
     return map;
-  }, [enriched]);
+  }, [enrichedPeriodo]);
 
   const totalIncidencias = useMemo(() => {
     let total = 0;
@@ -147,7 +157,7 @@ export function IncidentsTab({ plantilla, currentYear, currentMonth }: Props) {
   // Histograma: eje X = # Empleados, eje Y = # Incidencias
   const histoData = useMemo(() => {
     const byEmp = new Map<number, number>();
-    enriched.forEach(i => {
+    enrichedPeriodo.forEach(i => {
       const code = normalizeIncidenciaCode(i.inci);
       if (!code || !INCIDENT_CODES.has(code)) return; // solo incidencias (no permisos)
       byEmp.set(i.emp, (byEmp.get(i.emp) || 0) + 1);
@@ -157,17 +167,17 @@ export function IncidentsTab({ plantilla, currentYear, currentMonth }: Props) {
       bins.set(count, (bins.get(count) || 0) + 1);
     });
     return Array.from(bins.entries()).sort((a,b)=>a[0]-b[0]).map(([incidencias, empleados]) => ({ incidencias, empleados }));
-  }, [enriched]);
+  }, [enrichedPeriodo]);
 
   // Resumen por tipo: #días (≈ registros) y #empleados únicos por tipo
   const tiposUnicos = useMemo(() => {
     // Incluir todos los códigos presentes (incidencias y permisos), normalizados
-    return Array.from(new Set(enriched.map(i => normalizeIncidenciaCode(i.inci)).filter((c): c is string => !!c))).sort();
-  }, [enriched]);
+    return Array.from(new Set(enrichedPeriodo.map(i => normalizeIncidenciaCode(i.inci)).filter((c): c is string => !!c))).sort();
+  }, [enrichedPeriodo]);
   const resumenPorTipo = useMemo(() => {
     const out = [] as { tipo: string; dias: number; empleados: number }[];
     const byTipo = new Map<string, IncidenciaCSVRecord[]>();
-    enriched.forEach(i => {
+    enrichedPeriodo.forEach(i => {
       const t = normalizeIncidenciaCode(i.inci);
       if (!t) return;
       if (!byTipo.has(t)) byTipo.set(t, []);
@@ -191,7 +201,7 @@ export function IncidentsTab({ plantilla, currentYear, currentMonth }: Props) {
       return a.tipo.localeCompare(b.tipo);
     });
     return out;
-  }, [enriched, tiposUnicos]);
+  }, [enrichedPeriodo, tiposUnicos]);
 
   const pieData = useMemo(() => ([
     { name: 'Incidencias', value: totalIncidencias },
@@ -208,15 +218,13 @@ export function IncidentsTab({ plantilla, currentYear, currentMonth }: Props) {
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
 
-    return months.map((month, index) => {
-      // Filtrar incidencias por mes del año actual
-      const monthData = enriched.filter(inc => {
+    return months.map((monthName, index) => {
+      const monthData = enrichedAnual.filter(inc => {
         if (!inc.fecha) return false;
         const date = new Date(inc.fecha);
         return date.getFullYear() === selectedYear && date.getMonth() === index;
       });
 
-      // Contar incidencias y permisos por mes
       let incidenciasCount = 0;
       let permisosCount = 0;
 
@@ -232,12 +240,12 @@ export function IncidentsTab({ plantilla, currentYear, currentMonth }: Props) {
       });
 
       return {
-        mes: month,
+        mes: monthName,
         incidencias: incidenciasCount,
         permisos: permisosCount
       };
     });
-  }, [enriched, currentYear]);
+  }, [enrichedAnual, currentYear]);
 
   const HoverHint = ({ text }: { text: string }) => (
     <div className="relative inline-block group">
@@ -424,7 +432,7 @@ export function IncidentsTab({ plantilla, currentYear, currentMonth }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(showTable ? enriched : enriched.slice(0, 10)).map((i) => (
+                {(showTable ? enrichedPeriodo : enrichedPeriodo.slice(0, 10)).map((i) => (
                   <TableRow key={i.id}>
                     <TableCell>{i.id}</TableCell>
                     <TableCell>{i.fecha}</TableCell>

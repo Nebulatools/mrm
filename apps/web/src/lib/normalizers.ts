@@ -213,11 +213,16 @@ export function isMotivoClave(raw?: string | null): boolean {
 // -------------------- Incidencias (códigos CSV: inci) --------------------
 
 // Códigos REALES del CSV + variantes comunes
+export const INCIDENT_CANONICAL_CODES = ['FI', 'SUS', 'PSIN', 'ENFE'] as const;
+export const PERMISO_CANONICAL_CODES = ['PCON', 'VAC', 'MAT3'] as const;
+export const INCIDENT_CANONICAL_SET = new Set<string>(INCIDENT_CANONICAL_CODES);
+export const PERMISO_CANONICAL_SET = new Set<string>(PERMISO_CANONICAL_CODES);
+
 const INCI_LABELS: Record<string, string> = {
   // Códigos REALES encontrados en incidencias1.csv
   'VAC': 'Vacaciones',
   'PCON': 'Permiso con goce',
-  'SUSP': 'Suspensión',
+  'SUS': 'Suspensión',
   'MAT3': 'Permiso maternal (3 meses)',
   'FI': 'Falta Injustificada',
   '1': 'Incidencia registrada',
@@ -229,7 +234,6 @@ const INCI_LABELS: Record<string, string> = {
   ENF: 'Enfermedad',
   FJ: 'Falta Justificada',
   INC: 'Incapacidad',
-  SUS: 'Suspensión',
   PSIN: 'Permiso sin goce',
   PSG: 'Permiso sin goce',
   PCG: 'Permiso con goce',
@@ -247,7 +251,7 @@ export function normalizeIncidenciaCode(raw?: string | null): string {
   // Mapeo directo de códigos reales del CSV
   if (c === 'VAC') return 'VAC';
   if (c === 'PCON') return 'PCON';
-  if (c === 'SUSP') return 'SUSP';
+  if (c === 'SUS') return 'SUS';
   if (c === 'MAT3') return 'MAT3';
   if (c === 'FI') return 'FI';
   if (c === '1') return '1';
@@ -255,10 +259,10 @@ export function normalizeIncidenciaCode(raw?: string | null): string {
   if (c === '9') return '9';
 
   // Normalizaciones para compatibilidad
-  if (c === 'ENF' || c === 'ENFE') return 'ENF';
+  if (c === 'ENF' || c === 'ENFE') return 'ENFE';
   if (c === 'PSG') return 'PSIN';
   if (c === 'PCG') return 'PCON';
-  if (c === 'SUS') return 'SUSP';
+  if (c === 'SUS' || c === 'SUSP') return 'SUS';
   if (c.replace(/\s+/g, '') === 'MAT3') return 'MAT3';
 
   return c;
@@ -283,10 +287,10 @@ export function categoriaIncidencia(raw?: string | null): 'incidencia' | 'permis
   const code = normalizeIncidenciaCode(raw);
 
   // Incidencias negativas (afectan productividad/asistencia)
-  if (new Set(['FI','SUSP','PSIN','ENF','1','9']).has(code)) return 'incidencia';
+  if (INCIDENT_CANONICAL_SET.has(code) || code === '1' || code === '9') return 'incidencia';
 
   // Permisos/ausencias autorizadas (no afectan métricas negativas)
-  if (new Set(['PCON','VAC','MAT3']).has(code)) return 'permiso';
+  if (PERMISO_CANONICAL_SET.has(code)) return 'permiso';
 
   // Sin incidencia (asistencia normal)
   if (code === '0') return 'normal';
@@ -295,4 +299,3 @@ export function categoriaIncidencia(raw?: string | null): 'incidencia' | 'permis
 }
 
 // Funciones exportadas eliminadas - ya no son necesarias
-

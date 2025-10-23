@@ -228,9 +228,15 @@ export function RetentionFilterPanel({
     const newFilters = { ...filters };
 
     if (filterType === 'years') {
-      newFilters.years = selectedValues.map(v => parseInt(v));
+      const parsedYears = selectedValues
+        .map(v => parseInt(v))
+        .filter(v => !Number.isNaN(v));
+      newFilters.years = Array.from(new Set(parsedYears)).sort((a, b) => a - b);
     } else if (filterType === 'months') {
-      newFilters.months = selectedValues.map(v => parseInt(v));
+      const parsedMonths = selectedValues
+        .map(v => parseInt(v))
+        .filter(v => !Number.isNaN(v) && v >= 1 && v <= 12);
+      newFilters.months = Array.from(new Set(parsedMonths)).sort((a, b) => a - b);
     } else if (filterType === 'departamentos') {
       newFilters.departamentos = selectedValues;
     } else if (filterType === 'puestos') {
@@ -405,6 +411,7 @@ export function RetentionFilterPanel({
   };
 
   const wrapperClassName = cn(
+    "relative z-30 overflow-visible",
     className,
     refreshEnabled &&
       "rounded-2xl border border-brand-border/60 bg-white/95 p-4 shadow-brand/20 backdrop-blur-sm"

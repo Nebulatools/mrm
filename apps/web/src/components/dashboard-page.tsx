@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ import { CorrelationMatrix } from "./correlation-matrix";
 import { RetentionFilterPanel } from "./filter-panel";
 import { SummaryComparison } from "./summary-comparison";
 import { UserMenu } from "./user-menu";
-import { applyRetentionFilters, type RetentionFilterOptions } from "@/lib/filters/filters";
+import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters/filters";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord } from "@/lib/supabase";
 import { createBrowserClient } from "@/lib/supabase-client";
@@ -36,10 +36,7 @@ import { cn } from "@/lib/utils";
 // 🆕 Import helper functions
 import {
   calculateActivosPromedio,
-  calculateBajasEnPeriodo,
   calcularRotacionMensual,
-  calcularRotacionAcumulada12m,
-  calcularRotacionYTD,
   calculateTotalBajas,
   calculateBajasTempranas,
   filterByMotivo,
@@ -109,8 +106,8 @@ export function DashboardPage() {
 
   // Calcular año actual basado en filtros
   const currentYear = retentionFilters.years.length > 0
-    ? retentionFilters.years[0] // Usar primer año seleccionado
-    : new Date().getFullYear(); // Fallback al año actual
+    ? Math.max(...retentionFilters.years)
+    : new Date().getFullYear();
 
   useEffect(() => {
     const loadData = async () => {
@@ -164,20 +161,15 @@ export function DashboardPage() {
         // ✅ Cargar empleados y aplicar filtros (excepto mes)
         const plantilla = await db.getEmpleadosSFTP(supabase);
 
-        // Construir filtros sin mes (año SÍ aplica)
-        const filtersWithoutMonth: RetentionFilterOptions = {
-          years: [currentYear], // Año SÍ aplica para el mapa de calor
-          months: [], // ⚠️ NO filtrar por mes
-          departamentos: retentionFilters.departamentos,
-          puestos: retentionFilters.puestos,
-          clasificaciones: retentionFilters.clasificaciones,
-          empresas: retentionFilters.empresas,
-          areas: retentionFilters.areas,
-          ubicaciones: retentionFilters.ubicaciones
-        };
-
-        // Aplicar filtros a la plantilla
-        const plantillaFiltrada = applyRetentionFilters(plantilla, filtersWithoutMonth);
+        // Aplicar filtros con alcance YEAR-ONLY (año sí, mes no)
+        const plantillaFiltrada = applyFiltersWithScope(
+          plantilla,
+          {
+            ...retentionFilters,
+            years: [currentYear],
+          },
+          'year-only'
+        );
 
         // Calcular datos del mapa de calor con plantilla filtrada
         const data = await kpiCalculator.getBajasPorMotivoYMesFromPlantilla(plantillaFiltrada, currentYear);
@@ -269,21 +261,12 @@ export function DashboardPage() {
 
   // Use shared filter util
   const filterPlantilla = (plantillaData: PlantillaRecord[]) => {
-    const filtered = applyRetentionFilters(plantillaData, retentionFilters);
+    const filtered = applyFiltersWithScope(plantillaData, retentionFilters, 'specific');
     console.log('🎯 Dashboard - Applying filters:');
     console.log('📊 Original plantilla:', plantillaData.length);
     console.log('🔍 Active filters:', retentionFilters);
     console.log('📋 Filtered plantilla:', filtered.length);
     return filtered;
-  };
-
-  // Special filter for 12-month rolling calculations (no month restriction)
-  // Removed unused filterPlantillaFor12Months function
-
-  // No filters for general company rotation (should match table value)
-  const noFiltersForGeneralRotation = (plantillaData: PlantillaRecord[]) => {
-    // Use ALL employees for general company rotation calculation
-    return plantillaData;
   };
 
   // ======= Headcount (Personal) derived metrics and datasets =======
@@ -307,6 +290,16 @@ export function DashboardPage() {
   };
 
   const plantillaFiltered = filterPlantilla(data.plantilla || []);
+
+  const plantillaFilteredYearScope = useMemo(() => {
+    if (!data.plantilla || data.plantilla.length === 0) return [];
+    const scoped = applyFiltersWithScope(data.plantilla, {
+      ...retentionFilters,
+      includeInactive: true,
+    }, 'year-only');
+    console.log('📊 Plantilla (sin mes) para tendencia de incidencias:', scoped.length);
+    return scoped;
+  }, [data.plantilla, retentionFilters]);
 
   // ✅ NUEVO: Filtrar bajas e incidencias basándose en empleados filtrados
   const empleadosFiltradosIds = new Set(plantillaFiltered.map(e => e.numero_empleado || Number(e.emp_id)));
@@ -678,6 +671,7 @@ export function DashboardPage() {
           <TabsContent value="overview" className="space-y-6">
             <SummaryComparison
               plantilla={plantillaFiltered}
+              plantillaYearScope={plantillaFilteredYearScope}
               bajas={bajasFiltered}
               incidencias={incidenciasFiltered}
               selectedYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}
@@ -883,9 +877,10 @@ export function DashboardPage() {
           {/* Incidents Tab */}
           <TabsContent value="incidents" className="space-y-6">
             <IncidentsTab
-              plantilla={filterPlantilla(data.plantilla || [])}
+              plantilla={plantillaFiltered}
+              plantillaAnual={plantillaFilteredYearScope}
               currentYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}
-              currentMonth={retentionFilters.months.length > 0 ? retentionFilters.months[0] : undefined}
+              selectedMonths={retentionFilters.months}
             />
           </TabsContent>
 
@@ -1041,13 +1036,14 @@ export function DashboardPage() {
               currentDate={selectedPeriod}
               currentYear={currentYear}
               filters={{
-                years: [], // ⚠️ NO filtrar por año - mostrar histórico completo
-                months: [], // ⚠️ NO filtrar por mes - mostrar histórico completo
+                years: retentionFilters.years,
+                months: retentionFilters.months,
                 departamentos: retentionFilters.departamentos,
                 puestos: retentionFilters.puestos,
                 clasificaciones: retentionFilters.clasificaciones,
                 empresas: retentionFilters.empresas,
-                areas: retentionFilters.areas
+                areas: retentionFilters.areas,
+                ubicaciones: retentionFilters.ubicaciones
               }}
               motivoFilter={motivoFilterType}
             />
@@ -1061,7 +1057,7 @@ export function DashboardPage() {
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
             <DismissalReasonsTable
-              plantilla={data.plantilla || []}
+              plantilla={plantillaFiltered}
               refreshEnabled={refreshEnabled}
               motivoFilter={motivoFilterType}
             />

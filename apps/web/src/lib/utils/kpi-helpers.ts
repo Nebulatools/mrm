@@ -5,7 +5,7 @@
  * Todas las funciones son puras (sin efectos secundarios) y fáciles de testear.
  */
 
-import type { PlantillaRecord } from '../supabase';
+import type { PlantillaRecord } from '../types/records';
 import { isMotivoClave } from '../normalizers';
 
 // ============================================================================

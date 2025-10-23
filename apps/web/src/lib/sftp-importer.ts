@@ -77,7 +77,7 @@ export class SFTPImporter {
     }
 
     // Parse headers
-    // const headers = csvData[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const headers: string[] = csvData[0].split(',').map((h) => h.trim().replace(/"/g, ''));
     console.log(`📋 Headers encontrados: ${headers.length} columnas`);
 
     // Limpiar datos existentes

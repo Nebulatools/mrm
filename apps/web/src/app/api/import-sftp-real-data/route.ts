@@ -167,16 +167,7 @@ export async function POST() {
         if (bajasData.length > 0) {
           // Mapear datos del SFTP a estructura de BD
           const bajasTransformadas: MotivoBaja[] = bajasData.map((record: Record<string, unknown>) => {
-            // Parsear fecha de baja
-            let fechaBaja = '2024-01-01'; // Default
-            if (record['Fecha']) {
-              try {
-                const fecha = new Date(record['Fecha']);
-                fechaBaja = fecha.toISOString().split('T')[0];
-              } catch (e) {
-                console.warn('Error parseando fecha de baja:', e);
-              }
-            }
+            const fechaBaja = parseDate(record['Fecha']) ?? '2024-01-01';
             
             return {
               numero_empleado: parseInt(String(record['#'] || record['Numero'] || 1)),
@@ -233,24 +224,37 @@ export async function POST() {
 }
 
 // Helper function para parsear fechas
-function parseDate(dateStr: string | null): string | null {
-  if (!dateStr || dateStr === 'null') return null;
-  
-  try {
-    const str = String(dateStr);
-    if (str.includes('/')) {
-      const [day, month, year] = str.split('/');
+function parseDate(dateValue: unknown): string | null {
+  if (dateValue === null || dateValue === undefined) return null;
+
+  if (dateValue instanceof Date) {
+    return isNaN(dateValue.getTime()) ? null : dateValue.toISOString().split('T')[0];
+  }
+
+  if (typeof dateValue === 'number' && Number.isFinite(dateValue)) {
+    // Many XLSX extracts representan fechas como seriales (Excel epoch 1899-12-30)
+    const excelEpoch = new Date(Math.round((dateValue - 25569) * 86400 * 1000));
+    if (!isNaN(excelEpoch.getTime())) {
+      return excelEpoch.toISOString().split('T')[0];
+    }
+  }
+
+  const str = String(dateValue).trim();
+  if (!str || str === 'null' || str === '[object Object]') return null;
+
+  if (str.includes('/')) {
+    const parts = str.split('/');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
       const fullYear = year.length === 2 ? `20${year}` : year;
       return `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
-    
-    const date = new Date(str);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0];
-    }
-    
-    return null;
-  } catch {
-    return null;
   }
+
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+
+  return null;
 }

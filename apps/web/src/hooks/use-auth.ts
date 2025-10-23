@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { createBrowserClient } from '@/lib/supabase-client';
 import { useRouter } from 'next/navigation';
@@ -14,253 +14,144 @@ export interface UserProfile {
   updated_at: string;
 }
 
-// Timeout helper para prevenir carga infinita
-const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('Query timeout')), timeoutMs)
-    ),
-  ]);
-};
-
 export function useAuth() {
   const router = useRouter();
-  const supabase = createBrowserClient();
+  const supabase = useMemo(() => createBrowserClient(), []);
 
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchProfileViaApi = useCallback(async (): Promise<UserProfile | null> => {
+    try {
+      const res = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (!res.ok) {
+        return null;
+      }
+      const json = await res.json();
+      return (json?.profile ?? null) as UserProfile | null;
+    } catch (error) {
+      console.error('❌ [useAuth] Failed to fetch via /api/auth/me:', error);
+      return null;
+    }
+  }, []);
+
+  const fetchProfileDirect = useCallback(async (userId: string): Promise<UserProfile | null> => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle<UserProfile>();
+
+    if (error) {
+      console.error('❌ [useAuth] Error fetching profile from Supabase:', error);
+      return null;
+    }
+
+    return data ?? null;
+  }, [supabase]);
+
+  const resolveProfile = useCallback(
+    async (userId: string): Promise<UserProfile | null> => {
+      const apiProfile = await fetchProfileViaApi();
+      if (apiProfile) return apiProfile;
+      return fetchProfileDirect(userId);
+    },
+    [fetchProfileDirect, fetchProfileViaApi]
+  );
+
   useEffect(() => {
     let isMounted = true;
 
-    const fetchUser = async () => {
+    const signOutAndRedirect = async () => {
+      await supabase.auth.signOut();
+      if (!isMounted) return;
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+      router.push('/login');
+    };
+
+    const initialize = async () => {
       try {
-        console.log('🔄 [useAuth] Fetching user...');
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        setLoading(true);
+        const { data, error } = await supabase.auth.getUser();
 
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
 
+        if (error) {
+          console.error('❌ [useAuth] Error retrieving user session:', error);
+          await signOutAndRedirect();
+          return;
+        }
+
+        const currentUser = data.user;
         if (!currentUser) {
-          console.log('⚠️ [useAuth] No user found');
           setUser(null);
           setProfile(null);
           setLoading(false);
           return;
         }
 
-        console.log('✅ [useAuth] User found:', currentUser.email);
         setUser(currentUser);
-
-        // Obtener perfil del usuario DIRECTAMENTE desde el servidor
-        // para evitar problemas de RLS timeout en el browser client
-        console.log('🔍 [useAuth] Fetching profile via /api/auth/me...');
-
-        try {
-          const res = await fetch('/api/auth/me', { cache: 'no-store' });
-          const json = await res.json();
-
-          if (!isMounted) return;
-
-          if (json?.ok && json?.profile) {
-            console.log('✅ [useAuth] Profile loaded via /api/auth/me:', json.profile.email);
-            setProfile(json.profile as any);
-            setLoading(false);
-            return;
-          }
-        } catch (e) {
-          console.error('❌ [useAuth] Failed to fetch via /api/auth/me:', e);
-        }
-
-        // Fallback: intentar query directa si el endpoint falla
-        const profilePromise = supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', currentUser.id)
-          .single();
-
-        const { data: userProfile, error } = await withTimeout(profilePromise, 3000);
+        const profileRecord = await resolveProfile(currentUser.id);
 
         if (!isMounted) return;
 
-          if (error) {
-            console.error('❌ [useAuth] Error fetching profile:', error);
-
-            // Si el error es de timeout, intentar una vez más con timeout más largo
-            if (error.message === 'Query timeout') {
-              console.log('⏳ [useAuth] Timeout, retrying with longer timeout...');
-
-            const retryPromise = supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('id', currentUser.id)
-              .single();
-
-            const { data: retryProfile, error: retryError } = await withTimeout(retryPromise, 12000);
-
-            if (!isMounted) return;
-
-            if (retryError) {
-              console.warn('⚠️ [useAuth] Retry failed, attempting server-side fallback /api/auth/me');
-              try {
-                const res = await fetch('/api/auth/me', { cache: 'no-store' });
-                const json = await res.json();
-                if (json?.ok && json?.profile) {
-                  console.log('✅ [useAuth] Fallback profile loaded via /api/auth/me');
-                  setProfile(json.profile as any);
-                  setLoading(false);
-                  return;
-                }
-              } catch (e) {
-                console.error('❌ [useAuth] Fallback /api/auth/me failed:', e);
-              }
-              console.error('❌ [useAuth] Retry+fallback failed, signing out');
-              await supabase.auth.signOut();
-              setUser(null);
-              setProfile(null);
-              setLoading(false);
-              router.push('/login');
-              return;
-            }
-
-            console.log('✅ [useAuth] Profile loaded on retry:', retryProfile?.email);
-            setProfile(retryProfile);
-            setLoading(false);
-            return;
-          }
-
-          // Otros errores: cerrar sesión
-          // Intentar fallback final antes de cerrar sesión
-          try {
-            const res = await fetch('/api/auth/me', { cache: 'no-store' });
-            const json = await res.json();
-            if (json?.ok && json?.profile) {
-              console.log('✅ [useAuth] Fallback profile loaded via /api/auth/me (non-timeout error branch)');
-              setProfile(json.profile as any);
-              setLoading(false);
-              return;
-            }
-          } catch {}
-          await supabase.auth.signOut();
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          router.push('/login');
+        if (!profileRecord) {
+          console.warn('⚠️ [useAuth] Profile not found, signing out');
+          await signOutAndRedirect();
           return;
         }
 
-        console.log('✅ [useAuth] Profile loaded:', userProfile?.email);
-        setProfile(userProfile);
+        setProfile(profileRecord);
         setLoading(false);
       } catch (error) {
         if (!isMounted) return;
-
-        console.error('❌ [useAuth] Critical error:', error);
-        // En caso de timeout o error crítico, cerrar sesión y redirigir
-        await supabase.auth.signOut();
-        setUser(null);
-        setProfile(null);
-        setLoading(false);
-        router.push('/login');
+        console.error('❌ [useAuth] Critical error while initializing session:', error);
+        await signOutAndRedirect();
       }
     };
 
-    fetchUser();
+    initialize();
 
-    // Escuchar cambios en el estado de autenticación
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user);
-          setLoading(true);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
 
-          // Usar endpoint del servidor directamente para evitar RLS timeouts
-          try {
-            const res = await fetch('/api/auth/me', { cache: 'no-store' });
-            const json = await res.json();
-            if (json?.ok && json?.profile) {
-              console.log('✅ [useAuth] Profile loaded via /api/auth/me (after sign in)');
-              setProfile(json.profile as any);
-              setLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.error('❌ [useAuth] Failed to fetch via /api/auth/me after sign in:', e);
-          }
+      if (event === 'SIGNED_IN' && session?.user) {
+        setUser(session.user);
+        setLoading(true);
 
-          // Fallback: query directa
-          try {
-            const profileQuery = supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
+        const profileRecord = await resolveProfile(session.user.id);
 
-            const { data: userProfile, error } = await withTimeout(profileQuery, 3000);
+        if (!isMounted) return;
 
-            if (error) {
-              console.error('❌ Error loading profile after sign in:', error);
-              // Fallback via server endpoint
-              try {
-                const res = await fetch('/api/auth/me', { cache: 'no-store' });
-                const json = await res.json();
-                if (json?.ok && json?.profile) {
-                  console.log('✅ [useAuth] Fallback profile loaded via /api/auth/me (after sign in)');
-                  setProfile(json.profile as any);
-                  setLoading(false);
-                  return;
-                }
-              } catch (e) {
-                console.error('❌ [useAuth] Fallback /api/auth/me failed after sign in:', e);
-              }
-              // Si falla, cerrar sesión
-              setLoading(false);
-              await supabase.auth.signOut();
-              router.push('/login');
-              return;
-            }
-
-            setProfile(userProfile);
-            setLoading(false);
-          } catch (error) {
-            console.error('❌ Timeout loading profile after sign in:', error);
-            // Fallback via server endpoint
-            try {
-              const res = await fetch('/api/auth/me', { cache: 'no-store' });
-              const json = await res.json();
-              if (json?.ok && json?.profile) {
-                console.log('✅ [useAuth] Fallback profile loaded via /api/auth/me (timeout after sign in)');
-                setProfile(json.profile as any);
-                setLoading(false);
-                return;
-              }
-            } catch (e) {
-              console.error('❌ [useAuth] Fallback /api/auth/me failed (timeout path):', e);
-            }
-            setLoading(false);
-            await supabase.auth.signOut();
-            router.push('/login');
-          }
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          router.push('/login');
+        if (!profileRecord) {
+          await signOutAndRedirect();
+          return;
         }
+
+        setProfile(profileRecord);
+        setLoading(false);
       }
-    );
+
+      if (event === 'SIGNED_OUT') {
+        await signOutAndRedirect();
+      }
+    });
 
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [supabase, router]);
+  }, [resolveProfile, router, supabase]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     router.push('/login');
-  };
+  }, [router, supabase]);
 
   const isAdmin = profile?.role === 'admin';
 
@@ -273,3 +164,4 @@ export function useAuth() {
     signOut,
   };
 }
+
