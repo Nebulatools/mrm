@@ -107,7 +107,7 @@ Rotación Mensual: 2.15% ✅
 ```sql
 Total incidencias: 12
 Incidencias negativas (FI, SUSP, PSIN, ENFE): 0
-Permisos (PCON, VAC, MAT3): 12
+Permisos (PCON, VAC, MAT3, MAT1, JUST): 12
 Empleados con incidencias: 2
 ```
 **Nota**: Septiembre fue un mes muy limpio - solo permisos, sin incidencias negativas
@@ -1047,9 +1047,9 @@ const totalPermisos = useMemo(() => {
 ```
 
 **Fuente**: `incidencias CSV`
-**Lógica**: Sumar todas las incidencias con códigos PCON, VAC, MAT3
+**Lógica**: Sumar todas las incidencias con códigos PCON, VAC, MAT3, MAT1, JUST
 
-**Tooltip**: "Incluye: PCON, VAC, MAT3"
+**Tooltip**: "Incluye: PCON, VAC, MAT3, MAT1, JUST"
 
 ### Gráficas
 

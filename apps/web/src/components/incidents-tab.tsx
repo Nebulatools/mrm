@@ -25,7 +25,7 @@ type EnrichedIncidencia = IncidenciaCSVRecord & {
 
 const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
 const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]); // Para card de empleados con incidencias
-const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3"]);
+const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST"]);
 
 export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedMonths }: Props) {
   const [incidencias, setIncidencias] = useState<IncidenciaCSVRecord[]>([]);
@@ -282,7 +282,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         <Card>
           <CardHeader className="pb-2 flex items-center justify-between">
             <CardTitle className="text-base">Permisos</CardTitle>
-            <HoverHint text="Incluye: PCON, VAC, MAT3" />
+            <HoverHint text="Incluye: PCON, VAC, MAT3, MAT1, JUST" />
           </CardHeader>
           <CardContent className="text-3xl font-semibold">{totalPermisos.toLocaleString()}</CardContent>
         </Card>

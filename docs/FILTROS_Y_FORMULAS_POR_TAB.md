@@ -112,7 +112,7 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 | # de Activos | 🟢 ESPECÍFICO | ✅ CORREGIDO: Usa plantilla filtrada (solo empleados activos) |
 | Empleados con Incidencias | 🔵 SIN FILTRO DE ACTIVOS | ✅ NUEVO: Cuenta TODOS los empleados con incidencias (activos e inactivos) |
 | Incidencias | 🔵 SIN FILTRO DE ACTIVOS | ✅ NUEVO: TODAS las incidencias históricas (FI, SUS, PSIN, ENFE) |
-| Permisos | 🔵 SIN FILTRO DE ACTIVOS | ✅ NUEVO: TODOS los permisos históricos (PCON, VAC, MAT3) |
+| Permisos | 🔵 SIN FILTRO DE ACTIVOS | ✅ NUEVO: TODOS los permisos históricos (PCON, VAC, MAT3, MAT1, JUST) |
 
 ### Gráficos
 

@@ -214,7 +214,7 @@ export function isMotivoClave(raw?: string | null): boolean {
 
 // Códigos REALES del CSV + variantes comunes
 export const INCIDENT_CANONICAL_CODES = ['FI', 'SUS', 'PSIN', 'ENFE'] as const;
-export const PERMISO_CANONICAL_CODES = ['PCON', 'VAC', 'MAT3'] as const;
+export const PERMISO_CANONICAL_CODES = ['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST'] as const;
 export const INCIDENT_CANONICAL_SET = new Set<string>(INCIDENT_CANONICAL_CODES);
 export const PERMISO_CANONICAL_SET = new Set<string>(PERMISO_CANONICAL_CODES);
 
@@ -224,6 +224,8 @@ const INCI_LABELS: Record<string, string> = {
   'PCON': 'Permiso con goce',
   'SUS': 'Suspensión',
   'MAT3': 'Permiso maternal (3 meses)',
+  'MAT1': 'Permiso maternal (1 mes)',
+  'JUST': 'Justificación',
   'FI': 'Falta Injustificada',
   '1': 'Incidencia registrada',
   '0': 'Sin incidencia',
@@ -253,6 +255,8 @@ export function normalizeIncidenciaCode(raw?: string | null): string {
   if (c === 'PCON') return 'PCON';
   if (c === 'SUS') return 'SUS';
   if (c === 'MAT3') return 'MAT3';
+  if (c === 'MAT1') return 'MAT1';
+  if (c === 'JUST') return 'JUST';
   if (c === 'FI') return 'FI';
   if (c === '1') return '1';
   if (c === '0') return '0';
@@ -264,6 +268,8 @@ export function normalizeIncidenciaCode(raw?: string | null): string {
   if (c === 'PCG') return 'PCON';
   if (c === 'SUS' || c === 'SUSP') return 'SUS';
   if (c.replace(/\s+/g, '') === 'MAT3') return 'MAT3';
+  if (c.replace(/\s+/g, '') === 'MAT1') return 'MAT1';
+  if (c.replace(/\s+/g, '') === 'JUST') return 'JUST';
 
   return c;
 }

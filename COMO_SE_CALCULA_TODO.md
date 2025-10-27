@@ -485,6 +485,8 @@ Cuántas veces alguien faltó, llegó tarde o tuvo un problema de asistencia (in
 - VAC (Vacaciones) 🏖️
 - PCON (Permiso Con Goce) ✅
 - MAT3 (Maternidad) 👶
+- MAT1 (Maternidad parcial) 👶
+- JUST (Justificación autorizada) 📝
 - PATER (Paternidad) 👨‍👶
 
 **Incidencias "NEUTRAS"**:
@@ -500,7 +502,7 @@ Cuántas veces alguien faltó, llegó tarde o tuvo un problema de asistencia (in
 
 **Ejemplo histórico (Todo el tiempo)**:
 - Total: 4,923 incidencias
-- Buenas: 3,147 (64%) - VAC + PCON + MAT3 + PATER
+- Buenas: 3,147 (64%) - VAC + PCON + MAT3 + PATER *(se sumarán MAT1 y JUST cuando existan registros)*
 - Malas: 1,722 (35%) - FI + SUSP + PSIN + ENFE + ACCI
 - Neutras: 54 (1%) - FEST
 
@@ -515,7 +517,7 @@ MALAS:
   CUENTA(registros donde inci IN ('FI', 'SUSP', 'PSIN', 'ENFE', 'ACCI'))
 
 BUENAS:
-  CUENTA(registros donde inci IN ('VAC', 'PCON', 'MAT3', 'PATER'))
+  CUENTA(registros donde inci IN ('VAC', 'PCON', 'MAT3', 'MAT1', 'JUST', 'PATER'))
 ```
 
 ---
@@ -597,9 +599,9 @@ Este tab te deja **comparar** diferentes partes de tu empresa (áreas, departame
 - **Ejemplo real (Septiembre 2025)**: 0 incidencias malas ✅
 
 #### 5. **Permisos (Secundario de Incidencias)** 📝
-- **Fórmula**: Cuenta incidencias "buenas" (VAC, PCON, MAT3, PATER)
+- **Fórmula**: Cuenta incidencias "buenas" (VAC, PCON, MAT3, MAT1, JUST, PATER)
 - **Origen**: Tabla `incidencias`, campo `inci`
-- **Filtro**: `inci IN ('VAC', 'PCON', 'MAT3', 'PATER')`
+- **Filtro**: `inci IN ('VAC', 'PCON', 'MAT3', 'MAT1', 'JUST', 'PATER')`
 - **Ejemplo real (Septiembre 2025)**: 12 permisos (9 MAT3 + 3 VAC)
 
 #### 6. **Días** 📅
@@ -1069,7 +1071,7 @@ Resultado: 0 incidencias malas (¡ninguna! Solo hubo permisos buenos) ✅
 
 **Ejemplo real (Septiembre 2025)**:
 ```
-Filtro: inci IN ('VAC', 'PCON', 'MAT3', 'PATER') en septiembre
+Filtro: inci IN ('VAC', 'PCON', 'MAT3', 'MAT1', 'JUST', 'PATER') en septiembre
 Resultado: 12 permisos totales ✅
 - 9 registros de MAT3 (1 empleada)
 - 3 registros de VAC (1 empleado)

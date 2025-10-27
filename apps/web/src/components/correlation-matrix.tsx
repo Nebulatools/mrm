@@ -201,7 +201,7 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
 
       // CÓDIGOS REALES según DB (verificado con MCP)
       const INCIDENT_CODES = ['FI', 'ENFE', 'PSIN', 'SUSP'] // Incidencias negativas
-      const PERMISO_CODES = ['PCON', 'VAC', 'MAT3'] // Permisos/ausencias autorizadas
+      const PERMISO_CODES = ['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST'] // Permisos/ausencias autorizadas
 
       const incidenciasEmpleado = incidencias.filter(inc => inc.emp === emp.numero_empleado)
 
@@ -228,7 +228,7 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
       // Permisos autorizados
       const incidenciasVacaciones = incidenciasEmpleado.filter(inc => inc.inci === 'VAC').length
       const permisosConGoce = incidenciasEmpleado.filter(inc => inc.inci === 'PCON').length
-      const permisosMaternidad = incidenciasEmpleado.filter(inc => inc.inci === 'MAT3').length
+      const permisosMaternidad = incidenciasEmpleado.filter(inc => inc.inci === 'MAT3' || inc.inci === 'MAT1').length
 
       // Calcular días trabajados estimados (suponiendo 6 días/semana)
       const diasEstimados = 26 // días laborales promedio por mes

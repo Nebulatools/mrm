@@ -1,0 +1,61 @@
+# Resumen `incidencias_parche.csv`
+
+- Registros totales parseados: 7 188 (473 empleados distintos).  
+- Cobertura de fechas: 2025-02-21 a 2025-12-11 (quincenas del año completo).  
+- Códigos detectados (col `INCI`): VAC, FI, ENFE, PSIN, MAT3, PCON, SUSP, MAT1, FEST, ACCI, PATER, JUST.  
+  *`MAT1` (permiso maternal parcial) y `JUST` (justificación) no existen en la tabla actual de Supabase; habrá que mapearlos en el normalizador si se importan.*
+- Totales por tipo (clasificación aproximada permisos vs incidencias):  
+  • Permisos (`VAC`,`PCON`,`MAT3`,`MAT1`,`JUST`,`PATER`): 5 366 (74.7%)  
+  • Incidencias (`FI`,`SUSP`,`PSIN`,`ENFE`,`FEST`,`ACCI`): 1 822 (25.3%)
+
+## Distribución mensual (parche vs base actual)
+
+| Mes     | Parche total | Supabase total | Diferencia | Permisos Δ | Incidencias Δ |
+|---------|--------------|----------------|------------|------------|----------------|
+| 2025-01 | 803          | 803            | 0          | 0          | 0              |
+| 2025-02 | 600          | 600            | 0          | 0          | 0              |
+| 2025-03 | 669          | 669            | 0          | 0          | 0              |
+| 2025-04 | 790          | 790            | 0          | 0          | 0              |
+| 2025-05 | 838          | 838            | 0          | 0          | 0              |
+| 2025-06 | 844          | 836            | +8         | 0          | +8             |
+| 2025-07 | 775          | 264            | **+511**   | +309       | +202           |
+| 2025-08 | 814          | 105            | **+709**   | +537       | +172           |
+| 2025-09 | 645          | 12             | **+633**   | +456       | +177           |
+| 2025-10 | 331          | 4              | **+327**   | +268       | +59            |
+| 2025-11 | 39           | 1              | +38        | +38        | 0              |
+| 2025-12 | 40           | 1              | +39        | +37        | +2             |
+
+> Conclusión: el parche aporta masivamente las incidencias/permisos de agosto–diciembre (quincenas 17–24) que no están cargadas en Supabase. Junio también trae 8 incidencias adicionales.
+
+## Frecuencia por código en el parche
+
+| Código | Total | % sobre 7 188 |
+|--------|-------|---------------|
+| VAC    | 3 938 | 54.8%         |
+| FI     | 863   | 12.0%         |
+| ENFE   | 659   | 9.2%          |
+| PSIN   | 633   | 8.8%          |
+| MAT3   | 426   | 5.9%          |
+| PCON   | 334   | 4.6%          |
+| SUSP   | 144   | 2.0%          |
+| MAT1   | 84    | 1.2%          |
+| FEST   | 76    | 1.1%          |
+| ACCI   | 20    | 0.3%          |
+| PATER  | 10    | 0.1%          |
+| JUST   | 1     | <0.1%         |
+
+## Empleados con más registros en el parche
+
+| No. empleado | Registros | Comentarios |
+|--------------|-----------|-------------|
+| 1631         | 280       | Mayor parte permisos, pero 102 incidencias negativas. |
+| 2208         | 154       | Alto peso de incidencias (137). |
+| 2128         | 111       | Predomina permisos (88). |
+| 2091         | 106       | Permisos casi totales (100). |
+| 2478         | 91        | Permisos (84) + algunas incidencias (7). |
+
+## Recomendaciones
+
+1. Integrar estas 5 694 filas “faltantes” (jul–dic) en `public.incidencias`. Antes de hacerlo, añadir mapeos para `MAT1` y `JUST` en `apps/web/src/lib/normalizers.ts` para mantener la clasificación correcta.
+2. Verificar si los empleados nuevos del parche (473 vs 405 actuales) existen en `empleados_sftp`; de lo contrario, cargar plantilla actualizada primero para evitar referencias huérfanas.
+3. Al terminar la carga, revalidar los dashboards de permisos e incidencias 2025; las curvas deberían recuperar continuidad y los permisos de septiembre/octubre dejarán de aparecer en cero.

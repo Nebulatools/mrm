@@ -103,7 +103,7 @@ El dashboard tiene **dos tipos de filtros**:
 
 ### Códigos de Incidencia
 - **Incidencias (negativas):** FI, SUS, PSIN, ENFE
-- **Permisos (autorizados):** PCON, VAC, MAT3
+- **Permisos (autorizados):** PCON, VAC, MAT3, MAT1, JUST
 
 ---
 

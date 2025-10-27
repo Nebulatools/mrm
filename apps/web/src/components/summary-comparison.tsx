@@ -42,7 +42,7 @@ interface SummaryComparisonProps {
 
 // ✅ Códigos de incidencias y permisos (igual que en incidents-tab.tsx)
 const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
-const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3"]);
+const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST"]);
 
 const formatMonthLabel = (date: Date) => {
   const monthLabel = date.toLocaleDateString('es-MX', { month: 'short' });
@@ -198,7 +198,7 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
     let totalInc = 0;
     countByType.forEach((v, k) => { if (INCIDENT_CODES.has(k)) totalInc += v; });
 
-    // Sumar permisos (PCON, VAC, MAT3)
+    // Sumar permisos (PCON, VAC, MAT3, MAT1, JUST)
     let totalPerm = 0;
     countByType.forEach((v, k) => { if (PERMISO_CODES.has(k)) totalPerm += v; });
 
@@ -259,12 +259,14 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
     });
 
     const totalIncidencias = incidenciasDelMes.length;
-    const permisos = incidenciasDelMes.filter(i =>
-      i.inci?.toUpperCase() === 'INC' ||
-      i.inci?.toUpperCase().includes('PERMISO') ||
-      i.inci?.toUpperCase() === 'PCON' ||
-      i.inci?.toUpperCase() === 'VAC'
-    ).length;
+    const permisos = incidenciasDelMes.filter(i => {
+      const code = i.inci?.toUpperCase() ?? '';
+      return (
+        code === 'INC' ||
+        code.includes('PERMISO') ||
+        PERMISO_CODES.has(code)
+      );
+    }).length;
 
     console.log('📊 Tab Resumen - KPIs calculados:', {
       rotacionAcumulada: rotacionAcumuladaDesglose.total.toFixed(1) + '%',
