@@ -49,7 +49,7 @@ interface RetentionChartsProps {
   currentDate?: Date;
   currentYear?: number;
   filters?: RetentionFilters;
-  motivoFilter?: 'involuntaria' | 'complementaria';
+  motivoFilter?: 'involuntaria' | 'voluntaria';
 }
 
 export function RetentionCharts({ currentDate = new Date(), currentYear, filters, motivoFilter = 'involuntaria' }: RetentionChartsProps) {
@@ -368,6 +368,27 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
   }
 
   const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  // Ajustar dinámicamente el dominio del eje Y para la gráfica de rotación acumulada
+  const rotationValues = yearlyComparison.flatMap(row =>
+    availableYears
+      .map(year => row[`rotacion${year}`])
+      .filter((value): value is number => typeof value === 'number' && !Number.isNaN(value))
+  );
+
+  const minRotation = rotationValues.length ? Math.min(...rotationValues) : 0;
+  const maxRotation = rotationValues.length ? Math.max(...rotationValues) : 100;
+
+  let lowerBound = Math.max(0, Math.floor(minRotation - 5));
+  let upperBound = Math.min(100, Math.ceil(maxRotation + 5));
+
+  if (upperBound - lowerBound < 10) {
+    const padding = (10 - (upperBound - lowerBound)) / 2;
+    lowerBound = Math.max(0, Math.floor(lowerBound - padding));
+    upperBound = Math.min(100, Math.ceil(upperBound + padding));
+  }
+
+  const rotationDomain: [number, number] = [lowerBound, upperBound];
   
   return (
     <div className="space-y-6">
@@ -391,7 +412,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               <YAxis 
                 tick={{ fontSize: 12 }}
                 label={{ value: 'Rotación %', angle: -90, position: 'insideLeft' }}
-                domain={[50, 100]}
+                domain={rotationDomain}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
@@ -428,17 +449,22 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                 textAnchor="end"
                 height={60}
               />
-              <YAxis 
+              <YAxis
                 yAxisId="percentage"
                 orientation="left"
                 tick={{ fontSize: 12 }}
                 label={{ value: 'Rotación %', angle: -90, position: 'insideLeft' }}
+                domain={[0, 10]}
+                tickCount={6}
+                allowDecimals={false}
               />
-              <YAxis 
+              <YAxis
                 yAxisId="numbers"
                 orientation="right"
                 tick={{ fontSize: 12 }}
                 label={{ value: 'Cantidad', angle: 90, position: 'insideRight' }}
+                domain={[0, 'dataMax + 100']}
+                allowDecimals={false}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />

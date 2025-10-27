@@ -92,8 +92,8 @@ export function DashboardPage() {
   const [bajasData, setBajasData] = useState<any[]>([]);
   const [incidenciasData, setIncidenciasData] = useState<any[]>([]);
 
-  // Toggle para filtrar visualizaciones por rotación involuntaria vs complementaria
-  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'complementaria'>('complementaria');
+  // Toggle para filtrar visualizaciones por rotación involuntaria vs voluntaria
+  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('voluntaria');
 
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
     years: [],
@@ -1017,16 +1017,16 @@ export function DashboardPage() {
                   Rotación Involuntaria
                 </Button>
                 <Button
-                  variant={motivoFilterType === 'complementaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+                  variant={motivoFilterType === 'voluntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
                   size="sm"
-                  onClick={() => setMotivoFilterType('complementaria')}
+                  onClick={() => setMotivoFilterType('voluntaria')}
                   className={cn(
                     "transition-all",
                     refreshEnabled && "rounded-full font-semibold",
-                    motivoFilterType === 'complementaria' && refreshEnabled && "shadow-brand"
+                    motivoFilterType === 'voluntaria' && refreshEnabled && "shadow-brand"
                   )}
                 >
-                  Rotación Complementaria
+                  Rotación Voluntaria
                 </Button>
               </div>
             </div>

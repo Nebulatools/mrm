@@ -238,16 +238,16 @@ export function calcularRotacionYTD(
  * - Término del contrato
  *
  * @param plantilla Lista de empleados
- * @param motivoFilter Tipo de motivo ('involuntaria' | 'complementaria' | 'all')
+ * @param motivoFilter Tipo de motivo ('involuntaria' | 'voluntaria' | 'all')
  * @returns Lista filtrada
  *
  * @example
  * const soloInvoluntarias = filterByMotivo(plantilla, 'involuntaria');
- * const soloComplementarias = filterByMotivo(plantilla, 'complementaria');
+ * const soloVoluntarias = filterByMotivo(plantilla, 'voluntaria');
  */
 export function filterByMotivo(
   plantilla: PlantillaRecord[],
-  motivoFilter: 'involuntaria' | 'complementaria' | 'all'
+  motivoFilter: 'involuntaria' | 'voluntaria' | 'all'
 ): PlantillaRecord[] {
   if (!plantilla || plantilla.length === 0) {
     return [];
@@ -412,21 +412,21 @@ export function countActivosEnFecha(
  * Calcula rotación desglosada por motivo manteniendo el mismo denominador
  *
  * Esta función es crítica para métricas GENERALES que necesitan mostrar
- * desglose por motivo (Involuntaria vs Complementaria) pero manteniendo
+ * desglose por motivo (Involuntaria vs Voluntaria) pero manteniendo
  * el mismo denominador (activos promedio total).
  *
- * Garantiza que: Involuntaria% + Complementaria% = Total%
+ * Garantiza que: Involuntaria% + Voluntaria% = Total%
  *
  * @param plantilla Lista completa de empleados (sin filtrar por motivo)
  * @param startDate Fecha inicio del período
  * @param endDate Fecha fin del período
- * @returns Objeto con rotación total, involuntaria y complementaria
+ * @returns Objeto con rotación total, involuntaria y voluntaria
  *
  * @example
  * const rotacion = calcularRotacionConDesglose(plantillaGeneral, startDate, endDate);
  * console.log(rotacion.total); // 10.5%
  * console.log(rotacion.involuntaria); // 6.2%
- * console.log(rotacion.complementaria); // 4.3%
+ * console.log(rotacion.voluntaria); // 4.3%
  * // 6.2% + 4.3% = 10.5% ✅
  */
 export function calcularRotacionConDesglose(
@@ -436,20 +436,20 @@ export function calcularRotacionConDesglose(
 ): {
   total: number;
   involuntaria: number;
-  complementaria: number;
+  voluntaria: number;
   bajas: number;
   bajasInvoluntarias: number;
-  bajasComplementarias: number;
+  bajasVoluntarias: number;
   activosPromedio: number;
 } {
   if (!plantilla || plantilla.length === 0) {
     return {
       total: 0,
       involuntaria: 0,
-      complementaria: 0,
+      voluntaria: 0,
       bajas: 0,
       bajasInvoluntarias: 0,
-      bajasComplementarias: 0,
+      bajasVoluntarias: 0,
       activosPromedio: 0
     };
   }
@@ -468,14 +468,14 @@ export function calcularRotacionConDesglose(
   const bajasInvoluntarias = todasLasBajas.filter(emp =>
     isMotivoClave((emp as any).motivo_baja)
   );
-  const bajasComplementarias = todasLasBajas.filter(emp =>
+  const bajasVoluntarias = todasLasBajas.filter(emp =>
     !isMotivoClave((emp as any).motivo_baja)
   );
 
   // Calcular rotaciones usando el MISMO denominador
   const rotacionTotal = activosPromedio > 0 ? (todasLasBajas.length / activosPromedio) * 100 : 0;
   const rotacionInvoluntaria = activosPromedio > 0 ? (bajasInvoluntarias.length / activosPromedio) * 100 : 0;
-  const rotacionComplementaria = activosPromedio > 0 ? (bajasComplementarias.length / activosPromedio) * 100 : 0;
+  const rotacionVoluntaria = activosPromedio > 0 ? (bajasVoluntarias.length / activosPromedio) * 100 : 0;
 
   console.log('🔢 Rotación con desglose por motivo:', {
     periodo: `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`,
@@ -483,25 +483,25 @@ export function calcularRotacionConDesglose(
     bajas: {
       total: todasLasBajas.length,
       involuntarias: bajasInvoluntarias.length,
-      complementarias: bajasComplementarias.length,
-      suma: bajasInvoluntarias.length + bajasComplementarias.length
+      voluntarias: bajasVoluntarias.length,
+      suma: bajasInvoluntarias.length + bajasVoluntarias.length
     },
     rotacion: {
       total: `${rotacionTotal.toFixed(1)}%`,
       involuntaria: `${rotacionInvoluntaria.toFixed(1)}%`,
-      complementaria: `${rotacionComplementaria.toFixed(1)}%`,
-      suma: `${(rotacionInvoluntaria + rotacionComplementaria).toFixed(1)}%`
+      voluntaria: `${rotacionVoluntaria.toFixed(1)}%`,
+      suma: `${(rotacionInvoluntaria + rotacionVoluntaria).toFixed(1)}%`
     },
-    verificacion: Math.abs(rotacionTotal - (rotacionInvoluntaria + rotacionComplementaria)) < 0.1 ? '✅' : '❌'
+    verificacion: Math.abs(rotacionTotal - (rotacionInvoluntaria + rotacionVoluntaria)) < 0.1 ? '✅' : '❌'
   });
 
   return {
     total: rotacionTotal,
     involuntaria: rotacionInvoluntaria,
-    complementaria: rotacionComplementaria,
+    voluntaria: rotacionVoluntaria,
     bajas: todasLasBajas.length,
     bajasInvoluntarias: bajasInvoluntarias.length,
-    bajasComplementarias: bajasComplementarias.length,
+    bajasVoluntarias: bajasVoluntarias.length,
     activosPromedio
   };
 }
@@ -511,7 +511,7 @@ export function calcularRotacionConDesglose(
  *
  * @param plantilla Lista completa de empleados (sin filtrar)
  * @param fecha Fecha de referencia (normalmente hoy)
- * @returns Objeto con rotación total, involuntaria y complementaria
+ * @returns Objeto con rotación total, involuntaria y voluntaria
  */
 export function calcularRotacionAcumulada12mConDesglose(
   plantilla: PlantillaRecord[],
@@ -519,7 +519,7 @@ export function calcularRotacionAcumulada12mConDesglose(
 ): {
   total: number;
   involuntaria: number;
-  complementaria: number;
+  voluntaria: number;
 } {
   const year = fecha.getFullYear();
   const month = fecha.getMonth();
@@ -533,7 +533,7 @@ export function calcularRotacionAcumulada12mConDesglose(
   return {
     total: resultado.total,
     involuntaria: resultado.involuntaria,
-    complementaria: resultado.complementaria
+    voluntaria: resultado.voluntaria
   };
 }
 
@@ -542,7 +542,7 @@ export function calcularRotacionAcumulada12mConDesglose(
  *
  * @param plantilla Lista completa de empleados (sin filtrar)
  * @param fecha Fecha de referencia (normalmente hoy)
- * @returns Objeto con rotación total, involuntaria y complementaria
+ * @returns Objeto con rotación total, involuntaria y voluntaria
  */
 export function calcularRotacionYTDConDesglose(
   plantilla: PlantillaRecord[],
@@ -550,7 +550,7 @@ export function calcularRotacionYTDConDesglose(
 ): {
   total: number;
   involuntaria: number;
-  complementaria: number;
+  voluntaria: number;
 } {
   const year = fecha.getFullYear();
   const month = fecha.getMonth();
@@ -564,7 +564,7 @@ export function calcularRotacionYTDConDesglose(
   return {
     total: resultado.total,
     involuntaria: resultado.involuntaria,
-    complementaria: resultado.complementaria
+    voluntaria: resultado.voluntaria
   };
 }
 

@@ -32,7 +32,7 @@ interface Employee {
 interface DismissalReasonsTableProps {
   plantilla: PlantillaRecord[];
   refreshEnabled?: boolean;
-  motivoFilter?: 'involuntaria' | 'complementaria';
+  motivoFilter?: 'involuntaria' | 'voluntaria';
 }
 
 // Color mapping removed (not used)
@@ -63,7 +63,7 @@ export function DismissalReasonsTable({
   // Aplicar filtro por motivo
   if (motivoFilter === 'involuntaria') {
     empleadosBaja = empleadosBaja.filter(emp => isMotivoClave(emp.motivo_baja));
-  } else if (motivoFilter === 'complementaria') {
+  } else if (motivoFilter === 'voluntaria') {
     empleadosBaja = empleadosBaja.filter(emp => !isMotivoClave(emp.motivo_baja));
   }
   

@@ -1,0 +1,88 @@
+# Resumen `public.motivos_baja`
+
+- Registros totales: 619 (613 empleados únicos).
+- Rango de fechas disponible: 2023-01-02 a 2025-10-19.
+- Distribución por año (`fecha_baja`): 2023 → 181, 2024 → 240, 2025 → 198.
+- Rotación involuntaria (Rescisión por desempeño + Rescisión por disciplina + Término del contrato): 188 casos (30.4%).
+- Rotación voluntaria (resto de motivos): 431 casos (69.6%).
+
+## Distribución mensual 2024
+
+| Mes | Bajas totales | Involuntarias | % Involuntarias |
+|-----|---------------|---------------|-----------------|
+| 2024-01 | 22 | 5 | 22.7% |
+| 2024-02 | 24 | 7 | 29.2% |
+| 2024-03 | 8 | 2 | 25.0% |
+| 2024-04 | 20 | 5 | 25.0% |
+| 2024-05 | 26 | 9 | 34.6% |
+| 2024-06 | 21 | 4 | 19.0% |
+| 2024-07 | 16 | 9 | 56.2% |
+| 2024-08 | 18 | 10 | 55.6% |
+| 2024-09 | 22 | 6 | 27.3% |
+| 2024-10 | 25 | 5 | 20.0% |
+| 2024-11 | 15 | 4 | 26.7% |
+| 2024-12 | 23 | 5 | 21.7% |
+
+## Distribución mensual 2025
+
+| Mes | Bajas totales | Involuntarias | % Involuntarias |
+|-----|---------------|---------------|-----------------|
+| 2025-01 | 17 | 3 | 17.6% |
+| 2025-02 | 22 | 7 | 31.8% |
+| 2025-03 | 24 | 7 | 29.2% |
+| 2025-04 | 14 | 3 | 21.4% |
+| 2025-05 | 29 | 10 | 34.5% |
+| 2025-06 | 21 | 5 | 23.8% |
+| 2025-07 | 27 | 12 | 44.4% |
+| 2025-08 | 19 | 4 | 21.1% |
+| 2025-09 | 18 | 9 | 50.0% |
+| 2025-10 | 7 | 0 | 0.0% |
+
+## Distribución mensual 2023
+
+| Mes | Bajas totales | Involuntarias | % Involuntarias |
+|-----|---------------|---------------|-----------------|
+| 2023-01 | 14 | 5 | 35.7% |
+| 2023-02 | 13 | 6 | 46.2% |
+| 2023-03 | 18 | 7 | 38.9% |
+| 2023-04 | 10 | 2 | 20.0% |
+| 2023-05 | 11 | 0 | 0.0% |
+| 2023-06 | 21 | 7 | 33.3% |
+| 2023-07 | 26 | 8 | 30.8% |
+| 2023-08 | 20 | 12 | 60.0% |
+| 2023-09 | 18 | 5 | 27.8% |
+| 2023-10 | 16 | 4 | 25.0% |
+| 2023-11 | 7 | 0 | 0.0% |
+| 2023-12 | 7 | 1 | 14.3% |
+
+## Motivos normalizados
+
+| Motivo | Total | % Tabla | Clasificación |
+|--------|-------|---------|----------------|
+| Abandono / No regresó | 218 | 35.2% | Voluntaria |
+| Otra razón | 129 | 20.8% | Voluntaria |
+| Término del contrato | 127 | 20.5% | Involuntaria |
+| Rescisión por desempeño | 31 | 5.0% | Involuntaria |
+| Rescisión por disciplina | 30 | 4.8% | Involuntaria |
+| Otro trabajo mejor compensado | 26 | 4.2% | Voluntaria |
+| Regreso a la escuela | 15 | 2.4% | Voluntaria |
+| Trabajo muy difícil | 8 | 1.3% | Voluntaria |
+| No le gustó el ambiente | 6 | 1.0% | Voluntaria |
+| No le gustó el tipo de trabajo | 4 | 0.6% | Voluntaria |
+| No le gustaron las instalaciones | 4 | 0.6% | Voluntaria |
+| Problema de transporte | 4 | 0.6% | Voluntaria |
+| Cambio de ciudad | 3 | 0.5% | Voluntaria |
+| Ausentismo | 3 | 0.5% | Voluntaria |
+| Cambio de domicilio | 3 | 0.5% | Voluntaria |
+| Falta quien cuide hijos | 2 | 0.3% | Voluntaria |
+| Motivos de salud | 2 | 0.3% | Voluntaria |
+| Poco salario y prestaciones | 1 | 0.2% | Voluntaria |
+| Falta de oportunidades | 1 | 0.2% | Voluntaria |
+| Problemas con jefe inmediato | 1 | 0.2% | Voluntaria |
+| Jubilación | 1 | 0.2% | Voluntaria |
+
+## Notas relevantes
+
+- El histórico 2023-2024 fue reinsertado desde `parches/motivos_baja.csv`; ahora la tabla cubre tres años y el dashboard debe reflejar rotación involuntaria 2024 sin ajustes adicionales.
+- El normalizador en `apps/web/src/lib/normalizers.ts` sigue siendo válido: convierte variantes con caracteres corruptos (`?`) y también acepta los motivos con acentos al compararlos (`isMotivoClave`).
+- Si se cargan nuevos motivos, amplia el `CASE` de este resumen y el diccionario del normalizador para mantener la clasificación consistente.

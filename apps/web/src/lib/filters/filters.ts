@@ -213,7 +213,7 @@ export interface RetentionFilterOptions {
   areas?: string[];     // Área filter
 
   // 🆕 NUEVOS FILTROS CENTRALIZADOS
-  motivoFilter?: 'involuntaria' | 'complementaria' | 'all';  // Filtro de tipo de baja
+  motivoFilter?: 'involuntaria' | 'voluntaria' | 'all';  // Filtro de tipo de baja
   includeInactive?: boolean;  // Incluir empleados con fecha_baja
 }
 

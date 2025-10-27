@@ -55,7 +55,7 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
 
   const plantillaRotacion = plantillaYearScope && plantillaYearScope.length > 0 ? plantillaYearScope : plantilla;
 
-  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'complementaria'>('involuntaria');
+  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('involuntaria');
 
   const referenceDate = useMemo(() => {
     const today = new Date();
@@ -506,10 +506,10 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
       };
     });
 
-    const rotationLabel = motivoFilterType === 'involuntaria' ? 'Rotación Involuntaria' : 'Rotación Complementaria';
+    const rotationLabel = motivoFilterType === 'involuntaria' ? 'Rotación Involuntaria' : 'Rotación Voluntaria';
     const rotationColor = motivoFilterType === 'involuntaria' ? '#ef4444' : '#22c55e';
-    const getRotationValue = (input: { involuntaria: number; complementaria: number }) =>
-      motivoFilterType === 'involuntaria' ? input.involuntaria : input.complementaria;
+    const getRotationValue = (input: { involuntaria: number; voluntaria: number }) =>
+      motivoFilterType === 'involuntaria' ? input.involuntaria : input.voluntaria;
 
     const monthlyChartData = rotationSeries.map(point => ({
       mes: point.label,
@@ -646,16 +646,16 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                 Rotación Involuntaria
               </Button>
               <Button
-                variant={motivoFilterType === 'complementaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+                variant={motivoFilterType === 'voluntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
                 size="sm"
-                onClick={() => setMotivoFilterType('complementaria')}
+                onClick={() => setMotivoFilterType('voluntaria')}
                 className={cn(
                   "transition-all",
                   refreshEnabled && "rounded-full font-semibold",
-                  motivoFilterType === 'complementaria' && refreshEnabled && "shadow-brand"
+                  motivoFilterType === 'voluntaria' && refreshEnabled && "shadow-brand"
                 )}
               >
-                Rotación Complementaria
+                Rotación Voluntaria
               </Button>
             </div>
           </div>

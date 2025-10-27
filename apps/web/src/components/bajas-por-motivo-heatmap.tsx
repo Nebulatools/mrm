@@ -22,7 +22,7 @@ interface BajasPorMotivoData {
 interface BajasPorMotivoHeatmapProps {
   data: BajasPorMotivoData[]
   year: number
-  motivoFilter?: 'involuntaria' | 'complementaria'
+  motivoFilter?: 'involuntaria' | 'voluntaria'
 }
 
 const MESES = [
@@ -40,7 +40,7 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
   const filteredData = data.filter(row => {
     if (motivoFilter === 'involuntaria') {
       return isMotivoClave(row.motivo);
-    } else if (motivoFilter === 'complementaria') {
+    } else if (motivoFilter === 'voluntaria') {
       return !isMotivoClave(row.motivo);
     }
     return true; // Si no hay filtro, mostrar todo
