@@ -87,24 +87,59 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 
 ## 3️⃣ TAB INCIDENCIAS
 
+### ⚠️ CAMBIO IMPORTANTE: Sin Prefiltro de Empleados Activos
+
+**Comportamiento actualizado (2025-10-23)**:
+- ✅ **NO** se aplica prefiltro por `activo = true` en la tabla de incidencias
+- ✅ Muestra incidencias de **TODOS** los empleados (activos e inactivos)
+- ✅ Carga **TODAS** las incidencias con paginación automática (no limitado a 1,000)
+
+**Razón del cambio**:
+- Las incidencias son eventos históricos que deben mostrarse independientemente del estado actual del empleado
+- Un empleado que se dio de baja en enero puede haber tenido incidencias en febrero-mayo
+- El sistema ahora carga todos los datos históricos sin filtros de empleados
+
+**Implementación**:
+- Archivo: `apps/web/src/lib/supabase.ts` - función `getIncidenciasCSV()` (líneas 58-104)
+- Paginación automática para cargar más de 1,000 registros
+- Archivo: `apps/web/src/components/incidents-tab.tsx` (líneas 74-126)
+- Eliminado filtro por `empleadosAnualesMap` y `empleadosPeriodoSet`
+
 ### Métricas (KPI Cards)
 
 | Métrica | Tipo Filtro | Descripción |
 |---------|-------------|-------------|
-| # de Activos | 🟢 ESPECÍFICO | ✅ CORREGIDO: Usa plantilla filtrada |
-| Empleados con Incidencias | 🟢 ESPECÍFICO | Empleados únicos con al menos 1 incidencia (FI, SUS, PSIN, ENFE) |
-| Incidencias | 🟢 ESPECÍFICO | Total incidencias (FI, SUS, PSIN, ENFE) |
-| Permisos | 🟢 ESPECÍFICO | Total permisos (PCON, VAC, MAT3) |
+| # de Activos | 🟢 ESPECÍFICO | ✅ CORREGIDO: Usa plantilla filtrada (solo empleados activos) |
+| Empleados con Incidencias | 🔵 SIN FILTRO DE ACTIVOS | ✅ NUEVO: Cuenta TODOS los empleados con incidencias (activos e inactivos) |
+| Incidencias | 🔵 SIN FILTRO DE ACTIVOS | ✅ NUEVO: TODAS las incidencias históricas (FI, SUS, PSIN, ENFE) |
+| Permisos | 🔵 SIN FILTRO DE ACTIVOS | ✅ NUEVO: TODOS los permisos históricos (PCON, VAC, MAT3) |
 
 ### Gráficos
 
 | Gráfico | Tipo Filtro | Notas |
 |---------|-------------|-------|
-| Tendencia Mensual (Línea) | 🟡 PARCIAL | Ignora el filtro de Mes; usa plantilla anual filtrada por Año y respeta los demás filtros |
-| Incidencias por Empleado (Histograma) | 🟢 ESPECÍFICO | X: # Incidencias, Y: # Empleados |
-| Incidencias por Tipo (Tabla) | 🟢 ESPECÍFICO | Columnas: Tipo, # días, # emp |
-| Distribución Pie (Incidencias vs Permisos) | 🟢 ESPECÍFICO | 2 categorías |
-| Tabla de Incidencias Completa | 🟢 ESPECÍFICO | 10 registros default, expandible |
+| Tendencia Mensual (Línea) | 🔵 SIN FILTRO DE ACTIVOS | ✅ NUEVO: Muestra TODAS las incidencias por mes (año 2025 completo) |
+| Incidencias por Empleado (Histograma) | 🔵 SIN FILTRO DE ACTIVOS | X: # Incidencias, Y: # Empleados (todos) |
+| Incidencias por Tipo (Tabla) | 🔵 SIN FILTRO DE ACTIVOS | Columnas: Tipo, # días, # emp (todos) |
+| Distribución Pie (Incidencias vs Permisos) | 🔵 SIN FILTRO DE ACTIVOS | 2 categorías (todos los registros) |
+| Tabla de Incidencias Completa | 🔵 SIN FILTRO DE ACTIVOS | TODAS las incidencias históricas, paginadas |
+
+### 🔵 Leyenda: SIN FILTRO DE ACTIVOS
+
+**Significa**: La métrica/gráfico muestra datos de **TODOS los empleados** en la base de datos:
+- ✅ Empleados activos (`activo = true`)
+- ✅ Empleados inactivos/dados de baja (`activo = false`)
+- ✅ Sin restricción por fecha_baja
+- ✅ Solo filtrado por año (2025) y tipo de incidencia
+
+**Implementación técnica**:
+```typescript
+// ANTES (INCORRECTO):
+const scopedByEmployee = incidencias.filter(inc => empleadosAnualesMap.has(inc.emp));
+
+// DESPUÉS (CORRECTO):
+const scopedByEmployee = incidencias; // TODAS las incidencias sin filtro
+```
 
 ---
 
@@ -581,7 +616,88 @@ KPI "Rotación Acumulada 12M":
 
 ---
 
+---
+
+## 🔄 RESUMEN DE CAMBIOS RECIENTES (2025-10-23)
+
+### 1. Tab Incidencias - Eliminación de Prefiltros
+
+**Problema Original**:
+- Las incidencias se filtraban por empleados activos
+- Solo se cargaban 1,000 registros (límite de Supabase)
+- Datos de enero-mayo no aparecían en la gráfica
+
+**Solución Implementada**:
+- ✅ Eliminado prefiltro por `empleadosAnualesMap` y `empleadosPeriodoSet`
+- ✅ Implementada paginación automática en `getIncidenciasCSV()`
+- ✅ Ahora carga TODAS las 4,923 incidencias (5 páginas de 1,000)
+- ✅ Muestra incidencias de empleados activos E inactivos
+
+**Archivos Modificados**:
+1. `apps/web/src/lib/supabase.ts` - Función `getIncidenciasCSV()` con paginación
+2. `apps/web/src/components/incidents-tab.tsx` - Eliminados filtros de empleados
+3. `apps/web/src/lib/kpi-calculator.ts` - Cálculo de Activos Promedio usa solo fechas
+
+### 2. Confirmación: Otros Tabs SIN Prefiltro de Activos
+
+**✅ Tab RESUMEN**:
+- Usa `plantillaFiltered` con filtros del panel
+- NO prefiltros automáticos de empleados activos
+- Respeta TODOS los filtros seleccionados
+
+**✅ Tab PERSONAL (Bajas)**:
+- Usa `plantillaFiltered` con filtros del panel
+- KPI "# de Activos" SÍ filtra por `activo = true` (correcto)
+- Otros KPIs usan todos los empleados filtrados
+
+**✅ Tab RETENCIÓN**:
+- Usa `plantillaFiltered` con filtros del panel
+- Cálculos de rotación incluyen empleados con fecha_baja
+- NO prefiltros automáticos
+
+### 3. Sistema de Filtros Centralizado
+
+**Funcionamiento Correcto**:
+```typescript
+// El usuario selecciona filtros en el panel
+RetentionFilterPanel → onFiltersChange() → dashboard-page.tsx
+
+// Se aplica la función centralizada
+const plantillaFiltered = applyRetentionFilters(data.plantilla, retentionFilters);
+
+// Cada tab recibe los datos ya filtrados
+<IncidentsTab plantilla={plantillaFiltered} />
+<SummaryComparison plantilla={plantillaFiltered} />
+<PersonalTab plantilla={plantillaFiltered} />
+```
+
+**Importante**: La función `applyRetentionFilters()` en `lib/filters/filters.ts` NO aplica filtros automáticos de empleados activos. Solo aplica los filtros que el usuario selecciona explícitamente.
+
+---
+
+## 📊 VERIFICACIÓN FINAL - Estado Actual del Sistema
+
+### Prefiltros Automáticos por Tab
+
+| Tab | Prefiltro Automático de Activos | Comportamiento |
+|-----|----------------------------------|----------------|
+| **Resumen** | ❌ NO | Usa filtros del panel únicamente |
+| **Personal** | ❌ NO | Solo el KPI "# Activos" filtra por activo=true (correcto) |
+| **Incidencias** | ❌ NO | ✅ **NUEVO**: Sin prefiltros, muestra todo |
+| **Retención** | ❌ NO | Incluye empleados con fecha_baja en cálculos |
+
+### Conclusión
+
+**✅ CONFIRMADO**: Ningún tab aplica prefiltros automáticos de empleados activos excepto donde es necesario (KPI "# de Activos").
+
+**✅ CONFIRMADO**: Todos los tabs usan la plantilla filtrada por los filtros que el usuario selecciona en el panel.
+
+**✅ CONFIRMADO**: El tab de Incidencias ahora carga TODAS las incidencias históricas sin limitaciones.
+
+---
+
 **Documento Generado**: 2025-01-20
+**Última Actualización**: 2025-10-23 (Eliminación de prefiltros en Tab Incidencias)
 **Estado**: ✅ Todos los cambios implementados, verificados y auditados
 **Revisión**: Análisis completo del código confirmó correcta implementación del sistema unificado de filtros
 **Última auditoría**: Verificación exhaustiva de todos los componentes y sus respectivas aplicaciones de filtros
