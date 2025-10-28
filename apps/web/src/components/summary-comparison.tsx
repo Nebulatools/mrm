@@ -51,9 +51,79 @@ const formatMonthLabel = (date: Date) => {
   return `${monthWithCase} ${date.getFullYear().toString().slice(-2)}`;
 };
 
+const NEGOCIO_COLOR_PALETTE = ['#2563eb', '#f97316', '#10b981', '#9333ea', '#f43f5e', '#14b8a6'];
+
+const sanitizeSeriesKey = (label: string) => {
+  const base = label
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
+  return base || 'serie';
+};
+
+type NegocioSeriesConfig = {
+  label: string;
+  key: string;
+  empleadosRotacion: PlantillaRecord[];
+  empleadoIds: Set<number>;
+};
+
 export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incidencias, selectedYear, selectedMonth, refreshEnabled = false }: SummaryComparisonProps) {
 
   const plantillaRotacion = plantillaYearScope && plantillaYearScope.length > 0 ? plantillaYearScope : plantilla;
+
+  const negocioSeriesConfig = useMemo<NegocioSeriesConfig[]>(() => {
+    const entries = new Map<string, { label: string; empleadosRotacion: PlantillaRecord[]; empleadoIds: Set<number> }>();
+
+    const register = (emp: PlantillaRecord | undefined, includeInRotacion: boolean) => {
+      if (!emp) return;
+      const rawLabel = typeof emp.empresa === 'string' && emp.empresa.trim().length > 0 ? emp.empresa.trim() : 'Sin Negocio';
+      let entry = entries.get(rawLabel);
+      if (!entry) {
+        entry = { label: rawLabel, empleadosRotacion: [], empleadoIds: new Set<number>() };
+        entries.set(rawLabel, entry);
+      }
+      if (includeInRotacion) {
+        entry.empleadosRotacion.push(emp);
+      }
+      const numero = Number((emp as any).numero_empleado ?? (emp as any).emp_id);
+      if (!Number.isNaN(numero)) {
+        entry.empleadoIds.add(numero);
+      }
+    };
+
+    (plantillaRotacion || []).forEach(emp => register(emp, true));
+    (plantilla || []).forEach(emp => register(emp, false));
+
+    if (entries.size === 0) {
+      entries.set('Sin Negocio', { label: 'Sin Negocio', empleadosRotacion: [], empleadoIds: new Set<number>() });
+    }
+
+    const configs: NegocioSeriesConfig[] = Array.from(entries.values()).map((entry, index) => {
+      const keyBase = sanitizeSeriesKey(entry.label || `Negocio ${index + 1}`);
+      return {
+        label: entry.label || `Negocio ${index + 1}`,
+        key: keyBase || `negocio_${index}`,
+        empleadosRotacion: entry.empleadosRotacion,
+        empleadoIds: entry.empleadoIds
+      };
+    });
+
+    const seenKeys = new Set<string>();
+    configs.forEach((config, index) => {
+      let keyCandidate = config.key;
+      while (seenKeys.has(keyCandidate)) {
+        keyCandidate = `${config.key}_${index}`;
+      }
+      config.key = keyCandidate;
+      seenKeys.add(keyCandidate);
+    });
+
+    configs.sort((a, b) => a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }));
+    return configs;
+  }, [plantillaRotacion, plantilla]);
 
   const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('involuntaria');
 
@@ -80,9 +150,11 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
       label: string;
       month: number;
       year: number;
-      mensual: ReturnType<typeof calcularRotacionConDesglose>;
-      rolling: ReturnType<typeof calcularRotacionAcumulada12mConDesglose>;
-      ytd: ReturnType<typeof calcularRotacionYTDConDesglose>;
+      negocios: Record<string, {
+        mensual: ReturnType<typeof calcularRotacionConDesglose>;
+        rolling: ReturnType<typeof calcularRotacionAcumulada12mConDesglose>;
+        ytd: ReturnType<typeof calcularRotacionYTDConDesglose>;
+      }>;
     }> = [];
 
     for (let offset = 11; offset >= 0; offset--) {
@@ -90,76 +162,97 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
       const startDate = new Date(current.getFullYear(), current.getMonth(), 1);
       const endDate = new Date(current.getFullYear(), current.getMonth() + 1, 0);
 
-      const monthlyRotation = calcularRotacionConDesglose(plantillaRotacion, startDate, endDate);
-      const rollingRotation = calcularRotacionAcumulada12mConDesglose(plantillaRotacion, endDate);
-      const ytdRotation = calcularRotacionYTDConDesglose(plantillaRotacion, endDate);
+      const negociosData: Record<string, {
+        mensual: ReturnType<typeof calcularRotacionConDesglose>;
+        rolling: ReturnType<typeof calcularRotacionAcumulada12mConDesglose>;
+        ytd: ReturnType<typeof calcularRotacionYTDConDesglose>;
+      }> = {};
+
+      negocioSeriesConfig.forEach(({ key, empleadosRotacion }) => {
+        const plantillaNegocio = empleadosRotacion.length > 0 ? empleadosRotacion : [];
+        const mensual = calcularRotacionConDesglose(plantillaNegocio, startDate, endDate);
+        const rolling = calcularRotacionAcumulada12mConDesglose(plantillaNegocio, endDate);
+        const ytd = calcularRotacionYTDConDesglose(plantillaNegocio, endDate);
+        negociosData[key] = { mensual, rolling, ytd };
+      });
 
       points.push({
         key: `${current.getFullYear()}-${current.getMonth() + 1}`,
         label: formatMonthLabel(current),
         month: current.getMonth() + 1,
         year: current.getFullYear(),
-        mensual: monthlyRotation,
-        rolling: rollingRotation,
-        ytd: ytdRotation
+        negocios: negociosData
       });
     }
 
     return points;
-  }, [plantillaRotacion, referenceDate]);
+  }, [negocioSeriesConfig, referenceDate]);
 
-  const plantillaRotacionIds = useMemo(() => {
-    const ids = new Set<number>();
-    plantillaRotacion.forEach((emp: any) => {
-      const num = Number(emp.numero_empleado ?? emp.emp_id);
-      if (!Number.isNaN(num)) {
-        ids.add(num);
-      }
+  const empleadoNegocioMap = useMemo(() => {
+    const map = new Map<number, string>();
+    negocioSeriesConfig.forEach(({ key, empleadoIds }) => {
+      empleadoIds.forEach(id => {
+        map.set(id, key);
+      });
     });
-    return ids;
-  }, [plantillaRotacion]);
+    return map;
+  }, [negocioSeriesConfig]);
 
   const incidenciasPermisosSeries = useMemo(() => {
     if (!incidencias || incidencias.length === 0) {
-      return [] as Array<{ mes: string; incidencias: number; permisos: number }>;
+      return [] as Array<{
+        mes: string;
+        month: number;
+        year: number;
+        negocios: Record<string, { incidencias: number; permisos: number }>;
+      }>;
     }
 
     const baseDate = referenceDate;
-    const series: Array<{ mes: string; incidencias: number; permisos: number }> = [];
+    const series: Array<{
+      mes: string;
+      month: number;
+      year: number;
+      negocios: Record<string, { incidencias: number; permisos: number }>;
+    }> = [];
 
     for (let offset = 11; offset >= 0; offset--) {
       const current = new Date(baseDate.getFullYear(), baseDate.getMonth() - offset, 1);
       const startDate = new Date(current.getFullYear(), current.getMonth(), 1);
       const endDate = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59, 999);
 
-      let incidenciasCount = 0;
-      let permisosCount = 0;
+      const negociosCounts: Record<string, { incidencias: number; permisos: number }> = {};
+      negocioSeriesConfig.forEach(({ key }) => {
+        negociosCounts[key] = { incidencias: 0, permisos: 0 };
+      });
 
       incidencias.forEach((inc) => {
         const empleadoId = Number(inc.emp);
         if (Number.isNaN(empleadoId)) return;
-        if (plantillaRotacionIds.size > 0 && !plantillaRotacionIds.has(empleadoId)) return;
+        const negocioKey = empleadoNegocioMap.get(empleadoId);
+        if (!negocioKey) return;
 
         const fechaInc = new Date(inc.fecha);
         if (fechaInc < startDate || fechaInc > endDate) return;
 
         const code = normalizeIncidenciaCode(inc.inci);
         if (code && INCIDENT_CODES.has(code)) {
-          incidenciasCount += 1;
+          negociosCounts[negocioKey].incidencias += 1;
         } else if (code && PERMISO_CODES.has(code)) {
-          permisosCount += 1;
+          negociosCounts[negocioKey].permisos += 1;
         }
       });
 
       series.push({
         mes: formatMonthLabel(current),
-        incidencias: incidenciasCount,
-        permisos: permisosCount
+        month: current.getMonth() + 1,
+        year: current.getFullYear(),
+        negocios: negociosCounts
       });
     }
 
     return series;
-  }, [incidencias, plantillaRotacionIds, referenceDate]);
+  }, [incidencias, empleadoNegocioMap, negocioSeriesConfig, referenceDate]);
 
   // ✅ LÓGICA CORRECTA: Filtrar incidencias/permisos con filtros aplicados
   const { totalIncidencias, totalPermisos } = useMemo(() => {
@@ -509,19 +602,34 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
     });
 
     const rotationLabel = motivoFilterType === 'involuntaria' ? 'Rotación Involuntaria' : 'Rotación Voluntaria';
-    const rotationColor = motivoFilterType === 'involuntaria' ? '#ef4444' : '#22c55e';
-    const getRotationValue = (input: { involuntaria: number; voluntaria: number }) =>
-      motivoFilterType === 'involuntaria' ? input.involuntaria : input.voluntaria;
+    const getRotationValue = (input?: { involuntaria?: number; voluntaria?: number; total?: number }) => {
+      if (!input) return 0;
+      if (motivoFilterType === 'involuntaria') {
+        return input.involuntaria ?? 0;
+      }
+      if (motivoFilterType === 'voluntaria') {
+        return input.voluntaria ?? 0;
+      }
+      return input.total ?? 0;
+    };
 
-    const monthlyChartData = rotationSeries.map(point => ({
-      mes: point.label,
-      rotacion: Number(getRotationValue(point.mensual).toFixed(2))
-    }));
+    const monthlyChartData = rotationSeries.map(point => {
+      const row: Record<string, number | string> = { mes: point.label };
+      negocioSeriesConfig.forEach(({ key }) => {
+        const value = getRotationValue(point.negocios[key]?.mensual);
+        row[key] = Number(value.toFixed(2));
+      });
+      return row;
+    });
 
-    const rollingChartData = rotationSeries.map(point => ({
-      mes: point.label,
-      rotacion: Number(getRotationValue(point.rolling).toFixed(2))
-    }));
+    const rollingChartData = rotationSeries.map(point => {
+      const row: Record<string, number | string> = { mes: point.label };
+      negocioSeriesConfig.forEach(({ key }) => {
+        const value = getRotationValue(point.negocios[key]?.rolling);
+        row[key] = Number(value.toFixed(2));
+      });
+      return row;
+    });
 
     const currentYear = new Date().getFullYear();
     let ytdSeries = rotationSeries.filter(point => point.year === currentYear);
@@ -529,27 +637,42 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
       ytdSeries = rotationSeries;
     }
 
-    const ytdChartData = ytdSeries.map(point => ({
-      mes: point.label,
-      rotacion: Number(getRotationValue(point.ytd).toFixed(2))
-    }));
+    const ytdChartData = ytdSeries.map(point => {
+      const row: Record<string, number | string> = { mes: point.label };
+      negocioSeriesConfig.forEach(({ key }) => {
+        const value = getRotationValue(point.negocios[key]?.ytd);
+        row[key] = Number(value.toFixed(2));
+      });
+      return row;
+    });
 
-    const hasMonthlyData = monthlyChartData.some(d => d.rotacion > 0);
-    const hasRollingData = rollingChartData.some(d => d.rotacion > 0);
-    const hasYtdData = ytdChartData.some(d => d.rotacion > 0);
+    const hasSeriesData = (data: Array<Record<string, any>>) =>
+      data.some(row => negocioSeriesConfig.some(({ key }) => (Number(row[key]) || 0) > 0));
 
-    const incidenciasChartData = incidenciasPermisosSeries.map(point => ({
-      mes: point.mes,
-      incidencias: point.incidencias
-    }));
+    const hasMonthlyData = hasSeriesData(monthlyChartData);
+    const hasRollingData = hasSeriesData(rollingChartData);
+    const hasYtdData = hasSeriesData(ytdChartData);
 
-    const permisosChartData = incidenciasPermisosSeries.map(point => ({
-      mes: point.mes,
-      permisos: point.permisos
-    }));
+    const incidenciasChartData = incidenciasPermisosSeries.map(point => {
+      const row: Record<string, number | string> = { mes: point.mes };
+      negocioSeriesConfig.forEach(({ key }) => {
+        const value = point.negocios[key]?.incidencias ?? 0;
+        row[key] = value;
+      });
+      return row;
+    });
 
-    const hasIncidenciasSeries = incidenciasChartData.some(d => d.incidencias > 0);
-    const hasPermisosSeries = permisosChartData.some(d => d.permisos > 0);
+    const permisosChartData = incidenciasPermisosSeries.map(point => {
+      const row: Record<string, number | string> = { mes: point.mes };
+      negocioSeriesConfig.forEach(({ key }) => {
+        const value = point.negocios[key]?.permisos ?? 0;
+        row[key] = value;
+      });
+      return row;
+    });
+
+    const hasIncidenciasSeries = hasSeriesData(incidenciasChartData);
+    const hasPermisosSeries = hasSeriesData(permisosChartData);
 
     return (
       <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
@@ -559,8 +682,8 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
           {renderKPICard('Rotación Mensual', kpisActuales.rotacionMensual, kpisAnteriores.rotacionMensual, true, <TrendingDown className="h-4 w-4" />)}
           {renderKPICard('Rotación Acumulada', kpisActuales.rotacionAcumulada, kpisAnteriores.rotacionAcumulada, true, <TrendingDown className="h-4 w-4" />)}
           {renderKPICard('Rotación Año Actual', kpisActuales.rotacionAnioActual, kpisAnteriores.rotacionAnioActual, true, <TrendingDown className="h-4 w-4" />)}
-          {renderKPICard('Incidencias', totalIncidencias, totalIncidencias, false, <AlertCircle className="h-4 w-4" />)}
-          {renderKPICard('Permisos', totalPermisos, totalPermisos, false, <TrendingUp className="h-4 w-4" />)}
+          {renderKPICard('Incidencias', kpisActuales.incidencias, kpisAnteriores.incidencias, false, <AlertCircle className="h-4 w-4" />)}
+          {renderKPICard('Permisos', kpisActuales.permisos, kpisAnteriores.permisos, false, <TrendingUp className="h-4 w-4" />)}
         </div>
 
         {/* 1. ACTIVOS POR ANTIGÜEDAD - DISEÑO MEJORADO */}
@@ -687,9 +810,28 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
                     <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, rotationLabel]} />
+                    <Tooltip
+                      formatter={(value: number | string, name: string) => {
+                        const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                        const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+                        return [`${safeValue.toFixed(1)}%`, `${name} · ${rotationLabel}`];
+                      }}
+                    />
                     <Legend />
-                    <Line type="monotone" dataKey="rotacion" stroke={rotationColor} strokeWidth={2} dot={{ fill: rotationColor, r: 4 }} name={rotationLabel} />
+                    {negocioSeriesConfig.map((config, index) => {
+                      const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
+                      return (
+                        <Line
+                          key={`${config.key}-mensual`}
+                          type="monotone"
+                          dataKey={config.key}
+                          stroke={color}
+                          strokeWidth={2}
+                          dot={{ fill: color, r: 4 }}
+                          name={config.label}
+                        />
+                      );
+                    })}
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -717,9 +859,28 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
                     <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, rotationLabel]} />
+                    <Tooltip
+                      formatter={(value: number | string, name: string) => {
+                        const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                        const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+                        return [`${safeValue.toFixed(1)}%`, `${name} · ${rotationLabel} (12m)`];
+                      }}
+                    />
                     <Legend />
-                    <Line type="monotone" dataKey="rotacion" stroke={rotationColor} strokeWidth={2} dot={{ fill: rotationColor, r: 4 }} name={`${rotationLabel} (12m)`} />
+                    {negocioSeriesConfig.map((config, index) => {
+                      const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
+                      return (
+                        <Line
+                          key={`${config.key}-rolling`}
+                          type="monotone"
+                          dataKey={config.key}
+                          stroke={color}
+                          strokeWidth={2}
+                          dot={{ fill: color, r: 4 }}
+                          name={config.label}
+                        />
+                      );
+                    })}
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -747,9 +908,28 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
                     <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, rotationLabel]} />
+                    <Tooltip
+                      formatter={(value: number | string, name: string) => {
+                        const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                        const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+                        return [`${safeValue.toFixed(1)}%`, `${name} · ${rotationLabel} (YTD)`];
+                      }}
+                    />
                     <Legend />
-                    <Line type="monotone" dataKey="rotacion" stroke={rotationColor} strokeWidth={2} dot={{ fill: rotationColor, r: 4 }} name={`${rotationLabel} (YTD)`} />
+                    {negocioSeriesConfig.map((config, index) => {
+                      const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
+                      return (
+                        <Line
+                          key={`${config.key}-ytd`}
+                          type="monotone"
+                          dataKey={config.key}
+                          stroke={color}
+                          strokeWidth={2}
+                          dot={{ fill: color, r: 4 }}
+                          name={config.label}
+                        />
+                      );
+                    })}
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -781,14 +961,27 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }} />
                     <Tooltip
-                      formatter={(value: number | string) => {
+                      formatter={(value: number | string, name: string) => {
                         const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
                         const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-                        return [`${safeValue} registros`, 'Incidencias'];
+                        return [`${safeValue.toLocaleString()} registros`, `${name} · Incidencias`];
                       }}
                     />
                     <Legend />
-                    <Line type="monotone" dataKey="incidencias" stroke="#f97316" strokeWidth={2} dot={{ fill: '#f97316', r: 4 }} name="Incidencias" />
+                    {negocioSeriesConfig.map((config, index) => {
+                      const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
+                      return (
+                        <Line
+                          key={`${config.key}-incidencias`}
+                          type="monotone"
+                          dataKey={config.key}
+                          stroke={color}
+                          strokeWidth={2}
+                          dot={{ fill: color, r: 4 }}
+                          name={config.label}
+                        />
+                      );
+                    })}
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -817,14 +1010,27 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }} />
                     <Tooltip
-                      formatter={(value: number | string) => {
+                      formatter={(value: number | string, name: string) => {
                         const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
                         const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-                        return [`${safeValue} registros`, 'Permisos'];
+                        return [`${safeValue.toLocaleString()} registros`, `${name} · Permisos`];
                       }}
                     />
                     <Legend />
-                    <Line type="monotone" dataKey="permisos" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', r: 4 }} name="Permisos" />
+                    {negocioSeriesConfig.map((config, index) => {
+                      const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
+                      return (
+                        <Line
+                          key={`${config.key}-permisos`}
+                          type="monotone"
+                          dataKey={config.key}
+                          stroke={color}
+                          strokeWidth={2}
+                          dot={{ fill: color, r: 4 }}
+                          name={config.label}
+                        />
+                      );
+                    })}
                   </LineChart>
                 </ResponsiveContainer>
               )}

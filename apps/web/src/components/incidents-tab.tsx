@@ -17,6 +17,7 @@ type Props = {
 };
 
 type EnrichedIncidencia = IncidenciaCSVRecord & {
+  nombre?: string | null;
   empresa?: string | null;
   departamento?: string | null;
   area?: string | null;
@@ -106,6 +107,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         const emp = empleadosAnualesMap.get(inc.emp);
         return {
           ...inc,
+          nombre: emp?.nombre ?? inc.nombre ?? null,
           empresa: emp?.empresa ?? null,
           departamento: emp?.departamento ?? null,
           area: emp?.area ?? null,
@@ -424,6 +426,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
+                  <TableHead>Nombre</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Incidencia</TableHead>
                   <TableHead>Días</TableHead>
@@ -437,6 +440,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                 {(showTable ? enrichedPeriodo : enrichedPeriodo.slice(0, 10)).map((i) => (
                   <TableRow key={i.id}>
                     <TableCell>{i.id}</TableCell>
+                    <TableCell>{i.nombre || '—'}</TableCell>
                     <TableCell>{i.fecha}</TableCell>
                     <TableCell>{labelForIncidencia(i.inci, i.incidencia) || '-'}</TableCell>
                     <TableCell>1</TableCell>

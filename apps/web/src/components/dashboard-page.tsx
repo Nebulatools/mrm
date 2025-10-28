@@ -707,7 +707,7 @@ export function DashboardPage() {
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Ingresos Nuevos',
+                      name: 'Ingresos (Mes)',
                       category: 'headcount',
                       value: ingresosMes,
                       period_start: startMonth.toISOString().slice(0, 10),

@@ -1,5 +1,6 @@
 'use client'
 
+import { Fragment } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { isMotivoClave } from '@/lib/normalizers'
 
@@ -36,24 +37,32 @@ const MESES_LABELS = [
 ]
 
 export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria' }: BajasPorMotivoHeatmapProps) {
-  // Filtrar datos según el tipo de motivo
-  const filteredData = data.filter(row => {
-    if (motivoFilter === 'involuntaria') {
-      return isMotivoClave(row.motivo)
+  const computeTotal = (row: BajasPorMotivoData) =>
+    MESES.reduce((sum, mes) => sum + (row[mes as keyof BajasPorMotivoData] as number), 0)
+
+  const sections = [
+    {
+      key: 'involuntaria' as const,
+      title: 'Rotación Involuntaria',
+      rows: data.filter(row => isMotivoClave(row.motivo))
+    },
+    {
+      key: 'voluntaria' as const,
+      title: 'Rotación Voluntaria',
+      rows: data.filter(row => !isMotivoClave(row.motivo))
     }
-    return !isMotivoClave(row.motivo)
-  })
+  ]
+    .map(section => ({
+      ...section,
+      rows: [...section.rows].sort((a, b) => computeTotal(b) - computeTotal(a))
+    }))
+    .filter(section => section.rows.length > 0)
 
-  // Si no hay datos después del filtro (caso raro), mostrar todo para evitar tabla vacía
-  const rows = filteredData.length > 0 ? filteredData : data
-
-  // Calcular el máximo valor para escalar los colores
-  const maxValue = Math.max(
-    ...rows.flatMap(row =>
-      MESES.map(mes => row[mes as keyof BajasPorMotivoData] as number)
-    ),
-    1 // Evitar división por 0
+  const allRows = sections.flatMap(section => section.rows)
+  const values = allRows.flatMap(row =>
+    MESES.map(mes => row[mes as keyof BajasPorMotivoData] as number)
   )
+  const maxValue = Math.max(...values, 1)
 
   // Función para obtener el color basado en la intensidad
   const getColorIntensity = (value: number): string => {
@@ -105,34 +114,54 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, rowIndex) => {
-                const total = MESES.reduce((sum, mes) =>
-                  sum + (row[mes as keyof BajasPorMotivoData] as number), 0
-                )
+              {sections.length === 0 ? (
+                <tr>
+                  <td colSpan={MESES.length + 2} className="p-4 text-center text-sm text-gray-500">
+                    No hay bajas registradas para el periodo seleccionado.
+                  </td>
+                </tr>
+              ) : (
+                sections.map(section => (
+                  <Fragment key={section.key}>
+                    <tr
+                      className={`${motivoFilter === section.key ? 'bg-red-50' : 'bg-gray-100'} border-b border-gray-200`}
+                    >
+                      <td
+                        colSpan={MESES.length + 2}
+                        className="p-2 text-left text-sm font-semibold uppercase tracking-wide text-gray-700"
+                      >
+                        {section.title} ({section.rows.length})
+                      </td>
+                    </tr>
+                    {section.rows.map((row, rowIndex) => {
+                      const total = computeTotal(row)
 
-                return (
-                  <tr key={rowIndex} className="border-b border-gray-100">
-                    <td className="p-2 font-medium text-gray-900">
-                      {row.motivo}
-                    </td>
-                    {MESES.map((mes, mesIndex) => {
-                      const value = row[mes as keyof BajasPorMotivoData] as number
                       return (
-                        <td
-                          key={mesIndex}
-                          className={`p-2 text-center text-sm font-medium rounded-sm mx-1 ${getColorIntensity(value)} ${getTextColor(value)}`}
-                          title={`${row.motivo} - ${MESES_LABELS[mesIndex]}: ${value} bajas`}
-                        >
-                          {value || ''}
-                        </td>
+                        <tr key={`${section.key}-${rowIndex}`} className="border-b border-gray-100">
+                          <td className="p-2 font-medium text-gray-900">
+                            {row.motivo}
+                          </td>
+                          {MESES.map((mes, mesIndex) => {
+                            const value = row[mes as keyof BajasPorMotivoData] as number
+                            return (
+                              <td
+                                key={mesIndex}
+                                className={`p-2 text-center text-sm font-medium rounded-sm mx-1 ${getColorIntensity(value)} ${getTextColor(value)}`}
+                                title={`${row.motivo} - ${MESES_LABELS[mesIndex]}: ${value} bajas`}
+                              >
+                                {value || ''}
+                              </td>
+                            )
+                          })}
+                          <td className="p-2 text-center font-bold text-gray-900">
+                            {total}
+                          </td>
+                        </tr>
                       )
                     })}
-                    <td className="p-2 text-center font-bold text-gray-900">
-                      {total}
-                    </td>
-                  </tr>
-                )
-              })}
+                  </Fragment>
+                ))
+              )}
             </tbody>
           </table>
         </div>
