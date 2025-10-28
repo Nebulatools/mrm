@@ -39,16 +39,17 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
   // Filtrar datos según el tipo de motivo
   const filteredData = data.filter(row => {
     if (motivoFilter === 'involuntaria') {
-      return isMotivoClave(row.motivo);
-    } else if (motivoFilter === 'voluntaria') {
-      return !isMotivoClave(row.motivo);
+      return isMotivoClave(row.motivo)
     }
-    return true; // Si no hay filtro, mostrar todo
-  });
+    return !isMotivoClave(row.motivo)
+  })
+
+  // Si no hay datos después del filtro (caso raro), mostrar todo para evitar tabla vacía
+  const rows = filteredData.length > 0 ? filteredData : data
 
   // Calcular el máximo valor para escalar los colores
   const maxValue = Math.max(
-    ...filteredData.flatMap(row =>
+    ...rows.flatMap(row =>
       MESES.map(mes => row[mes as keyof BajasPorMotivoData] as number)
     ),
     1 // Evitar división por 0
@@ -90,7 +91,7 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                <th className="text-left p-2 font-medium text-gray-700 min-w-[150px]">
+                <th className="text-left p-2 font-medium text-gray-700 min-w-[160px]">
                   Motivo
                 </th>
                 {MESES_LABELS.map((mes, index) => (
@@ -104,7 +105,7 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((row, rowIndex) => {
+              {rows.map((row, rowIndex) => {
                 const total = MESES.reduce((sum, mes) =>
                   sum + (row[mes as keyof BajasPorMotivoData] as number), 0
                 )

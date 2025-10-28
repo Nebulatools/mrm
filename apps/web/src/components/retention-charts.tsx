@@ -8,8 +8,8 @@ import { format, subMonths, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { filterByMotivo } from '@/lib/utils/kpi-helpers';
 import { applyFiltersWithScope } from '@/lib/filters/filters';
+import { isMotivoClave } from '@/lib/normalizers';
 //
 
 interface MonthlyRetentionData {
@@ -49,10 +49,10 @@ interface RetentionChartsProps {
   currentDate?: Date;
   currentYear?: number;
   filters?: RetentionFilters;
-  motivoFilter?: 'involuntaria' | 'voluntaria';
+  motivoFilter?: 'involuntaria' | 'voluntaria' | 'all';
 }
 
-export function RetentionCharts({ currentDate = new Date(), currentYear, filters, motivoFilter = 'involuntaria' }: RetentionChartsProps) {
+export function RetentionCharts({ currentDate = new Date(), currentYear, filters, motivoFilter = 'all' }: RetentionChartsProps) {
   // Create authenticated Supabase client for RLS filtering
   const supabase = createBrowserClient();
 
@@ -60,6 +60,20 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
   const [yearlyComparison, setYearlyComparison] = useState<YearlyComparisonData[]>([]);
   const [loading, setLoading] = useState(true);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
+
+  const bajaMatchesMotivo = (emp: PlantillaRecord): boolean => {
+    if (!emp.fecha_baja) {
+      return false;
+    }
+    const esInvoluntaria = isMotivoClave((emp as any).motivo_baja);
+    if (motivoFilter === 'involuntaria') {
+      return esInvoluntaria;
+    }
+    if (motivoFilter === 'voluntaria') {
+      return !esInvoluntaria;
+    }
+    return true; // 'all'
+  };
 
   useEffect(() => {
     loadMonthlyRetentionData();
@@ -106,14 +120,11 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         plantilla = filteredByScope;
       }
 
-      // Filtrar por motivo usando función centralizada
-      plantilla = filterByMotivo(plantilla, motivoFilter);
-      
       // Detectar el rango de años con datos reales de bajas - DINÁMICO
       const hoy = new Date();
       const añoActual = hoy.getFullYear();
       
-      const bajasConFecha = plantilla.filter(emp => emp.fecha_baja);
+      const bajasConFecha = plantilla.filter(emp => bajaMatchesMotivo(emp));
       const años = new Set<number>();
       
       bajasConFecha.forEach(emp => {
@@ -210,6 +221,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       // Contar todas las bajas en el período de 12 meses
       const bajasEn12Meses = plantillaFiltrada.filter(emp => {
         if (!emp.fecha_baja || emp.activo) return false;
+        if (!bajaMatchesMotivo(emp)) return false;
         const fechaBaja = new Date(emp.fecha_baja);
         return fechaBaja >= startDate12m && fechaBaja <= endDate12m;
       }).length;
@@ -260,6 +272,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       // Bajas totales en el mes
       const bajasEnMes = plantillaFiltered.filter(p => {
         if (!p.fecha_baja || p.activo) return false;
+        if (!bajaMatchesMotivo(p)) return false;
         const fechaBaja = new Date(p.fecha_baja);
         return fechaBaja >= startDate && fechaBaja <= endDate;
       });

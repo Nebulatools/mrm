@@ -32,7 +32,7 @@ interface Employee {
 interface DismissalReasonsTableProps {
   plantilla: PlantillaRecord[];
   refreshEnabled?: boolean;
-  motivoFilter?: 'involuntaria' | 'voluntaria';
+  motivoFilter?: 'involuntaria' | 'voluntaria' | 'all';
 }
 
 // Color mapping removed (not used)
@@ -40,7 +40,7 @@ interface DismissalReasonsTableProps {
 export function DismissalReasonsTable({
   plantilla,
   refreshEnabled = false,
-  motivoFilter = 'involuntaria',
+  motivoFilter = 'all',
 }: DismissalReasonsTableProps) {
   const [showAll, setShowAll] = useState(false); // COLAPSADA POR DEFECTO
 
@@ -51,7 +51,8 @@ export function DismissalReasonsTable({
     const isFilePath = v.includes('/var/folders/') || v.startsWith('/') || v.match(/^([A-Za-z]:\\|file:\/\/)/);
     const looksLikeScreenshot = v.toLowerCase().includes('screenshot') || v.toLowerCase().includes('nsird_screencaptureui');
     if (isFilePath || looksLikeScreenshot) return '—';
-    return v;
+    const cleaned = v.replace(/\(empleados_sftp\)/gi, '').replace(/empleados_sftp/gi, '').trim();
+    return cleaned || '—';
   };
 
   // Filtrar empleados dados de baja - usar fecha_baja O activo = false
@@ -124,7 +125,7 @@ export function DismissalReasonsTable({
               refreshEnabled && "font-heading text-xl text-brand-ink"
             )}
           >
-            📋 Detalle de Bajas (empleados_sftp)
+            📋 Detalle de Bajas
             <Badge
               variant="outline"
               className={cn(
@@ -144,8 +145,7 @@ export function DismissalReasonsTable({
               refreshEnabled && "font-body text-sm text-brand-ink/70"
             )}
           >
-            ID, Departamento, Ubicación, Puesto, Clasificación - Datos completos de
-            empleados_sftp
+            ID, Departamento, Ubicación, Puesto, Clasificación - Datos completos de empleados
           </p>
         </CardHeader>
         <CardContent className={cn(refreshEnabled && "px-0 pb-0 pt-0")}>

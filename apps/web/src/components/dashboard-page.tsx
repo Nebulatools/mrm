@@ -93,7 +93,7 @@ export function DashboardPage() {
   const [incidenciasData, setIncidenciasData] = useState<any[]>([]);
 
   // Toggle para filtrar visualizaciones por rotación involuntaria vs voluntaria
-  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('voluntaria');
+  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('involuntaria');
 
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
     years: [],
@@ -301,6 +301,16 @@ export function DashboardPage() {
     return scoped;
   }, [data.plantilla, retentionFilters]);
 
+  const plantillaFilteredGeneral = useMemo(() => {
+    if (!data.plantilla || data.plantilla.length === 0) return [];
+    const scoped = applyFiltersWithScope(data.plantilla, {
+      ...retentionFilters,
+      includeInactive: true,
+    }, 'general');
+    console.log('🌐 Plantilla sin filtros temporales (para acumulados):', scoped.length);
+    return scoped;
+  }, [data.plantilla, retentionFilters]);
+
   // ✅ NUEVO: Filtrar bajas e incidencias basándose en empleados filtrados
   const empleadosFiltradosIds = new Set(plantillaFiltered.map(e => e.numero_empleado || Number(e.emp_id)));
   const bajasFiltered = bajasData.filter(b => empleadosFiltradosIds.has(b.numero_empleado));
@@ -431,8 +441,11 @@ export function DashboardPage() {
 
     console.log('🎯 Calculando KPIs de retención con filtros ESPECÍFICOS...');
 
-    // ✅ CORREGIDO: Datos filtrados según los filtros del usuario (ESPECÍFICO)
+    // ✅ Datos filtrados según los filtros del usuario (ESPECÍFICO al período)
     const filteredPlantilla = filterPlantilla(data.plantilla);
+
+    // ✅ Datos filtrados por dimensiones pero SIN recortar por año/mes (para acumulados)
+    const longTermPlantilla = plantillaFilteredGeneral.length > 0 ? plantillaFilteredGeneral : filteredPlantilla;
 
     // Fechas del período actual
     const currentMonth = selectedPeriod.getMonth();
@@ -447,22 +460,22 @@ export function DashboardPage() {
     // 1. Activos Promedio del mes (ESPECÍFICO - con filtros)
     const activosProm = calculateActivosPromedio(filteredPlantilla, inicioMes, finMes);
 
-    // 2. Total de Bajas (histórico - ESPECÍFICO - con filtros)
-    const bajasTotal = calculateTotalBajas(filteredPlantilla);
+    // 2. Total de Bajas (histórico - filtros por dimensión, sin limitar tiempo)
+    const bajasTotal = calculateTotalBajas(longTermPlantilla);
 
-    // 3. Bajas Tempranas (<3 meses - ESPECÍFICO - con filtros)
-    const bajasTemp = calculateBajasTempranas(filteredPlantilla);
+    // 3. Bajas Tempranas (<3 meses - filtros por dimensión, sin limitar tiempo)
+    const bajasTemp = calculateBajasTempranas(longTermPlantilla);
 
     // 4. Rotación Mensual (ESPECÍFICO - con filtros)
     const rotMensual = calcularRotacionMensual(filteredPlantilla, selectedPeriod);
 
-    // 5. ✅ CORREGIDO: Rotación Acumulada 12m (ESPECÍFICO - con filtros, con desglose por motivo)
-    const rotAcumuladaDesglose = calcularRotacionAcumulada12mConDesglose(filteredPlantilla, selectedPeriod);
+    // 5. ✅ Rotación Acumulada 12m (dimensiones aplicadas, sin recortar por mes/año manual)
+    const rotAcumuladaDesglose = calcularRotacionAcumulada12mConDesglose(longTermPlantilla, selectedPeriod);
     const rotAcumulada = rotAcumuladaDesglose.total;
     const rotAcumuladaInv = rotAcumuladaDesglose.involuntaria;
 
-    // 6. ✅ CORREGIDO: Rotación Año Actual / YTD (ESPECÍFICO - con filtros, con desglose por motivo)
-    const rotYTDDesglose = calcularRotacionYTDConDesglose(filteredPlantilla, selectedPeriod);
+    // 6. ✅ Rotación Año Actual / YTD (dimensiones aplicadas, sin recortar por mes/año manual)
+    const rotYTDDesglose = calcularRotacionYTDConDesglose(longTermPlantilla, selectedPeriod);
     const rotYTD = rotYTDDesglose.total;
     const rotYTDInv = rotYTDDesglose.involuntaria;
 
@@ -471,13 +484,14 @@ export function DashboardPage() {
     // ========================================================================
 
     // Filtrar solo bajas involuntarias para plantilla filtrada (ESPECÍFICO)
-    const plantillaInvoluntaria = filterByMotivo(filteredPlantilla, 'involuntaria');
+    const plantillaInvoluntariaMensual = filterByMotivo(filteredPlantilla, 'involuntaria');
+    const plantillaInvoluntariaGeneral = filterByMotivo(longTermPlantilla, 'involuntaria');
 
     // Cantidad de bajas involuntarias (filtradas)
-    const bajasInvoluntarias = calculateTotalBajas(plantillaInvoluntaria);
+    const bajasInvoluntarias = calculateTotalBajas(plantillaInvoluntariaGeneral);
 
     // Rotación mensual involuntaria (ESPECÍFICO - usa filtros)
-    const rotMensualInv = calcularRotacionMensual(plantillaInvoluntaria, selectedPeriod);
+    const rotMensualInv = calcularRotacionMensual(plantillaInvoluntariaMensual, selectedPeriod);
 
     console.log('✅ KPIs calculados correctamente con filtros ESPECÍFICOS:', {
       activosPromedio: Math.round(activosProm),
@@ -671,7 +685,7 @@ export function DashboardPage() {
           <TabsContent value="overview" className="space-y-6">
             <SummaryComparison
               plantilla={plantillaFiltered}
-              plantillaYearScope={plantillaFilteredYearScope}
+              plantillaYearScope={plantillaFilteredGeneral}
               bajas={bajasFiltered}
               incidencias={incidenciasFiltered}
               selectedYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}
@@ -925,12 +939,12 @@ export function DashboardPage() {
                     kpi={{
                       name: 'Bajas',
                       category: 'retention',
-                      value: filteredRetentionKPIs.bajas - filteredRetentionKPIs.bajasClaves,
+                      value: filteredRetentionKPIs.bajas,
                       period_start: '1900-01-01',
                       period_end: new Date().toISOString().split('T')[0]
                     }}
                     icon={<UserMinus className="h-6 w-6" />}
-                    secondaryLabel="Involuntaria"
+                    secondaryLabel="Bajas Involuntarias"
                     secondaryValue={filteredRetentionKPIs.bajasClaves}
                   />
 
@@ -939,7 +953,7 @@ export function DashboardPage() {
                     kpi={{
                       name: 'Rotación Mensual',
                       category: 'retention',
-                      value: Number((filteredRetentionKPIs.rotacionMensual - filteredRetentionKPIs.rotacionMensualClaves).toFixed(1)),
+                      value: filteredRetentionKPIs.rotacionMensual,
                       period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1)
                         .toISOString()
                         .split('T')[0],
@@ -958,7 +972,7 @@ export function DashboardPage() {
                     kpi={{
                       name: 'Rotación Acumulada',
                       category: 'retention',
-                      value: Number((filteredRetentionKPIs.rotacionAcumulada - filteredRetentionKPIs.rotacionAcumuladaClaves).toFixed(1)),
+                      value: filteredRetentionKPIs.rotacionAcumulada,
                       period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() - 11, 1)
                         .toISOString()
                         .split('T')[0],
@@ -977,7 +991,7 @@ export function DashboardPage() {
                     kpi={{
                       name: 'Rotación Año Actual',
                       category: 'retention',
-                      value: Number((filteredRetentionKPIs.rotacionAnioActual - filteredRetentionKPIs.rotacionAnioActualClaves).toFixed(1)),
+                      value: filteredRetentionKPIs.rotacionAnioActual,
                       period_start: new Date(selectedPeriod.getFullYear(), 0, 1).toISOString().split('T')[0],
                       period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0)
                         .toISOString()

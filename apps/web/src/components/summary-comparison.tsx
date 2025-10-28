@@ -621,49 +621,44 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
         {/* Toggle para rotación */}
         <div
           className={cn(
-            "flex flex-col items-center gap-3 rounded-lg border bg-white p-4",
+            "flex items-center justify-center gap-4 rounded-lg border bg-white p-4",
             refreshEnabled && "rounded-2xl border-brand-border/40 bg-brand-surface-accent/60 shadow-brand/10"
           )}
         >
-          <div className="flex items-center gap-3">
-            <span
+          <span
+            className={cn(
+              "text-sm font-medium text-gray-700",
+              refreshEnabled && "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink/80"
+            )}
+          >
+            Filtrar visualizaciones por:
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant={motivoFilterType === 'involuntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+              size="sm"
+              onClick={() => setMotivoFilterType('involuntaria')}
               className={cn(
-                "text-sm font-medium text-gray-700",
-                refreshEnabled && "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink/80"
+                "transition-all",
+                refreshEnabled && "rounded-full font-semibold",
+                motivoFilterType === 'involuntaria' && refreshEnabled && "shadow-brand"
               )}
             >
-              Filtrar visualizaciones por:
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant={motivoFilterType === 'involuntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
-                size="sm"
-                onClick={() => setMotivoFilterType('involuntaria')}
-                className={cn(
-                  "transition-all",
-                  refreshEnabled && "rounded-full font-semibold",
-                  motivoFilterType === 'involuntaria' && refreshEnabled && "shadow-brand"
-                )}
-              >
-                Rotación Involuntaria
-              </Button>
-              <Button
-                variant={motivoFilterType === 'voluntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
-                size="sm"
-                onClick={() => setMotivoFilterType('voluntaria')}
-                className={cn(
-                  "transition-all",
-                  refreshEnabled && "rounded-full font-semibold",
-                  motivoFilterType === 'voluntaria' && refreshEnabled && "shadow-brand"
-                )}
-              >
-                Rotación Voluntaria
-              </Button>
-            </div>
+              Rotación Involuntaria
+            </Button>
+            <Button
+              variant={motivoFilterType === 'voluntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+              size="sm"
+              onClick={() => setMotivoFilterType('voluntaria')}
+              className={cn(
+                "transition-all",
+                refreshEnabled && "rounded-full font-semibold",
+                motivoFilterType === 'voluntaria' && refreshEnabled && "shadow-brand"
+              )}
+            >
+              Rotación Voluntaria
+            </Button>
           </div>
-          <p className="text-xs text-gray-500 text-center">
-            Rotación involuntaria incluye Rescisión por desempeño, Rescisión por disciplina y Término del contrato.
-          </p>
         </div>
 
         {/* 2. ROTACIÓN */}
