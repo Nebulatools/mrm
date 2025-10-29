@@ -194,11 +194,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       const dias = arr.length; // sin dias_aplicados en CSV
       out.push({ tipo: t, dias, empleados: empleadosTipo });
     });
-    // Orden: primero Incidencias, luego Permisos, luego otros (si existen)
+    // Orden principal: mayor número de empleados, luego tipo de grupo
     const groupOf = (code: string) => (
       INCIDENT_CODES.has(code) ? 0 : PERMISO_CODES.has(code) ? 1 : 2
     );
     out.sort((a, b) => {
+      if (b.empleados !== a.empleados) return b.empleados - a.empleados;
       const ga = groupOf(a.tipo);
       const gb = groupOf(b.tipo);
       if (ga !== gb) return ga - gb;

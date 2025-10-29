@@ -1,5 +1,5 @@
 import { db, supabase, type PlantillaRecord, type AsistenciaDiariaRecord, type EmpleadoSFTPRecord } from './supabase';
-import { normalizeMotivo, prettyMotivo } from './normalizers';
+import { normalizeMotivo, prettyMotivo, normalizeArea } from './normalizers';
 import { sftpClient } from './sftp-client';
 import { startOfMonth, endOfMonth, format, differenceInDays, isWithinInterval, subMonths } from 'date-fns';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -620,7 +620,7 @@ export class KPICalculator {
           motivo_baja: emp.motivo_baja || null,
           puesto: emp.puesto || 'Sin puesto',
           departamento: emp.departamento || 'Sin departamento',
-          area: emp.area || 'Sin área',
+          area: normalizeArea(emp.area) || 'Sin Área',
           clasificacion: emp.clasificacion || 'No especificado',
           activo,
           created_at: emp.created_at || new Date().toISOString(),

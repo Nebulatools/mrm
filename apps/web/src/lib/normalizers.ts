@@ -97,6 +97,55 @@ const DEPARTAMENTOS_REALES: Record<string, string> = {
   "PRESIDENCIA": "Presidencia"                                    // 1 empleado
 };
 
+// ===================== ÁREAS =====================
+// Áreas distintas encontradas en empleados_sftp
+
+const AREAS_REALES: Record<string, string> = {
+  'Administraci?n y Finanzas': 'Administración y Finanzas',
+  'ADMINISTRACI?N Y FINANZAS': 'Administración y Finanzas',
+  'CALIDAD': 'Calidad',
+  'COMPRAS': 'Compras',
+  'CONTABILIDAD': 'Contabilidad',
+  'Cr?dito y Cobranza': 'Crédito y Cobranza',
+  'CR?DITO Y COBRANZA': 'Crédito y Cobranza',
+  'DESCONOCIDO': 'Desconocido',
+  'Direcci?n': 'Dirección',
+  'DIRECCI?N': 'Dirección',
+  'EJECUTIVA': 'Ejecutiva',
+  'EMPAQUE': 'Empaque',
+  'GENERAL': 'General',
+  'Gerente Gral Filiales': 'Gerente Gral Filiales',
+  'GERENTE GRAL FILIALES': 'Gerente Gral Filiales',
+  'INVENTARIO': 'Inventario',
+  'Logistica': 'Logística',
+  'LOGISTICA': 'Logística',
+  'MASTER': 'Master',
+  'MEJORA CONTINUA': 'Mejora Continua',
+  'MEJORA': 'Mejora Continua',
+  'MERCADOTECNIA': 'Mercadotecnia',
+  'N?minas': 'Nóminas',
+  'N?MINAS': 'Nóminas',
+  'PLANEACI?N': 'Planeación',
+  'Planeaci?n': 'Planeación',
+  'REABASTO': 'Reabasto',
+  'RECIBO': 'Recibo',
+  'RH': 'RH',
+  'SEGURIDAD': 'Seguridad',
+  'Servicio al Cliente': 'Servicio al Cliente',
+  'SERVICIO AL CLIENTE': 'Servicio al Cliente',
+  'Servicio Generales': 'Servicios Generales',
+  'SERVICIO GENERALES': 'Servicios Generales',
+  'SOPORTE DE OPERACIONES': 'Soporte de Operaciones',
+  'SUPERMOTO': 'Supermoto',
+  'SURTIDO': 'Surtido',
+  'TELEMERCADEO': 'Telemercadeo',
+  'Tesoreria': 'Tesorería',
+  'TESORERIA': 'Tesorería',
+  'TIC': 'TIC',
+  'VENTAS': 'Ventas',
+  'YAMAHA': 'Yamaha'
+};
+
 // ===================== FUNCIONES NORMALIZADORAS =====================
 
 export function normalizeMotivo(raw?: string | null): string {
@@ -134,6 +183,11 @@ export function normalizeDepartamento(raw?: string | null): string {
     return DEPARTAMENTOS_REALES[raw];
   }
 
+  const upperRaw = raw.toUpperCase();
+  if (DEPARTAMENTOS_REALES[upperRaw]) {
+    return DEPARTAMENTOS_REALES[upperRaw];
+  }
+
   // Fallback con limpieza para casos que no coinciden exactamente
   const cleaned = cleanText(raw);
 
@@ -156,6 +210,47 @@ export function normalizeDepartamento(raw?: string | null): string {
   if (cleaned.includes('ventas')) return 'Ventas';
 
   return raw; // Si no hay match, devuelve el original
+}
+
+export function normalizeArea(raw?: string | null): string {
+  if (!raw) return 'Sin Área';
+  if (AREAS_REALES[raw]) return AREAS_REALES[raw];
+
+  const upper = raw.toUpperCase();
+  if (AREAS_REALES[upper]) return AREAS_REALES[upper];
+
+  const cleaned = cleanText(raw);
+
+  if (cleaned.includes('administracion') && cleaned.includes('finanzas')) return 'Administración y Finanzas';
+  if (cleaned.includes('credito') && cleaned.includes('cobranza')) return 'Crédito y Cobranza';
+  if (cleaned === 'desconocido') return 'Desconocido';
+  if (cleaned.includes('direccion')) return 'Dirección';
+  if (cleaned.includes('logistica')) return 'Logística';
+  if (cleaned.includes('nominas') || cleaned.includes('nomina')) return 'Nóminas';
+  if (cleaned.includes('planeacion')) return 'Planeación';
+  if (cleaned.includes('servicio') && cleaned.includes('cliente')) return 'Servicio al Cliente';
+  if (cleaned.includes('servicio') && cleaned.includes('general')) return 'Servicios Generales';
+  if (cleaned.includes('tesoreria')) return 'Tesorería';
+  if (cleaned.includes('soporte') && cleaned.includes('operaciones')) return 'Soporte de Operaciones';
+  if (cleaned.includes('telemercadeo')) return 'Telemercadeo';
+
+  // Fallback: capitalizar reemplazando caracteres corruptos comunes
+  const fixed = raw
+    .replace(/\?/g, (match, offset) => {
+      const prev = raw.charAt(Math.max(0, offset - 1)).toLowerCase();
+      if (prev === 'o') return 'ó';
+      if (prev === 'a') return 'á';
+      if (prev === 'e') return 'é';
+      if (prev === 'u') return 'ú';
+      return 'í';
+    })
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return fixed
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 
 export function normalizePuesto(raw?: string | null): string {

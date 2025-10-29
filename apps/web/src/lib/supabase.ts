@@ -1,5 +1,5 @@
 import { createBrowserClient as createClient } from '@supabase/ssr'
-import { normalizeMotivo, normalizeDepartamento } from './normalizers'
+import { normalizeMotivo, normalizeDepartamento, normalizeArea } from './normalizers'
 import type {
   PlantillaRecord,
   EmpleadoSFTPRecord,
@@ -164,7 +164,7 @@ export const db = {
         fecha_baja: emp.fecha_baja || ultimoMotivo?.fecha_baja || null,
         puesto: emp.puesto || 'Sin Puesto',
         motivo_baja: normalizeMotivo(emp.motivo_baja || ultimoMotivo?.descripcion || ultimoMotivo?.motivo || 'No especificado'),
-        area: emp.area || 'Sin Área',
+        area: normalizeArea(emp.area) || 'Sin Área',
         clasificacion: emp.clasificacion || 'Sin Clasificación',
         ubicacion: (emp as any).ubicacion || null,
         empresa: (emp as any).empresa || null,
