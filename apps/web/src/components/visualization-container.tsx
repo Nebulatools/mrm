@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Copy, Download, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useVisualizationExportContext } from "@/context/visualization-export-context";
 
 type VisualizationType = "chart" | "table";
 
@@ -37,6 +38,35 @@ export function VisualizationContainer({
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const fileBase = useMemo(() => sanitizeFileName(filename ?? title), [filename, title]);
+  const exportContext = useVisualizationExportContext();
+  const exportMetaLines = useMemo(() => {
+    if (!exportContext) {
+      return [];
+    }
+
+    const lines: string[] = [];
+
+    if (exportContext.periodLabel) {
+      lines.push(`Período: ${exportContext.periodLabel}`);
+    }
+
+    if (exportContext.lastUpdatedLabel) {
+      lines.push(`Actualizado: ${exportContext.lastUpdatedLabel}`);
+    }
+
+    if (exportContext.filtersCount > 0) {
+      if (exportContext.filtersDetailedLines.length > 0) {
+        lines.push("Filtros activos:");
+        lines.push(...exportContext.filtersDetailedLines);
+      } else if (exportContext.filtersSummary) {
+        lines.push(`Filtros activos: ${exportContext.filtersSummary}`);
+      }
+    } else {
+      lines.push("Filtros activos: Sin filtros adicionales");
+    }
+
+    return lines;
+  }, [exportContext]);
 
   const clearFeedback = useCallback(() => {
     if (feedbackTimer.current) {
@@ -56,6 +86,15 @@ export function VisualizationContainer({
 
   useEffect(() => clearFeedback, [clearFeedback]);
 
+  useEffect(() => {
+    if (!isFullscreen) return;
+    window.dispatchEvent(new Event("resize"));
+    const handle = window.setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 180);
+    return () => window.clearTimeout(handle);
+  }, [isFullscreen]);
+
   const getActiveElement = () => (isFullscreen ? fullscreenRef.current : baseRef.current);
 
   const getSvgElement = (container: HTMLElement) => {
@@ -63,7 +102,38 @@ export function VisualizationContainer({
     return svg instanceof SVGElement ? svg : null;
   };
 
-  const renderSvgToCanvas = async (svg: SVGElement): Promise<HTMLCanvasElement> => {
+  const wrapText = (text: string, maxChars = 68) => {
+    const words = text.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let currentLine = "";
+
+    for (const word of words) {
+      const candidate = currentLine ? `${currentLine} ${word}` : word;
+      if (candidate.length > maxChars && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = candidate;
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines;
+  };
+
+  interface ChartExportOptions {
+    title: string;
+    metaLines: string[];
+    footerLines?: string[];
+  }
+
+  const renderSvgToCanvas = async (
+    svg: SVGElement,
+    { title, metaLines, footerLines = [] }: ChartExportOptions
+  ): Promise<HTMLCanvasElement> => {
     const rect = svg.getBoundingClientRect();
     const widthAttr = parseFloat(svg.getAttribute("width") ?? "0");
     const heightAttr = parseFloat(svg.getAttribute("height") ?? "0");
@@ -71,14 +141,61 @@ export function VisualizationContainer({
     const height = Math.max(rect.height, heightAttr, 1);
     const scale = window.devicePixelRatio || 1;
 
+    const exportWidth = Math.max(width, 920);
+    const paddingX = 48;
+    const paddingTop = 36;
+    const paddingBottom = 32;
+    const titleFontSize = 26;
+    const metaLineHeight = 20;
+    const footerLineHeight = 18;
+    const spaceAfterTitle = 12;
+    const spaceBeforeChart = 28;
+    const spaceBeforeFooter = 24;
+
+    const wrappedMetaLines = metaLines.flatMap((line) => wrapText(line, 70));
+    const wrappedFooterLines = footerLines.flatMap((line) =>
+      wrapText(line, 70)
+    );
+
+    const metaBlockHeight = wrappedMetaLines.length
+      ? spaceAfterTitle + wrappedMetaLines.length * metaLineHeight
+      : 0;
+    const footerBlockHeight = wrappedFooterLines.length
+      ? spaceBeforeFooter + wrappedFooterLines.length * footerLineHeight
+      : paddingBottom;
+
+    const chartTop =
+      paddingTop + titleFontSize + metaBlockHeight + spaceBeforeChart;
+    const canvasWidthUnits = exportWidth + paddingX * 2;
+    const canvasHeightUnits = chartTop + height + footerBlockHeight;
+
     const canvas = document.createElement("canvas");
-    canvas.width = width * scale;
-    canvas.height = height * scale;
+    canvas.width = canvasWidthUnits * scale;
+    canvas.height = canvasHeightUnits * scale;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       throw new Error("No se pudo crear el contexto del canvas");
     }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvasWidthUnits, canvasHeightUnits);
+
+    ctx.fillStyle = "#0f172a";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.font = "600 26px 'Inter', 'Helvetica Neue', Arial, sans-serif";
+    ctx.fillText(title, canvasWidthUnits / 2, paddingTop);
+
+    if (wrappedMetaLines.length) {
+      ctx.font = "400 14px 'Inter', 'Helvetica Neue', Arial, sans-serif";
+      wrappedMetaLines.forEach((line, index) => {
+        ctx.fillText(
+          line,
+          canvasWidthUnits / 2,
+          paddingTop + titleFontSize + spaceAfterTitle + index * metaLineHeight
+        );
+      });
+    }
 
     const serializer = new XMLSerializer();
     const svgString = serializer.serializeToString(svg);
@@ -88,7 +205,20 @@ export function VisualizationContainer({
     await new Promise<void>((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        ctx.drawImage(img, 0, 0);
+        const chartX = paddingX + (exportWidth - width) / 2;
+        ctx.drawImage(img, chartX, chartTop, width, height);
+
+        if (wrappedFooterLines.length) {
+          ctx.font = "400 12px 'Inter', 'Helvetica Neue', Arial, sans-serif";
+          wrappedFooterLines.forEach((line, index) => {
+            ctx.fillText(
+              line,
+              canvasWidthUnits / 2,
+              chartTop + height + spaceBeforeFooter + index * footerLineHeight
+            );
+          });
+        }
+
         URL.revokeObjectURL(url);
         resolve();
       };
@@ -107,7 +237,27 @@ export function VisualizationContainer({
     if (!svg) {
       throw new Error("No se encontró una gráfica para copiar");
     }
-    const canvas = await renderSvgToCanvas(svg);
+    const now = new Date();
+    let formattedTimestamp = now.toLocaleString();
+    try {
+      const locale =
+        typeof navigator !== "undefined" && navigator.language
+          ? navigator.language
+          : "es-MX";
+      formattedTimestamp = new Intl.DateTimeFormat(locale, {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(now);
+    } catch {
+      // Fallback to default locale formatting
+      formattedTimestamp = now.toLocaleString();
+    }
+
+    const canvas = await renderSvgToCanvas(svg, {
+      title,
+      metaLines: exportMetaLines,
+      footerLines: [`Descargado: ${formattedTimestamp}`],
+    });
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
     if (!blob) {
       throw new Error("No se pudo generar la imagen");
@@ -207,7 +357,7 @@ export function VisualizationContainer({
     }
   }, [type, showFeedback, isFullscreen]);
 
-  const overlayButtons = (
+  const renderControls = (includeExpand: boolean) => (
     <div className="pointer-events-auto flex gap-2">
       <Button
         size="icon"
@@ -229,16 +379,18 @@ export function VisualizationContainer({
       >
         <Download className="h-4 w-4" />
       </Button>
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-8 w-8 bg-white/90 text-gray-700 shadow-sm hover:bg-white"
-        onClick={() => setIsFullscreen(true)}
-        title="Ver en pantalla completa"
-        aria-label="Ver en pantalla completa"
-      >
-        <Maximize2 className="h-4 w-4" />
-      </Button>
+      {includeExpand && (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 bg-white/90 text-gray-700 shadow-sm hover:bg-white"
+          onClick={() => setIsFullscreen(true)}
+          title="Ver en pantalla completa"
+          aria-label="Ver en pantalla completa"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 
@@ -249,7 +401,7 @@ export function VisualizationContainer({
           {children(false)}
         </div>
         <div className="pointer-events-none absolute right-3 top-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          {overlayButtons}
+          {renderControls(true)}
         </div>
         {feedback && (
           <div className="pointer-events-none absolute left-3 bottom-3 rounded-full bg-gray-900/80 px-3 py-1 text-xs text-white shadow">
@@ -259,22 +411,31 @@ export function VisualizationContainer({
       </div>
 
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-6xl w-[95vw]">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
           </DialogHeader>
           <div className="relative mt-4">
             <div className="absolute right-3 top-3 flex gap-2">
-              {overlayButtons}
+              {renderControls(false)}
             </div>
             <div
               ref={fullscreenRef}
               className={cn(
-                "max-h-[75vh] overflow-auto rounded-lg border bg-white p-3",
-                type === "chart" && "flex items-center justify-center"
+                "max-h-[75vh] w-full overflow-auto rounded-xl border bg-white p-6",
+                type === "chart" && "flex w-full items-center justify-center"
               )}
+              style={{
+                minWidth: type === "chart" ? "min(960px, 100%)" : "520px",
+                minHeight: type === "chart" ? "360px" : undefined,
+              }}
             >
-              {children(true)}
+              <div
+                className={cn(type === "chart" && "w-full")}
+                key={isFullscreen ? "fullscreen-open" : "fullscreen-closed"}
+              >
+                {children(true)}
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -282,4 +443,3 @@ export function VisualizationContainer({
     </>
   );
 }
-

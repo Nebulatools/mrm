@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 //
 import { supabase } from "@/lib/supabase";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";
+import { countActiveFilters, getFilterSummary, sanitizeFilterValue } from "@/lib/filters/summary";
 import { cn } from "@/lib/utils";
 
 // Type moved to lib/filters/filters (renamed from retention)
@@ -26,13 +27,6 @@ export function RetentionFilterPanel({
   refreshEnabled = false,
 }: RetentionFilterPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const sanitize = (value: string | number) => {
-    const v = String(value);
-    const lower = v.toLowerCase();
-    const looksFilePath = v.startsWith('/') || v.includes('/var/folders/') || lower.includes('temporaryitems') || lower.includes('screencaptureui');
-    const looksScreenshot = lower.includes('screenshot') || lower.endsWith('.png') || lower.includes('.png');
-    return (looksFilePath || looksScreenshot) ? '—' : v;
-  };
   const [filters, setFilters] = useState<RetentionFilterOptions>({
     years: [],
     months: [],
@@ -43,6 +37,9 @@ export function RetentionFilterPanel({
     empresas: [],  // Negocio/Empresa
     areas: []      // Área
   });
+  const activeFiltersCount = useMemo(() => countActiveFilters(filters), [filters]);
+  const filtersSummary = useMemo(() => getFilterSummary(filters), [filters]);
+  const hasActiveFilters = activeFiltersCount > 0;
 
   // Set default filters to current month and year
   useEffect(() => {
@@ -271,41 +268,6 @@ export function RetentionFilterPanel({
     onFiltersChange(emptyFilters);
   };
 
-  const getActiveFiltersCount = () => {
-    return Object.values(filters).reduce((count, filterArray) => count + filterArray.length, 0);
-  };
-
-  const getFilterSummary = () => {
-    const parts = [];
-
-    if (filters.years.length > 0) {
-      parts.push(`${filters.years.length} año${filters.years.length !== 1 ? 's' : ''}`);
-    }
-    if (filters.months.length > 0) {
-      parts.push(`${filters.months.length} mes${filters.months.length !== 1 ? 'es' : ''}`);
-    }
-    if ((filters.empresas || []).length > 0) {
-      parts.push(`${(filters.empresas || []).length} negocio${(filters.empresas || []).length !== 1 ? 's' : ''}`);
-    }
-    if ((filters.areas || []).length > 0) {
-      parts.push(`${(filters.areas || []).length} área${(filters.areas || []).length !== 1 ? 's' : ''}`);
-    }
-    if ((filters.departamentos || []).length > 0) {
-      parts.push(`${(filters.departamentos || []).length} depto${(filters.departamentos || []).length !== 1 ? 's' : ''}`);
-    }
-    if ((filters.puestos || []).length > 0) {
-      parts.push(`${(filters.puestos || []).length} puesto${(filters.puestos || []).length !== 1 ? 's' : ''}`);
-    }
-    if ((filters.clasificaciones || []).length > 0) {
-      parts.push(`${(filters.clasificaciones || []).length} clasificación${(filters.clasificaciones || []).length !== 1 ? 'es' : ''}`);
-    }
-    if ((filters.ubicaciones || []).length > 0) {
-      parts.push(`${(filters.ubicaciones || []).length} ubicación${(filters.ubicaciones || []).length !== 1 ? 'es' : ''}`);
-    }
-
-    return parts.join(', ');
-  };
-
   // Estado para controlar qué dropdown está abierto
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
@@ -380,12 +342,12 @@ export function RetentionFilterPanel({
 
     return (
       <div className="relative" data-dropdown={label}>
-        <Label className="text-sm font-semibold text-gray-700">{label}</Label>
-        <div className="mt-1">
+        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-600">{label}</Label>
+        <div className="mt-0.5">
           <Button
             variant="outline"
             onClick={toggleDropdown}
-            className="w-full justify-between h-10 px-3 text-sm"
+            className="w-full justify-between h-9 px-3 text-sm"
           >
             <span className="truncate">
               {previewLabel}
@@ -443,175 +405,146 @@ export function RetentionFilterPanel({
     );
   };
 
-  const wrapperClassName = cn(
-    "relative z-30 overflow-visible",
-    className,
+  const wrapperClassName = cn("relative z-30 w-full", className);
+  const containerClassName = cn(
+    "flex w-full flex-col gap-4 rounded-xl border border-gray-200/80 bg-white px-4 py-4 shadow-none",
     refreshEnabled &&
-      "rounded-2xl border border-brand-border/60 bg-white/95 p-4 shadow-brand/20 backdrop-blur-sm"
+      "rounded-2xl border-brand-border/60 bg-white/95 px-6 py-6 backdrop-blur"
   );
+  const summaryBadgeClass = cn(
+    "inline-flex max-w-full items-center justify-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600",
+    refreshEnabled && "bg-brand-surface-accent/70 text-brand-ink/70"
+  );
+
+  const summaryText = hasActiveFilters && filtersSummary
+    ? filtersSummary
+    : "Sin filtros adicionales";
 
   return (
     <div className={wrapperClassName}>
-      {/* Botón para expandir/colapsar filtros */}
-      <div className="mb-4">
-        <Button 
-          variant={refreshEnabled ? "cta" : "outline"} 
-          onClick={() => setIsExpanded(!isExpanded)}
-          className={cn(
-            "gap-2",
-            refreshEnabled && "rounded-full px-4 py-2 text-sm font-semibold shadow-brand"
-          )}
-        >
-          <Filter className="h-4 w-4" />
-          Filtros
-          {getActiveFiltersCount() > 0 && (
-            <span
+      <div className={containerClassName}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant={refreshEnabled ? "cta" : "outline"}
+              onClick={() => setIsExpanded((prev) => !prev)}
               className={cn(
-                "ml-1 rounded-full px-2 py-0.5 text-xs",
-                refreshEnabled ? "bg-brand-surface-accent text-brand-ink font-semibold" : "bg-blue-100 text-blue-700"
+                "gap-2",
+                refreshEnabled && "rounded-full px-4 py-2 text-sm font-semibold shadow-brand"
               )}
             >
-              {getActiveFiltersCount()}
-            </span>
-          )}
-          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </Button>
-      </div>
-
-      {/* Panel de filtros expandible */}
-      {isExpanded && (
-        <div
-          className={cn(
-            "mb-6 rounded-lg border bg-white p-4 shadow-sm",
-            refreshEnabled && "rounded-2xl border-brand-border/40 bg-brand-surface-accent/60 shadow-none"
-          )}
-        >
-          {/* Header */}
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <p
-                className={cn(
-                  "text-sm font-semibold text-gray-700",
-                  refreshEnabled && "font-heading text-xs uppercase tracking-[0.16em] text-brand-ink"
-                )}
-              >
-                Selecciona los filtros que necesites
-              </p>
-              {getActiveFiltersCount() > 0 && (
-                <div
+              <Filter className="h-4 w-4" />
+              <span>Filtros</span>
+              {hasActiveFilters && (
+                <span
                   className={cn(
-                    "text-xs text-muted-foreground",
-                    refreshEnabled && "text-brand-ink/70"
+                    "inline-flex min-w-[1.75rem] justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold",
+                    refreshEnabled
+                      ? "bg-brand-surface-accent text-brand-ink"
+                      : "bg-blue-100 text-blue-700"
                   )}
                 >
-                  {getActiveFiltersCount()} filtro{getActiveFiltersCount() !== 1 ? 's' : ''} activos · {getFilterSummary()}
-                </div>
+                  {activeFiltersCount}
+                </span>
               )}
-            </div>
-            {getActiveFiltersCount() > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={clearAllFilters}
                 className={cn(
                   "text-xs font-semibold text-blue-600 hover:text-red-600",
                   refreshEnabled && "text-brand-ink/70 hover:text-brand-ink"
                 )}
               >
-                <X className="h-3 w-3 mr-1" />
+                <X className="mr-1 h-3 w-3" />
                 Limpiar filtros
               </Button>
             )}
           </div>
-
-          {/* Resumen de filtros activos */}
-          {getActiveFiltersCount() > 0 && (
-            <div
-              className={cn(
-                "mb-4 rounded bg-muted p-3 text-xs text-muted-foreground",
-                refreshEnabled && "bg-brand-surface-accent/70 text-brand-ink/70"
-              )}
-            >
-              <strong>Filtros activos:</strong> {getFilterSummary()}
-            </div>
-          )}
-
-          {/* Layout de dropdowns - Año, Mes, Negocio, Área, Departamento, Puesto, Clasificación, Ubicación */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-            {/* Años */}
-            <MultiSelectDropdown
-              label="Año"
-              options={availableOptions.years}
-              selectedValues={filters.years}
-              onSelectionChange={(values) => handleMultiSelectChange('years', values)}
-              renderOption={(option) => option.toString()}
-            />
-
-            {/* Meses */}
-            <MultiSelectDropdown
-              label="Mes"
-              options={availableOptions.months}
-              selectedValues={filters.months}
-              onSelectionChange={(values) => handleMultiSelectChange('months', values)}
-              renderOption={(option) => monthNames[parseInt(option.toString()) - 1]}
-            />
-
-            {/* Negocio/Empresa */}
-            <MultiSelectDropdown
-              label="Negocio"
-              options={availableOptions.empresas}
-              selectedValues={filters.empresas || []}
-              onSelectionChange={(values) => handleMultiSelectChange('empresas', values)}
-              renderOption={(option) => sanitize(option)}
-            />
-
-            {/* Área */}
-            <MultiSelectDropdown
-              label="Área"
-              options={availableOptions.areas}
-              selectedValues={filters.areas || []}
-              onSelectionChange={(values) => handleMultiSelectChange('areas', values)}
-              renderOption={(option) => sanitize(option)}
-            />
-            
-            {/* Departamentos */}
-            <MultiSelectDropdown
-              label="Departamento"
-              options={availableOptions.departamentos}
-              selectedValues={filters.departamentos || []}
-              onSelectionChange={(values) => handleMultiSelectChange('departamentos', values)}
-              renderOption={(option) => sanitize(option)}
-            />
-            
-            {/* Puestos */}
-            <MultiSelectDropdown
-              label="Puesto"
-              options={availableOptions.puestos}
-              selectedValues={filters.puestos || []}
-              onSelectionChange={(values) => handleMultiSelectChange('puestos', values)}
-              renderOption={(option) => sanitize(option)}
-            />
-            
-            {/* Clasificaciones */}
-            <MultiSelectDropdown
-              label="Clasificación"
-              options={availableOptions.clasificaciones}
-              selectedValues={filters.clasificaciones || []}
-              onSelectionChange={(values) => handleMultiSelectChange('clasificaciones', values)}
-              renderOption={(option) => sanitize(option)}
-            />
-
-            {/* Ubicaciones */}
-            <MultiSelectDropdown
-              label="Ubicación"
-              options={availableOptions.ubicaciones}
-              selectedValues={filters.ubicaciones || []}
-              onSelectionChange={(values) => handleMultiSelectChange('ubicaciones', values)}
-              renderOption={(option) => sanitize(option)}
-            />
+          <div className="flex max-w-full flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className={summaryBadgeClass} title={summaryText}>
+              {summaryText}
+            </span>
           </div>
         </div>
-      )}
+
+        {isExpanded && (
+          <div className="border-t border-dashed pt-4">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,_1fr))] gap-3">
+              <MultiSelectDropdown
+                label="Año"
+                options={availableOptions.years}
+                selectedValues={filters.years}
+                onSelectionChange={(values) => handleMultiSelectChange("years", values)}
+                renderOption={(option) => option.toString()}
+              />
+
+              <MultiSelectDropdown
+                label="Mes"
+                options={availableOptions.months}
+                selectedValues={filters.months}
+                onSelectionChange={(values) => handleMultiSelectChange("months", values)}
+                renderOption={(option) => monthNames[parseInt(option.toString()) - 1]}
+              />
+
+              <MultiSelectDropdown
+                label="Negocio"
+                options={availableOptions.empresas}
+                selectedValues={filters.empresas || []}
+                onSelectionChange={(values) => handleMultiSelectChange("empresas", values)}
+                renderOption={(option) => sanitizeFilterValue(option)}
+              />
+
+              <MultiSelectDropdown
+                label="Área"
+                options={availableOptions.areas}
+                selectedValues={filters.areas || []}
+                onSelectionChange={(values) => handleMultiSelectChange("areas", values)}
+                renderOption={(option) => sanitizeFilterValue(option)}
+              />
+
+              <MultiSelectDropdown
+                label="Departamento"
+                options={availableOptions.departamentos}
+                selectedValues={filters.departamentos || []}
+                onSelectionChange={(values) => handleMultiSelectChange("departamentos", values)}
+                renderOption={(option) => sanitizeFilterValue(option)}
+              />
+
+              <MultiSelectDropdown
+                label="Puesto"
+                options={availableOptions.puestos}
+                selectedValues={filters.puestos || []}
+                onSelectionChange={(values) => handleMultiSelectChange("puestos", values)}
+                renderOption={(option) => sanitizeFilterValue(option)}
+              />
+
+              <MultiSelectDropdown
+                label="Clasificación"
+                options={availableOptions.clasificaciones}
+                selectedValues={filters.clasificaciones || []}
+                onSelectionChange={(values) => handleMultiSelectChange("clasificaciones", values)}
+                renderOption={(option) => sanitizeFilterValue(option)}
+              />
+
+              <MultiSelectDropdown
+                label="Ubicación"
+                options={availableOptions.ubicaciones}
+                selectedValues={filters.ubicaciones || []}
+                onSelectionChange={(values) => handleMultiSelectChange("ubicaciones", values)}
+                renderOption={(option) => sanitizeFilterValue(option)}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

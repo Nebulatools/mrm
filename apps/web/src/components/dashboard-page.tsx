@@ -43,6 +43,8 @@ import {
   calculateVariancePercentage
 } from "@/lib/utils/kpi-helpers";
 import { VisualizationContainer } from "./visualization-container";
+import { countActiveFilters, getDetailedFilterLines, getFilterSummary } from "@/lib/filters/summary";
+import { VisualizationExportProvider } from "@/context/visualization-export-context";
 //
 
 interface DashboardData {
@@ -103,6 +105,18 @@ export function DashboardPage() {
     clasificaciones: [],
     ubicaciones: []
   });
+  const filtersSummary = useMemo(
+    () => getFilterSummary(retentionFilters),
+    [retentionFilters]
+  );
+  const filtersDetailedLines = useMemo(
+    () => getDetailedFilterLines(retentionFilters),
+    [retentionFilters]
+  );
+  const filtersCount = useMemo(
+    () => countActiveFilters(retentionFilters),
+    [retentionFilters]
+  );
 
   // Calcular año actual basado en filtros
   const currentYear = retentionFilters.years.length > 0
@@ -633,6 +647,24 @@ export function DashboardPage() {
   const elevatedCardHeaderClass = refreshEnabled ? "pb-6" : undefined;
   const elevatedTitleClass = refreshEnabled ? "font-heading text-brand-ink" : undefined;
   const elevatedSubtleTextClass = refreshEnabled ? "text-brand-ink/70" : undefined;
+  const visualizationExportContextValue = useMemo(
+    () => ({
+      filters: retentionFilters,
+      filtersSummary: filtersSummary?.length ? filtersSummary : null,
+      filtersDetailedLines,
+      filtersCount,
+      periodLabel,
+      lastUpdatedLabel: lastUpdatedDisplay,
+    }),
+    [
+      retentionFilters,
+      filtersSummary,
+      filtersDetailedLines,
+      filtersCount,
+      periodLabel,
+      lastUpdatedDisplay,
+    ]
+  );
 
   return (
     <div
@@ -737,17 +769,18 @@ export function DashboardPage() {
         <RetentionFilterPanel
           onFiltersChange={setRetentionFilters}
           refreshEnabled={refreshEnabled}
-          className={refreshEnabled ? "mx-auto max-w-5xl" : undefined}
+          className="w-full"
         />
       </section>
 
-      <main
-        className={cn(
-          "p-6",
-          refreshEnabled && "mx-auto max-w-7xl px-6 pb-12 pt-6 lg:px-10"
-        )}
-      >
-        <Tabs defaultValue="overview" className="space-y-6">
+      <VisualizationExportProvider value={visualizationExportContextValue}>
+        <main
+          className={cn(
+            "p-6",
+            refreshEnabled && "mx-auto max-w-7xl px-6 pb-12 pt-6 lg:px-10"
+          )}
+        >
+          <Tabs defaultValue="overview" className="space-y-6">
           <TabsList
             className={cn(
               refreshEnabled &&
@@ -1231,8 +1264,9 @@ export function DashboardPage() {
               onAdjustmentMade={() => loadDashboardData({ period: timePeriod, date: selectedPeriod }, true)}
             />
           </TabsContent>
-        </Tabs>
-      </main>
+          </Tabs>
+        </main>
+      </VisualizationExportProvider>
     </div>
   );
 }
