@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db, type IncidenciaCSVRecord, type PlantillaRecord } from "@/lib/supabase";
 import { normalizeIncidenciaCode, labelForIncidencia } from "@/lib/normalizers";
+import type { KPIResult } from "@/lib/kpi-calculator";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { format } from "date-fns";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { calculateVariancePercentage, countActivosEnFecha } from "@/lib/utils/kpi-helpers";
-import { KPICard } from "./kpi-card";
+import { KPICard, KPICardSkeleton } from "./kpi-card";
 import { Users, AlertCircle, Activity, ClipboardCheck } from "lucide-react";
 
 type Props = {
@@ -19,6 +20,7 @@ type Props = {
   plantillaAnual?: PlantillaRecord[];
   currentYear?: number;
   selectedMonths?: number[];
+  initialIncidencias?: IncidenciaCSVRecord[];
 };
 
 type EnrichedIncidencia = IncidenciaCSVRecord & {
@@ -42,24 +44,47 @@ const formatToDDMMYYYY = (value?: string | null) => {
   return format(parsed, 'dd-MM-yyyy');
 };
 
-export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedMonths }: Props) {
-  const [incidencias, setIncidencias] = useState<IncidenciaCSVRecord[]>([]);
+export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedMonths, initialIncidencias }: Props) {
+  const [incidencias, setIncidencias] = useState<IncidenciaCSVRecord[]>(initialIncidencias ?? []);
   const [showTable, setShowTable] = useState(false); // false = mostrar 10, true = mostrar todo
+  const [loadingIncidencias, setLoadingIncidencias] = useState(!(initialIncidencias && initialIncidencias.length > 0));
 
   // Por defecto: todo el histórico (sin rango de fechas local)
 
   // Cargar incidencias una vez (todo el histórico)
   useEffect(() => {
+    let cancelled = false;
+
+    if (initialIncidencias && initialIncidencias.length > 0) {
+      setIncidencias(initialIncidencias);
+      setLoadingIncidencias(false);
+      return;
+    }
+
     const loadInc = async () => {
       try {
+        setLoadingIncidencias(true);
         const incs = await db.getIncidenciasCSV();
-        setIncidencias(incs);
+        if (!cancelled) {
+          setIncidencias(incs);
+        }
       } catch (e) {
-        console.error("Error cargando incidencias:", e);
+        if (!cancelled) {
+          console.error("Error cargando incidencias:", e);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingIncidencias(false);
+        }
       }
     };
+
     loadInc();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialIncidencias]);
 
   const empleadosPeriodo = useMemo(() => plantilla ?? [], [plantilla]);
 
@@ -415,13 +440,26 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     });
   }, [enrichedAnual, currentYear]);
 
+  const ChartLoadingPlaceholder = ({ height = 320 }: { height?: number }) => (
+    <div
+      className="flex items-center justify-center text-sm text-gray-500"
+      style={{ minHeight: height }}
+    >
+      Cargando incidencias...
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* 4 Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {incidentsKpiCards.map(({ kpi, icon }, index) => (
-          <KPICard key={`incidents-kpi-${index}`} kpi={kpi} icon={icon} />
-        ))}
+        {loadingIncidencias
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <KPICardSkeleton key={`incidents-kpi-skeleton-${index}`} />
+            ))
+          : incidentsKpiCards.map(({ kpi, icon }, index) => (
+              <KPICard key={`incidents-kpi-${index}`} kpi={kpi} icon={icon} />
+            ))}
       </div>
       <p className="text-xs text-gray-500">
         * Incidencias: FI, SUS, PSIN, ENFE · Permisos: PCON, VAC, MAT3, MAT1, JUST
@@ -435,54 +473,58 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
             <p className="text-sm text-gray-600">Evolución de incidencias y permisos de enero a diciembre</p>
           </CardHeader>
           <CardContent className="flex-1">
-            <VisualizationContainer
-              title="Tendencia mensual: Incidencias vs Permisos"
-              type="chart"
-              className="h-[320px] w-full"
-              filename="tendencia-incidencias-permisos"
-            >
-              {(fullscreen) => (
-                <div style={{ height: fullscreen ? 420 : 320 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={monthlyTrendsData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="mes"
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                        interval={0}
-                        tick={{ fontSize: 11 }}
-                      />
-                      <YAxis
-                        label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }}
-                        tick={{ fontSize: 12 }}
-                      />
-                      <Tooltip />
-                      <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="incidencias"
-                        stroke="#ef4444"
-                        strokeWidth={3}
-                        dot={{ fill: '#ef4444', strokeWidth: 2, r: 5 }}
-                        activeDot={{ r: 8 }}
-                        name="# Incidencias"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="permisos"
-                        stroke="#10b981"
-                        strokeWidth={3}
-                        dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
-                        activeDot={{ r: 8 }}
-                        name="# Permisos"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </VisualizationContainer>
+            {loadingIncidencias ? (
+              <ChartLoadingPlaceholder height={320} />
+            ) : (
+              <VisualizationContainer
+                title="Tendencia mensual: Incidencias vs Permisos"
+                type="chart"
+                className="h-[320px] w-full"
+                filename="tendencia-incidencias-permisos"
+              >
+                {(fullscreen) => (
+                  <div style={{ height: fullscreen ? 420 : 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={monthlyTrendsData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="mes"
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                          interval={0}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <YAxis
+                          label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }}
+                          tick={{ fontSize: 12 }}
+                        />
+                        <Tooltip />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="incidencias"
+                          stroke="#ef4444"
+                          strokeWidth={3}
+                          dot={{ fill: '#ef4444', strokeWidth: 2, r: 5 }}
+                          activeDot={{ r: 8 }}
+                          name="# Incidencias"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="permisos"
+                          stroke="#10b981"
+                          strokeWidth={3}
+                          dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
+                          activeDot={{ r: 8 }}
+                          name="# Permisos"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </VisualizationContainer>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -496,26 +538,30 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
             <p className="text-sm text-gray-600">X: # Incidencias • Y: # Empleados</p>
           </CardHeader>
           <CardContent className="flex-1">
-            <VisualizationContainer
-              title="Distribución de incidencias por empleado"
-              type="chart"
-              className="h-full w-full"
-              filename="incidencias-por-empleado"
-            >
-              {(fullscreen) => (
-                <div style={{ height: fullscreen ? 420 : 320 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={histoData} margin={{ left: 16, right: 16, top: 8, bottom: 24 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" dataKey="incidencias" label={{ value: '# Incidencias', position: 'insideBottom', offset: -10 }} />
-                      <YAxis type="number" dataKey="empleados" label={{ value: '# Empleados', angle: -90, position: 'insideLeft' }} />
-                      <Tooltip />
-                      <Bar dataKey="empleados" fill="#6366f1" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </VisualizationContainer>
+            {loadingIncidencias ? (
+              <ChartLoadingPlaceholder height={320} />
+            ) : (
+              <VisualizationContainer
+                title="Distribución de incidencias por empleado"
+                type="chart"
+                className="h-full w-full"
+                filename="incidencias-por-empleado"
+              >
+                {(fullscreen) => (
+                  <div style={{ height: fullscreen ? 420 : 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={histoData} margin={{ left: 16, right: 16, top: 8, bottom: 24 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" dataKey="incidencias" label={{ value: '# Incidencias', position: 'insideBottom', offset: -10 }} />
+                        <YAxis type="number" dataKey="empleados" label={{ value: '# Empleados', angle: -90, position: 'insideLeft' }} />
+                        <Tooltip />
+                        <Bar dataKey="empleados" fill="#6366f1" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </VisualizationContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -530,26 +576,30 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
               filename="incidencias-por-tipo"
             >
               {() => (
-                <div className="h-full overflow-y-auto overflow-x-hidden pr-2">
-                  <Table>
-                    <TableHeader className="sticky top-0 z-10 bg-white">
-                      <TableRow>
-                        <TableHead className="w-1/2">Tipo</TableHead>
-                        <TableHead className="w-1/4 text-center"># días</TableHead>
-                        <TableHead className="w-1/4 text-center"># emp</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {resumenPorTipo.map(r => (
-                        <TableRow key={r.tipo}>
-                          <TableCell className="py-2 font-medium">{labelForIncidencia(r.tipo)}</TableCell>
-                          <TableCell className="py-2 text-center">{r.dias.toLocaleString()}</TableCell>
-                          <TableCell className="py-2 text-center">{r.empleados.toLocaleString()}</TableCell>
+                loadingIncidencias ? (
+                  <ChartLoadingPlaceholder height={280} />
+                ) : (
+                  <div className="h-full overflow-y-auto overflow-x-hidden pr-2">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-10 bg-white">
+                        <TableRow>
+                          <TableHead className="w-1/2">Tipo</TableHead>
+                          <TableHead className="w-1/4 text-center"># días</TableHead>
+                          <TableHead className="w-1/4 text-center"># emp</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {resumenPorTipo.map(r => (
+                          <TableRow key={r.tipo}>
+                            <TableCell className="py-2 font-medium">{labelForIncidencia(r.tipo)}</TableCell>
+                            <TableCell className="py-2 text-center">{r.dias.toLocaleString()}</TableCell>
+                            <TableCell className="py-2 text-center">{r.empleados.toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
               )}
             </VisualizationContainer>
           </CardContent>
@@ -559,43 +609,47 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2"><CardTitle className="text-base">Distribución: Incidencias vs Permisos</CardTitle></CardHeader>
           <CardContent className="flex-1">
-            <VisualizationContainer
-              title="Distribución: Incidencias vs Permisos"
-              type="chart"
-              className="h-full w-full"
-              filename="distribucion-incidencias-permisos"
-            >
-              {(fullscreen) => (
-                <div style={{ height: fullscreen ? 420 : 320 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Tooltip
-                        formatter={(value: number, name: string) => {
-                          const total = pieData.reduce((acc, item) => acc + item.value, 0);
-                          const percentage = total > 0 ? (Number(value) / total) * 100 : 0;
-                          return [
-                            `${Number(value).toFixed(1)} (${percentage.toFixed(1)}%)`,
-                            name
-                          ];
-                        }}
-                      />
-                      <Legend />
-                      <Pie
-                        data={pieData}
-                        dataKey="value"
-                        nameKey="name"
-                        outerRadius={fullscreen ? 150 : 110}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                      >
-                        {pieData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </VisualizationContainer>
+            {loadingIncidencias ? (
+              <ChartLoadingPlaceholder height={320} />
+            ) : (
+              <VisualizationContainer
+                title="Distribución: Incidencias vs Permisos"
+                type="chart"
+                className="h-full w-full"
+                filename="distribucion-incidencias-permisos"
+              >
+                {(fullscreen) => (
+                  <div style={{ height: fullscreen ? 420 : 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Tooltip
+                          formatter={(value: number, name: string) => {
+                            const total = pieData.reduce((acc, item) => acc + item.value, 0);
+                            const percentage = total > 0 ? (Number(value) / total) * 100 : 0;
+                            return [
+                              `${Number(value).toFixed(1)} (${percentage.toFixed(1)}%)`,
+                              name
+                            ];
+                          }}
+                        />
+                        <Legend />
+                        <Pie
+                          data={pieData}
+                          dataKey="value"
+                          nameKey="name"
+                          outerRadius={fullscreen ? 150 : 110}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                        >
+                          {pieData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </VisualizationContainer>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -616,38 +670,42 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
             filename="tabla-incidencias"
           >
             {() => (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Incidencia</TableHead>
-                      <TableHead>Días</TableHead>
-                      <TableHead>Empresa</TableHead>
-                      <TableHead>Departamento</TableHead>
-                      <TableHead>Área</TableHead>
-                      <TableHead>Puesto</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(showTable ? enrichedPeriodo : enrichedPeriodo.slice(0, 10)).map((i) => (
-                      <TableRow key={i.id}>
-                        <TableCell>{i.id}</TableCell>
-                        <TableCell>{i.nombre || '—'}</TableCell>
-                        <TableCell>{formatToDDMMYYYY(i.fecha)}</TableCell>
-                        <TableCell>{labelForIncidencia(i.inci, i.incidencia) || '-'}</TableCell>
-                        <TableCell>1</TableCell>
-                        <TableCell>{i.empresa || '—'}</TableCell>
-                        <TableCell>{i.departamento || '—'}</TableCell>
-                        <TableCell>{i.area || '—'}</TableCell>
-                        <TableCell>{i.puesto || '—'}</TableCell>
+              loadingIncidencias ? (
+                <ChartLoadingPlaceholder height={360} />
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Nombre</TableHead>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Incidencia</TableHead>
+                        <TableHead>Días</TableHead>
+                        <TableHead>Empresa</TableHead>
+                        <TableHead>Departamento</TableHead>
+                        <TableHead>Área</TableHead>
+                        <TableHead>Puesto</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {(showTable ? enrichedPeriodo : enrichedPeriodo.slice(0, 10)).map((i) => (
+                        <TableRow key={i.id}>
+                          <TableCell>{i.id}</TableCell>
+                          <TableCell>{i.nombre || '—'}</TableCell>
+                          <TableCell>{formatToDDMMYYYY(i.fecha)}</TableCell>
+                          <TableCell>{labelForIncidencia(i.inci, i.incidencia) || '-'}</TableCell>
+                          <TableCell>1</TableCell>
+                          <TableCell>{i.empresa || '—'}</TableCell>
+                          <TableCell>{i.departamento || '—'}</TableCell>
+                          <TableCell>{i.area || '—'}</TableCell>
+                          <TableCell>{i.puesto || '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )
             )}
           </VisualizationContainer>
         </CardContent>

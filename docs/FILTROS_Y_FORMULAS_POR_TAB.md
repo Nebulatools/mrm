@@ -52,7 +52,7 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 | Lo que va del Año | 🟡 PARCIAL | Rotación YTD; ignora Mes, mantiene Año y filtros organizacionales. |
 | Incidencias - Últimos 12 meses | 🟡 PARCIAL | Incidencias totales por mes; ignora Mes y respeta Año/Negocio/Área/etc. |
 | Permisos - Últimos 12 meses | 🟡 PARCIAL | Permisos totales por mes; ignora Mes y respeta Año/Negocio/Área/etc. |
-| Tabla Ausentismo | 🟢 ESPECÍFICO | Desglose: Total, Permisos, Faltas, Otros |
+| Tabla Ausentismo | 🟢 ESPECÍFICO | Desglose: Total, Permisos, Faltas, Otros
 
 **Categorías de Antigüedad Actualizadas**:
 - **0-3 meses** (antes: 0-1 años)

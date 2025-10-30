@@ -14,7 +14,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter, LabelList } from 'recharts';
 import { KPICard, KPICardSkeleton } from "./kpi-card";
 import { AIInsights } from "./ai-insights";
 import { RetroactiveAdjustment } from "./retroactive-adjustment";
@@ -28,7 +28,7 @@ import { SummaryComparison } from "./summary-comparison";
 import { UserMenu } from "./user-menu";
 import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters/filters";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
-import { db, type PlantillaRecord } from "@/lib/supabase";
+import { db, type PlantillaRecord, type IncidenciaCSVRecord } from "@/lib/supabase";
 import { createBrowserClient } from "@/lib/supabase-client";
 import { format } from "date-fns";
 import { es } from 'date-fns/locale';
@@ -95,7 +95,7 @@ export function DashboardPage() {
   const [timePeriod] = useState<TimePeriod>('alltime');
   const [bajasPorMotivoData, setBajasPorMotivoData] = useState<BajasPorMotivoData[]>([]);
   const [bajasData, setBajasData] = useState<any[]>([]);
-  const [incidenciasData, setIncidenciasData] = useState<any[]>([]);
+  const [incidenciasData, setIncidenciasData] = useState<IncidenciaCSVRecord[]>([]);
 
   // Toggle para filtrar visualizaciones por rotación involuntaria vs voluntaria
   const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('involuntaria');
@@ -404,7 +404,13 @@ export function DashboardPage() {
   // ✅ NUEVO: Filtrar bajas e incidencias basándose en empleados filtrados
   const empleadosFiltradosIds = new Set(plantillaFiltered.map(e => e.numero_empleado || Number(e.emp_id)));
   const bajasFiltered = bajasData.filter(b => empleadosFiltradosIds.has(b.numero_empleado));
-  const incidenciasFiltered = incidenciasData.filter(i => empleadosFiltradosIds.has(i.emp));
+  const incidenciasFiltered = incidenciasData
+    .filter((i) => empleadosFiltradosIds.has(i.emp))
+    .map((i) => ({
+      emp: i.emp,
+      fecha: i.fecha,
+      inci: i.inci ?? i.incidencia ?? ''
+    }));
 
   const headcountComparisonBase = plantillaFilteredGeneral.length > 0 ? plantillaFilteredGeneral : plantillaFiltered;
 
@@ -961,19 +967,69 @@ export function DashboardPage() {
                   <VisualizationContainer
                     title="Clasificación del personal"
                     type="chart"
-                    className="h-[300px] w-full"
+                    className="h-[340px] w-full"
                     filename="clasificacion-personal"
                   >
                     {(fullscreen) => (
-                      <div style={{ width: '100%', height: fullscreen ? 340 : 280 }}>
+                      <div style={{ width: '100%', height: fullscreen ? 420 : 320 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={classCounts} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" allowDecimals={false} />
-                        <YAxis type="category" dataKey="name" />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#3b82f6" />
-                      </BarChart>
+                          <BarChart
+                            data={classCounts}
+                            margin={{ top: 32, right: 32, bottom: 40, left: 16 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="4 8"
+                              stroke="#e2e8f0"
+                              strokeOpacity={0.65}
+                              vertical={false}
+                            />
+                            <XAxis
+                              dataKey="name"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: "#334155" }}
+                              interval={0}
+                              tickMargin={12}
+                            />
+                            <YAxis
+                              type="number"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: "#64748b" }}
+                              allowDecimals={false}
+                              domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.15)]}
+                            />
+                            <Tooltip
+                              cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
+                              contentStyle={{
+                                borderRadius: 12,
+                                borderColor: "#e2e8f0",
+                                boxShadow: "0 10px 35px -15px rgba(15, 23, 42, 0.35)",
+                              }}
+                              labelStyle={{ fontWeight: 600, color: "#0f172a" }}
+                              formatter={(value: number) => value.toLocaleString("es-MX")}
+                            />
+                            <defs>
+                              <linearGradient id="classificationGradient" x1="0" x2="1" y1="0" y2="0">
+                                <stop offset="0%" stopColor="#0ea5e9" />
+                                <stop offset="100%" stopColor="#6366f1" />
+                              </linearGradient>
+                            </defs>
+                            <Bar
+                              dataKey="value"
+                              fill="url(#classificationGradient)"
+                              radius={[12, 12, 0, 0]}
+                              maxBarSize={68}
+                            >
+                              <LabelList
+                                dataKey="value"
+                                position="top"
+                                formatter={(value: number) => value.toLocaleString("es-MX")}
+                                style={{ fill: "#0f172a", fontWeight: 600, fontSize: 12 }}
+                                offset={14}
+                              />
+                            </Bar>
+                          </BarChart>
                         </ResponsiveContainer>
                       </div>
                     )}
@@ -992,19 +1048,69 @@ export function DashboardPage() {
                   <VisualizationContainer
                     title="Distribución por género"
                     type="chart"
-                    className="h-[300px] w-full"
+                    className="h-[340px] w-full"
                     filename="genero-personal"
                   >
                     {(fullscreen) => (
-                      <div style={{ width: '100%', height: fullscreen ? 340 : 280 }}>
+                      <div style={{ width: '100%', height: fullscreen ? 420 : 320 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={genderCounts} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" allowDecimals={false} />
-                        <YAxis type="category" dataKey="name" />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#10b981" />
-                      </BarChart>
+                          <BarChart
+                            data={genderCounts}
+                            margin={{ top: 32, right: 32, bottom: 40, left: 16 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="4 8"
+                              stroke="#e2e8f0"
+                              strokeOpacity={0.65}
+                              vertical={false}
+                            />
+                            <XAxis
+                              dataKey="name"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: "#334155" }}
+                              interval={0}
+                              tickMargin={12}
+                            />
+                            <YAxis
+                              type="number"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: "#64748b" }}
+                              allowDecimals={false}
+                              domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.15)]}
+                            />
+                            <Tooltip
+                              cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
+                              contentStyle={{
+                                borderRadius: 12,
+                                borderColor: "#e2e8f0",
+                                boxShadow: "0 10px 35px -15px rgba(15, 23, 42, 0.35)",
+                              }}
+                              labelStyle={{ fontWeight: 600, color: "#0f172a" }}
+                              formatter={(value: number) => value.toLocaleString("es-MX")}
+                            />
+                            <defs>
+                              <linearGradient id="genderGradient" x1="0" x2="1" y1="0" y2="0">
+                                <stop offset="0%" stopColor="#34d399" />
+                                <stop offset="100%" stopColor="#22d3ee" />
+                              </linearGradient>
+                            </defs>
+                            <Bar
+                              dataKey="value"
+                              fill="url(#genderGradient)"
+                              radius={[12, 12, 0, 0]}
+                              maxBarSize={68}
+                            >
+                              <LabelList
+                                dataKey="value"
+                                position="top"
+                                formatter={(value: number) => value.toLocaleString("es-MX")}
+                                style={{ fill: "#0f172a", fontWeight: 600, fontSize: 12 }}
+                                offset={14}
+                              />
+                            </Bar>
+                          </BarChart>
                         </ResponsiveContainer>
                       </div>
                     )}
@@ -1152,6 +1258,7 @@ export function DashboardPage() {
               plantillaAnual={plantillaFilteredYearScope}
               currentYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}
               selectedMonths={retentionFilters.months}
+              initialIncidencias={incidenciasData}
             />
           </TabsContent>
 
