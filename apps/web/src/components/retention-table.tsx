@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { VisualizationContainer } from "@/components/visualization-container";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { type KPIResult } from "@/lib/kpi-calculator";
 
@@ -65,14 +66,21 @@ export function RetentionTable({ kpis, previousPeriodKpis }: RetentionTableProps
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          📊 Tabla Comparativa de Retención
+          📊 Tabla Comparativa de Rotación
           <Badge variant="outline" className="text-xs">
             Mes Actual vs Anterior
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
+        <VisualizationContainer
+          title="Tabla comparativa de rotación"
+          type="table"
+          className="w-full"
+          filename="tabla-rotacion-comparativa"
+        >
+          {() => (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -134,7 +142,9 @@ export function RetentionTable({ kpis, previousPeriodKpis }: RetentionTableProps
             </tbody>
           </table>
         </div>
-        
+          )}
+        </VisualizationContainer>
+
         {/* Nota explicativa */}
         <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <p className="text-sm text-blue-700 dark:text-blue-300">

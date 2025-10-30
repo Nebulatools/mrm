@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { applyFiltersWithScope } from '@/lib/filters/filters';
 import { isMotivoClave } from '@/lib/normalizers';
+import { VisualizationContainer } from "./visualization-container";
 //
 
 interface MonthlyRetentionData {
@@ -415,140 +416,173 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               ? `Comparación ${availableYears[0]} vs ${availableYears[availableYears.length - 1]}`
               : 'Comparación anual'}
           </p>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={yearlyComparison}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="mes" 
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis 
-                tick={{ fontSize: 12 }}
-                label={{ value: 'Rotación %', angle: -90, position: 'insideLeft' }}
-                domain={rotationDomain}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              {availableYears.map((year, index) => (
-                <Line 
-                  key={year}
-                  type="monotone" 
-                  dataKey={`rotacion${year}`} 
-                  stroke={index === 0 ? "#3b82f6" : "#ef4444"} 
-                  strokeWidth={2}
-                  name={year.toString()}
-                  dot={{ fill: index === 0 ? '#3b82f6' : '#ef4444', strokeWidth: 2, r: 4 }}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+          <VisualizationContainer
+            title="Rotación acumulada 12M"
+            type="chart"
+            className="h-[280px] w-full"
+            filename="rotacion-acumulada-12m"
+          >
+            {(fullscreen) => (
+              <div style={{ height: fullscreen ? 360 : 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={yearlyComparison}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="mes" 
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12 }}
+                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft' }}
+                      domain={rotationDomain}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    {availableYears.map((year, index) => (
+                      <Line 
+                        key={year}
+                        type="monotone" 
+                        dataKey={`rotacion${year}`} 
+                        stroke={index === 0 ? "#3b82f6" : "#ef4444"} 
+                        strokeWidth={2}
+                        name={year.toString()}
+                        dot={{ fill: index === 0 ? '#3b82f6' : '#ef4444', strokeWidth: 2, r: 4 }}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </VisualizationContainer>
         </div>
 
         {/* Gráfico 2: Rotación Mensual (Múltiples Líneas) */}
         <div className="bg-white p-4 rounded-lg border">
           <h3 className="text-base font-semibold mb-2">Rotación Mensual</h3>
           <p className="text-sm text-gray-600 mb-4">Rotación mensual %, bajas y activos por mes</p>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={monthlyData.filter(d => {
-              const fecha = new Date(d.year, d.month - 1, 1);
-              const targetYear = currentYear || new Date().getFullYear();
-              return d.year === targetYear && fecha <= new Date();
-            })}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="mes" 
-                tick={{ fontSize: 12 }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
-              />
-              <YAxis
-                yAxisId="percentage"
-                orientation="left"
-                tick={{ fontSize: 12 }}
-                label={{ value: 'Rotación %', angle: -90, position: 'insideLeft' }}
-                domain={[0, 10]}
-                tickCount={6}
-                allowDecimals={false}
-              />
-              <YAxis
-                yAxisId="numbers"
-                orientation="right"
-                tick={{ fontSize: 12 }}
-                label={{ value: 'Cantidad', angle: 90, position: 'insideRight' }}
-                domain={[0, 'dataMax + 100']}
-                allowDecimals={false}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Line 
-                yAxisId="percentage"
-                type="monotone" 
-                dataKey="rotacionPorcentaje" 
-                stroke="#ef4444" 
-                strokeWidth={2}
-                name="Rotación %"
-                dot={{ fill: '#ef4444', strokeWidth: 2, r: 3 }}
-              />
-              <Line 
-                yAxisId="numbers"
-                type="monotone" 
-                dataKey="bajas" 
-                stroke="#f59e0b" 
-                strokeWidth={2}
-                name="Bajas"
-                dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
-              />
-              <Line 
-                yAxisId="numbers"
-                type="monotone" 
-                dataKey="activos" 
-                stroke="#10b981" 
-                strokeWidth={2}
-                name="Activos"
-                dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <VisualizationContainer
+            title="Rotación mensual"
+            type="chart"
+            className="h-[280px] w-full"
+            filename="rotacion-mensual"
+          >
+            {(fullscreen) => (
+              <div style={{ height: fullscreen ? 360 : 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={monthlyData.filter(d => {
+                    const fecha = new Date(d.year, d.month - 1, 1);
+                    const targetYear = currentYear || new Date().getFullYear();
+                    return d.year === targetYear && fecha <= new Date();
+                  })}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="mes" 
+                      tick={{ fontSize: 12 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis
+                      yAxisId="percentage"
+                      orientation="left"
+                      tick={{ fontSize: 12 }}
+                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft' }}
+                      domain={[0, 10]}
+                      tickCount={6}
+                      allowDecimals={false}
+                    />
+                    <YAxis
+                      yAxisId="numbers"
+                      orientation="right"
+                      tick={{ fontSize: 12 }}
+                      label={{ value: 'Cantidad', angle: 90, position: 'insideRight' }}
+                      domain={[0, 'dataMax + 100']}
+                      allowDecimals={false}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Line 
+                      yAxisId="percentage"
+                      type="monotone" 
+                      dataKey="rotacionPorcentaje" 
+                      stroke="#ef4444" 
+                      strokeWidth={2}
+                      name="Rotación %"
+                      dot={{ fill: '#ef4444', strokeWidth: 2, r: 3 }}
+                    />
+                    <Line 
+                      yAxisId="numbers"
+                      type="monotone" 
+                      dataKey="bajas" 
+                      stroke="#f59e0b" 
+                      strokeWidth={2}
+                      name="Bajas"
+                      dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
+                    />
+                    <Line 
+                      yAxisId="numbers"
+                      type="monotone" 
+                      dataKey="activos" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      name="Activos"
+                      dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </VisualizationContainer>
         </div>
 
         {/* Gráfico 3: Rotación por Temporalidad (Barras Apiladas por Mes) */}
         <div className="bg-white p-4 rounded-lg border">
           <h3 className="text-base font-semibold mb-2">Rotación por Temporalidad</h3>
           <p className="text-sm text-gray-600 mb-4">Bajas por tiempo trabajado por mes</p>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={monthlyData.filter(d => {
-              const fecha = new Date(d.year, d.month - 1, 1);
-              const targetYear = currentYear || new Date().getFullYear();
-              return d.year === targetYear && fecha <= new Date();
-            })}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="mes" 
-                tick={{ fontSize: 12 }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
-              />
-              <YAxis
-                tick={{ fontSize: 12 }}
-                width={90}
-                label={{
-                  value: 'Número de Bajas',
-                  angle: -90,
-                  position: 'outside',
-                  offset: -5,
-                  style: { textAnchor: 'middle' }
-                }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar dataKey="bajasMenor3m" stackId="a" fill="#dc2626" name="< 3 meses" />
-              <Bar dataKey="bajas3a6m" stackId="a" fill="#ea580c" name="3-6 meses" />
-              <Bar dataKey="bajas6a12m" stackId="a" fill="#d97706" name="6-12 meses" />
-              <Bar dataKey="bajasMas12m" stackId="a" fill="#65a30d" name="+12 meses" />
-            </BarChart>
-          </ResponsiveContainer>
+          <VisualizationContainer
+            title="Rotación por temporalidad"
+            type="chart"
+            className="h-[280px] w-full"
+            filename="rotacion-por-temporalidad"
+          >
+            {(fullscreen) => (
+              <div style={{ height: fullscreen ? 360 : 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyData.filter(d => {
+                    const fecha = new Date(d.year, d.month - 1, 1);
+                    const targetYear = currentYear || new Date().getFullYear();
+                    return d.year === targetYear && fecha <= new Date();
+                  })}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="mes" 
+                      tick={{ fontSize: 12 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      width={90}
+                      label={{
+                        value: 'Número de Bajas',
+                        angle: -90,
+                        position: 'outside',
+                        offset: -5,
+                        style: { textAnchor: 'middle' }
+                      }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Bar dataKey="bajasMenor3m" stackId="a" fill="#dc2626" name="< 3 meses" />
+                    <Bar dataKey="bajas3a6m" stackId="a" fill="#ea580c" name="3-6 meses" />
+                    <Bar dataKey="bajas6a12m" stackId="a" fill="#d97706" name="6-12 meses" />
+                    <Bar dataKey="bajasMas12m" stackId="a" fill="#65a30d" name="+12 meses" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </VisualizationContainer>
         </div>
       </div>
 
@@ -560,6 +594,13 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             <CardTitle className="text-lg">Tabla Comparativa - Rotación Acumulada 12 Meses Móviles</CardTitle>
           </CardHeader>
           <CardContent>
+            <VisualizationContainer
+              title="Tabla comparativa - Rotación acumulada"
+              type="table"
+              className="w-full"
+              filename="tabla-rotacion-acumulada"
+            >
+              {() => (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -651,6 +692,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                 </tbody>
               </table>
             </div>
+              )}
+            </VisualizationContainer>
           </CardContent>
         </Card>
 
@@ -660,6 +703,13 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             <CardTitle className="text-lg">Tabla Comparativa - Rotación Mensual</CardTitle>
           </CardHeader>
           <CardContent>
+            <VisualizationContainer
+              title="Tabla comparativa - Rotación mensual"
+              type="table"
+              className="w-full"
+              filename="tabla-rotacion-mensual"
+            >
+              {() => (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -726,6 +776,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                 </tbody>
               </table>
             </div>
+              )}
+            </VisualizationContainer>
           </CardContent>
         </Card>
       </div>

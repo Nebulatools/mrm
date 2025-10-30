@@ -3,6 +3,7 @@
 import { Fragment } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { isMotivoClave } from '@/lib/normalizers'
+import { VisualizationContainer } from './visualization-container'
 
 interface BajasPorMotivoData {
   motivo: string
@@ -40,6 +41,14 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
   const computeTotal = (row: BajasPorMotivoData) =>
     MESES.reduce((sum, mes) => sum + (row[mes as keyof BajasPorMotivoData] as number), 0)
 
+  const INVOLUNTARIA_MOTIVOS = [
+    'Rescisión por disciplina',
+    'Rescisión por desempeño',
+    'Término del contrato'
+  ] as const;
+
+  const emptyRow = Object.fromEntries(MESES.map(mes => [mes, 0])) as Omit<BajasPorMotivoData, 'motivo'>;
+
   const sections = [
     {
       key: 'involuntaria' as const,
@@ -52,10 +61,29 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
       rows: data.filter(row => !isMotivoClave(row.motivo))
     }
   ]
-    .map(section => ({
-      ...section,
-      rows: [...section.rows].sort((a, b) => computeTotal(b) - computeTotal(a))
-    }))
+    .map(section => {
+      let rows = [...section.rows];
+
+      if (section.key === 'involuntaria') {
+        rows = INVOLUNTARIA_MOTIVOS.map(motivo => {
+          const found = rows.find(row => row.motivo === motivo);
+          if (found) {
+            return found;
+          }
+          return {
+            motivo,
+            ...emptyRow
+          } as BajasPorMotivoData;
+        });
+      } else {
+        rows.sort((a, b) => computeTotal(b) - computeTotal(a));
+      }
+
+      return {
+        ...section,
+        rows
+      };
+    })
     .filter(section => section.rows.length > 0)
 
   const allRows = sections.flatMap(section => section.rows)
@@ -96,8 +124,15 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
         </p>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        <VisualizationContainer
+          title={`Bajas por motivo - ${year}`}
+          type="table"
+          className="w-full"
+          filename={`bajas-por-motivo-${year}`}
+        >
+          {() => (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
             <thead>
               <tr>
                 <th className="text-left p-2 font-medium text-gray-700 min-w-[160px]">
@@ -130,7 +165,10 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
                         colSpan={MESES.length + 2}
                         className="p-2 text-left text-sm font-semibold uppercase tracking-wide text-gray-700"
                       >
-                        {section.title} ({section.rows.length})
+                        <span>{section.title}</span>
+                        <span className="ml-2 text-xs font-medium normal-case text-gray-500">
+                          {section.rows.length} motivo{section.rows.length !== 1 ? 's' : ''}
+                        </span>
                       </td>
                     </tr>
                     {section.rows.map((row, rowIndex) => {
@@ -163,8 +201,10 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
                 ))
               )}
             </tbody>
-          </table>
-        </div>
+              </table>
+            </div>
+          )}
+        </VisualizationContainer>
 
         {/* Leyenda */}
         <div className="mt-4 flex items-center gap-4 text-sm">

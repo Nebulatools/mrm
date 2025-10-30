@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 //
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
 //
 import { supabase } from "@/lib/supabase";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";
@@ -62,7 +63,7 @@ export function RetentionFilterPanel({
 
     setFilters(defaultFilters);
     onFiltersChange(defaultFilters);
-  }, []); // Empty dependency array means this runs once on component mount
+  }, [onFiltersChange]);
   
   const [availableOptions, setAvailableOptions] = useState({
     years: [] as number[],
@@ -323,11 +324,15 @@ export function RetentionFilterPanel({
     renderOption: (option: string | number) => string;
   }) => {
     const isOpen = openDropdown === label;
-    
+    const [searchTerm, setSearchTerm] = useState("");
+
     const toggleDropdown = () => {
       setOpenDropdown(isOpen ? null : label);
+      if (isOpen) {
+        setSearchTerm("");
+      }
     };
-    
+
     const toggleOption = (option: string | number) => {
       const stringValue = option.toString();
       const newValues = selectedValues.includes(option)
@@ -338,6 +343,7 @@ export function RetentionFilterPanel({
 
     const clearSelection = () => {
       onSelectionChange([]);
+      setSearchTerm("");
     };
 
     // Cerrar dropdown cuando se hace clic afuera
@@ -346,6 +352,7 @@ export function RetentionFilterPanel({
         const target = event.target as Element;
         if (isOpen && !target.closest(`[data-dropdown="${label}"]`)) {
           setOpenDropdown(null);
+          setSearchTerm("");
         }
       };
 
@@ -353,55 +360,81 @@ export function RetentionFilterPanel({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen, label]);
 
+    const filteredOptions = useMemo(() => {
+      if (!searchTerm.trim()) {
+        return options;
+      }
+      const term = searchTerm.toLowerCase();
+      return options.filter(option => renderOption(option).toLowerCase().includes(term));
+    }, [options, searchTerm, renderOption]);
+
+    const selectedLabels = useMemo(() => {
+      return selectedValues
+        .map(value => ({ value, label: renderOption(value) }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    }, [selectedValues, renderOption]);
+
+    const previewLabel = selectedLabels.length
+      ? `${selectedLabels.slice(0, 2).map(item => item.label).join(', ')}${selectedLabels.length > 2 ? ` +${selectedLabels.length - 2}` : ''}`
+      : `Seleccionar ${label.toLowerCase()}`;
+
     return (
       <div className="relative" data-dropdown={label}>
-        <Label className="text-sm font-medium">{label}</Label>
+        <Label className="text-sm font-semibold text-gray-700">{label}</Label>
         <div className="mt-1">
           <Button
             variant="outline"
             onClick={toggleDropdown}
-            className="w-full justify-between h-9 px-3"
+            className="w-full justify-between h-10 px-3 text-sm"
           >
             <span className="truncate">
-              {selectedValues.length > 0 
-                ? `${selectedValues.length} seleccionado${selectedValues.length !== 1 ? 's' : ''}`
-                : `Seleccionar ${label.toLowerCase()}`
-              }
+              {previewLabel}
             </span>
             {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
           
           {isOpen && (
-            <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
-              {selectedValues.length > 0 && (
-                <div className="p-2 border-b">
+            <div className="absolute z-50 w-full mt-1 overflow-hidden rounded-lg border bg-white shadow-lg">
+              <div className="flex items-center gap-2 border-b bg-gray-50 px-3 py-2">
+                <Input
+                  value={searchTerm}
+                  onChange={event => setSearchTerm(event.target.value)}
+                  placeholder={`Buscar ${label.toLowerCase()}...`}
+                  className="h-8 text-sm"
+                />
+                {selectedValues.length > 0 && (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     onClick={clearSelection}
-                    className="text-xs text-red-600 hover:text-red-700"
+                    className="h-8 w-8 text-muted-foreground hover:text-red-600"
                   >
-                    <X className="h-3 w-3 mr-1" />
-                    Limpiar selección
+                    <X className="h-4 w-4" />
                   </Button>
-                </div>
-              )}
-              <div className="p-2">
-                {options.map(option => (
-                  <div key={option} className="flex items-center space-x-2 py-1">
-                    <Checkbox
-                      id={`${label}-${option}`}
-                      checked={selectedValues.includes(option)}
-                      onCheckedChange={() => toggleOption(option)}
-                    />
-                    <Label 
-                      htmlFor={`${label}-${option}`} 
-                      className="text-sm cursor-pointer flex-1"
-                    >
-                      {renderOption(option)}
-                    </Label>
-                  </div>
-                ))}
+                )}
+              </div>
+              <div className="max-h-60 overflow-y-auto p-2">
+                {filteredOptions.length === 0 ? (
+                  <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+                    {searchTerm ? `Sin resultados para ${searchTerm}` : 'Sin resultados'}
+                  </p>
+                ) : (
+                  filteredOptions.map(option => (
+                    <div key={option} className="flex items-center space-x-2 rounded px-2 py-1 hover:bg-gray-50">
+                      <Checkbox
+                        id={`${label}-${option}`}
+                        checked={selectedValues.includes(option)}
+                        onCheckedChange={() => toggleOption(option)}
+                      />
+                      <Label 
+                        htmlFor={`${label}-${option}`} 
+                        className="flex-1 cursor-pointer text-sm"
+                      >
+                        {renderOption(option)}
+                      </Label>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -454,27 +487,39 @@ export function RetentionFilterPanel({
           )}
         >
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <h3
-              className={cn(
-                "font-medium",
-                refreshEnabled && "font-heading text-sm uppercase tracking-[0.16em] text-brand-ink/80"
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p
+                className={cn(
+                  "text-sm font-semibold text-gray-700",
+                  refreshEnabled && "font-heading text-xs uppercase tracking-[0.16em] text-brand-ink"
+                )}
+              >
+                Selecciona los filtros que necesites
+              </p>
+              {getActiveFiltersCount() > 0 && (
+                <div
+                  className={cn(
+                    "text-xs text-muted-foreground",
+                    refreshEnabled && "text-brand-ink/70"
+                  )}
+                >
+                  {getActiveFiltersCount()} filtro{getActiveFiltersCount() !== 1 ? 's' : ''} activos · {getFilterSummary()}
+                </div>
               )}
-            >
-              Filtros de Retención
-            </h3>
+            </div>
             {getActiveFiltersCount() > 0 && (
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={clearAllFilters}
                 className={cn(
-                  "text-xs hover:text-red-600",
-                  refreshEnabled && "font-medium text-brand-ink/70 hover:text-brand-ink"
+                  "text-xs font-semibold text-blue-600 hover:text-red-600",
+                  refreshEnabled && "text-brand-ink/70 hover:text-brand-ink"
                 )}
               >
                 <X className="h-3 w-3 mr-1" />
-                Limpiar todos
+                Limpiar filtros
               </Button>
             )}
           </div>
@@ -492,7 +537,7 @@ export function RetentionFilterPanel({
           )}
 
           {/* Layout de dropdowns - Año, Mes, Negocio, Área, Departamento, Puesto, Clasificación, Ubicación */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-8">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {/* Años */}
             <MultiSelectDropdown
               label="Año"

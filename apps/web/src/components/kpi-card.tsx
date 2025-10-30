@@ -1,7 +1,6 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { KPIResult } from "@/lib/kpi-calculator";
 import { cn } from "@/lib/utils";
@@ -24,16 +23,6 @@ export function KPICard({
   secondaryLabel,
   secondaryIsPercent,
 }: KPICardProps) {
-  const getTrendIcon = (variance?: number) => {
-    if (!variance || Math.abs(variance) < 1) return null;
-    return variance > 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />;
-  };
-
-  const getTrendColor = (variance?: number) => {
-    if (!variance || Math.abs(variance) < 1) return "secondary";
-    return variance > 0 ? "default" : "destructive";
-  };
-
   const formatValue = (value: number, category: string): string => {
     if (category === 'costs') {
       return `$${value.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`;
@@ -46,6 +35,35 @@ export function KPICard({
     }
     return Math.round(value).toLocaleString('es-MX');
   };
+
+  const variance = typeof kpi.variance_percentage === 'number' ? kpi.variance_percentage : null;
+  const normalizedName = kpi.name.toLowerCase();
+  const betterWhenLower =
+    kpi.category === 'retention' ||
+    /rotaci[óo]n|baja|incidenc|ausenc|permiso|falta/.test(normalizedName);
+  const significantVariance = variance !== null && Math.abs(variance) >= 0.1;
+  const trendDirection = !significantVariance ? 'flat' : variance! > 0 ? 'up' : 'down';
+  const isGoodChange =
+    trendDirection === 'flat'
+      ? null
+      : betterWhenLower
+        ? variance! < 0
+        : variance! > 0;
+  const trendColor = trendDirection === 'flat'
+    ? 'text-gray-400'
+    : isGoodChange
+      ? 'text-green-600'
+      : 'text-red-600';
+  const trendBadgeClass = trendDirection === 'flat'
+    ? 'bg-gray-100 text-gray-600'
+    : isGoodChange
+      ? 'bg-green-100 text-green-700'
+      : 'bg-red-100 text-red-700';
+  const TrendIconComponent = trendDirection === 'flat'
+    ? null
+    : trendDirection === 'up'
+      ? TrendingUp
+      : TrendingDown;
 
   return (
     <Card
@@ -65,14 +83,16 @@ export function KPICard({
             )}
             <CardTitle
               className={cn(
-                "text-sm font-medium text-gray-600 dark:text-gray-400",
-                refreshEnabled && "font-heading text-xs uppercase tracking-[0.16em] text-brand-ink/70"
+                "text-sm font-semibold text-gray-700 dark:text-gray-200",
+                refreshEnabled && "font-heading text-xs uppercase tracking-[0.16em] text-brand-ink"
               )}
             >
               {kpi.name}
             </CardTitle>
           </div>
-          {getTrendIcon(kpi.variance_percentage)}
+          {TrendIconComponent && (
+            <TrendIconComponent className={cn("h-4 w-4", trendColor)} />
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -85,18 +105,17 @@ export function KPICard({
           >
             {formatValue(kpi.value, kpi.category)}
           </div>
-          {kpi.variance_percentage !== undefined && (
-            <Badge
-              variant={getTrendColor(kpi.variance_percentage)}
+          {variance !== null && (
+            <span
               className={cn(
-                "text-xs",
-                refreshEnabled &&
-                  "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-semibold text-brand-ink"
+                "rounded-full px-3 py-1 text-xs font-semibold",
+                trendBadgeClass,
+                refreshEnabled && "border border-transparent"
               )}
             >
-              {kpi.variance_percentage > 0 ? "+" : ""}
-              {kpi.variance_percentage.toFixed(1)}%
-            </Badge>
+              {variance > 0 ? '+' : ''}
+              {variance.toFixed(1)}%
+            </span>
           )}
         </div>
         {secondaryValue !== undefined && secondaryLabel && (
@@ -106,7 +125,9 @@ export function KPICard({
               refreshEnabled && "text-sm text-brand-ink/70"
             )}
           >
-            {secondaryLabel}:{" "}
+            <span className="font-semibold text-gray-700 dark:text-gray-200">
+              {secondaryLabel}:
+            </span>{' '}
             {secondaryIsPercent
               ? `${secondaryValue.toFixed(1)}%`
               : secondaryValue.toLocaleString("es-MX")}

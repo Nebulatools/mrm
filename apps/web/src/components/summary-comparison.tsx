@@ -16,6 +16,7 @@ import {
   calcularRotacionAcumulada12mConDesglose,
   calcularRotacionYTDConDesglose
 } from '@/lib/utils/kpi-helpers';
+import { VisualizationContainer } from '@/components/visualization-container';
 
 interface BajaRecord {
   numero_empleado: number;
@@ -695,7 +696,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
             </CardTitle>
           </CardHeader>
           <CardContent className={cn(refreshEnabled && "pt-0")}>
-            <ResponsiveContainer width="100%" height={350}>
+            <VisualizationContainer
+              title="Empleados activos por antigüedad"
+              type="chart"
+              className="h-[360px] w-full"
+              filename="activos-por-antiguedad"
+            >
+              {(fullscreen) => (
+                <div style={{ height: fullscreen ? 420 : 350 }}>
+                  <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={datosActivos}
                 margin={{ top: 5, right: 20, left: 10, bottom: 65 }}
@@ -737,7 +746,10 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                 <Bar dataKey="1-3 años" stackId="a" fill="#22c55e" />
                 <Bar dataKey="+3 años" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
-            </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </VisualizationContainer>
           </CardContent>
         </Card>
 
@@ -805,7 +817,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                   </div>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
+                <VisualizationContainer
+                  title={`Rotación mensual (${rotationLabel.toLowerCase()})`}
+                  type="chart"
+                  className="h-[320px] w-full"
+                  filename="rotacion-mensual-summary"
+                >
+                  {(fullscreen) => (
+                    <div style={{ height: fullscreen ? 380 : 300 }}>
+                      <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={monthlyChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
@@ -833,7 +853,10 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                       );
                     })}
                   </LineChart>
-                </ResponsiveContainer>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </VisualizationContainer>
               )}
             </CardContent>
           </Card>
@@ -854,7 +877,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                   </div>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
+                <VisualizationContainer
+                  title={`Rotación 12 meses móviles (${rotationLabel.toLowerCase()})`}
+                  type="chart"
+                  className="h-[320px] w-full"
+                  filename="rotacion-12m-summary"
+                >
+                  {(fullscreen) => (
+                    <div style={{ height: fullscreen ? 380 : 300 }}>
+                      <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={rollingChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
@@ -882,7 +913,10 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                       );
                     })}
                   </LineChart>
-                </ResponsiveContainer>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </VisualizationContainer>
               )}
             </CardContent>
           </Card>
@@ -903,7 +937,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                   </div>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
+                <VisualizationContainer
+                  title={`Rotación acumulada del año (${rotationLabel.toLowerCase()})`}
+                  type="chart"
+                  className="h-[320px] w-full"
+                  filename="rotacion-ytd-summary"
+                >
+                  {(fullscreen) => (
+                    <div style={{ height: fullscreen ? 380 : 300 }}>
+                      <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={ytdChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
@@ -931,7 +973,10 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                       );
                     })}
                   </LineChart>
-                </ResponsiveContainer>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </VisualizationContainer>
               )}
             </CardContent>
           </Card>
@@ -955,7 +1000,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                   </div>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
+                <VisualizationContainer
+                  title="Incidencias - últimos 12 meses"
+                  type="chart"
+                  className="h-[320px] w-full"
+                  filename="incidencias-12m-summary"
+                >
+                  {(fullscreen) => (
+                    <div style={{ height: fullscreen ? 380 : 300 }}>
+                      <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={incidenciasChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
@@ -983,7 +1036,10 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                       );
                     })}
                   </LineChart>
-                </ResponsiveContainer>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </VisualizationContainer>
               )}
             </CardContent>
           </Card>
@@ -1004,7 +1060,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                   </div>
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
+                <VisualizationContainer
+                  title="Permisos - últimos 12 meses"
+                  type="chart"
+                  className="h-[320px] w-full"
+                  filename="permisos-12m-summary"
+                >
+                  {(fullscreen) => (
+                    <div style={{ height: fullscreen ? 380 : 300 }}>
+                      <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={permisosChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
@@ -1032,7 +1096,10 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                       );
                     })}
                   </LineChart>
-                </ResponsiveContainer>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </VisualizationContainer>
               )}
             </CardContent>
           </Card>

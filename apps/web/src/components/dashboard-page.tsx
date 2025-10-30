@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,18 +32,17 @@ import { db, type PlantillaRecord } from "@/lib/supabase";
 import { createBrowserClient } from "@/lib/supabase-client";
 import { format } from "date-fns";
 import { es } from 'date-fns/locale';
-import { isMotivoClave } from "@/lib/normalizers";
 import { cn } from "@/lib/utils";
 // 🆕 Import helper functions
 import {
   calculateActivosPromedio,
-  calcularRotacionMensual,
-  calculateTotalBajas,
   calculateBajasTempranas,
-  filterByMotivo,
+  calcularRotacionConDesglose,
   calcularRotacionAcumulada12mConDesglose,
-  calcularRotacionYTDConDesglose
+  calcularRotacionYTDConDesglose,
+  calculateVariancePercentage
 } from "@/lib/utils/kpi-helpers";
+import { VisualizationContainer } from "./visualization-container";
 //
 
 interface DashboardData {
@@ -234,31 +234,6 @@ export function DashboardPage() {
   }, [timePeriod, selectedPeriod, retentionFilters, supabase]); // Added supabase to dependencies
 
   // REMOVED: Duplicated useEffect moved up
-
-  const getTrendIcon = (variance?: number) => {
-    if (!variance || Math.abs(variance) < 1) return null;
-    return variance > 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />;
-  };
-
-  const getTrendColor = (variance?: number) => {
-    if (!variance || Math.abs(variance) < 1) return "secondary";
-    return variance > 0 ? "destructive" : "default";
-  };
-
-  const categorizeKPIs = (kpis: KPIResult[]) => {
-    const categorized = {
-      headcount: kpis.filter(kpi => kpi.category === 'headcount'),
-      incidents: kpis.filter(kpi => kpi.category === 'incidents'),
-      retention: kpis.filter(kpi => kpi.category === 'retention'),
-      productivity: kpis.filter(kpi => kpi.category === 'productivity'),
-      period: kpis.filter(kpi => kpi.category === 'period')
-    };
-    console.log('Categorized KPIs:', categorized);
-    return categorized;
-  };
-
-  const categorized = categorizeKPIs(data.kpis);
-
   // Use shared filter util
   const filterPlantilla = (plantillaData: PlantillaRecord[]) => {
     const filtered = applyFiltersWithScope(plantillaData, retentionFilters, 'specific');
@@ -316,28 +291,123 @@ export function DashboardPage() {
   const bajasFiltered = bajasData.filter(b => empleadosFiltradosIds.has(b.numero_empleado));
   const incidenciasFiltered = incidenciasData.filter(i => empleadosFiltradosIds.has(i.emp));
 
-  // ✅ CORREGIDO: Usar plantillaFiltered para empleados activos (filtros específicos)
-  const activosNow = plantillaFiltered.filter(e => e.activo).length;
-  const bajasTotal = plantillaFiltered.filter(e => !!e.fecha_baja).length;
-  // Ingresos: contrataciones históricas y del mes actual
-  const now = new Date();
-  const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const ingresosHistorico = plantillaFiltered.filter(e => {
-    const fi = new Date(e.fecha_ingreso);
-    return !isNaN(fi.getTime());
+  const headcountComparisonBase = plantillaFilteredGeneral.length > 0 ? plantillaFilteredGeneral : plantillaFiltered;
+
+  const currentPeriodStart = new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1);
+  const currentPeriodEnd = new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0);
+  const previousPeriodEnd = new Date(currentPeriodStart.getFullYear(), currentPeriodStart.getMonth(), 0);
+  const previousPeriodStart = new Date(previousPeriodEnd.getFullYear(), previousPeriodEnd.getMonth(), 1);
+
+  const isActiveOnDate = (employee: PlantillaRecord, reference: Date) => {
+    const ingreso = employee.fecha_ingreso ? new Date(employee.fecha_ingreso) : null;
+    if (!ingreso || Number.isNaN(ingreso.getTime()) || ingreso > reference) {
+      return false;
+    }
+    if (!employee.fecha_baja) {
+      return true;
+    }
+    const baja = new Date(employee.fecha_baja);
+    return Number.isNaN(baja.getTime()) ? true : baja > reference;
+  };
+
+  const activeEmployeesCurrent = headcountComparisonBase.filter(emp => isActiveOnDate(emp, currentPeriodEnd));
+  const activeEmployeesPrevious = headcountComparisonBase.filter(emp => isActiveOnDate(emp, previousPeriodEnd));
+
+  const activosFinMes = activeEmployeesCurrent.length;
+  const activosFinMesPrev = activeEmployeesPrevious.length;
+
+  const ingresosMes = headcountComparisonBase.filter(emp => {
+    const fi = emp.fecha_ingreso ? new Date(emp.fecha_ingreso) : null;
+    return !!fi && !Number.isNaN(fi.getTime()) && fi >= currentPeriodStart && fi <= currentPeriodEnd;
   }).length;
-  const ingresosMes = plantillaFiltered.filter(e => {
-    const fi = new Date(e.fecha_ingreso);
-    return !isNaN(fi.getTime()) && fi >= startMonth && fi <= endMonth;
+  const ingresosMesPrev = headcountComparisonBase.filter(emp => {
+    const fi = emp.fecha_ingreso ? new Date(emp.fecha_ingreso) : null;
+    return !!fi && !Number.isNaN(fi.getTime()) && fi >= previousPeriodStart && fi <= previousPeriodEnd;
   }).length;
-  // ✅ CORREGIDO: Antigüedad promedio (meses) sobre activos FILTRADOS (filtros específicos)
-  const activeEmployees = plantillaFiltered.filter(e => e.activo);
-  const antigPromMeses = activeEmployees.length > 0
-    ? Math.round(activeEmployees.reduce((acc, e) => acc + monthsBetween(e.fecha_antiguedad || e.fecha_ingreso), 0) / activeEmployees.length)
+
+  const bajasMes = headcountComparisonBase.filter(emp => {
+    const fb = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+    return !!fb && !Number.isNaN(fb.getTime()) && fb >= currentPeriodStart && fb <= currentPeriodEnd;
+  }).length;
+  const bajasMesPrev = headcountComparisonBase.filter(emp => {
+    const fb = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+    return !!fb && !Number.isNaN(fb.getTime()) && fb >= previousPeriodStart && fb <= previousPeriodEnd;
+  }).length;
+
+  const antigPromMesesActual = activeEmployeesCurrent.length > 0
+    ? activeEmployeesCurrent.reduce((acc, emp) => acc + monthsBetween(emp.fecha_antiguedad || emp.fecha_ingreso, currentPeriodEnd), 0) / activeEmployeesCurrent.length
     : 0;
-  // ✅ CORREGIDO: Empleados con antigüedad < 3 meses (activos FILTRADOS - filtros específicos)
-  const menores3m = activeEmployees.filter(e => monthsBetween(e.fecha_antiguedad || e.fecha_ingreso) < 3).length;
+  const antigPromMesesPrev = activeEmployeesPrevious.length > 0
+    ? activeEmployeesPrevious.reduce((acc, emp) => acc + monthsBetween(emp.fecha_antiguedad || emp.fecha_ingreso, previousPeriodEnd), 0) / activeEmployeesPrevious.length
+    : 0;
+
+  const menores3mActual = activeEmployeesCurrent.filter(emp => monthsBetween(emp.fecha_antiguedad || emp.fecha_ingreso, currentPeriodEnd) < 3).length;
+  const menores3mPrev = activeEmployeesPrevious.filter(emp => monthsBetween(emp.fecha_antiguedad || emp.fecha_ingreso, previousPeriodEnd) < 3).length;
+
+  const formatISODate = (date: Date) => date.toISOString().split('T')[0];
+
+  const headcountKpiCards: { icon: ReactNode; kpi: KPIResult }[] = [
+    {
+      icon: <Users className="h-6 w-6" />,
+      kpi: {
+        name: 'Activos al cierre',
+        category: 'headcount',
+        value: activosFinMes,
+        previous_value: activosFinMesPrev,
+        variance_percentage: calculateVariancePercentage(activosFinMes, activosFinMesPrev),
+        period_start: formatISODate(currentPeriodStart),
+        period_end: formatISODate(currentPeriodEnd)
+      }
+    },
+    {
+      icon: <TrendingUp className="h-6 w-6" />,
+      kpi: {
+        name: 'Ingresos (Mes)',
+        category: 'headcount',
+        value: ingresosMes,
+        previous_value: ingresosMesPrev,
+        variance_percentage: calculateVariancePercentage(ingresosMes, ingresosMesPrev),
+        period_start: formatISODate(currentPeriodStart),
+        period_end: formatISODate(currentPeriodEnd)
+      }
+    },
+    {
+      icon: <UserMinus className="h-6 w-6" />,
+      kpi: {
+        name: 'Bajas (Mes)',
+        category: 'retention',
+        value: bajasMes,
+        previous_value: bajasMesPrev,
+        variance_percentage: calculateVariancePercentage(bajasMes, bajasMesPrev),
+        period_start: formatISODate(currentPeriodStart),
+        period_end: formatISODate(currentPeriodEnd)
+      }
+    },
+    {
+      icon: <Calendar className="h-6 w-6" />,
+      kpi: {
+        name: 'Antigüedad Promedio (meses)',
+        category: 'headcount',
+        value: antigPromMesesActual,
+        previous_value: antigPromMesesPrev,
+        variance_percentage: calculateVariancePercentage(antigPromMesesActual, antigPromMesesPrev),
+        period_start: formatISODate(currentPeriodStart),
+        period_end: formatISODate(currentPeriodEnd)
+      }
+    },
+    {
+      icon: <Calendar className="h-6 w-6" />,
+      kpi: {
+        name: 'Empl. < 3 meses',
+        category: 'headcount',
+        value: menores3mActual,
+        previous_value: menores3mPrev,
+        variance_percentage: calculateVariancePercentage(menores3mActual, menores3mPrev),
+        period_start: formatISODate(currentPeriodStart),
+        period_end: formatISODate(currentPeriodEnd)
+      }
+    }
+  ];
 
   // Clasificación: horizontal bar
   const classCounts = (() => {
@@ -380,7 +450,7 @@ export function DashboardPage() {
   // Headcount por Departamento (barras verticales)
   const hcDeptData = (() => {
     const map = new Map<string, number>();
-    activeEmployees.forEach(e => {
+    activeEmployeesCurrent.forEach(e => {
       const key = e.departamento || 'Sin Departamento';
       map.set(key, (map.get(key) || 0) + 1);
     });
@@ -390,7 +460,7 @@ export function DashboardPage() {
   // Headcount por Área (barras verticales)
   const hcAreaData = (() => {
     const map = new Map<string, number>();
-    activeEmployees.forEach(e => {
+    activeEmployeesCurrent.forEach(e => {
       const key = e.area || 'Sin Área';
       map.set(key, (map.get(key) || 0) + 1);
     });
@@ -406,7 +476,7 @@ export function DashboardPage() {
       return '12m+';
     };
     const map = new Map<string, { ['<3m']: number; ['3-6m']: number; ['6-12m']: number; ['12m+']: number }>();
-    activeEmployees.forEach(e => {
+    activeEmployeesCurrent.forEach(e => {
       const area = e.area || 'Sin Área';
       const m = monthsBetween(e.fecha_antiguedad || e.fecha_ingreso);
       const b = bins(m);
@@ -427,92 +497,122 @@ export function DashboardPage() {
       console.log('🔍 No plantilla data available yet, returning empty KPIs');
       return {
         activosPromedio: 0,
-        bajas: 0,
+        activosPromedioAnterior: 0,
+        activosPromedioVariacion: 0,
         bajasTempranas: 0,
+        bajasVoluntarias: 0,
+        bajasVoluntariasAnterior: 0,
+        bajasVoluntariasVariacion: 0,
+        bajasInvoluntarias: 0,
+        bajasInvoluntariasAnterior: 0,
+        bajasInvoluntariasVariacion: 0,
         rotacionMensual: 0,
-        rotacionAcumulada: 0,
-        rotacionAnioActual: 0,
-        bajasClaves: 0,
+        rotacionMensualAnterior: 0,
+        rotacionMensualVariacion: 0,
         rotacionMensualClaves: 0,
+        rotacionMensualClavesAnterior: 0,
+        rotacionMensualClavesVariacion: 0,
+        rotacionAcumulada: 0,
+        rotacionAcumuladaAnterior: 0,
+        rotacionAcumuladaVariacion: 0,
         rotacionAcumuladaClaves: 0,
+        rotacionAcumuladaClavesAnterior: 0,
+        rotacionAcumuladaClavesVariacion: 0,
+        rotacionAnioActual: 0,
+        rotacionAnioActualAnterior: 0,
+        rotacionAnioActualVariacion: 0,
         rotacionAnioActualClaves: 0,
+        rotacionAnioActualClavesAnterior: 0,
+        rotacionAnioActualClavesVariacion: 0,
       } as any;
     }
 
     console.log('🎯 Calculando KPIs de retención con filtros ESPECÍFICOS...');
 
-    // ✅ Datos filtrados según los filtros del usuario (ESPECÍFICO al período)
     const filteredPlantilla = filterPlantilla(data.plantilla);
-
-    // ✅ Datos filtrados por dimensiones pero SIN recortar por año/mes (para acumulados)
     const longTermPlantilla = plantillaFilteredGeneral.length > 0 ? plantillaFilteredGeneral : filteredPlantilla;
 
-    // Fechas del período actual
     const currentMonth = selectedPeriod.getMonth();
     const currentYear = selectedPeriod.getFullYear();
     const inicioMes = new Date(currentYear, currentMonth, 1);
     const finMes = new Date(currentYear, currentMonth + 1, 0);
+    const previousReference = new Date(currentYear, currentMonth - 1, 1);
+    const inicioMesAnterior = new Date(previousReference.getFullYear(), previousReference.getMonth(), 1);
+    const finMesAnterior = new Date(previousReference.getFullYear(), previousReference.getMonth() + 1, 0);
 
-    // ========================================================================
-    // KPIs PRINCIPALES (con filtros ESPECÍFICOS aplicados)
-    // ========================================================================
+    // Activos promedio del mes (y comparación)
+    const activosPromedioActual = calculateActivosPromedio(longTermPlantilla, inicioMes, finMes);
+    const activosPromedioPrevio = calculateActivosPromedio(longTermPlantilla, inicioMesAnterior, finMesAnterior);
 
-    // 1. Activos Promedio del mes (ESPECÍFICO - con filtros)
-    const activosProm = calculateActivosPromedio(filteredPlantilla, inicioMes, finMes);
+    // Bajas tempranas históricas (se mantiene para reportes auxiliares)
+    const bajasTempranas = calculateBajasTempranas(longTermPlantilla);
 
-    // 2. Total de Bajas (histórico - filtros por dimensión, sin limitar tiempo)
-    const bajasTotal = calculateTotalBajas(longTermPlantilla);
+    // Rotación mensual con desglose voluntaria/involuntaria
+    const rotacionMensualActual = calcularRotacionConDesglose(longTermPlantilla, inicioMes, finMes);
+    const rotacionMensualPrevio = calcularRotacionConDesglose(longTermPlantilla, inicioMesAnterior, finMesAnterior);
 
-    // 3. Bajas Tempranas (<3 meses - filtros por dimensión, sin limitar tiempo)
-    const bajasTemp = calculateBajasTempranas(longTermPlantilla);
+    // Rotación acumulada y YTD con sus comparativos
+    const rotacionAcumuladaActual = calcularRotacionAcumulada12mConDesglose(longTermPlantilla, selectedPeriod);
+    const rotacionAcumuladaPrevio = calcularRotacionAcumulada12mConDesglose(longTermPlantilla, previousReference);
+    const rotacionYTDActual = calcularRotacionYTDConDesglose(longTermPlantilla, selectedPeriod);
+    const rotacionYTDPrevio = calcularRotacionYTDConDesglose(longTermPlantilla, previousReference);
 
-    // 4. Rotación Mensual (ESPECÍFICO - con filtros)
-    const rotMensual = calcularRotacionMensual(filteredPlantilla, selectedPeriod);
+    const rotMensualVol = Number(rotacionMensualActual.voluntaria.toFixed(1));
+    const rotMensualInv = Number(rotacionMensualActual.involuntaria.toFixed(1));
+    const rotMensualVolPrev = Number(rotacionMensualPrevio.voluntaria.toFixed(1));
+    const rotMensualInvPrev = Number(rotacionMensualPrevio.involuntaria.toFixed(1));
 
-    // 5. ✅ Rotación Acumulada 12m (dimensiones aplicadas, sin recortar por mes/año manual)
-    const rotAcumuladaDesglose = calcularRotacionAcumulada12mConDesglose(longTermPlantilla, selectedPeriod);
-    const rotAcumulada = rotAcumuladaDesglose.total;
-    const rotAcumuladaInv = rotAcumuladaDesglose.involuntaria;
+    const rotAcumuladaVol = Number(rotacionAcumuladaActual.voluntaria.toFixed(1));
+    const rotAcumuladaInv = Number(rotacionAcumuladaActual.involuntaria.toFixed(1));
+    const rotAcumuladaVolPrev = Number(rotacionAcumuladaPrevio.voluntaria.toFixed(1));
+    const rotAcumuladaInvPrev = Number(rotacionAcumuladaPrevio.involuntaria.toFixed(1));
 
-    // 6. ✅ Rotación Año Actual / YTD (dimensiones aplicadas, sin recortar por mes/año manual)
-    const rotYTDDesglose = calcularRotacionYTDConDesglose(longTermPlantilla, selectedPeriod);
-    const rotYTD = rotYTDDesglose.total;
-    const rotYTDInv = rotYTDDesglose.involuntaria;
+    const rotYTDVol = Number(rotacionYTDActual.voluntaria.toFixed(1));
+    const rotYTDInv = Number(rotacionYTDActual.involuntaria.toFixed(1));
+    const rotYTDVolPrev = Number(rotacionYTDPrevio.voluntaria.toFixed(1));
+    const rotYTDInvPrev = Number(rotacionYTDPrevio.involuntaria.toFixed(1));
 
-    // ========================================================================
-    // KPIs SECUNDARIOS - INVOLUNTARIA (bajas clave)
-    // ========================================================================
+    const bajasVoluntariasMes = rotacionMensualActual.bajasVoluntarias;
+    const bajasVoluntariasMesPrev = rotacionMensualPrevio.bajasVoluntarias;
+    const bajasInvoluntariasMes = rotacionMensualActual.bajasInvoluntarias;
+    const bajasInvoluntariasMesPrev = rotacionMensualPrevio.bajasInvoluntarias;
 
-    // Filtrar solo bajas involuntarias para plantilla filtrada (ESPECÍFICO)
-    const plantillaInvoluntariaMensual = filterByMotivo(filteredPlantilla, 'involuntaria');
-    const plantillaInvoluntariaGeneral = filterByMotivo(longTermPlantilla, 'involuntaria');
-
-    // Cantidad de bajas involuntarias (filtradas)
-    const bajasInvoluntarias = calculateTotalBajas(plantillaInvoluntariaGeneral);
-
-    // Rotación mensual involuntaria (ESPECÍFICO - usa filtros)
-    const rotMensualInv = calcularRotacionMensual(plantillaInvoluntariaMensual, selectedPeriod);
-
-    console.log('✅ KPIs calculados correctamente con filtros ESPECÍFICOS:', {
-      activosPromedio: Math.round(activosProm),
-      bajas: bajasTotal,
-      rotacionMensual: rotMensual.toFixed(1) + '%',
-      rotacionAcumulada: rotAcumulada.toFixed(1) + '%',
-      rotacionYTD: rotYTD.toFixed(1) + '%'
+    console.log('✅ KPIs calculados con desglose voluntario/involuntario:', {
+      rotacionMensualVol: `${rotMensualVol}%`,
+      rotacionMensualInv: `${rotMensualInv}%`,
+      rotacionAcumuladaVol: `${rotAcumuladaVol}%`,
+      rotacionYTDVol: `${rotYTDVol}%`
     });
 
     return {
-      activosPromedio: Math.round(activosProm),
-      bajas: bajasTotal,
-      bajasTempranas: bajasTemp,
-      rotacionMensual: Number(rotMensual.toFixed(1)),
-      rotacionAcumulada: Number(rotAcumulada.toFixed(1)),
-      rotacionAnioActual: Number(rotYTD.toFixed(1)),
-      // Secundarios - Involuntaria
-      bajasClaves: bajasInvoluntarias,
-      rotacionMensualClaves: Number(rotMensualInv.toFixed(1)),
-      rotacionAcumuladaClaves: Number(rotAcumuladaInv.toFixed(1)),
-      rotacionAnioActualClaves: Number(rotYTDInv.toFixed(1)),
+      activosPromedio: Math.round(activosPromedioActual),
+      activosPromedioAnterior: Math.round(activosPromedioPrevio),
+      activosPromedioVariacion: calculateVariancePercentage(activosPromedioActual, activosPromedioPrevio),
+      bajasTempranas,
+      bajasVoluntarias: bajasVoluntariasMes,
+      bajasVoluntariasAnterior: bajasVoluntariasMesPrev,
+      bajasVoluntariasVariacion: calculateVariancePercentage(bajasVoluntariasMes, bajasVoluntariasMesPrev),
+      bajasInvoluntarias: bajasInvoluntariasMes,
+      bajasInvoluntariasAnterior: bajasInvoluntariasMesPrev,
+      bajasInvoluntariasVariacion: calculateVariancePercentage(bajasInvoluntariasMes, bajasInvoluntariasMesPrev),
+      rotacionMensual: rotMensualVol,
+      rotacionMensualAnterior: rotMensualVolPrev,
+      rotacionMensualVariacion: calculateVariancePercentage(rotMensualVol, rotMensualVolPrev),
+      rotacionMensualClaves: rotMensualInv,
+      rotacionMensualClavesAnterior: rotMensualInvPrev,
+      rotacionMensualClavesVariacion: calculateVariancePercentage(rotMensualInv, rotMensualInvPrev),
+      rotacionAcumulada: rotAcumuladaVol,
+      rotacionAcumuladaAnterior: rotAcumuladaVolPrev,
+      rotacionAcumuladaVariacion: calculateVariancePercentage(rotAcumuladaVol, rotAcumuladaVolPrev),
+      rotacionAcumuladaClaves: rotAcumuladaInv,
+      rotacionAcumuladaClavesAnterior: rotAcumuladaInvPrev,
+      rotacionAcumuladaClavesVariacion: calculateVariancePercentage(rotAcumuladaInv, rotAcumuladaInvPrev),
+      rotacionAnioActual: rotYTDVol,
+      rotacionAnioActualAnterior: rotYTDVolPrev,
+      rotacionAnioActualVariacion: calculateVariancePercentage(rotYTDVol, rotYTDVolPrev),
+      rotacionAnioActualClaves: rotYTDInv,
+      rotacionAnioActualClavesAnterior: rotYTDInvPrev,
+      rotacionAnioActualClavesVariacion: calculateVariancePercentage(rotYTDInv, rotYTDInvPrev),
     } as any;
   };
 
@@ -664,7 +764,7 @@ export function DashboardPage() {
               Incidencias
             </TabsTrigger>
             <TabsTrigger value="retention" className={tabTriggerClass}>
-              Retención
+              Rotación
             </TabsTrigger>
             {isAdmin && (
               <TabsTrigger value="trends" className={tabTriggerClass}>
@@ -703,45 +803,14 @@ export function DashboardPage() {
                   <KPICardSkeleton key={`headcount-skeleton-${index}`} refreshEnabled />
                 ))
               ) : (
-                <>
+                headcountKpiCards.map(({ kpi, icon }, index) => (
                   <KPICard
+                    key={`headcount-kpi-${index}`}
                     refreshEnabled={refreshEnabled}
-                    kpi={{
-                      name: 'Ingresos (Mes)',
-                      category: 'headcount',
-                      value: ingresosMes,
-                      period_start: startMonth.toISOString().slice(0, 10),
-                      period_end: endMonth.toISOString().slice(0, 10)
-                    }}
-                    icon={<TrendingUp className="h-6 w-6" />}
+                    kpi={kpi}
+                    icon={icon}
                   />
-                  <KPICard
-                    refreshEnabled={refreshEnabled}
-                    kpi={{ name: 'Bajas', category: 'headcount', value: bajasTotal, period_start: '', period_end: '' }}
-                    icon={<UserMinus className="h-6 w-6" />}
-                  />
-                  <KPICard
-                    refreshEnabled={refreshEnabled}
-                    kpi={{
-                      name: 'Ingresos',
-                      category: 'headcount',
-                      value: ingresosHistorico,
-                      period_start: '1900-01-01',
-                      period_end: new Date().toISOString().slice(0, 10)
-                    }}
-                    icon={<TrendingUp className="h-6 w-6" />}
-                  />
-                  <KPICard
-                    refreshEnabled={refreshEnabled}
-                    kpi={{ name: 'Antigüedad Promedio (meses)', category: 'headcount', value: antigPromMeses, period_start: '', period_end: '' }}
-                    icon={<Calendar className="h-6 w-6" />}
-                  />
-                  <KPICard
-                    refreshEnabled={refreshEnabled}
-                    kpi={{ name: 'Empl. < 3 meses', category: 'headcount', value: menores3m, period_start: '', period_end: '' }}
-                    icon={<Calendar className="h-6 w-6" />}
-                  />
-                </>
+                ))
               )}
             </div>
 
@@ -755,8 +824,15 @@ export function DashboardPage() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ width: '100%', height: 280 }}>
-                    <ResponsiveContainer>
+                  <VisualizationContainer
+                    title="Clasificación del personal"
+                    type="chart"
+                    className="h-[300px] w-full"
+                    filename="clasificacion-personal"
+                  >
+                    {(fullscreen) => (
+                      <div style={{ width: '100%', height: fullscreen ? 340 : 280 }}>
+                        <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={classCounts} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis type="number" allowDecimals={false} />
@@ -764,8 +840,10 @@ export function DashboardPage() {
                         <Tooltip />
                         <Bar dataKey="value" fill="#3b82f6" />
                       </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </VisualizationContainer>
                 </CardContent>
               </Card>
 
@@ -777,8 +855,15 @@ export function DashboardPage() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ width: '100%', height: 280 }}>
-                    <ResponsiveContainer>
+                  <VisualizationContainer
+                    title="Distribución por género"
+                    type="chart"
+                    className="h-[300px] w-full"
+                    filename="genero-personal"
+                  >
+                    {(fullscreen) => (
+                      <div style={{ width: '100%', height: fullscreen ? 340 : 280 }}>
+                        <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={genderCounts} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis type="number" allowDecimals={false} />
@@ -786,8 +871,10 @@ export function DashboardPage() {
                         <Tooltip />
                         <Bar dataKey="value" fill="#10b981" />
                       </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </VisualizationContainer>
                 </CardContent>
               </Card>
 
@@ -801,8 +888,15 @@ export function DashboardPage() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ width: '100%', height: 280 }}>
-                    <ResponsiveContainer>
+                  <VisualizationContainer
+                    title="Distribución por edad"
+                    type="chart"
+                    className="h-[300px] w-full"
+                    filename="distribucion-edad"
+                  >
+                    {(fullscreen) => (
+                      <div style={{ width: '100%', height: fullscreen ? 340 : 280 }}>
+                        <ResponsiveContainer width="100%" height="100%">
                       <ScatterChart margin={{ left: 16, right: 16, top: 8, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="age" name="Edad" unit=" años" type="number" allowDecimals={false} />
@@ -810,8 +904,10 @@ export function DashboardPage() {
                         <Tooltip cursor={{ strokeDasharray: '3 3' }} />
                         <Scatter data={ageScatterData} fill="#ef4444" />
                       </ScatterChart>
-                    </ResponsiveContainer>
-                  </div>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </VisualizationContainer>
                 </CardContent>
               </Card>
             </div>
@@ -825,8 +921,15 @@ export function DashboardPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer>
+                  <VisualizationContainer
+                    title="Headcount por departamento"
+                    type="chart"
+                    className="h-[320px] w-full"
+                    filename="hc-por-departamento"
+                  >
+                    {(fullscreen) => (
+                      <div style={{ width: '100%', height: fullscreen ? 360 : 300 }}>
+                        <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={hcDeptData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="departamento" tick={false} height={20} />
@@ -834,8 +937,10 @@ export function DashboardPage() {
                         <Tooltip />
                         <Bar dataKey="count" fill="#6366f1" />
                       </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </VisualizationContainer>
                 </CardContent>
               </Card>
 
@@ -844,8 +949,15 @@ export function DashboardPage() {
                   <CardTitle className={cn("text-base", elevatedTitleClass)}>HC por Área</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer>
+                  <VisualizationContainer
+                    title="Headcount por área"
+                    type="chart"
+                    className="h-[320px] w-full"
+                    filename="hc-por-area"
+                  >
+                    {(fullscreen) => (
+                      <div style={{ width: '100%', height: fullscreen ? 360 : 300 }}>
+                        <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={hcAreaData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="area" tick={false} height={20} />
@@ -853,8 +965,10 @@ export function DashboardPage() {
                         <Tooltip />
                         <Bar dataKey="count" fill="#f59e0b" />
                       </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </VisualizationContainer>
                 </CardContent>
               </Card>
 
@@ -868,8 +982,15 @@ export function DashboardPage() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer>
+                  <VisualizationContainer
+                    title="Antigüedad por área"
+                    type="chart"
+                    className="h-[320px] w-full"
+                    filename="antiguedad-por-area"
+                  >
+                    {(fullscreen) => (
+                      <div style={{ width: '100%', height: fullscreen ? 360 : 300 }}>
+                        <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={seniorityByArea} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis type="number" allowDecimals={false} />
@@ -881,8 +1002,10 @@ export function DashboardPage() {
                         <Bar dataKey="6-12m" stackId="a" fill="#a855f7" />
                         <Bar dataKey="12m+" stackId="a" fill="#ef4444" />
                       </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </VisualizationContainer>
                 </CardContent>
               </Card>
             </div>
@@ -924,6 +1047,8 @@ export function DashboardPage() {
                       name: 'Activos Promedio',
                       category: 'headcount',
                       value: filteredRetentionKPIs.activosPromedio,
+                      previous_value: filteredRetentionKPIs.activosPromedioAnterior,
+                      variance_percentage: filteredRetentionKPIs.activosPromedioVariacion,
                       period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1)
                         .toISOString()
                         .split('T')[0],
@@ -937,23 +1062,31 @@ export function DashboardPage() {
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Bajas',
+                      name: 'Bajas Voluntarias',
                       category: 'retention',
-                      value: filteredRetentionKPIs.bajas,
-                      period_start: '1900-01-01',
-                      period_end: new Date().toISOString().split('T')[0]
+                      value: filteredRetentionKPIs.bajasVoluntarias,
+                      previous_value: filteredRetentionKPIs.bajasVoluntariasAnterior,
+                      variance_percentage: filteredRetentionKPIs.bajasVoluntariasVariacion,
+                      period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1)
+                        .toISOString()
+                        .split('T')[0],
+                      period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0)
+                        .toISOString()
+                        .split('T')[0]
                     }}
                     icon={<UserMinus className="h-6 w-6" />}
                     secondaryLabel="Bajas Involuntarias"
-                    secondaryValue={filteredRetentionKPIs.bajasClaves}
+                    secondaryValue={filteredRetentionKPIs.bajasInvoluntarias}
                   />
 
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Rotación Mensual',
+                      name: 'Rotación Mensual (Voluntaria)',
                       category: 'retention',
                       value: filteredRetentionKPIs.rotacionMensual,
+                      previous_value: filteredRetentionKPIs.rotacionMensualAnterior,
+                      variance_percentage: filteredRetentionKPIs.rotacionMensualVariacion,
                       period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1)
                         .toISOString()
                         .split('T')[0],
@@ -970,9 +1103,11 @@ export function DashboardPage() {
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Rotación Acumulada',
+                      name: 'Rotación Acumulada (Voluntaria)',
                       category: 'retention',
                       value: filteredRetentionKPIs.rotacionAcumulada,
+                      previous_value: filteredRetentionKPIs.rotacionAcumuladaAnterior,
+                      variance_percentage: filteredRetentionKPIs.rotacionAcumuladaVariacion,
                       period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() - 11, 1)
                         .toISOString()
                         .split('T')[0],
@@ -989,9 +1124,11 @@ export function DashboardPage() {
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Rotación Año Actual',
+                      name: 'Rotación Año Actual (Voluntaria)',
                       category: 'retention',
                       value: filteredRetentionKPIs.rotacionAnioActual,
+                      previous_value: filteredRetentionKPIs.rotacionAnioActualAnterior,
+                      variance_percentage: filteredRetentionKPIs.rotacionAnioActualVariacion,
                       period_start: new Date(selectedPeriod.getFullYear(), 0, 1).toISOString().split('T')[0],
                       period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0)
                         .toISOString()

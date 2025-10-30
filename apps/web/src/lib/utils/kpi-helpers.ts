@@ -8,6 +8,20 @@
 import type { PlantillaRecord } from '../types/records';
 import { isMotivoClave } from '../normalizers';
 
+/**
+ * Calcula el porcentaje de variación contra un valor anterior.
+ * Devuelve 100 cuando el anterior es 0 y el actual es distinto de 0.
+ */
+export function calculateVariancePercentage(actual: number, previous: number): number {
+  if (!Number.isFinite(previous) || Math.abs(previous) < 1e-6) {
+    return Number(
+      (Number.isFinite(actual) && Math.abs(actual) > 1e-6 ? 100 : 0).toFixed(1)
+    );
+  }
+
+  return Number((((actual - previous) / Math.abs(previous)) * 100).toFixed(1));
+}
+
 // ============================================================================
 // FUNCIONES BASE DE CÁLCULO
 // ============================================================================

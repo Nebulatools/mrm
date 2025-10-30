@@ -16,6 +16,8 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import type { PlantillaRecord } from "@/lib/supabase";
 import { prettyMotivo, normalizePuesto, normalizeDepartamento, isMotivoClave } from "@/lib/normalizers";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { VisualizationContainer } from "@/components/visualization-container";
 
 //
 
@@ -95,16 +97,12 @@ export function DismissalReasonsTable({
     }));
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-';
-    try {
-      return new Date(dateString).toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit', 
-        year: 'numeric'
-      });
-    } catch {
-      return dateString || '-';
+    if (!dateString) return '—';
+    const parsed = new Date(dateString);
+    if (Number.isNaN(parsed.getTime())) {
+      return dateString || '—';
     }
+    return format(parsed, 'dd-MM-yyyy');
   };
 
   return (
@@ -149,6 +147,13 @@ export function DismissalReasonsTable({
           </p>
         </CardHeader>
         <CardContent className={cn(refreshEnabled && "px-0 pb-0 pt-0")}>
+          <VisualizationContainer
+            title="Detalle de bajas"
+            type="table"
+            className="w-full"
+            filename="detalle-bajas"
+          >
+            {() => (
           <Table
             className={cn(
               refreshEnabled &&
@@ -276,6 +281,8 @@ export function DismissalReasonsTable({
               ))}
             </TableBody>
           </Table>
+            )}
+          </VisualizationContainer>
 
           {empleadosBaja.length > 10 && (
             <div
