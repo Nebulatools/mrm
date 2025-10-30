@@ -88,7 +88,10 @@ export function DashboardPage() {
     lastUpdated: new Date(),
     loading: true
   });
-  const [selectedPeriod] = useState<Date>(new Date());
+  const [selectedPeriod, setSelectedPeriod] = useState<Date>(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
   const [timePeriod] = useState<TimePeriod>('alltime');
   const [bajasPorMotivoData, setBajasPorMotivoData] = useState<BajasPorMotivoData[]>([]);
   const [bajasData, setBajasData] = useState<any[]>([]);
@@ -118,10 +121,108 @@ export function DashboardPage() {
     [retentionFilters]
   );
 
-  // Calcular año actual basado en filtros
-  const currentYear = retentionFilters.years.length > 0
-    ? Math.max(...retentionFilters.years)
-    : new Date().getFullYear();
+  const datasetDates = useMemo(() => {
+    const dates: Date[] = [];
+    if (data.lastUpdated) {
+      const lastUpdate = new Date(data.lastUpdated);
+      if (!Number.isNaN(lastUpdate.getTime())) {
+        dates.push(lastUpdate);
+      }
+    }
+
+    (data.plantilla || []).forEach((emp) => {
+      if (emp.fecha_ingreso) {
+        const ingreso = new Date(emp.fecha_ingreso);
+        if (!Number.isNaN(ingreso.getTime())) {
+          dates.push(ingreso);
+        }
+      }
+      if (emp.fecha_baja) {
+        const baja = new Date(emp.fecha_baja);
+        if (!Number.isNaN(baja.getTime())) {
+          dates.push(baja);
+        }
+      }
+    });
+
+    return dates;
+  }, [data.lastUpdated, data.plantilla]);
+
+  const fallbackReferenceDate = useMemo(() => {
+    if (datasetDates.length === 0) {
+      return new Date();
+    }
+    const maxTimestamp = Math.max(...datasetDates.map((date) => date.getTime()));
+    return new Date(maxTimestamp);
+  }, [datasetDates]);
+
+  const computedSelectedPeriod = useMemo(() => {
+    const fallbackMonth = new Date(
+      fallbackReferenceDate.getFullYear(),
+      fallbackReferenceDate.getMonth(),
+      1
+    );
+
+    const rawYears = Array.isArray(retentionFilters.years)
+      ? retentionFilters.years.filter((year) => Number.isFinite(year))
+      : [];
+    const rawMonths = Array.isArray(retentionFilters.months)
+      ? retentionFilters.months.filter(
+          (month) => Number.isFinite(month) && month >= 1 && month <= 12
+        )
+      : [];
+
+    const hasYears = rawYears.length > 0;
+    const hasMonths = rawMonths.length > 0;
+
+    if (hasYears && hasMonths) {
+      const year = Math.max(...rawYears);
+      const month = Math.max(...rawMonths);
+      return new Date(year, month - 1, 1);
+    }
+
+    if (hasYears) {
+      const year = Math.max(...rawYears);
+      const month =
+        year === fallbackMonth.getFullYear()
+          ? fallbackMonth.getMonth() + 1
+          : 12;
+      return new Date(year, month - 1, 1);
+    }
+
+    if (hasMonths) {
+      const month = Math.max(...rawMonths);
+      return new Date(fallbackMonth.getFullYear(), month - 1, 1);
+    }
+
+    return fallbackMonth;
+  }, [fallbackReferenceDate, retentionFilters]);
+
+  useEffect(() => {
+    if (!computedSelectedPeriod) {
+      return;
+    }
+    setSelectedPeriod((prev) => {
+      const prevYear = prev.getFullYear();
+      const prevMonth = prev.getMonth();
+      const nextYear = computedSelectedPeriod.getFullYear();
+      const nextMonth = computedSelectedPeriod.getMonth();
+      if (prevYear === nextYear && prevMonth === nextMonth) {
+        return prev;
+      }
+      return new Date(nextYear, nextMonth, 1);
+    });
+  }, [computedSelectedPeriod]);
+
+  const currentYear = useMemo(() => {
+    if (retentionFilters.years.length > 0) {
+      const numericYears = retentionFilters.years.filter((year) => Number.isFinite(year));
+      if (numericYears.length > 0) {
+        return Math.max(...numericYears);
+      }
+    }
+    return selectedPeriod.getFullYear();
+  }, [retentionFilters.years, selectedPeriod]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -544,7 +645,10 @@ export function DashboardPage() {
     console.log('🎯 Calculando KPIs de retención con filtros ESPECÍFICOS...');
 
     const filteredPlantilla = filterPlantilla(data.plantilla);
-    const longTermPlantilla = plantillaFilteredGeneral.length > 0 ? plantillaFilteredGeneral : filteredPlantilla;
+    const longTermPlantilla =
+      plantillaFilteredYearScope.length > 0
+        ? plantillaFilteredYearScope
+        : filteredPlantilla;
 
     const currentMonth = selectedPeriod.getMonth();
     const currentYear = selectedPeriod.getFullYear();
@@ -631,10 +735,7 @@ export function DashboardPage() {
   };
 
   const filteredRetentionKPIs = getFilteredRetentionKPIs();
-  const periodLabel =
-    timePeriod === "alltime"
-      ? "Todos los períodos"
-      : format(selectedPeriod, "MMMM yyyy", { locale: es });
+  const periodLabel = format(selectedPeriod, "MMMM yyyy", { locale: es });
   const lastUpdatedDisplay = !data.loading
     ? format(data.lastUpdated, "dd/MM/yyyy HH:mm")
     : null;
