@@ -99,6 +99,12 @@ export function DashboardPage() {
 
   // Toggle para filtrar visualizaciones por rotación involuntaria vs voluntaria
   const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('involuntaria');
+  const [incidentsKpiSnapshot, setIncidentsKpiSnapshot] = useState<{
+    incidencias: number;
+    incidenciasAnterior: number;
+    permisos: number;
+    permisosAnterior: number;
+  } | null>(null);
 
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
     years: [],
@@ -409,7 +415,8 @@ export function DashboardPage() {
     .map((i) => ({
       emp: i.emp,
       fecha: i.fecha,
-      inci: i.inci ?? i.incidencia ?? ''
+      inci: i.inci ?? i.incidencia ?? '',
+      incidencia: i.incidencia ?? null
     }));
 
   const headcountComparisonBase = plantillaFilteredGeneral.length > 0 ? plantillaFilteredGeneral : plantillaFiltered;
@@ -661,6 +668,7 @@ export function DashboardPage() {
     const inicioMes = new Date(currentYear, currentMonth, 1);
     const finMes = new Date(currentYear, currentMonth + 1, 0);
     const previousReference = new Date(currentYear, currentMonth - 1, 1);
+    const previousYearReference = new Date(currentYear - 1, currentMonth, 1);
     const inicioMesAnterior = new Date(previousReference.getFullYear(), previousReference.getMonth(), 1);
     const finMesAnterior = new Date(previousReference.getFullYear(), previousReference.getMonth() + 1, 0);
 
@@ -677,24 +685,24 @@ export function DashboardPage() {
 
     // Rotación acumulada y YTD con sus comparativos
     const rotacionAcumuladaActual = calcularRotacionAcumulada12mConDesglose(longTermPlantilla, selectedPeriod);
-    const rotacionAcumuladaPrevio = calcularRotacionAcumulada12mConDesglose(longTermPlantilla, previousReference);
+    const rotacionAcumuladaPrevio = calcularRotacionAcumulada12mConDesglose(longTermPlantilla, previousYearReference);
     const rotacionYTDActual = calcularRotacionYTDConDesglose(longTermPlantilla, selectedPeriod);
-    const rotacionYTDPrevio = calcularRotacionYTDConDesglose(longTermPlantilla, previousReference);
+    const rotacionYTDPrevio = calcularRotacionYTDConDesglose(longTermPlantilla, previousYearReference);
 
-    const rotMensualVol = Number(rotacionMensualActual.voluntaria.toFixed(1));
     const rotMensualInv = Number(rotacionMensualActual.involuntaria.toFixed(1));
-    const rotMensualVolPrev = Number(rotacionMensualPrevio.voluntaria.toFixed(1));
+    const rotMensualTotal = Number(rotacionMensualActual.total.toFixed(1));
     const rotMensualInvPrev = Number(rotacionMensualPrevio.involuntaria.toFixed(1));
+    const rotMensualTotalPrev = Number(rotacionMensualPrevio.total.toFixed(1));
 
-    const rotAcumuladaVol = Number(rotacionAcumuladaActual.voluntaria.toFixed(1));
     const rotAcumuladaInv = Number(rotacionAcumuladaActual.involuntaria.toFixed(1));
-    const rotAcumuladaVolPrev = Number(rotacionAcumuladaPrevio.voluntaria.toFixed(1));
+    const rotAcumuladaTotal = Number(rotacionAcumuladaActual.total.toFixed(1));
     const rotAcumuladaInvPrev = Number(rotacionAcumuladaPrevio.involuntaria.toFixed(1));
+    const rotAcumuladaTotalPrev = Number(rotacionAcumuladaPrevio.total.toFixed(1));
 
-    const rotYTDVol = Number(rotacionYTDActual.voluntaria.toFixed(1));
     const rotYTDInv = Number(rotacionYTDActual.involuntaria.toFixed(1));
-    const rotYTDVolPrev = Number(rotacionYTDPrevio.voluntaria.toFixed(1));
+    const rotYTDTotal = Number(rotacionYTDActual.total.toFixed(1));
     const rotYTDInvPrev = Number(rotacionYTDPrevio.involuntaria.toFixed(1));
+    const rotYTDTotalPrev = Number(rotacionYTDPrevio.total.toFixed(1));
 
     const bajasVoluntariasMes = rotacionMensualActual.bajasVoluntarias;
     const bajasVoluntariasMesPrev = rotacionMensualPrevio.bajasVoluntarias;
@@ -702,10 +710,10 @@ export function DashboardPage() {
     const bajasInvoluntariasMesPrev = rotacionMensualPrevio.bajasInvoluntarias;
 
     console.log('✅ KPIs calculados con desglose voluntario/involuntario:', {
-      rotacionMensualVol: `${rotMensualVol}%`,
+      rotacionMensualTotal: `${rotMensualTotal}%`,
       rotacionMensualInv: `${rotMensualInv}%`,
-      rotacionAcumuladaVol: `${rotAcumuladaVol}%`,
-      rotacionYTDVol: `${rotYTDVol}%`
+      rotacionAcumuladaTotal: `${rotAcumuladaTotal}%`,
+      rotacionYTDTotal: `${rotYTDTotal}%`
     });
 
     return {
@@ -719,21 +727,21 @@ export function DashboardPage() {
       bajasInvoluntarias: bajasInvoluntariasMes,
       bajasInvoluntariasAnterior: bajasInvoluntariasMesPrev,
       bajasInvoluntariasVariacion: calculateVariancePercentage(bajasInvoluntariasMes, bajasInvoluntariasMesPrev),
-      rotacionMensual: rotMensualVol,
-      rotacionMensualAnterior: rotMensualVolPrev,
-      rotacionMensualVariacion: calculateVariancePercentage(rotMensualVol, rotMensualVolPrev),
+      rotacionMensual: rotMensualTotal,
+      rotacionMensualAnterior: rotMensualTotalPrev,
+      rotacionMensualVariacion: calculateVariancePercentage(rotMensualTotal, rotMensualTotalPrev),
       rotacionMensualClaves: rotMensualInv,
       rotacionMensualClavesAnterior: rotMensualInvPrev,
       rotacionMensualClavesVariacion: calculateVariancePercentage(rotMensualInv, rotMensualInvPrev),
-      rotacionAcumulada: rotAcumuladaVol,
-      rotacionAcumuladaAnterior: rotAcumuladaVolPrev,
-      rotacionAcumuladaVariacion: calculateVariancePercentage(rotAcumuladaVol, rotAcumuladaVolPrev),
+      rotacionAcumulada: rotAcumuladaTotal,
+      rotacionAcumuladaAnterior: rotAcumuladaTotalPrev,
+      rotacionAcumuladaVariacion: calculateVariancePercentage(rotAcumuladaTotal, rotAcumuladaTotalPrev),
       rotacionAcumuladaClaves: rotAcumuladaInv,
       rotacionAcumuladaClavesAnterior: rotAcumuladaInvPrev,
       rotacionAcumuladaClavesVariacion: calculateVariancePercentage(rotAcumuladaInv, rotAcumuladaInvPrev),
-      rotacionAnioActual: rotYTDVol,
-      rotacionAnioActualAnterior: rotYTDVolPrev,
-      rotacionAnioActualVariacion: calculateVariancePercentage(rotYTDVol, rotYTDVolPrev),
+      rotacionAnioActual: rotYTDTotal,
+      rotacionAnioActualAnterior: rotYTDTotalPrev,
+      rotacionAnioActualVariacion: calculateVariancePercentage(rotYTDTotal, rotYTDTotalPrev),
       rotacionAnioActualClaves: rotYTDInv,
       rotacionAnioActualClavesAnterior: rotYTDInvPrev,
       rotacionAnioActualClavesVariacion: calculateVariancePercentage(rotYTDInv, rotYTDInvPrev),
@@ -925,11 +933,21 @@ export function DashboardPage() {
           <TabsContent value="overview" className="space-y-6">
             <SummaryComparison
               plantilla={plantillaFiltered}
-              plantillaYearScope={plantillaFilteredGeneral}
+              plantillaYearScope={plantillaFilteredYearScope}
               bajas={bajasFiltered}
               incidencias={incidenciasFiltered}
               selectedYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}
               selectedMonth={retentionFilters.months.length > 0 ? retentionFilters.months[0] : undefined}
+              referenceDate={selectedPeriod}
+              retentionKPIsOverride={{
+                rotacionMensual: filteredRetentionKPIs.rotacionMensual,
+                rotacionMensualAnterior: filteredRetentionKPIs.rotacionMensualAnterior,
+                rotacionAcumulada: filteredRetentionKPIs.rotacionAcumulada,
+                rotacionAcumuladaAnterior: filteredRetentionKPIs.rotacionAcumuladaAnterior,
+                rotacionAnioActual: filteredRetentionKPIs.rotacionAnioActual,
+                rotacionAnioActualAnterior: filteredRetentionKPIs.rotacionAnioActualAnterior
+              }}
+              incidentsKPIsOverride={incidentsKpiSnapshot || undefined}
               refreshEnabled={refreshEnabled}
             />
           </TabsContent>
@@ -1259,6 +1277,7 @@ export function DashboardPage() {
               currentYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}
               selectedMonths={retentionFilters.months}
               initialIncidencias={incidenciasData}
+              onKPIsUpdate={setIncidentsKpiSnapshot}
             />
           </TabsContent>
 
@@ -1323,7 +1342,7 @@ export function DashboardPage() {
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Rotación Mensual (Voluntaria)',
+                      name: 'Rotación Mensual',
                       category: 'retention',
                       value: filteredRetentionKPIs.rotacionMensual,
                       previous_value: filteredRetentionKPIs.rotacionMensualAnterior,
@@ -1344,7 +1363,7 @@ export function DashboardPage() {
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Rotación Acumulada (Voluntaria)',
+                      name: 'Rotación Acumulada',
                       category: 'retention',
                       value: filteredRetentionKPIs.rotacionAcumulada,
                       previous_value: filteredRetentionKPIs.rotacionAcumuladaAnterior,
@@ -1365,7 +1384,7 @@ export function DashboardPage() {
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Rotación Año Actual (Voluntaria)',
+                      name: 'Rotación Año Actual',
                       category: 'retention',
                       value: filteredRetentionKPIs.rotacionAnioActual,
                       previous_value: filteredRetentionKPIs.rotacionAnioActualAnterior,

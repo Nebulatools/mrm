@@ -1,12 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Users, TrendingDown, AlertCircle, TrendingUp, Minus, ArrowUp, ArrowDown } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import type { TooltipProps, TooltipPayload } from 'recharts';
 import { isMotivoClave, normalizeIncidenciaCode } from '@/lib/normalizers';
 import { cn } from '@/lib/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
@@ -17,6 +18,8 @@ import {
   calcularRotacionYTDConDesglose
 } from '@/lib/utils/kpi-helpers';
 import { VisualizationContainer } from '@/components/visualization-container';
+import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
+import { endOfMonth, startOfMonth, subMonths } from 'date-fns';
 
 interface BajaRecord {
   numero_empleado: number;
@@ -38,8 +41,25 @@ interface SummaryComparisonProps {
   incidencias: IncidenciaRecord[];
   selectedYear?: number;    // ✅ Opcional: undefined = SIN filtro (mostrar TODO)
   selectedMonth?: number;   // ✅ Opcional: undefined = SIN filtro (mostrar TODO)
+  referenceDate?: Date;
   refreshEnabled?: boolean;
+  retentionKPIsOverride?: {
+    rotacionMensual: number;
+    rotacionMensualAnterior: number;
+    rotacionAcumulada: number;
+    rotacionAcumuladaAnterior: number;
+    rotacionAnioActual: number;
+    rotacionAnioActualAnterior: number;
+  };
+  incidentsKPIsOverride?: {
+    incidencias: number;
+    incidenciasAnterior: number;
+    permisos: number;
+    permisosAnterior: number;
+  };
 }
+
+type IncidenciaWithDescription = IncidenciaRecord & { incidencia?: string | null };
 
 // ✅ Códigos de incidencias y permisos (igual que en incidents-tab.tsx)
 const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
@@ -52,7 +72,69 @@ const formatMonthLabel = (date: Date) => {
   return `${monthWithCase} ${date.getFullYear().toString().slice(-2)}`;
 };
 
-const NEGOCIO_COLOR_PALETTE = ['#2563eb', '#f97316', '#10b981', '#9333ea', '#f43f5e', '#14b8a6'];
+const NEGOCIO_COLOR_PALETTE = CHART_COLORS.modernSeries;
+const LEGEND_WRAPPER_STYLE: CSSProperties = { paddingTop: 8 };
+const legendFormatter = (value: string) => (
+  <span className="text-[11px] font-medium text-slate-600">{value}</span>
+);
+const TOOLTIP_STYLE: CSSProperties = {
+  borderRadius: 12,
+  borderColor: '#E2E8F0',
+  backgroundColor: '#FFFFFF',
+  padding: '10px 12px',
+  boxShadow: '0 12px 32px -18px rgba(15, 23, 42, 0.35)'
+};
+const TOOLTIP_LABEL_STYLE: CSSProperties = { fontSize: 11, fontWeight: 600, color: '#334155' };
+const TOOLTIP_WRAPPER_STYLE: CSSProperties = {
+  backgroundColor: 'transparent',
+  border: 'none',
+  boxShadow: 'none',
+  borderRadius: 0,
+  outline: 'none'
+};
+const TENURE_COLORS = [
+  getModernColor(0),
+  getModernColor(2),
+  getModernColor(3),
+  getModernColor(4),
+  getModernColor(5)
+];
+
+const createSummaryTooltip = (
+  valueFormatter: (entry: TooltipPayload, index: number) => string,
+  nameFormatter?: (entry: TooltipPayload, index: number) => string
+) =>
+  ({ active, payload, label }: TooltipProps<number, string>) => {
+    if (!active || !payload || payload.length === 0) {
+      return null;
+    }
+
+    return (
+      <div
+        className="rounded-xl border px-3 py-2 shadow-lg"
+        style={{
+          borderColor: '#E2E8F0',
+          backgroundColor: '#FFFFFF',
+          boxShadow: '0 16px 45px -20px rgba(15, 23, 42, 0.45)'
+        }}
+      >
+        <p className="text-[11px] font-semibold text-slate-700">{label}</p>
+        <div className="mt-1 space-y-1.5">
+          {payload.map((entry, index) => (
+            <div key={`${entry.dataKey}-${index}`} className="flex items-center gap-2 text-[11px]">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color ?? getModernColor(index) }} />
+              <span className="flex-1 truncate font-medium text-slate-700">
+                {nameFormatter ? nameFormatter(entry, index) : String(entry.name ?? '')}
+              </span>
+              <span className="ml-auto font-semibold text-slate-700">
+                {valueFormatter(entry, index)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
 const sanitizeSeriesKey = (label: string) => {
   const base = label
@@ -71,7 +153,18 @@ type NegocioSeriesConfig = {
   empleadoIds: Set<number>;
 };
 
-export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incidencias, selectedYear, selectedMonth, refreshEnabled = false }: SummaryComparisonProps) {
+export function SummaryComparison({
+  plantilla,
+  plantillaYearScope,
+  bajas,
+  incidencias,
+  selectedYear,
+  selectedMonth,
+  referenceDate: referenceDateProp,
+  refreshEnabled = false,
+  retentionKPIsOverride,
+  incidentsKPIsOverride
+}: SummaryComparisonProps) {
 
   const plantillaRotacion = plantillaYearScope && plantillaYearScope.length > 0 ? plantillaYearScope : plantilla;
 
@@ -130,19 +223,29 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
 
   const referenceDate = useMemo(() => {
     const today = new Date();
-    if (selectedYear === undefined) {
+
+    if (referenceDateProp) {
+      return new Date(referenceDateProp.getFullYear(), referenceDateProp.getMonth(), 1);
+    }
+
+    const targetYear = selectedYear ?? today.getFullYear();
+
+    let targetMonth: number;
+    if (selectedMonth !== undefined) {
+      targetMonth = selectedMonth - 1;
+    } else if (targetYear === today.getFullYear()) {
+      targetMonth = today.getMonth();
+    } else {
+      targetMonth = 11;
+    }
+
+    const candidate = new Date(targetYear, targetMonth, 1);
+    if (candidate > today) {
       return today;
     }
 
-    const currentYear = today.getFullYear();
-    const targetYear = selectedYear;
-    if (targetYear > currentYear) {
-      return today;
-    }
-
-    const targetMonth = targetYear === currentYear ? today.getMonth() : 11;
-    return new Date(targetYear, targetMonth, 1);
-  }, [selectedYear]);
+    return candidate;
+  }, [referenceDateProp, selectedYear, selectedMonth]);
 
   const rotationSeries = useMemo(() => {
     const baseDate = referenceDate;
@@ -255,50 +358,6 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
     return series;
   }, [incidencias, empleadoNegocioMap, negocioSeriesConfig, referenceDate]);
 
-  // ✅ LÓGICA CORRECTA: Filtrar incidencias/permisos con filtros aplicados
-  const { totalIncidencias, totalPermisos } = useMemo(() => {
-    // Crear mapa de empleados filtrados
-    const empleadosMap = new Map<number, PlantillaRecord>();
-    plantilla.forEach((e: any) => {
-      const num = Number(e.numero_empleado ?? e.emp_id);
-      if (!Number.isNaN(num)) empleadosMap.set(num, e);
-    });
-
-    // Filtrar incidencias: solo empleados filtrados + fecha si aplica
-    const incidenciasFiltradas = incidencias.filter(inc => {
-      // ✅ FILTRO 1: Solo empleados en plantilla filtrada
-      if (!empleadosMap.has(inc.emp)) return false;
-
-      // ✅ FILTRO 2: Por fecha SOLO si hay filtros de año/mes seleccionados
-      if (selectedYear !== undefined && selectedMonth !== undefined) {
-        const mesInicio = new Date(selectedYear, selectedMonth - 1, 1);
-        const mesFin = new Date(selectedYear, selectedMonth, 0, 23, 59, 59);
-        const fechaInc = new Date(inc.fecha);
-        if (fechaInc < mesInicio || fechaInc > mesFin) return false;
-      }
-
-      return true;
-    });
-
-    // Contar por tipo usando normalización
-    const countByType = new Map<string, number>();
-    incidenciasFiltradas.forEach(i => {
-      const code = normalizeIncidenciaCode(i.inci);
-      if (!code) return;
-      countByType.set(code, (countByType.get(code) || 0) + 1);
-    });
-
-    // Sumar incidencias (FI, SUS, PSIN, ENFE)
-    let totalInc = 0;
-    countByType.forEach((v, k) => { if (INCIDENT_CODES.has(k)) totalInc += v; });
-
-    // Sumar permisos (PCON, VAC, MAT3, MAT1, JUST)
-    let totalPerm = 0;
-    countByType.forEach((v, k) => { if (PERMISO_CODES.has(k)) totalPerm += v; });
-
-    return { totalIncidencias: totalInc, totalPermisos: totalPerm };
-  }, [plantilla, incidencias, selectedYear, selectedMonth]);
-
   // ✅ ACTUALIZADO: Calcular antigüedad en meses y categorizar según nuevas especificaciones
   const getAntiguedadMeses = (fechaIngreso: string): number => {
     const ingreso = new Date(fechaIngreso);
@@ -319,63 +378,107 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
 
   // ✅ ELIMINADA función duplicada - ahora usa funciones centralizadas de kpi-helpers.ts
 
-  // Calcular KPIs para un mes específico
-  const calcularKPIsDelMes = (grupo: PlantillaRecord[], mesOffset = 0) => {
-    const hoy = new Date();
-    const mesActual = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset, 1);
-    const mesFin = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset + 1, 0);
+  // Calcular KPIs para un mes específico tomando como base el mes de referencia
+  const calcularKPIsDelMes = (
+    grupo: PlantillaRecord[],
+    baseDataset: PlantillaRecord[] | undefined,
+    referencia: Date
+  ) => {
+    const periodoInicio = startOfMonth(referencia);
+    const periodoFin = endOfMonth(referencia);
 
-    // Empleados activos al final del mes
-    const empleadosActivos = grupo.filter(e => {
-      const fechaIngreso = new Date(e.fecha_ingreso);
-      // Activo si: ingresó antes del fin del mes Y no tiene baja O su baja es después del mes
-      return fechaIngreso <= mesFin && e.activo;
+    const base = baseDataset && baseDataset.length > 0 ? baseDataset : grupo;
+
+    const empleadosActivos = grupo.filter(emp => {
+      const fechaIngreso = emp.fecha_ingreso ? new Date(emp.fecha_ingreso) : null;
+      if (!fechaIngreso || Number.isNaN(fechaIngreso.getTime()) || fechaIngreso > periodoFin) {
+        return false;
+      }
+
+      if (!emp.fecha_baja) {
+        return true;
+      }
+
+      const fechaBaja = new Date(emp.fecha_baja);
+      if (Number.isNaN(fechaBaja.getTime())) {
+        return true;
+      }
+
+      return fechaBaja >= periodoFin;
     }).length;
 
-    // Rotaciones usando funciones centralizadas (CORREGIDO)
-    // ⚠️ CRÍTICO: Usar funciones centralizadas para garantizar consistencia con Tab Retención
-    const fechaRef = mesOffset === 0 ? hoy : new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset + 1, 0);
-    const mesActualStart = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset, 1);
-    const mesActualEnd = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset + 1, 0);
-    const rotacionMensual = calcularRotacionConDesglose(grupo, mesActualStart, mesActualEnd);
+    const rotacionMensual = calcularRotacionConDesglose(base, periodoInicio, periodoFin);
+    const rotacionAcumuladaDesglose = calcularRotacionAcumulada12mConDesglose(base, periodoFin);
+    const rotacionAnioActualDesglose = calcularRotacionYTDConDesglose(base, periodoFin);
 
-    // Para métricas GENERALES, usar funciones centralizadas con desglose
-    // Esto garantiza que los valores coincidan con el Tab Retención
-    const rotacionAcumuladaDesglose = calcularRotacionAcumulada12mConDesglose(plantilla, fechaRef);
-    const rotacionAnioActualDesglose = calcularRotacionYTDConDesglose(plantilla, fechaRef);
+    const empleadosIds = new Set(
+      grupo
+        .map(e => {
+          const numero = Number(e.numero_empleado ?? e.emp_id);
+          return Number.isNaN(numero) ? null : numero;
+        })
+        .filter((v): v is number => v !== null)
+    );
 
-    // Incidencias del mes
-    const empleadosIds = grupo.map(e => e.numero_empleado || Number(e.emp_id));
-    const incidenciasDelMes = incidencias.filter(i => {
-      if (!empleadosIds.includes(i.emp)) return false;
-      const fecha = new Date(i.fecha);
-      return fecha >= mesActual && fecha <= mesFin;
+    const incidenciasDelMes = incidencias.filter(inc => {
+      if (!empleadosIds.has(inc.emp)) return false;
+      const fechaInc = new Date(inc.fecha);
+      if (Number.isNaN(fechaInc.getTime())) return false;
+      return fechaInc >= periodoInicio && fechaInc <= periodoFin;
     });
 
-    const totalIncidencias = incidenciasDelMes.length;
-    const permisos = incidenciasDelMes.filter(i => {
-      const code = i.inci?.toUpperCase() ?? '';
-      return (
-        code === 'INC' ||
-        code.includes('PERMISO') ||
-        PERMISO_CODES.has(code)
-      );
-    }).length;
+    let totalIncidencias = 0;
+    let permisos = 0;
+
+    incidenciasDelMes.forEach(inc => {
+      const code = normalizeIncidenciaCode(inc.inci);
+      const descripcion = ((inc as IncidenciaWithDescription).incidencia ?? '').toLowerCase();
+
+      if (code && INCIDENT_CODES.has(code)) {
+        totalIncidencias += 1;
+        return;
+      }
+
+      if (code && PERMISO_CODES.has(code)) {
+        permisos += 1;
+        return;
+      }
+
+      if (descripcion.includes('permiso')) {
+        permisos += 1;
+      }
+    });
 
     console.log('📊 Tab Resumen - KPIs calculados:', {
-      rotacionAcumulada: rotacionAcumuladaDesglose.total.toFixed(1) + '%',
-      rotacionAnioActual: rotacionAnioActualDesglose.total.toFixed(1) + '%',
-      rotacionMensual: rotacionMensual.total.toFixed(1) + '%'
+      periodo: referencia.toISOString().slice(0, 10),
+      rotacionMensual: `${rotacionMensual.total.toFixed(1)}%`,
+      rotacionAcumulada: `${rotacionAcumuladaDesglose.total.toFixed(1)}%`,
+      rotacionAnioActual: `${rotacionAnioActualDesglose.total.toFixed(1)}%`,
+      incidencias: totalIncidencias,
+      permisos
     });
 
-    return {
+    const result = {
       empleadosActivos,
       rotacionMensual: rotacionMensual.total,
-      rotacionAcumulada: rotacionAcumuladaDesglose.total,  // ✅ Ahora usa funciones centralizadas
-      rotacionAnioActual: rotacionAnioActualDesglose.total,  // ✅ Ahora usa funciones centralizadas
+      rotacionAcumulada: rotacionAcumuladaDesglose.total,
+      rotacionAnioActual: rotacionAnioActualDesglose.total,
       incidencias: totalIncidencias,
       permisos
     };
+
+    if (retentionKPIsOverride) {
+      result.rotacionMensual = retentionKPIsOverride.rotacionMensual;
+      result.rotacionAcumulada = retentionKPIsOverride.rotacionAcumulada;
+      result.rotacionAnioActual = retentionKPIsOverride.rotacionAnioActual;
+    }
+
+    if (incidentsKPIsOverride) {
+      result.incidencias = incidentsKPIsOverride.incidencias;
+      result.permisos = incidentsKPIsOverride.permisos;
+    }
+
+    return result;
   };
 
   // Renderizar tarjeta KPI con indicador de tendencia
@@ -384,14 +487,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
     valorActual: number,
     valorAnterior: number,
     esPercentaje: boolean,
-    icon: React.ReactNode
+    icon: React.ReactNode,
+    etiquetaComparacion: string
   ) => {
     const diferencia = valorActual - valorAnterior;
     const porcentajeCambio = valorAnterior !== 0 ? ((diferencia / valorAnterior) * 100) : 0;
+    const tituloNormalizado = titulo.toLowerCase();
+    const usaDiferenciaAbsoluta = tituloNormalizado.includes('empleados activos') || tituloNormalizado.includes('baja');
 
-    // Para rotación e incidencias: menor es mejor (verde), mayor es peor (rojo)
-    // Para empleados activos: mayor es mejor (verde), menor es peor (rojo)
-    const esMejor = titulo === 'Empleados Activos' || titulo === 'Permisos'
+    const esMejor = tituloNormalizado.includes('empleados activos')
       ? diferencia > 0
       : diferencia < 0;
 
@@ -407,13 +511,21 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
       ? ArrowUp
       : ArrowDown;
 
+    const valorActualFormateado = esPercentaje
+      ? `${valorActual.toFixed(1)}%`
+      : Math.round(valorActual).toLocaleString('es-MX');
+
+    const variacionFormateada = usaDiferenciaAbsoluta
+      ? `${diferencia > 0 ? '+' : ''}${Math.round(diferencia).toLocaleString('es-MX')}`
+      : `${porcentajeCambio > 0 ? '+' : ''}${porcentajeCambio.toFixed(1)}%`;
+
     return (
-      <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand")}>
-        <CardHeader className={cn("pb-3", refreshEnabled && "pb-4")}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+      <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand")}> 
+        <CardHeader className={cn("pb-3", refreshEnabled && "pb-4")}> 
+          <div className="flex items-center justify-between"> 
+            <div className="flex items-center gap-2"> 
               {icon}
-              <CardTitle className={cn("text-sm font-medium", refreshEnabled && "font-heading text-brand-ink")}>
+              <CardTitle className={cn("text-sm font-medium", refreshEnabled && "font-heading text-brand-ink")}> 
                 {titulo}
               </CardTitle>
             </div>
@@ -422,14 +534,11 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
         </CardHeader>
         <CardContent>
           <div className="space-y-1">
-            <div className={cn("text-2xl font-bold", refreshEnabled && "font-heading text-3xl text-brand-ink")}>
-              {valorActual.toFixed(esPercentaje ? 1 : 0)}
-              {esPercentaje && '%'}
+            <div className={cn("text-2xl font-bold", refreshEnabled && "font-heading text-3xl text-brand-ink")}> 
+              {valorActualFormateado}
             </div>
-            <div className={cn("text-xs", colorIndicador)}>
-              {diferencia > 0 ? '+' : ''}
-              {diferencia.toFixed(esPercentaje ? 1 : 0)}
-              {esPercentaje && '%'} vs mes anterior
+            <div className={cn("text-xs", colorIndicador)}> 
+              {variacionFormateada} {etiquetaComparacion}
             </div>
           </div>
         </CardContent>
@@ -570,8 +679,20 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
     // ✅ CORREGIDO: Los KPIs de arriba (Incidencias, Permisos) usan TODA la plantilla filtrada
     // No deben reagruparse, ya vienen filtrados desde dashboard-page.tsx
     // Calcular KPIs del mes actual y anterior para comparación usando TODA la plantilla filtrada
-    const kpisActuales = calcularKPIsDelMes(plantilla, 0);
-    const kpisAnteriores = calcularKPIsDelMes(plantilla, -1);
+    const kpisActuales = calcularKPIsDelMes(plantilla, plantillaRotacion, referenceDate);
+    const kpisPrevMonth = calcularKPIsDelMes(plantilla, plantillaRotacion, subMonths(referenceDate, 1));
+    const kpisPrevYear = calcularKPIsDelMes(plantilla, plantillaRotacion, subMonths(referenceDate, 12));
+
+    if (retentionKPIsOverride) {
+      kpisPrevMonth.rotacionMensual = retentionKPIsOverride.rotacionMensualAnterior;
+      kpisPrevYear.rotacionAcumulada = retentionKPIsOverride.rotacionAcumuladaAnterior;
+      kpisPrevYear.rotacionAnioActual = retentionKPIsOverride.rotacionAnioActualAnterior;
+    }
+
+    if (incidentsKPIsOverride) {
+      kpisPrevMonth.incidencias = incidentsKPIsOverride.incidenciasAnterior;
+      kpisPrevMonth.permisos = incidentsKPIsOverride.permisosAnterior;
+    }
 
     // Preparar datos para gráfico de activos por antigüedad
     const datosActivos = datos.map(d => {
@@ -675,16 +796,37 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
     const hasIncidenciasSeries = hasSeriesData(incidenciasChartData);
     const hasPermisosSeries = hasSeriesData(permisosChartData);
 
+    const monthlyTooltipContent = createSummaryTooltip(
+      (entry) => `${Number(entry.value ?? 0).toFixed(1)}%`,
+      (entry) => `${entry.name} · ${rotationLabel}`
+    );
+    const rollingTooltipContent = createSummaryTooltip(
+      (entry) => `${Number(entry.value ?? 0).toFixed(1)}%`,
+      (entry) => `${entry.name} · ${rotationLabel} (12m)`
+    );
+    const ytdTooltipContent = createSummaryTooltip(
+      (entry) => `${Number(entry.value ?? 0).toFixed(1)}%`,
+      (entry) => `${entry.name} · ${rotationLabel} (YTD)`
+    );
+    const incidenciasTooltipContent = createSummaryTooltip(
+      (entry) => `${Number(entry.value ?? 0).toLocaleString('es-MX')} registros`,
+      (entry) => `${entry.name} · Incidencias`
+    );
+    const permisosTooltipContent = createSummaryTooltip(
+      (entry) => `${Number(entry.value ?? 0).toLocaleString('es-MX')} registros`,
+      (entry) => `${entry.name} · Permisos`
+    );
+
     return (
       <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
         {/* KPI CARDS CON SEMAFORIZACIÓN */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-          {renderKPICard('Empleados Activos', kpisActuales.empleadosActivos, kpisAnteriores.empleadosActivos, false, <Users className="h-4 w-4" />)}
-          {renderKPICard('Rotación Mensual', kpisActuales.rotacionMensual, kpisAnteriores.rotacionMensual, true, <TrendingDown className="h-4 w-4" />)}
-          {renderKPICard('Rotación Acumulada', kpisActuales.rotacionAcumulada, kpisAnteriores.rotacionAcumulada, true, <TrendingDown className="h-4 w-4" />)}
-          {renderKPICard('Rotación Año Actual', kpisActuales.rotacionAnioActual, kpisAnteriores.rotacionAnioActual, true, <TrendingDown className="h-4 w-4" />)}
-          {renderKPICard('Incidencias', kpisActuales.incidencias, kpisAnteriores.incidencias, false, <AlertCircle className="h-4 w-4" />)}
-          {renderKPICard('Permisos', kpisActuales.permisos, kpisAnteriores.permisos, false, <TrendingUp className="h-4 w-4" />)}
+        {renderKPICard('Empleados Activos', kpisActuales.empleadosActivos, kpisPrevMonth.empleadosActivos, false, <Users className="h-4 w-4" />, 'vs mes anterior')}
+        {renderKPICard('Rotación Mensual', kpisActuales.rotacionMensual, kpisPrevMonth.rotacionMensual, true, <TrendingDown className="h-4 w-4" />, 'vs mes anterior')}
+        {renderKPICard('Rotación Acumulada', kpisActuales.rotacionAcumulada, kpisPrevYear.rotacionAcumulada, true, <TrendingDown className="h-4 w-4" />, 'vs mismo mes año anterior')}
+        {renderKPICard('Rotación Año Actual', kpisActuales.rotacionAnioActual, kpisPrevYear.rotacionAnioActual, true, <TrendingDown className="h-4 w-4" />, 'vs mismo mes año anterior')}
+        {renderKPICard('Incidencias', kpisActuales.incidencias, kpisPrevMonth.incidencias, false, <AlertCircle className="h-4 w-4" />, 'vs mes anterior')}
+        {renderKPICard('Permisos', kpisActuales.permisos, kpisPrevMonth.permisos, false, <TrendingUp className="h-4 w-4" />, 'vs mes anterior')}
         </div>
 
         {/* 1. ACTIVOS POR ANTIGÜEDAD - DISEÑO MEJORADO */}
@@ -710,23 +852,21 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                 margin={{ top: 5, right: 20, left: 10, bottom: 65 }}
                 barSize={datosActivos.length > 5 ? undefined : 80}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
                 <XAxis
                   dataKey="nombre"
                   angle={-35}
                   textAnchor="end"
                   height={75}
                   interval={0}
-                  tick={{ fontSize: 11, fill: '#374151' }}
+                  tick={{ fontSize: 11, fill: '#475569' }}
                 />
-                <YAxis tick={{ fontSize: 11, fill: '#374151' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#475569' }} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    padding: '12px'
-                  }}
+                  cursor={{ fill: withOpacity(getModernColor(0), 0.12) }}
+                  wrapperStyle={TOOLTIP_WRAPPER_STYLE}
+                  contentStyle={TOOLTIP_STYLE}
+                  labelStyle={TOOLTIP_LABEL_STYLE}
                   formatter={(value: any, name: string, props: any) => {
                     const total = props.payload.total || 0;
                     const percentage = total > 0 ? ((Number(value) / total) * 100).toFixed(1) : '0.0';
@@ -734,17 +874,17 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                   }}
                   labelFormatter={(label: string, payload: any) => {
                     if (payload && payload.length > 0 && payload[0].payload.nombreCompleto) {
-                      return `${payload[0].payload.nombreCompleto} - Total: ${payload[0].payload.total || 0}`;
+                      return `${payload[0].payload.nombreCompleto} · Total ${payload[0].payload.total || 0}`;
                     }
                     return label;
                   }}
                 />
-                <Legend wrapperStyle={{ paddingTop: '10px' }} iconType="rect" iconSize={12} />
-                <Bar dataKey="0-3 meses" stackId="a" fill="#ef4444" />
-                <Bar dataKey="3-6 meses" stackId="a" fill="#f97316" />
-                <Bar dataKey="6-12 meses" stackId="a" fill="#eab308" />
-                <Bar dataKey="1-3 años" stackId="a" fill="#22c55e" />
-                <Bar dataKey="+3 años" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
+                <Bar dataKey="0-3 meses" stackId="a" fill={TENURE_COLORS[0]} />
+                <Bar dataKey="3-6 meses" stackId="a" fill={TENURE_COLORS[1]} />
+                <Bar dataKey="6-12 meses" stackId="a" fill={TENURE_COLORS[2]} />
+                <Bar dataKey="1-3 años" stackId="a" fill={TENURE_COLORS[3]} />
+                <Bar dataKey="+3 años" stackId="a" fill={TENURE_COLORS[4]} radius={[4, 4, 0, 0]} />
               </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -827,17 +967,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                     <div style={{ height: fullscreen ? 380 : 300 }}>
                       <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={monthlyChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
-                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: '#475569' }} />
+                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }} tick={{ fontSize: 11, fill: '#475569' }} />
                     <Tooltip
-                      formatter={(value: number | string, name: string) => {
-                        const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-                        const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-                        return [`${safeValue.toFixed(1)}%`, `${name} · ${rotationLabel}`];
-                      }}
+                      cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(0), 0.35) }}
+                      content={monthlyTooltipContent}
+                      wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                     {negocioSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
@@ -846,8 +984,8 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                           type="monotone"
                           dataKey={config.key}
                           stroke={color}
-                          strokeWidth={2}
-                          dot={{ fill: color, r: 4 }}
+                          strokeWidth={2.5}
+                          dot={{ fill: color, r: 3.5 }}
                           name={config.label}
                         />
                       );
@@ -887,17 +1025,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                     <div style={{ height: fullscreen ? 380 : 300 }}>
                       <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={rollingChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
-                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: '#475569' }} />
+                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }} tick={{ fontSize: 11, fill: '#475569' }} />
                     <Tooltip
-                      formatter={(value: number | string, name: string) => {
-                        const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-                        const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-                        return [`${safeValue.toFixed(1)}%`, `${name} · ${rotationLabel} (12m)`];
-                      }}
+                      cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(1), 0.35) }}
+                      content={rollingTooltipContent}
+                      wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                     {negocioSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
@@ -906,8 +1042,8 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                           type="monotone"
                           dataKey={config.key}
                           stroke={color}
-                          strokeWidth={2}
-                          dot={{ fill: color, r: 4 }}
+                          strokeWidth={2.5}
+                          dot={{ fill: color, r: 3.5 }}
                           name={config.label}
                         />
                       );
@@ -947,17 +1083,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                     <div style={{ height: fullscreen ? 380 : 300 }}>
                       <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={ytdChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
-                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: '#475569' }} />
+                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }} tick={{ fontSize: 11, fill: '#475569' }} />
                     <Tooltip
-                      formatter={(value: number | string, name: string) => {
-                        const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-                        const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-                        return [`${safeValue.toFixed(1)}%`, `${name} · ${rotationLabel} (YTD)`];
-                      }}
+                      cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(2), 0.35) }}
+                      content={ytdTooltipContent}
+                      wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                     {negocioSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
@@ -966,8 +1100,8 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                           type="monotone"
                           dataKey={config.key}
                           stroke={color}
-                          strokeWidth={2}
-                          dot={{ fill: color, r: 4 }}
+                          strokeWidth={2.5}
+                          dot={{ fill: color, r: 3.5 }}
                           name={config.label}
                         />
                       );
@@ -1010,17 +1144,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                     <div style={{ height: fullscreen ? 380 : 300 }}>
                       <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={incidenciasChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }} />
+                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: '#475569' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#475569' }} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }} />
                     <Tooltip
-                      formatter={(value: number | string, name: string) => {
-                        const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-                        const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-                        return [`${safeValue.toLocaleString()} registros`, `${name} · Incidencias`];
-                      }}
+                      cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(3), 0.35) }}
+                      content={incidenciasTooltipContent}
+                      wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                     {negocioSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
@@ -1029,8 +1161,8 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                           type="monotone"
                           dataKey={config.key}
                           stroke={color}
-                          strokeWidth={2}
-                          dot={{ fill: color, r: 4 }}
+                          strokeWidth={2.5}
+                          dot={{ fill: color, r: 3.5 }}
                           name={config.label}
                         />
                       );
@@ -1070,17 +1202,15 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                     <div style={{ height: fullscreen ? 380 : 300 }}>
                       <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={permisosChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }} />
+                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: '#475569' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#475569' }} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }} />
                     <Tooltip
-                      formatter={(value: number | string, name: string) => {
-                        const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
-                        const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-                        return [`${safeValue.toLocaleString()} registros`, `${name} · Permisos`];
-                      }}
+                      cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(4), 0.35) }}
+                      content={permisosTooltipContent}
+                      wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                     {negocioSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
@@ -1089,8 +1219,8 @@ export function SummaryComparison({ plantilla, plantillaYearScope, bajas, incide
                           type="monotone"
                           dataKey={config.key}
                           stroke={color}
-                          strokeWidth={2}
-                          dot={{ fill: color, r: 4 }}
+                          strokeWidth={2.5}
+                          dot={{ fill: color, r: 3.5 }}
                           name={config.label}
                         />
                       );

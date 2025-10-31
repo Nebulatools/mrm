@@ -21,6 +21,18 @@ export const CHART_COLORS = {
     '#a855f7', // Purple
   ],
 
+  // Modern UI palette used across dashboard tabs (avoids traffic-light semantics)
+  modernSeries: [
+    '#6366F1', // Indigo
+    '#22D3EE', // Cyan
+    '#F472B6', // Pink
+    '#14B8A6', // Teal
+    '#A855F7', // Purple
+    '#38BDF8', // Sky
+    '#F59E0B', // Amber
+    '#C084FC', // Lavender
+  ],
+
   // Sequential colors (for ranges/gradients)
   sequential: {
     blue: ['#dbeafe', '#93c5fd', '#60a5fa', '#3b82f6', '#2563eb', '#1d4ed8'],
@@ -60,6 +72,10 @@ export const CHART_COLORS = {
  */
 export function getCategoricalColor(index: number): string {
   return CHART_COLORS.categorical[index % CHART_COLORS.categorical.length];
+}
+
+export function getModernColor(index: number): string {
+  return CHART_COLORS.modernSeries[index % CHART_COLORS.modernSeries.length];
 }
 
 /**

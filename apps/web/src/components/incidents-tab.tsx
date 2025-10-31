@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db, type IncidenciaCSVRecord, type PlantillaRecord } from "@/lib/supabase";
 import { normalizeIncidenciaCode, labelForIncidencia } from "@/lib/normalizers";
 import type { KPIResult } from "@/lib/kpi-calculator";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, LineChart, Line, LabelList } from 'recharts';
+import type { PieLabelRenderProps } from 'recharts';
 import { format } from "date-fns";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { calculateVariancePercentage, countActivosEnFecha } from "@/lib/utils/kpi-helpers";
 import { KPICard, KPICardSkeleton } from "./kpi-card";
 import { Users, AlertCircle, Activity, ClipboardCheck } from "lucide-react";
+import { getModernColor, withOpacity } from "@/lib/chart-colors";
 
 type Props = {
   plantilla?: PlantillaRecord[];
@@ -21,6 +23,12 @@ type Props = {
   currentYear?: number;
   selectedMonths?: number[];
   initialIncidencias?: IncidenciaCSVRecord[];
+  onKPIsUpdate?: (kpis: {
+    incidencias: number;
+    incidenciasAnterior: number;
+    permisos: number;
+    permisosAnterior: number;
+  }) => void;
 };
 
 type EnrichedIncidencia = IncidenciaCSVRecord & {
@@ -35,6 +43,63 @@ const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
 const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]); // Para card de empleados con incidencias
 const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST"]);
 
+const PIE_COLORS = [getModernColor(0), getModernColor(2)];
+const PIE_LEGEND_STYLE: CSSProperties = { paddingTop: 8 };
+const pieLegendFormatter = (value: string) => (
+  <span className="text-[11px] font-medium text-slate-600">{value}</span>
+);
+const PIE_TOOLTIP_STYLE: CSSProperties = {
+  borderRadius: 12,
+  borderColor: "#E2E8F0",
+  backgroundColor: "#FFFFFF",
+  padding: "10px 12px",
+  boxShadow: "0 12px 32px -18px rgba(15, 23, 42, 0.35)",
+};
+const PIE_TOOLTIP_LABEL_STYLE: CSSProperties = { fontSize: 11, fontWeight: 600, color: "#334155" };
+const LINE_TOOLTIP_STYLE: CSSProperties = {
+  borderRadius: 12,
+  borderColor: "#E2E8F0",
+  backgroundColor: "#FFFFFF",
+  padding: "10px 12px",
+  boxShadow: "0 12px 32px -18px rgba(15, 23, 42, 0.35)",
+};
+const LINE_TOOLTIP_LABEL_STYLE: CSSProperties = { fontSize: 11, fontWeight: 600, color: "#334155" };
+const TOOLTIP_WRAPPER_STYLE: CSSProperties = {
+  backgroundColor: 'transparent',
+  border: 'none',
+  boxShadow: 'none',
+  borderRadius: 0,
+  outline: 'none'
+};
+const RADIAN = Math.PI / 180;
+
+const renderPieInnerLabel = ({
+  cx = 0,
+  cy = 0,
+  midAngle = 0,
+  innerRadius = 0,
+  outerRadius = 0,
+  payload,
+}: PieLabelRenderProps) => {
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  const label = typeof payload?.name === "string" ? payload.name : "";
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#1E293B"
+      textAnchor="middle"
+      dominantBaseline="central"
+      className="text-[11px] font-semibold"
+    >
+      {label}
+    </text>
+  );
+};
+
 const formatToDDMMYYYY = (value?: string | null) => {
   if (!value) return '—';
   const parsed = new Date(value);
@@ -44,7 +109,7 @@ const formatToDDMMYYYY = (value?: string | null) => {
   return format(parsed, 'dd-MM-yyyy');
 };
 
-export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedMonths, initialIncidencias }: Props) {
+export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedMonths, initialIncidencias, onKPIsUpdate }: Props) {
   const [incidencias, setIncidencias] = useState<IncidenciaCSVRecord[]>(initialIncidencias ?? []);
   const [showTable, setShowTable] = useState(false); // false = mostrar 10, true = mostrar todo
   const [loadingIncidencias, setLoadingIncidencias] = useState(!(initialIncidencias && initialIncidencias.length > 0));
@@ -152,19 +217,19 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       });
     };
 
-    const baseMonths = monthsFilter.length > 0 ? monthsFilter : Array.from({ length: 12 }, (_, index) => index + 1);
+    const today = new Date();
+    const defaultMonth = today.getMonth() + 1;
+    const baseMonths = monthsFilter.length > 0 ? monthsFilter : [defaultMonth];
     const currentPairs = dedupePairs(buildPairs(baseMonths, targetYear));
     const previousPairs = dedupePairs(shiftPairsBackOneMonth(currentPairs));
 
     const matchesPairs = (date: Date, pairs: { year: number; month: number }[]) =>
       pairs.some(({ year, month }) => date.getFullYear() === year && date.getMonth() + 1 === month);
 
-    const scopedByPeriod = monthsFilter.length
-      ? scopedByYear.filter(inc => {
-          if (!inc.fecha) return false;
-          return matchesPairs(new Date(inc.fecha), currentPairs);
-        })
-      : scopedByYear;
+    const scopedByPeriod = scopedByYear.filter(inc => {
+      if (!inc.fecha) return false;
+      return matchesPairs(new Date(inc.fecha), currentPairs);
+    });
 
     const scopedByPrevious = scopedByEmployee.filter(inc => {
       if (!inc.fecha) return false;
@@ -293,6 +358,16 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     return total;
   }, [countByTypePrevious]);
 
+  useEffect(() => {
+    if (!onKPIsUpdate) return;
+    onKPIsUpdate({
+      incidencias: totalIncidencias,
+      incidenciasAnterior: totalIncidenciasAnterior,
+      permisos: totalPermisos,
+      permisosAnterior: totalPermisosAnteriores
+    });
+  }, [onKPIsUpdate, totalIncidencias, totalIncidenciasAnterior, totalPermisos, totalPermisosAnteriores]);
+
   const toISODate = (date: Date) => format(date, 'yyyy-MM-dd');
 
   const incidentsKpiCards: { icon: ReactNode; kpi: KPIResult }[] = [
@@ -401,7 +476,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     { name: 'Permisos', value: totalPermisos },
   ]), [totalIncidencias, totalPermisos]);
 
-  const PIE_COLORS = ["#ef4444", "#10b981"];
 
   // Calcular tendencias mensuales para el año actual
   const monthlyTrendsData = useMemo(() => {
@@ -499,23 +573,33 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }}
                           tick={{ fontSize: 12 }}
                         />
-                        <Tooltip />
-                        <Legend />
+                        <Tooltip
+                          contentStyle={LINE_TOOLTIP_STYLE}
+                          labelStyle={LINE_TOOLTIP_LABEL_STYLE}
+                          cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(0), 0.35) }}
+                          wrapperStyle={TOOLTIP_WRAPPER_STYLE}
+                          formatter={(value: number | string, name: string) => {
+                            const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
+                            const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+                            return [`${safeValue.toLocaleString('es-MX')} registros`, name];
+                          }}
+                        />
+                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={pieLegendFormatter} />
                         <Line
                           type="monotone"
                           dataKey="incidencias"
-                          stroke="#ef4444"
+                          stroke={getModernColor(0)}
                           strokeWidth={3}
-                          dot={{ fill: '#ef4444', strokeWidth: 2, r: 5 }}
+                          dot={{ fill: getModernColor(0), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name="# Incidencias"
                         />
                         <Line
                           type="monotone"
                           dataKey="permisos"
-                          stroke="#10b981"
+                          stroke={getModernColor(2)}
                           strokeWidth={3}
-                          dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
+                          dot={{ fill: getModernColor(2), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name="# Permisos"
                         />
@@ -554,8 +638,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis type="number" dataKey="incidencias" label={{ value: '# Incidencias', position: 'insideBottom', offset: -10 }} />
                         <YAxis type="number" dataKey="empleados" label={{ value: '# Empleados', angle: -90, position: 'insideLeft' }} />
-                        <Tooltip />
-                        <Bar dataKey="empleados" fill="#6366f1" />
+                        <Tooltip wrapperStyle={TOOLTIP_WRAPPER_STYLE} contentStyle={LINE_TOOLTIP_STYLE} labelStyle={LINE_TOOLTIP_LABEL_STYLE} />
+                        <Bar dataKey="empleados" fill={getModernColor(0)} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -623,26 +707,40 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Tooltip
+                          wrapperStyle={TOOLTIP_WRAPPER_STYLE}
+                          cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
+                          contentStyle={PIE_TOOLTIP_STYLE}
+                          labelStyle={PIE_TOOLTIP_LABEL_STYLE}
                           formatter={(value: number, name: string) => {
                             const total = pieData.reduce((acc, item) => acc + item.value, 0);
                             const percentage = total > 0 ? (Number(value) / total) * 100 : 0;
                             return [
-                              `${Number(value).toFixed(1)} (${percentage.toFixed(1)}%)`,
+                              `${Number(value).toLocaleString('es-MX')} (${percentage.toFixed(1)}%)`,
                               name
                             ];
                           }}
                         />
-                        <Legend />
+                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={pieLegendFormatter} />
                         <Pie
                           data={pieData}
                           dataKey="value"
                           nameKey="name"
+                          innerRadius={fullscreen ? 60 : 50}
                           outerRadius={fullscreen ? 150 : 110}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                          paddingAngle={2}
+                          labelLine={false}
+                          label={renderPieInnerLabel}
                         >
                           {pieData.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                           ))}
+                          <LabelList
+                            dataKey="value"
+                            position="outside"
+                            formatter={(value: number) => Number(value).toLocaleString('es-MX')}
+                            style={{ fontSize: 11, fill: '#475569', fontWeight: 600 }}
+                            offset={12}
+                          />
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
@@ -678,7 +776,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                     <TableHeader>
                       <TableRow>
                         <TableHead>ID</TableHead>
-                        <TableHead>Nombre</TableHead>
                         <TableHead>Fecha</TableHead>
                         <TableHead>Incidencia</TableHead>
                         <TableHead>Días</TableHead>
@@ -692,7 +789,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                       {(showTable ? enrichedPeriodo : enrichedPeriodo.slice(0, 10)).map((i) => (
                         <TableRow key={i.id}>
                           <TableCell>{i.id}</TableCell>
-                          <TableCell>{i.nombre || '—'}</TableCell>
                           <TableCell>{formatToDDMMYYYY(i.fecha)}</TableCell>
                           <TableCell>{labelForIncidencia(i.inci, i.incidencia) || '-'}</TableCell>
                           <TableCell>1</TableCell>

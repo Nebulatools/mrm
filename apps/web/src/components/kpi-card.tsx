@@ -36,19 +36,24 @@ export function KPICard({
     return Math.round(value).toLocaleString('es-MX');
   };
 
-  const variance = typeof kpi.variance_percentage === 'number' ? kpi.variance_percentage : null;
   const normalizedName = kpi.name.toLowerCase();
+  const variancePercentage = typeof kpi.variance_percentage === 'number' ? kpi.variance_percentage : null;
+  const rawDifference = kpi.previous_value !== undefined ? kpi.value - kpi.previous_value : null;
+  const showAbsoluteVariance =
+    /baja/.test(normalizedName) ||
+    normalizedName.includes('activos');
+  const changeValue = showAbsoluteVariance ? rawDifference : variancePercentage;
   const betterWhenLower =
     kpi.category === 'retention' ||
     /rotaci[óo]n|baja|incidenc|ausenc|permiso|falta/.test(normalizedName);
-  const significantVariance = variance !== null && Math.abs(variance) >= 0.1;
-  const trendDirection = !significantVariance ? 'flat' : variance! > 0 ? 'up' : 'down';
+  const significantVariance = changeValue !== null && Math.abs(changeValue) >= (showAbsoluteVariance ? 1 : 0.1);
+  const trendDirection = !significantVariance ? 'flat' : changeValue! > 0 ? 'up' : 'down';
   const isGoodChange =
     trendDirection === 'flat'
       ? null
       : betterWhenLower
-        ? variance! < 0
-        : variance! > 0;
+        ? changeValue! < 0
+        : changeValue! > 0;
   const trendColor = trendDirection === 'flat'
     ? 'text-gray-400'
     : isGoodChange
@@ -64,6 +69,15 @@ export function KPICard({
     : trendDirection === 'up'
       ? TrendingUp
       : TrendingDown;
+
+  const formatAbsoluteVariance = (value: number) => {
+    const absValue = Math.abs(value);
+    const formatted = value.toLocaleString('es-MX', {
+      minimumFractionDigits: absValue < 1 ? 1 : 0,
+      maximumFractionDigits: absValue < 1 ? 1 : 0
+    });
+    return value > 0 ? `+${formatted}` : formatted;
+  };
 
   return (
     <Card
@@ -105,7 +119,7 @@ export function KPICard({
           >
             {formatValue(kpi.value, kpi.category)}
           </div>
-          {variance !== null && (
+          {changeValue !== null && (
             <span
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-semibold",
@@ -113,8 +127,9 @@ export function KPICard({
                 refreshEnabled && "border border-transparent"
               )}
             >
-              {variance > 0 ? '+' : ''}
-              {variance.toFixed(1)}%
+              {showAbsoluteVariance
+                ? formatAbsoluteVariance(changeValue)
+                : `${changeValue > 0 ? '+' : ''}${changeValue.toFixed(1)}%`}
             </span>
           )}
         </div>

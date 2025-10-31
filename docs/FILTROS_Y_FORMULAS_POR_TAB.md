@@ -22,10 +22,9 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 
 **Excepciones predefinidas del filtro de mes (operan como 🟡 PARCIAL)**
 
-- Rotación Acumulada (12M) y Lo que va del Año (Resumen)
-- Gráficos de Rotación Mensual y Rotación Año Actual (Resumen y Retención)
-- Tendencia de Incidencias/Permisos (Resumen e Incidencias)
-- Visualizaciones principales del tab Retención (solo la tabla final usa todos los filtros)
+  - Gráficos comparativos de Rotación (Mensual, 12M y Año Actual). Se anclan al mes seleccionado pero muestran ventanas móviles de 12 meses/YTD.
+  - Tendencia de Incidencias/Permisos (Resumen e Incidencias)
+  - Visualizaciones principales del tab Retención (solo la tabla final usa todos los filtros)
 
 ---
 
@@ -36,11 +35,15 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 | Métrica | Tipo Filtro | Descripción |
 |---------|-------------|-------------|
 | Empleados Activos | 🟢 ESPECÍFICO | Cuenta empleados activos con filtros aplicados |
-| Rotación Mensual | 🟢 ESPECÍFICO | (Bajas del mes / Activos Promedio) × 100 |
-| Rotación Acumulada | 🟢 ESPECÍFICO | Rotación últimos 12 meses con filtros |
-| Rotación Año Actual | 🟢 ESPECÍFICO | Rotación YTD con filtros |
-| Incidencias | 🟢 ESPECÍFICO | Total incidencias del mes con filtros |
-| Permisos | 🟢 ESPECÍFICO | Total permisos del mes con filtros |
+| Rotación Mensual | 🟢 ESPECÍFICO | (Bajas del mes / Activos Promedio) × 100. Comparativo vs mes previo |
+| Rotación Acumulada | 🟢 ESPECÍFICO | Rotación de los **últimos 12 meses** cerrados al mes selecc. |
+| Rotación Año Actual | 🟢 ESPECÍFICO | Rotación acumulada **enero → mes selecc.** |
+| Incidencias | 🟢 ESPECÍFICO | Total incidencias FI/SUS/PSIN/ENFE del periodo |
+| Permisos | 🟢 ESPECÍFICO | Total permisos PCON/VAC/MAT3/MAT1/JUST del periodo |
+
+> **Notas de consistencia**
+> - Los KPIs usan la fecha de referencia del dashboard (`selectedPeriod`).
+> - La variación se muestra en porcentaje salvo en *Empleados Activos* y métricas de *Bajas*, donde se expone la diferencia absoluta de personas.
 
 ### Gráficos
 

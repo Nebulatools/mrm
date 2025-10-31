@@ -357,6 +357,9 @@ export class KPICalculator {
     const rotacionMensual = (bajasPeriodo / (activosProm || 1)) * 100;
     const prevRotacionMensual = (prevBajasPeriodo / (prevActivosProm || 1)) * 100;
 
+    const rotacionAcumuladaActual = this.calculateRotacionAcumulada(plantilla, endDate);
+    const rotacionAcumuladaPrevYear = this.calculateRotacionAcumulada(plantilla, subMonths(endDate, 12));
+
     // 6. Incidencias - Count(INCIDENCIAS[EMP]) - Count of incidents
     const incidenciasCount = incidenciasFiltered.length;
     const prevIncidenciasCount = prevIncidenciasFiltered.length;
@@ -483,13 +486,10 @@ export class KPICalculator {
       {
         name: 'Rotación Acumulada',
         category: 'retention',
-        value: this.calculateRotacionAcumulada(plantilla, endDate),
+        value: rotacionAcumuladaActual,
         target: undefined,
-        previous_value: this.calculateRotacionAcumulada(prevPlantilla, subMonths(endDate, 1)),
-        variance_percentage: calculateVariance(
-          this.calculateRotacionAcumulada(plantilla, endDate),
-          this.calculateRotacionAcumulada(prevPlantilla, subMonths(endDate, 1))
-        ),
+        previous_value: rotacionAcumuladaPrevYear,
+        variance_percentage: calculateVariance(rotacionAcumuladaActual, rotacionAcumuladaPrevYear),
         period_start: periodStart,
         period_end: periodEnd
       },

@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import type { CSSProperties } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { db, type PlantillaRecord } from '@/lib/supabase';
 import { createBrowserClient } from '@/lib/supabase-client';
 import { format, subMonths, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { applyFiltersWithScope } from '@/lib/filters/filters';
 import { isMotivoClave } from '@/lib/normalizers';
 import { VisualizationContainer } from "./visualization-container";
+import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
 //
 
 interface MonthlyRetentionData {
@@ -52,6 +53,31 @@ interface RetentionChartsProps {
   filters?: RetentionFilters;
   motivoFilter?: 'involuntaria' | 'voluntaria' | 'all';
 }
+
+const LEGEND_WRAPPER_STYLE: CSSProperties = { paddingTop: 6 };
+const legendFormatter = (value: string) => (
+  <span className="text-[11px] font-medium text-slate-600">{value}</span>
+);
+const TOOLTIP_WRAPPER_STYLE: CSSProperties = {
+  backgroundColor: 'transparent',
+  border: 'none',
+  boxShadow: 'none',
+  borderRadius: 0,
+  outline: 'none'
+};
+
+const YEAR_LINE_COLORS = CHART_COLORS.modernSeries;
+const MONTHLY_SERIES_COLORS = {
+  rotation: getModernColor(0),
+  bajas: getModernColor(2),
+  activos: getModernColor(3)
+};
+const TEMPORALITY_COLORS = [
+  getModernColor(0),
+  getModernColor(3),
+  getModernColor(4),
+  getModernColor(2)
+];
 
 export function RetentionCharts({ currentDate = new Date(), currentYear, filters, motivoFilter = 'all' }: RetentionChartsProps) {
   // Create authenticated Supabase client for RLS filtering
@@ -347,26 +373,63 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     }
   };
 
-  const CustomTooltip = ({ active, payload, label }: {active?: boolean, payload?: Array<{color: string, name: string, value: number, dataKey: string}>, label?: string}) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 border rounded-lg shadow-lg">
-          <p className="font-medium">{`${label}`}</p>
-          {payload.map((entry, index: number) => (
-            <div key={index} className="text-sm">
-              <span style={{ color: entry.color }}>
-                {entry.name}: {
-                  entry.dataKey?.includes('Porcentaje') || entry.dataKey?.includes('rotacion') 
-                    ? `${entry.value?.toFixed(1)}%` 
-                    : entry.value?.toLocaleString()
-                }
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ color: string; name: string; value: number; dataKey: string }>; label?: string }) => {
+    if (!active || !payload || payload.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-lg">
+        <p className="text-[11px] font-semibold text-slate-700">{label}</p>
+        <div className="mt-1 space-y-1">
+          {payload.map((entry, index) => (
+            <div key={`tooltip-${entry.dataKey}-${index}`} className="flex items-center gap-2 text-[11px] text-slate-600">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
+              <span className="font-medium text-slate-700">{entry.name}</span>
+              <span className="ml-auto">
+                {entry.dataKey?.toLowerCase().includes('rotacion') || entry.name.toLowerCase().includes('rotación')
+                  ? `${Number(entry.value ?? 0).toFixed(1)}%`
+                  : Number(entry.value ?? 0).toLocaleString('es-MX')}
               </span>
             </div>
           ))}
         </div>
-      );
+      </div>
+    );
+  };
+
+  const renderVariationPill = (rawValue: number | null | undefined) => {
+    if (rawValue === null || rawValue === undefined || Number.isNaN(rawValue)) {
+      return <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">—</span>;
     }
-    return null;
+
+    const value = Number(rawValue);
+    if (value === 0) {
+      return <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">0.0%</span>;
+    }
+
+    const isIncrease = value > 0;
+    const base = isIncrease
+      ? { r: 34, g: 197, b: 94 }
+      : { r: 239, g: 68, b: 68 };
+
+    const intensity = Math.min(Math.abs(value) / 12, 1);
+    const backgroundAlpha = 0.2 + intensity * 0.35;
+    const borderAlpha = 0.35 + intensity * 0.3;
+
+    return (
+      <span
+        className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
+        style={{
+          backgroundColor: `rgba(${base.r}, ${base.g}, ${base.b}, ${backgroundAlpha.toFixed(2)})`,
+          color: `rgba(${base.r}, ${base.g}, ${base.b}, 0.92)`,
+          border: `1px solid rgba(${base.r}, ${base.g}, ${base.b}, ${borderAlpha.toFixed(2)})`
+        }}
+      >
+        {value > 0 ? '+' : ''}
+        {value.toFixed(1)}%
+      </span>
+    );
   };
 
   if (loading) {
@@ -426,29 +489,32 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               <div style={{ height: fullscreen ? 360 : 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={yearlyComparison}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="mes" 
-                      tick={{ fontSize: 12 }}
+                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                    <XAxis
+                      dataKey="mes"
+                      tick={{ fontSize: 11, fill: '#475569' }}
                     />
-                    <YAxis 
-                      tick={{ fontSize: 12 }}
-                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft' }}
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#475569' }}
+                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }}
                       domain={rotationDomain}
                     />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    {availableYears.map((year, index) => (
-                      <Line 
-                        key={year}
-                        type="monotone" 
-                        dataKey={`rotacion${year}`} 
-                        stroke={index === 0 ? "#3b82f6" : "#ef4444"} 
-                        strokeWidth={2}
-                        name={year.toString()}
-                        dot={{ fill: index === 0 ? '#3b82f6' : '#ef4444', strokeWidth: 2, r: 4 }}
-                      />
-                    ))}
+                    <Tooltip cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(0), 0.35) }} content={<CustomTooltip />} wrapperStyle={TOOLTIP_WRAPPER_STYLE} />
+                    <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
+                    {availableYears.map((year, index) => {
+                      const color = YEAR_LINE_COLORS[index % YEAR_LINE_COLORS.length];
+                      return (
+                        <Line
+                          key={year}
+                          type="monotone"
+                          dataKey={`rotacion${year}`}
+                          stroke={color}
+                          strokeWidth={2.5}
+                          name={year.toString()}
+                          dot={{ fill: color, strokeWidth: 2, r: 3.5 }}
+                        />
+                      );
+                    })}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -474,10 +540,10 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     const targetYear = currentYear || new Date().getFullYear();
                     return d.year === targetYear && fecha <= new Date();
                   })}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="mes" 
-                      tick={{ fontSize: 12 }}
+                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                    <XAxis
+                      dataKey="mes"
+                      tick={{ fontSize: 11, fill: '#475569' }}
                       angle={-45}
                       textAnchor="end"
                       height={60}
@@ -485,8 +551,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     <YAxis
                       yAxisId="percentage"
                       orientation="left"
-                      tick={{ fontSize: 12 }}
-                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft' }}
+                      tick={{ fontSize: 11, fill: '#475569' }}
+                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }}
                       domain={[0, 10]}
                       tickCount={6}
                       allowDecimals={false}
@@ -494,39 +560,39 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     <YAxis
                       yAxisId="numbers"
                       orientation="right"
-                      tick={{ fontSize: 12 }}
-                      label={{ value: 'Cantidad', angle: 90, position: 'insideRight' }}
+                      tick={{ fontSize: 11, fill: '#475569' }}
+                      label={{ value: 'Cantidad', angle: 90, position: 'insideRight', style: { fontSize: 11, fill: '#334155' } }}
                       domain={[0, 'dataMax + 100']}
                       allowDecimals={false}
                     />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
+                    <Tooltip cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(1), 0.35) }} content={<CustomTooltip />} wrapperStyle={TOOLTIP_WRAPPER_STYLE} />
+                    <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                     <Line 
                       yAxisId="percentage"
                       type="monotone" 
                       dataKey="rotacionPorcentaje" 
-                      stroke="#ef4444" 
-                      strokeWidth={2}
+                      stroke={MONTHLY_SERIES_COLORS.rotation} 
+                      strokeWidth={2.5}
                       name="Rotación %"
-                      dot={{ fill: '#ef4444', strokeWidth: 2, r: 3 }}
+                      dot={{ fill: MONTHLY_SERIES_COLORS.rotation, strokeWidth: 2, r: 3 }}
                     />
                     <Line 
                       yAxisId="numbers"
                       type="monotone" 
-                      dataKey="bajas" 
-                      stroke="#f59e0b" 
-                      strokeWidth={2}
+                      dataKey="bajas"
+                      stroke={MONTHLY_SERIES_COLORS.bajas} 
+                      strokeWidth={2.5}
                       name="Bajas"
-                      dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
+                      dot={{ fill: MONTHLY_SERIES_COLORS.bajas, strokeWidth: 2, r: 3 }}
                     />
                     <Line 
                       yAxisId="numbers"
                       type="monotone" 
                       dataKey="activos" 
-                      stroke="#10b981" 
-                      strokeWidth={2}
-                      name="Activos"
-                      dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
+                      stroke={MONTHLY_SERIES_COLORS.activos}
+                      strokeWidth={2.5}
+                      name="Activos Prom"
+                      dot={{ fill: MONTHLY_SERIES_COLORS.activos, strokeWidth: 2, r: 3 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -553,31 +619,31 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     const targetYear = currentYear || new Date().getFullYear();
                     return d.year === targetYear && fecha <= new Date();
                   })}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="mes" 
-                      tick={{ fontSize: 12 }}
+                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                    <XAxis
+                      dataKey="mes"
+                      tick={{ fontSize: 11, fill: '#475569' }}
                       angle={-45}
                       textAnchor="end"
                       height={60}
                     />
                     <YAxis
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 11, fill: '#475569' }}
                       width={90}
                       label={{
                         value: 'Número de Bajas',
                         angle: -90,
                         position: 'outside',
                         offset: -5,
-                        style: { textAnchor: 'middle' }
+                        style: { textAnchor: 'middle', fontSize: 11, fill: '#334155' }
                       }}
                     />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Bar dataKey="bajasMenor3m" stackId="a" fill="#dc2626" name="< 3 meses" />
-                    <Bar dataKey="bajas3a6m" stackId="a" fill="#ea580c" name="3-6 meses" />
-                    <Bar dataKey="bajas6a12m" stackId="a" fill="#d97706" name="6-12 meses" />
-                    <Bar dataKey="bajasMas12m" stackId="a" fill="#65a30d" name="+12 meses" />
+                    <Tooltip cursor={{ fill: withOpacity(getModernColor(2), 0.12) }} content={<CustomTooltip />} wrapperStyle={TOOLTIP_WRAPPER_STYLE} />
+                    <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
+                    <Bar dataKey="bajasMenor3m" stackId="a" fill={TEMPORALITY_COLORS[0]} name="< 3 meses" />
+                    <Bar dataKey="bajas3a6m" stackId="a" fill={TEMPORALITY_COLORS[1]} name="3-6 meses" />
+                    <Bar dataKey="bajas6a12m" stackId="a" fill={TEMPORALITY_COLORS[2]} name="6-12 meses" />
+                    <Bar dataKey="bajasMas12m" stackId="a" fill={TEMPORALITY_COLORS[3]} name="+12 meses" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -654,8 +720,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     const rotacion1 = typeof row[`rotacion${year1}`] === 'number' ? row[`rotacion${year1}`] as number : 0;
                     const rotacion2 = typeof row[`rotacion${year2}`] === 'number' ? row[`rotacion${year2}`] as number : 0;
                     
-                    const variation = rotacion2 && rotacion1 
-                      ? ((rotacion2 - rotacion1) / rotacion1 * 100).toFixed(1)
+                    const variationValue = rotacion1 > 0 && rotacion2 > 0
+                      ? Number(((rotacion2 - rotacion1) / rotacion1) * 100)
                       : null;
                       
                     return (
@@ -680,11 +746,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                           {monthData2?.activos ?? '-'}
                         </td>
                         <td className="py-2 px-3 text-center">
-                          {variation && (
-                            <Badge variant={parseFloat(variation) > 0 ? "destructive" : "default"}>
-                              {variation}%
-                            </Badge>
-                          )}
+                          {renderVariationPill(variationValue)}
                         </td>
                       </tr>
                     );
@@ -738,8 +800,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     // Calculate variation percentage for monthly rotation
                     const rotation1 = monthYear1?.rotacionPorcentaje || 0;
                     const rotation2 = monthYear2?.rotacionPorcentaje || 0;
-                    const variation = rotation1 && rotation2
-                      ? ((rotation2 - rotation1) / rotation1 * 100).toFixed(1)
+                    const variationValue = rotation1 > 0 && rotation2 > 0
+                      ? Number(((rotation2 - rotation1) / rotation1) * 100)
                       : null;
 
                     return (
@@ -764,11 +826,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                           {monthYear2?.activos ?? '-'}
                         </td>
                         <td className="py-2 px-3 text-center">
-                          {variation && (
-                            <Badge variant={parseFloat(variation) > 0 ? "destructive" : "default"}>
-                              {variation}%
-                            </Badge>
-                          )}
+                          {renderVariationPill(variationValue)}
                         </td>
                       </tr>
                     );
