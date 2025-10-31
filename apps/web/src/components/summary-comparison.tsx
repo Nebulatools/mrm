@@ -495,17 +495,20 @@ export function SummaryComparison({
     const tituloNormalizado = titulo.toLowerCase();
     const usaDiferenciaAbsoluta = tituloNormalizado.includes('empleados activos') || tituloNormalizado.includes('baja');
 
-    const esMejor = tituloNormalizado.includes('empleados activos')
-      ? diferencia > 0
-      : diferencia < 0;
+    const esIncidenciaOPermiso = tituloNormalizado.includes('incidencia') || tituloNormalizado.includes('permiso');
+    const umbralSignificativo = usaDiferenciaAbsoluta ? 1 : 0.1;
+    const variacionSignificativa = Math.abs(diferencia) >= umbralSignificativo;
+    const colorIndicador = !variacionSignificativa
+      ? 'text-gray-500 dark:text-gray-400'
+      : diferencia > 0
+        ? esIncidenciaOPermiso
+          ? 'text-red-600 dark:text-red-400'
+          : 'text-green-600 dark:text-green-400'
+        : esIncidenciaOPermiso
+          ? 'text-green-600 dark:text-green-400'
+          : 'text-red-600 dark:text-red-400';
 
-    const colorIndicador = Math.abs(diferencia) < 0.01
-      ? 'text-gray-500'
-      : esMejor
-      ? 'text-green-600'
-      : 'text-red-600';
-
-    const IconoTendencia = Math.abs(diferencia) < 0.01
+    const IconoTendencia = !variacionSignificativa
       ? Minus
       : diferencia > 0
       ? ArrowUp
@@ -514,7 +517,6 @@ export function SummaryComparison({
     const valorActualFormateado = esPercentaje
       ? `${valorActual.toFixed(1)}%`
       : Math.round(valorActual).toLocaleString('es-MX');
-
     const variacionFormateada = usaDiferenciaAbsoluta
       ? `${diferencia > 0 ? '+' : ''}${Math.round(diferencia).toLocaleString('es-MX')}`
       : `${porcentajeCambio > 0 ? '+' : ''}${porcentajeCambio.toFixed(1)}%`;

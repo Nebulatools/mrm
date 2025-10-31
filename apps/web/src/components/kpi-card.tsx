@@ -43,33 +43,42 @@ export function KPICard({
     /baja/.test(normalizedName) ||
     normalizedName.includes('activos');
   const changeValue = showAbsoluteVariance ? rawDifference : variancePercentage;
-  const betterWhenLower =
-    kpi.category === 'retention' ||
-    /rotaci[óo]n|baja|incidenc|ausenc|permiso|falta/.test(normalizedName);
   const significantVariance = changeValue !== null && Math.abs(changeValue) >= (showAbsoluteVariance ? 1 : 0.1);
-  const trendDirection = !significantVariance ? 'flat' : changeValue! > 0 ? 'up' : 'down';
-  const isGoodChange =
-    trendDirection === 'flat'
-      ? null
-      : betterWhenLower
-        ? changeValue! < 0
-        : changeValue! > 0;
-  const trendColor = trendDirection === 'flat'
-    ? 'text-gray-400'
-    : isGoodChange
-      ? 'text-green-600'
-      : 'text-red-600';
-  const trendBadgeClass = trendDirection === 'flat'
-    ? 'bg-gray-100 text-gray-600'
-    : isGoodChange
-      ? 'bg-green-100 text-green-700'
-      : 'bg-red-100 text-red-700';
+  const trendDirection =
+    !significantVariance || changeValue === null || changeValue === 0
+      ? 'flat'
+      : changeValue > 0
+        ? 'up'
+        : 'down';
+  const isIncidenciasOPermisos = /incidenc|permiso/.test(normalizedName);
+  const resolveColorState = () => {
+    if (!significantVariance || changeValue === null || changeValue === 0) {
+      return 'neutral' as const;
+    }
+    const positive = changeValue > 0;
+    if (positive) {
+      return (isIncidenciasOPermisos ? 'negative' : 'positive') as const;
+    }
+    return (isIncidenciasOPermisos ? 'positive' : 'negative') as const;
+  };
+  const changeColorState = resolveColorState();
+  const trendColor =
+    changeColorState === 'positive'
+      ? 'text-green-600 dark:text-green-400'
+      : changeColorState === 'negative'
+        ? 'text-red-600 dark:text-red-400'
+        : 'text-gray-400 dark:text-gray-500';
+  const trendBadgeClass =
+    changeColorState === 'positive'
+      ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+      : changeColorState === 'negative'
+        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300';
   const TrendIconComponent = trendDirection === 'flat'
     ? null
     : trendDirection === 'up'
       ? TrendingUp
       : TrendingDown;
-
   const formatAbsoluteVariance = (value: number) => {
     const absValue = Math.abs(value);
     const formatted = value.toLocaleString('es-MX', {
