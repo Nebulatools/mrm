@@ -258,7 +258,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     // Esto permite ver incidencias de empleados que se dieron de baja antes del periodo
     const scopedByEmployee = incidencias;
 
-    const targetYear = currentYear ?? new Date().getFullYear();
     const scopedByYear = scopedByEmployee.filter(inc => {
       if (currentYear === undefined) return true;
       if (!inc.fecha) return false;
@@ -269,7 +268,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     const monthsFilter = (selectedMonths || []).filter(m => Number.isFinite(m)) as number[];
 
     const buildPairs = (months: number[], seedYear: number) =>
-      months.map(month => {
+      months.map((month) => {
         const reference = new Date(seedYear, month - 1, 1);
         return {
           year: reference.getFullYear(),
@@ -296,10 +295,34 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       });
     };
 
-    const today = new Date();
-    const defaultMonth = today.getMonth() + 1;
-    const baseMonths = monthsFilter.length > 0 ? monthsFilter : [defaultMonth];
-    const currentPairs = dedupePairs(buildPairs(baseMonths, targetYear));
+    const hasYearFilter = typeof currentYear === 'number';
+    const hasMonthFilter = monthsFilter.length > 0;
+
+    const yearsFromData = Array.from(
+      new Set(
+        scopedByEmployee
+          .map((inc) => {
+            if (!inc.fecha) return null;
+            const date = new Date(inc.fecha);
+            return Number.isNaN(date.getTime()) ? null : date.getFullYear();
+          })
+          .filter((year): year is number => year !== null)
+      )
+    ).sort((a, b) => a - b);
+
+    const baseYears = hasYearFilter
+      ? [currentYear as number]
+      : yearsFromData.length > 0
+        ? yearsFromData
+        : [new Date().getFullYear()];
+
+    const baseMonths = hasMonthFilter
+      ? monthsFilter
+      : Array.from({ length: 12 }, (_, index) => index + 1);
+
+    const currentPairs = dedupePairs(
+      baseYears.flatMap((year) => buildPairs(baseMonths, year))
+    );
     const previousPairs = dedupePairs(shiftPairsBackOneMonth(currentPairs));
 
     const matchesPairs = (date: Date, pairs: { year: number; month: number }[]) =>
@@ -636,7 +659,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
   // Calcular tendencias mensuales para el año actual
   const monthlyTrendsData = useMemo(() => {
-    const selectedYear = currentYear || new Date().getFullYear();
+    const selectedYear = typeof currentYear === "number" ? currentYear : null;
     const months = [
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
@@ -646,7 +669,11 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       const monthData = enrichedAnual.filter(inc => {
         if (!inc.fecha) return false;
         const date = new Date(inc.fecha);
-        return date.getFullYear() === selectedYear && date.getMonth() === index;
+        if (Number.isNaN(date.getTime())) return false;
+        if (selectedYear !== null && date.getFullYear() !== selectedYear) {
+          return false;
+        }
+        return date.getMonth() === index;
       });
 
       let incidenciasCount = 0;

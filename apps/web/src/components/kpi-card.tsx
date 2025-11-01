@@ -13,6 +13,7 @@ interface KPICardProps {
   secondaryValue?: number;
   secondaryLabel?: string;
   secondaryIsPercent?: boolean;
+  hidePreviousValue?: boolean;
 }
 
 export function KPICard({
@@ -22,6 +23,7 @@ export function KPICard({
   secondaryValue,
   secondaryLabel,
   secondaryIsPercent,
+  hidePreviousValue = false,
 }: KPICardProps) {
   const formatValue = (value: number, category: string): string => {
     if (category === 'costs') {
@@ -165,7 +167,7 @@ export function KPICard({
               Meta: {formatValue(kpi.target, kpi.category)}
             </div>
           )}
-          {kpi.previous_value !== undefined && kpi.previous_value > 0 && (
+          {!hidePreviousValue && kpi.previous_value !== undefined && kpi.previous_value > 0 && (
             <div className={cn("text-xs text-gray-500", refreshEnabled && "text-brand-ink/60")}>
               Anterior: {formatValue(kpi.previous_value, kpi.category)}
             </div>

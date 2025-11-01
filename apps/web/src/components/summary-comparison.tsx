@@ -642,6 +642,7 @@ export function SummaryComparison({
         icon: <Users className="h-6 w-6" />,
         secondaryLabel: 'vs mes anterior',
         secondaryValue: kpisPrevMonth.empleadosActivos,
+        hidePreviousValue: true,
         kpi: {
           name: 'Empleados Activos',
           category: 'headcount',
@@ -657,6 +658,7 @@ export function SummaryComparison({
         icon: <TrendingDown className="h-6 w-6" />,
         secondaryLabel: 'vs mes anterior',
         secondaryValue: kpisPrevMonth.rotacionMensual,
+        hidePreviousValue: true,
         kpi: {
           name: 'Rotación Mensual',
           category: 'retention',
@@ -672,6 +674,7 @@ export function SummaryComparison({
         icon: <TrendingDown className="h-6 w-6" />,
         secondaryLabel: 'vs mismo mes año anterior',
         secondaryValue: kpisPrevYear.rotacionAcumulada,
+        hidePreviousValue: true,
         kpi: {
           name: 'Rotación Acumulada',
           category: 'retention',
@@ -688,6 +691,7 @@ export function SummaryComparison({
         icon: <TrendingDown className="h-6 w-6" />,
         secondaryLabel: 'vs mismo mes año anterior',
         secondaryValue: kpisPrevYear.rotacionAnioActual,
+        hidePreviousValue: true,
         kpi: {
           name: 'Rotación Año Actual',
           category: 'retention',
@@ -704,6 +708,7 @@ export function SummaryComparison({
         icon: <AlertCircle className="h-6 w-6" />,
         secondaryLabel: 'vs mes anterior',
         secondaryValue: kpisPrevMonth.incidencias,
+        hidePreviousValue: true,
         kpi: {
           name: 'Incidencias',
           category: 'incidents',
@@ -719,6 +724,7 @@ export function SummaryComparison({
         icon: <TrendingUp className="h-6 w-6" />,
         secondaryLabel: 'vs mes anterior',
         secondaryValue: kpisPrevMonth.permisos,
+        hidePreviousValue: true,
         kpi: {
           name: 'Permisos',
           category: 'incidents',
@@ -858,7 +864,7 @@ export function SummaryComparison({
       <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
         {/* KPI CARDS CON SEMAFORIZACIÓN */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-          {summaryCardItems.map(({ key, kpi, icon, secondaryLabel, secondaryValue, secondaryIsPercent }) => (
+          {summaryCardItems.map(({ key, kpi, icon, secondaryLabel, secondaryValue, secondaryIsPercent, hidePreviousValue }) => (
             <KPICard
               key={key}
               refreshEnabled={refreshEnabled}
@@ -867,6 +873,7 @@ export function SummaryComparison({
               secondaryLabel={secondaryLabel}
               secondaryValue={secondaryValue}
               secondaryIsPercent={secondaryIsPercent}
+              hidePreviousValue={hidePreviousValue}
             />
           ))}
         </div>
