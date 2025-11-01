@@ -80,6 +80,7 @@ const DAY_OPTIONS = [
 ];
 
 export function SFTPImportAdmin() {
+  const forceImportEnabled = false;
   const [isManualUpdating, setIsManualUpdating] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [sftpFiles, setSftpFiles] = useState<SFTPFile[]>([]);
@@ -197,6 +198,16 @@ export function SFTPImportAdmin() {
   useEffect(() => {
     fetchSchedule();
   }, []);
+
+  const executeForceImport = async () => {
+    if (!forceImportEnabled) {
+      console.warn('Importación forzada deshabilitada. Actívala manualmente si es necesario.');
+      return;
+    }
+
+    // Cuando quieras reactivar la importación forzada, elimina la bandera y
+    // reutiliza la lógica previa que llamaba /api/import-real-sftp-force.
+  };
 
   const executeManualUpdate = async () => {
     if (isManualUpdating) return;
@@ -689,24 +700,41 @@ export function SFTPImportAdmin() {
               </ul>
             </div>
             
-            <Button 
-              onClick={executeManualUpdate}
-              disabled={isManualUpdating}
-              className="w-full bg-green-600 hover:bg-green-700"
-              size="lg"
-            >
-              {isManualUpdating ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  Actualizando información...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-5 w-5 mr-2" />
-                  Actualizar Información (Manual)
-                </>
-              )}
-            </Button>
+            <div className="space-y-3">
+              <Button
+                onClick={executeForceImport}
+                disabled={!forceImportEnabled}
+                variant="outline"
+                className="w-full border-dashed text-muted-foreground"
+                size="lg"
+                title="Deshabilitado por seguridad. Reactívalo cuando lo necesites."
+              >
+                <div className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  <span>FORZAR IMPORTACIÓN REAL (SIN CACHÉ)</span>
+                  <Badge variant="secondary">Deshabilitado</Badge>
+                </div>
+              </Button>
+
+              <Button 
+                onClick={executeManualUpdate}
+                disabled={isManualUpdating}
+                className="w-full bg-green-600 hover:bg-green-700"
+                size="lg"
+              >
+                {isManualUpdating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    Actualizando información...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-5 w-5 mr-2" />
+                    Actualizar Información (Manual)
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

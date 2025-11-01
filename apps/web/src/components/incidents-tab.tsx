@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db, type IncidenciaCSVRecord, type PlantillaRecord } from "@/lib/supabase";
-import { normalizeIncidenciaCode, labelForIncidencia } from "@/lib/normalizers";
+import { normalizeIncidenciaCode, labelForIncidencia, normalizePuesto, normalizeArea, normalizeDepartamento } from "@/lib/normalizers";
 import type { KPIResult } from "@/lib/kpi-calculator";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, LineChart, Line, LabelList } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
@@ -341,13 +341,17 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     const toEnriched = (collection: IncidenciaCSVRecord[]): EnrichedIncidencia[] =>
       collection.map(inc => {
         const emp = empleadosAnualesMap.get(inc.emp);
+        const rawArea = emp?.area ?? null;
+        const rawDepto = emp?.departamento ?? null;
+        const rawPuesto = emp?.puesto ?? null;
+
         return {
           ...inc,
           nombre: emp?.nombre ?? inc.nombre ?? null,
           empresa: emp?.empresa ?? null,
-          departamento: emp?.departamento ?? null,
-          area: emp?.area ?? null,
-          puesto: emp?.puesto ?? null,
+          departamento: rawDepto ? normalizeDepartamento(rawDepto) : null,
+          area: rawArea ? normalizeArea(rawArea) : null,
+          puesto: rawPuesto ? normalizePuesto(rawPuesto) : null,
         };
       });
 

@@ -62,16 +62,35 @@ const PUESTOS_REALES: Record<string, string> = {
   "AUXILIAR DE ALMAC?N SURTI": "Auxiliar de Almacén - Surtido",
 
   // OTROS PUESTOS COMUNES CON ENCODING ISSUES
+  "ANALISTA DE CAPACITACI?N": "Analista de Capacitación",
+  "ANALISTA DE CR?DITO Y COB": "Analista de Crédito y Cobranza",
   "SOPORTE T?CNICO": "Soporte Técnico",
+  "ANALISTA DE N?MINAS": "Analista de Nóminas",
+  "ANALISTA DE PLANEACI?N FI": "Analista de Planeación Financiera",
+  "ANALISTA DE TESORER?A": "Analista de Tesorería",
+  "ANALISTA DE CREACI?N DE C": "Analista de Creación de Contenido",
   "ANALISTA DE CR?DITOS": "Analista de Créditos",
   "COORDINADOR LOG?STICA NAC": "Coordinador de Logística Nacional",
+  "COORDINADOR DE N?MINAS": "Coordinador de Nóminas",
+  "COORDINADOR DE TESORER?A": "Coordinador de Tesorería",
   "CHOFER DIRECCI?N": "Chofer de Dirección",
+  "DIRECTOR DE TESORER?A": "Director de Tesorería",
+  "DISE?ADOR GR?FICO FILIALE": "Diseñador Gráfico Filiales",
+  "ENCARGADO DE CR?DITOS": "Encargado de Créditos",
+  "ENCARGADO DE TR?FICO": "Encargado de Tráfico",
+  "GERENTE DE ADMINISTRACI?N": "Gerente de Administración",
+  "GERENTE DE TECNOLOG?AS DE": "Gerente de Tecnologías de la Información",
+  "GERENTE DE TESORER?A": "Gerente de Tesorería",
+  "JEFE DE CR?DITO Y COBRANZ": "Jefe de Crédito y Cobranza",
   "L?DER DE MARCA": "Líder de Marca",
+  "L?DER DE VENTAS": "Líder de Ventas",
   "COORDINADOR DE RECURSOS H": "Coordinador de Recursos Humanos",
   "AUXILIAR DE ENCARGADO REA": "Auxiliar de Encargado de Reabastecimiento",
   "GENERALISTA DE RECURSOS H": "Generalista de Recursos Humanos",
   "INGENIERO DE REDES Y TELE": "Ingeniero de Redes y Telecomunicaciones",
-  "DESARROLLADOR ERP AX": "Desarrollador ERP AX"
+  "DESARROLLADOR ERP AX": "Desarrollador ERP AX",
+  "ASISTENTE DE DIRECCI?N": "Asistente de Dirección",
+  "SOPORTE T?CNICO Y ERP AX ": "Soporte Técnico y ERP AX"
 };
 
 // ===================== DEPARTAMENTOS =====================
