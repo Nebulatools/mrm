@@ -22,6 +22,7 @@ import { VisualizationContainer } from '@/components/visualization-container';
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { KPICard } from '@/components/kpi-card';
+import { useTheme } from '@/components/theme-provider';
 
 interface BajaRecord {
   numero_empleado: number;
@@ -77,16 +78,8 @@ const formatMonthLabel = (date: Date) => {
 const NEGOCIO_COLOR_PALETTE = CHART_COLORS.modernSeries;
 const LEGEND_WRAPPER_STYLE: CSSProperties = { paddingTop: 8 };
 const legendFormatter = (value: string) => (
-  <span className="text-[11px] font-medium text-slate-600">{value}</span>
+  <span className="text-[11px] font-medium text-muted-foreground">{value}</span>
 );
-const TOOLTIP_STYLE: CSSProperties = {
-  borderRadius: 12,
-  borderColor: '#E2E8F0',
-  backgroundColor: '#FFFFFF',
-  padding: '10px 12px',
-  boxShadow: '0 12px 32px -18px rgba(15, 23, 42, 0.35)'
-};
-const TOOLTIP_LABEL_STYLE: CSSProperties = { fontSize: 11, fontWeight: 600, color: '#334155' };
 const TOOLTIP_WRAPPER_STYLE: CSSProperties = {
   backgroundColor: 'transparent',
   border: 'none',
@@ -94,41 +87,61 @@ const TOOLTIP_WRAPPER_STYLE: CSSProperties = {
   borderRadius: 0,
   outline: 'none'
 };
+const getTooltipContentStyle = (isDark: boolean): CSSProperties => ({
+  borderRadius: 12,
+  borderColor: isDark ? 'rgba(148, 163, 184, 0.35)' : '#E2E8F0',
+  backgroundColor: isDark ? 'hsl(var(--card))' : '#FFFFFF',
+  padding: '10px 12px',
+  boxShadow: isDark ? '0 16px 45px -20px rgba(8, 14, 26, 0.65)' : '0 12px 32px -18px rgba(15, 23, 42, 0.35)'
+});
+const getTooltipLabelStyle = (isDark: boolean): CSSProperties => ({
+  fontSize: 11,
+  fontWeight: 600,
+  color: isDark ? '#E2E8F0' : '#334155'
+});
 const TENURE_COLORS = [
-  getModernColor(0),
-  getModernColor(2),
-  getModernColor(3),
-  getModernColor(4),
-  getModernColor(5)
+  '#4f46e5', // indigo 600
+  '#0ea5e9', // sky 500
+  '#14b8a6', // teal 500
+  '#f97316', // orange 500
+  '#f43f5e', // rose 500
 ];
 
 const createSummaryTooltip = (
   valueFormatter: (entry: TooltipPayload, index: number) => string,
-  nameFormatter?: (entry: TooltipPayload, index: number) => string
+  nameFormatter: ((entry: TooltipPayload, index: number) => string) | undefined,
+  isDark: boolean
 ) =>
   ({ active, payload, label }: TooltipProps<number, string>) => {
     if (!active || !payload || payload.length === 0) {
       return null;
     }
 
+    const borderColor = isDark ? 'rgba(148, 163, 184, 0.35)' : '#E2E8F0';
+    const backgroundColor = isDark ? 'hsl(var(--card))' : '#FFFFFF';
+    const boxShadow = isDark
+      ? '0 16px 45px -20px rgba(8, 14, 26, 0.65)'
+      : '0 16px 45px -20px rgba(15, 23, 42, 0.45)';
+    const textClass = isDark ? 'text-slate-100' : 'text-slate-700';
+
     return (
       <div
         className="rounded-xl border px-3 py-2 shadow-lg"
         style={{
-          borderColor: '#E2E8F0',
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0 16px 45px -20px rgba(15, 23, 42, 0.45)'
+          borderColor,
+          backgroundColor,
+          boxShadow
         }}
       >
-        <p className="text-[11px] font-semibold text-slate-700">{label}</p>
+        <p className={cn("text-[11px] font-semibold", textClass)}>{label}</p>
         <div className="mt-1 space-y-1.5">
           {payload.map((entry, index) => (
-            <div key={`${entry.dataKey}-${index}`} className="flex items-center gap-2 text-[11px]">
+            <div key={`${entry.dataKey}-${index}`} className={cn("flex items-center gap-2 text-[11px]", textClass)}>
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color ?? getModernColor(index) }} />
-              <span className="flex-1 truncate font-medium text-slate-700">
+              <span className={cn("flex-1 truncate font-medium", textClass)}>
                 {nameFormatter ? nameFormatter(entry, index) : String(entry.name ?? '')}
               </span>
-              <span className="ml-auto font-semibold text-slate-700">
+              <span className={cn("ml-auto font-semibold", textClass)}>
                 {valueFormatter(entry, index)}
               </span>
             </div>
@@ -222,6 +235,13 @@ export function SummaryComparison({
   }, [plantillaRotacion, plantilla]);
 
   const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('involuntaria');
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const axisColor = isDark ? '#E2E8F0' : '#475569';
+  const axisLabelColor = isDark ? '#E2E8F0' : '#334155';
+  const gridColor = isDark ? 'rgba(148, 163, 184, 0.25)' : '#E2E8F0';
+  const tooltipContentStyle = getTooltipContentStyle(isDark);
+  const tooltipLabelStyle = getTooltipLabelStyle(isDark);
 
   const referenceDate = useMemo(() => {
     const today = new Date();
@@ -841,29 +861,41 @@ export function SummaryComparison({
 
     const monthlyTooltipContent = createSummaryTooltip(
       (entry) => `${Number(entry.value ?? 0).toFixed(1)}%`,
-      (entry) => `${entry.name} · ${rotationLabel}`
+      (entry) => `${entry.name} · ${rotationLabel}`,
+      isDark
     );
     const rollingTooltipContent = createSummaryTooltip(
       (entry) => `${Number(entry.value ?? 0).toFixed(1)}%`,
-      (entry) => `${entry.name} · ${rotationLabel} (12m)`
+      (entry) => `${entry.name} · ${rotationLabel} (12m)`,
+      isDark
     );
     const ytdTooltipContent = createSummaryTooltip(
       (entry) => `${Number(entry.value ?? 0).toFixed(1)}%`,
-      (entry) => `${entry.name} · ${rotationLabel} (YTD)`
+      (entry) => `${entry.name} · ${rotationLabel} (YTD)`,
+      isDark
     );
     const incidenciasTooltipContent = createSummaryTooltip(
       (entry) => `${Number(entry.value ?? 0).toLocaleString('es-MX')} registros`,
-      (entry) => `${entry.name} · Incidencias`
+      (entry) => `${entry.name} · Incidencias`,
+      isDark
     );
     const permisosTooltipContent = createSummaryTooltip(
       (entry) => `${Number(entry.value ?? 0).toLocaleString('es-MX')} registros`,
-      (entry) => `${entry.name} · Permisos`
+      (entry) => `${entry.name} · Permisos`,
+      isDark
     );
 
     return (
       <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
         {/* KPI CARDS CON SEMAFORIZACIÓN */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+        <div
+          className={cn(
+            "grid gap-4",
+            refreshEnabled
+              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+              : "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
+          )}
+        >
           {summaryCardItems.map(({ key, kpi, icon, secondaryLabel, secondaryValue, secondaryIsPercent, hidePreviousValue }) => (
             <KPICard
               key={key}
@@ -879,7 +911,12 @@ export function SummaryComparison({
         </div>
 
         {/* 1. ACTIVOS POR ANTIGÜEDAD - DISEÑO MEJORADO */}
-        <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white shadow-brand transition-shadow")}>
+        <Card
+          className={cn(
+            refreshEnabled &&
+              "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+          )}
+        >
           <CardHeader className={cn("pb-3", refreshEnabled && "pb-4")}>
             <CardTitle className={cn("flex items-center gap-2 text-base", refreshEnabled && "font-heading text-brand-ink")}>
               <Users className="h-4 w-4" />
@@ -901,21 +938,21 @@ export function SummaryComparison({
                 margin={{ top: 5, right: 20, left: 10, bottom: 65 }}
                 barSize={datosActivos.length > 5 ? undefined : 80}
               >
-                <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
                 <XAxis
                   dataKey="nombre"
                   angle={-35}
                   textAnchor="end"
                   height={75}
                   interval={0}
-                  tick={{ fontSize: 11, fill: '#475569' }}
+                  tick={{ fontSize: 11, fill: axisColor }}
                 />
-                <YAxis tick={{ fontSize: 11, fill: '#475569' }} />
+                <YAxis tick={{ fontSize: 11, fill: axisColor }} />
                 <Tooltip
                   cursor={{ fill: withOpacity(getModernColor(0), 0.12) }}
                   wrapperStyle={TOOLTIP_WRAPPER_STYLE}
-                  contentStyle={TOOLTIP_STYLE}
-                  labelStyle={TOOLTIP_LABEL_STYLE}
+                  contentStyle={tooltipContentStyle}
+                  labelStyle={tooltipLabelStyle}
                   formatter={(value: any, name: string, props: any) => {
                     const total = props.payload.total || 0;
                     const percentage = total > 0 ? ((Number(value) / total) * 100).toFixed(1) : '0.0';
@@ -945,19 +982,26 @@ export function SummaryComparison({
         {/* Toggle para rotación */}
         <div
           className={cn(
-            "flex items-center justify-center gap-4 rounded-lg border bg-white p-4",
-            refreshEnabled && "rounded-2xl border-brand-border/40 bg-brand-surface-accent/60 shadow-brand/10"
+            "flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between",
+            refreshEnabled &&
+              (isDark
+                ? "border-brand-border/40 bg-brand-surface/70 shadow-brand/10"
+                : "border-brand-border/40 bg-brand-surface-accent/60 shadow-brand/10")
           )}
         >
           <span
             className={cn(
-              "text-sm font-medium text-gray-700",
-              refreshEnabled && "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink/80"
+              "text-sm font-medium",
+              refreshEnabled
+                ? isDark
+                  ? "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink"
+                  : "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink/80"
+                : "text-muted-foreground dark:text-brand-ink/80"
             )}
           >
             Filtrar visualizaciones por:
           </span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant={motivoFilterType === 'involuntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
               size="sm"
@@ -988,7 +1032,12 @@ export function SummaryComparison({
         {/* 2. ROTACIÓN */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Rotación Mensual */}
-          <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
+          <Card
+            className={cn(
+              refreshEnabled &&
+                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+            )}
+          >
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
@@ -998,9 +1047,9 @@ export function SummaryComparison({
             <CardContent className={cn(refreshEnabled && "pt-0")}>
               {!hasMonthlyData ? (
                 <div className="flex h-[300px] items-center justify-center">
-                  <div className="text-center text-gray-500">
+                  <div className="text-center text-muted-foreground">
                     <p className="text-sm">Sin bajas registradas en los últimos meses</p>
-                    <p className="mt-1 text-xs text-gray-400">
+                    <p className="mt-1 text-xs text-muted-foreground opacity-80">
                       Último corte: {new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
                     </p>
                   </div>
@@ -1016,9 +1065,12 @@ export function SummaryComparison({
                     <div style={{ height: fullscreen ? 380 : 300 }}>
                       <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={monthlyChartData}>
-                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
-                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: '#475569' }} />
-                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }} tick={{ fontSize: 11, fill: '#475569' }} />
+                    <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: axisColor }} />
+                    <YAxis
+                      label={{ value: '%', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      tick={{ fontSize: 11, fill: axisColor }}
+                    />
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(0), 0.35) }}
                       content={monthlyTooltipContent}
@@ -1049,7 +1101,12 @@ export function SummaryComparison({
           </Card>
 
           {/* Rotación 12 Meses Móviles */}
-          <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
+          <Card
+            className={cn(
+              refreshEnabled &&
+                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+            )}
+          >
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
@@ -1059,7 +1116,7 @@ export function SummaryComparison({
             <CardContent className={cn(refreshEnabled && "pt-0")}>
               {!hasRollingData ? (
                 <div className="flex h-[300px] items-center justify-center">
-                  <div className="text-center text-gray-500">
+                  <div className="text-center text-muted-foreground">
                     <p className="text-sm">Sin información suficiente para calcular 12 meses móviles</p>
                   </div>
                 </div>
@@ -1074,9 +1131,12 @@ export function SummaryComparison({
                     <div style={{ height: fullscreen ? 380 : 300 }}>
                       <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={rollingChartData}>
-                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
-                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: '#475569' }} />
-                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }} tick={{ fontSize: 11, fill: '#475569' }} />
+                    <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: axisColor }} />
+                    <YAxis
+                      label={{ value: '%', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      tick={{ fontSize: 11, fill: axisColor }}
+                    />
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(1), 0.35) }}
                       content={rollingTooltipContent}
@@ -1107,7 +1167,12 @@ export function SummaryComparison({
           </Card>
 
           {/* Rotación Año Actual (YTD) */}
-          <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
+          <Card
+            className={cn(
+              refreshEnabled &&
+                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+            )}
+          >
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
@@ -1117,7 +1182,7 @@ export function SummaryComparison({
             <CardContent className={cn(refreshEnabled && "pt-0")}>
               {!hasYtdData ? (
                 <div className="flex h-[300px] items-center justify-center">
-                  <div className="text-center text-gray-500">
+                  <div className="text-center text-muted-foreground">
                     <p className="text-sm">Sin datos del año en curso para mostrar</p>
                   </div>
                 </div>
@@ -1132,9 +1197,12 @@ export function SummaryComparison({
                     <div style={{ height: fullscreen ? 380 : 300 }}>
                       <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={ytdChartData}>
-                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
-                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: '#475569' }} />
-                    <YAxis label={{ value: '%', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }} tick={{ fontSize: 11, fill: '#475569' }} />
+                    <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: axisColor }} />
+                    <YAxis
+                      label={{ value: '%', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      tick={{ fontSize: 11, fill: axisColor }}
+                    />
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(2), 0.35) }}
                       content={ytdTooltipContent}
@@ -1167,7 +1235,11 @@ export function SummaryComparison({
 
         {/* 2.b Incidencias y Permisos 12 Meses */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}
+          <Card
+            className={cn(
+              refreshEnabled &&
+                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+            )}
           >
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
@@ -1175,10 +1247,10 @@ export function SummaryComparison({
                 Incidencias - Últimos 12 meses
               </CardTitle>
             </CardHeader>
-            <CardContent className={cn(refreshEnabled && "pt-0")}> 
+            <CardContent className={cn(refreshEnabled && "pt-0")}>
               {!hasIncidenciasSeries ? (
                 <div className="flex h-[300px] items-center justify-center">
-                  <div className="text-center text-gray-500">
+                  <div className="text-center text-muted-foreground">
                     <p className="text-sm">Sin incidencias registradas en los últimos 12 meses</p>
                   </div>
                 </div>
@@ -1193,9 +1265,12 @@ export function SummaryComparison({
                     <div style={{ height: fullscreen ? 380 : 300 }}>
                       <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={incidenciasChartData}>
-                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
-                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: '#475569' }} />
-                    <YAxis tick={{ fontSize: 11, fill: '#475569' }} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }} />
+                    <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: axisColor }} />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: axisColor }}
+                      label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                    />
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(3), 0.35) }}
                       content={incidenciasTooltipContent}
@@ -1225,7 +1300,11 @@ export function SummaryComparison({
             </CardContent>
           </Card>
 
-          <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}
+          <Card
+            className={cn(
+              refreshEnabled &&
+                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+            )}
           >
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
@@ -1233,10 +1312,10 @@ export function SummaryComparison({
                 Permisos - Últimos 12 meses
               </CardTitle>
             </CardHeader>
-            <CardContent className={cn(refreshEnabled && "pt-0")}> 
+            <CardContent className={cn(refreshEnabled && "pt-0")}>
               {!hasPermisosSeries ? (
                 <div className="flex h-[300px] items-center justify-center">
-                  <div className="text-center text-gray-500">
+                  <div className="text-center text-muted-foreground">
                     <p className="text-sm">Sin permisos registrados en los últimos 12 meses</p>
                   </div>
                 </div>
@@ -1251,9 +1330,12 @@ export function SummaryComparison({
                     <div style={{ height: fullscreen ? 380 : 300 }}>
                       <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={permisosChartData}>
-                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
-                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: '#475569' }} />
-                    <YAxis tick={{ fontSize: 11, fill: '#475569' }} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }} />
+                    <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
+                    <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: axisColor }} />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: axisColor }}
+                      label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                    />
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(4), 0.35) }}
                       content={permisosTooltipContent}
@@ -1285,7 +1367,12 @@ export function SummaryComparison({
         </div>
 
         {/* 3. AUSENTISMO */}
-        <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow")}>
+        <Card
+          className={cn(
+            refreshEnabled &&
+              "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+          )}
+        >
           <CardHeader className={cn(refreshEnabled && "pb-6")}>
             <CardTitle className={cn("flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
               <AlertCircle className="h-5 w-5" />
@@ -1294,22 +1381,27 @@ export function SummaryComparison({
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className={cn("w-full text-sm", refreshEnabled && "text-brand-ink")}>
+              <table className={cn("w-full text-sm text-foreground", refreshEnabled && "text-brand-ink dark:text-slate-100")}>
                 <thead>
-                  <tr className={cn("border-b", refreshEnabled && "border-brand-border/60")}>
-                    <th className={cn("pb-3 text-left font-medium", refreshEnabled && "font-heading")}>
+                  <tr
+                    className={cn(
+                      "border-b border-slate-200 dark:border-slate-700/70",
+                      refreshEnabled && "border-brand-border/60 dark:border-brand-border/40"
+                    )}
+                  >
+                    <th className={cn("pb-3 text-left font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
                       Nombre
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading")}>
+                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
                       Total
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading")}>
+                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
                       Permisos
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading")}>
+                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
                       Faltas
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading")}>
+                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
                       Otros
                     </th>
                   </tr>
@@ -1320,7 +1412,7 @@ export function SummaryComparison({
                       key={idx}
                       className={cn(
                         "border-b last:border-0",
-                        refreshEnabled && "border-brand-border/60"
+                        refreshEnabled && "border-brand-border/60 dark:border-brand-border/40"
                       )}
                     >
                       <td className={cn("py-3 font-medium", refreshEnabled && "font-heading")}>
@@ -1329,13 +1421,13 @@ export function SummaryComparison({
                       <td className="py-3 text-right">
                         {d.ausentismo.total}
                       </td>
-                      <td className="py-3 text-right text-blue-600">
+                      <td className="py-3 text-right text-blue-600 dark:text-blue-300">
                         {d.ausentismo.permisos}
                       </td>
-                      <td className="py-3 text-right text-red-600">
+                      <td className="py-3 text-right text-red-600 dark:text-red-400">
                         {d.ausentismo.faltas}
                       </td>
-                      <td className="py-3 text-right text-gray-600">
+                      <td className="py-3 text-right text-muted-foreground">
                         {d.ausentismo.otros}
                       </td>
                     </tr>

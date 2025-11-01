@@ -111,42 +111,70 @@ export function DismissalReasonsTable({
       {/* Listado Detallado de Bajas Recientes */}
       <Card
         className={cn(
-          "border border-border bg-white shadow-sm dark:bg-gray-900",
+          "border border-border bg-card shadow-sm",
           refreshEnabled &&
-            "rounded-2xl border-brand-border/60 bg-white/95 shadow-brand transition-shadow dark:border-brand-border/50 dark:bg-gray-900/80"
+            "rounded-2xl border-brand-border/50 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface/80"
         )}
       >
-        <CardHeader className={cn(refreshEnabled && "pb-6")}>
-          <CardTitle
-            className={cn(
-              "flex items-center gap-2 text-lg",
-              refreshEnabled && "font-heading text-xl text-brand-ink"
-            )}
-          >
-            📋 Detalle de Bajas
-            <Badge
-              variant="outline"
+        <CardHeader
+          className={cn(
+            "flex flex-col gap-3",
+            refreshEnabled && "pb-6 sm:flex-row sm:items-center sm:justify-between"
+          )}
+        >
+          <div className="space-y-2">
+            <CardTitle
               className={cn(
-                "ml-2 text-xs",
-                refreshEnabled &&
-                  "border-none bg-brand-surface-accent px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-ink/80"
+                "flex items-center gap-2 text-lg",
+                refreshEnabled && "font-heading text-xl text-brand-ink dark:text-white"
               )}
             >
-              {showAll
-                ? `Mostrando todas las ${empleadosBaja.length} bajas`
-                : `Últimas ${empleadosDetalle.length} de ${empleadosBaja.length} total`}
-            </Badge>
-          </CardTitle>
-          <p
+              📋 Detalle de Bajas
+              <Badge
+                variant="outline"
+                className={cn(
+                  "ml-1 text-xs",
+                  refreshEnabled &&
+                    "border-none bg-brand-surface-accent px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-ink/80"
+                )}
+              >
+                {showAll
+                  ? `Mostrando todas las ${empleadosBaja.length} bajas`
+                  : `Últimas ${empleadosDetalle.length} de ${empleadosBaja.length} total`}
+              </Badge>
+            </CardTitle>
+            <p
+              className={cn(
+                "text-sm text-muted-foreground",
+                refreshEnabled && "font-body text-sm text-brand-ink/70"
+              )}
+            >
+              ID, Departamento, Ubicación, Puesto, Clasificación - Datos completos de empleados
+            </p>
+          </div>
+          <Button
+            variant={refreshEnabled ? "cta" : "outline"}
+            size="sm"
+            onClick={() => setShowAll(!showAll)}
             className={cn(
-              "text-sm text-gray-600 dark:text-gray-400",
-              refreshEnabled && "font-body text-sm text-brand-ink/70"
+              "gap-2",
+              refreshEnabled && "rounded-full px-5 py-2 text-sm font-semibold shadow-brand"
             )}
           >
-            ID, Departamento, Ubicación, Puesto, Clasificación - Datos completos de empleados
-          </p>
+            {showAll ? (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                Mostrar menos
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                Mostrar todas ({empleadosBaja.length})
+              </>
+            )}
+          </Button>
         </CardHeader>
-        <CardContent className={cn(refreshEnabled && "px-0 pb-0 pt-0")}>
+        <CardContent className={cn(refreshEnabled && "px-0 pb-0 pt-0")}>        
           <VisualizationContainer
             title="Detalle de bajas"
             type="table"
@@ -154,162 +182,58 @@ export function DismissalReasonsTable({
             filename="detalle-bajas"
           >
             {() => (
-          <Table
-            className={cn(
-              refreshEnabled &&
-                "text-sm text-brand-ink [&_td]:px-4 [&_td]:py-3 [&_th]:px-4 [&_th]:py-3"
-            )}
-          >
-            <TableHeader
-              className={cn(
-                refreshEnabled &&
-                  "[&_th]:bg-brand-surface-accent [&_th]:font-heading [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-[0.14em] [&_th]:text-brand-ink"
-              )}
-            >
-              <TableRow
-                className={cn(
-                  refreshEnabled &&
-                    "border-none [&_th:first-child]:rounded-tl-2xl [&_th:last-child]:rounded-tr-2xl"
-                )}
-              >
-                <TableHead className="w-20">ID</TableHead>
-                <TableHead>Departamento</TableHead>
-                <TableHead>Ubicación</TableHead>
-                <TableHead>Puesto</TableHead>
-                <TableHead>Clasificación</TableHead>
-                <TableHead>Fecha Baja</TableHead>
-                <TableHead>Motivo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody
-              className={cn(
-                refreshEnabled &&
-                  "bg-white [&_tr:last-child]:rounded-b-2xl [&_tr]:border-none [&_tr]:odd:bg-white/95 [&_tr]:even:bg-brand-surface/50"
-              )}
-            >
-              {empleadosDetalle.map((empleado, index) => (
-                <TableRow
-                  key={index}
+              <div className="overflow-x-auto">
+                <Table
                   className={cn(
                     refreshEnabled &&
-                      "hover:bg-brand-surface-accent/70 focus-within:bg-brand-surface-accent/70 transition-colors"
+                      "text-sm text-brand-ink [&_td]:px-4 [&_td]:py-3 [&_th]:px-4 [&_th]:py-3"
                   )}
                 >
-                  <TableCell
+                  <TableHeader
                     className={cn(
-                      "font-mono text-xs",
-                      refreshEnabled && "text-sm text-brand-ink/80"
+                      refreshEnabled &&
+                        "[&_th]:bg-brand-surface-accent [&_th]:font-heading [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-[0.14em] [&_th]:text-brand-ink"
                     )}
                   >
-                    {empleado.id}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
+                    <TableRow
                       className={cn(
-                        "text-xs bg-blue-50",
                         refreshEnabled &&
-                          "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-medium text-brand-ink/80"
+                          "border-none [&_th:first-child]:rounded-tl-2xl [&_th:last-child]:rounded-tr-2xl"
                       )}
                     >
-                      {empleado.departamento || "Sin Depto"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-xs",
-                        refreshEnabled &&
-                          "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-medium text-brand-ink/80"
-                      )}
-                    >
-                      {empleado.ubicacion || "Sin Ubicación"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        "text-xs",
-                        refreshEnabled &&
-                          "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-medium text-brand-ink/80"
-                      )}
-                    >
-                      {empleado.puesto || "Sin Puesto"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        empleado.clasificacion === "CONFIANZA"
-                          ? "default"
-                          : empleado.clasificacion === "SINDICALIZADO"
-                          ? "destructive"
-                          : "secondary"
-                      }
-                      className={cn(
-                        "text-xs font-semibold",
-                        refreshEnabled &&
-                          "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-semibold text-brand-ink"
-                      )}
-                    >
-                      {empleado.clasificacion || "Sin Clasificación"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell
+                      <TableHead className="w-20">ID</TableHead>
+                      <TableHead>Departamento</TableHead>
+                      <TableHead>Ubicación</TableHead>
+                      <TableHead>Puesto</TableHead>
+                      <TableHead>Clasificación</TableHead>
+                      <TableHead>Fecha Baja</TableHead>
+                      <TableHead>Motivo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody
                     className={cn(
-                      "text-sm",
-                      refreshEnabled && "font-medium text-brand-ink/80"
+                      refreshEnabled &&
+                        "[&_tr:last-child]:rounded-b-2xl [&_tr]:border-none [&_tr]:odd:bg-card [&_tr]:even:bg-brand-surface/70 [&_tr]:hover:bg-brand-surface-accent/70"
                     )}
                   >
-                    {formatDate(empleado.fecha_baja)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-xs",
-                        refreshEnabled &&
-                          "border-none bg-brand-surface-accent px-2 py-1 text-[11px] font-medium text-brand-ink"
-                      )}
-                    >
-                      {empleado.motivo_baja}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    {empleadosDetalle.map((empleado, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-mono text-xs text-muted-foreground dark:text-brand-ink/70">
+                          {empleado.id}
+                        </TableCell>
+                        <TableCell>{empleado.departamento || "Sin Depto"}</TableCell>
+                        <TableCell>{empleado.ubicacion || "Sin Ubicación"}</TableCell>
+                        <TableCell>{empleado.puesto || "Sin Puesto"}</TableCell>
+                        <TableCell>{empleado.clasificacion || "Sin Clasificación"}</TableCell>
+                        <TableCell>{formatDate(empleado.fecha_baja)}</TableCell>
+                        <TableCell>{empleado.motivo_baja}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </VisualizationContainer>
-
-          {empleadosBaja.length > 10 && (
-            <div
-              className={cn(
-                "mt-4 text-center",
-                refreshEnabled && "mt-6 border-t border-brand-border/50 pt-4"
-              )}
-            >
-              <Button
-                variant={refreshEnabled ? "cta" : "outline"}
-                onClick={() => setShowAll(!showAll)}
-                className={cn("gap-2", refreshEnabled && "px-6 py-2 text-sm font-semibold")}
-              >
-                {showAll ? (
-                  <>
-                    <ChevronUp className="h-4 w-4" />
-                    Mostrar menos
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-4 w-4" />
-                    Mostrar todas ({empleadosBaja.length} registros)
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
 
           {empleadosDetalle.length === 0 && (
             <div

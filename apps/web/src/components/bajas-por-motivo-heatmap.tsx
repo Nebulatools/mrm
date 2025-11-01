@@ -1,9 +1,11 @@
 'use client'
 
-import { Fragment } from 'react'
+import { Fragment, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { isMotivoClave } from '@/lib/normalizers'
 import { VisualizationContainer } from './visualization-container'
+import { useTheme } from '@/components/theme-provider'
+import { cn } from '@/lib/utils'
 
 interface BajasPorMotivoData {
   motivo: string
@@ -38,6 +40,9 @@ const MESES_LABELS = [
 ]
 
 export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria' }: BajasPorMotivoHeatmapProps) {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+
   const computeTotal = (row: BajasPorMotivoData) =>
     MESES.reduce((sum, mes) => sum + (row[mes as keyof BajasPorMotivoData] as number), 0)
 
@@ -92,34 +97,53 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
   )
   const maxValue = Math.max(...values, 1)
 
-  // Función para obtener el color basado en la intensidad
-  const getColorIntensity = (value: number): string => {
-    if (value === 0) return 'bg-gray-50'
+  const intensityPalette = useMemo(() => {
+    if (isDark) {
+      return [
+        { bg: 'rgba(148, 163, 184, 0.12)', text: 'rgba(226, 232, 240, 0.55)', border: 'rgba(148, 163, 184, 0.2)' },
+        { bg: 'rgba(248, 113, 113, 0.22)', text: '#fdece8', border: 'rgba(248, 113, 113, 0.3)' },
+        { bg: 'rgba(239, 68, 68, 0.35)', text: '#fff5f5', border: 'rgba(239, 68, 68, 0.4)' },
+        { bg: 'rgba(220, 38, 38, 0.55)', text: '#FEF2F2', border: 'rgba(220, 38, 38, 0.55)' },
+        { bg: 'rgba(185, 28, 28, 0.75)', text: '#F8FAFC', border: 'rgba(185, 28, 28, 0.8)' }
+      ]
+    }
+
+    return [
+      { bg: '#f8fafc', text: '#64748b', border: 'rgba(148, 163, 184, 0.35)' },
+      { bg: '#fee2e2', text: '#991b1b', border: 'rgba(248, 113, 113, 0.4)' },
+      { bg: '#fecaca', text: '#7f1d1d', border: 'rgba(239, 68, 68, 0.3)' },
+      { bg: '#fca5a5', text: '#7f1d1d', border: 'rgba(239, 68, 68, 0.35)' },
+      { bg: '#ef4444', text: '#fff', border: 'rgba(239, 68, 68, 0.6)' }
+    ]
+  }, [isDark])
+
+  const getCellStyle = (value: number) => {
+    if (value === 0) {
+      const zeroPalette = intensityPalette[0]
+      return {
+        backgroundColor: zeroPalette.bg,
+        color: zeroPalette.text,
+        border: `1px solid ${zeroPalette.border}`
+      }
+    }
 
     const intensity = value / maxValue
-
-    if (intensity <= 0.2) return 'bg-red-100'
-    if (intensity <= 0.4) return 'bg-red-200'
-    if (intensity <= 0.6) return 'bg-red-300'
-    if (intensity <= 0.8) return 'bg-red-400'
-    return 'bg-red-500'
-  }
-
-  // Función para obtener el color del texto basado en la intensidad
-  const getTextColor = (value: number): string => {
-    if (value === 0) return 'text-gray-400'
-
-    const intensity = value / maxValue
-    return intensity > 0.6 ? 'text-white' : 'text-gray-900'
+    const index = Math.min(intensityPalette.length - 1, Math.max(1, Math.ceil(intensity * (intensityPalette.length - 1))))
+    const paletteValue = intensityPalette[index]
+    return {
+      backgroundColor: paletteValue.bg,
+      color: paletteValue.text,
+      border: `1px solid ${paletteValue.border}`
+    }
   }
 
   return (
-    <Card>
+    <Card className={cn('border border-brand-border/40', isDark && 'bg-brand-surface/80 text-brand-ink')}>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">
+        <CardTitle className="text-lg font-semibold text-brand-ink">
           🚦 Bajas por Motivo - {year}
         </CardTitle>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           Mapa de calor mostrando la cantidad de bajas por motivo y mes
         </p>
       </CardHeader>
@@ -131,19 +155,22 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
           filename={`bajas-por-motivo-${year}`}
         >
           {() => (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
+            <div className="overflow-x-auto rounded-2xl border border-brand-border/40 bg-card shadow-sm dark:bg-brand-surface/70">
+              <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                <th className="text-left p-2 font-medium text-gray-700 min-w-[160px]">
+                <th className="min-w-[160px] p-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-brand-ink/70">
                   Motivo
                 </th>
                 {MESES_LABELS.map((mes, index) => (
-                  <th key={index} className="text-center p-2 font-medium text-gray-700 min-w-[50px]">
+                  <th
+                    key={index}
+                    className="min-w-[50px] p-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-brand-ink/60"
+                  >
                     {mes}
                   </th>
                 ))}
-                <th className="text-center p-2 font-medium text-gray-700 min-w-[60px]">
+                <th className="min-w-[70px] p-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-brand-ink/70">
                   Total
                 </th>
               </tr>
@@ -151,7 +178,7 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
             <tbody>
               {sections.length === 0 ? (
                 <tr>
-                  <td colSpan={MESES.length + 2} className="p-4 text-center text-sm text-gray-500">
+                  <td colSpan={MESES.length + 2} className="p-4 text-center text-sm text-muted-foreground">
                     No hay bajas registradas para el periodo seleccionado.
                   </td>
                 </tr>
@@ -162,14 +189,22 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
                   return (
                     <Fragment key={section.key}>
                       <tr
-                        className={`${motivoFilter === section.key ? 'bg-red-50' : 'bg-gray-100'} border-b border-gray-200`}
+                        className={cn(
+                          'border-b',
+                          motivoFilter === section.key
+                            ? (isDark ? 'bg-rose-500/15 border-rose-300/30' : 'bg-red-50 border-red-200')
+                            : (isDark ? 'bg-brand-surface/70 border-brand-border/30' : 'bg-slate-100 border-slate-200')
+                        )}
                       >
                         <td
                           colSpan={MESES.length + 2}
-                          className="p-2 text-left text-sm font-semibold uppercase tracking-wide text-gray-700 flex items-center justify-between"
+                          className={cn(
+                            'flex items-center justify-between p-3 text-xs font-semibold uppercase tracking-[0.14em]',
+                            isDark ? 'text-brand-ink/80' : 'text-slate-700'
+                          )}
                         >
                           <span>{section.title}</span>
-                          <span className="text-xs font-semibold text-gray-600 normal-case">
+                          <span className={cn('text-xs font-semibold normal-case', isDark ? 'text-brand-ink/70' : 'text-slate-600')}>
                             Total: {sectionTotal.toLocaleString('es-MX')}
                           </span>
                         </td>
@@ -178,23 +213,28 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
                         const total = computeTotal(row);
 
                         return (
-                          <tr key={`${section.key}-${rowIndex}`} className="border-b border-gray-100">
-                            <td className="p-2 font-medium text-gray-900">
+                          <tr
+                            key={`${section.key}-${rowIndex}`}
+                            className={cn('border-b text-sm', isDark ? 'border-brand-border/30' : 'border-slate-200')}
+                          >
+                            <td className={cn('p-3 font-medium', isDark ? 'text-brand-ink' : 'text-slate-900')}>
                               {row.motivo}
                             </td>
                             {MESES.map((mes, mesIndex) => {
                               const value = row[mes as keyof BajasPorMotivoData] as number;
+                              const cellStyle = getCellStyle(value)
                               return (
                                 <td
                                   key={mesIndex}
-                                  className={`p-2 text-center text-sm font-semibold rounded-sm mx-1 ${getColorIntensity(value)} ${getTextColor(value)}`}
+                                  className="mx-1 rounded-lg p-2 text-center text-sm font-semibold transition-colors"
+                                  style={cellStyle}
                                   title={`${row.motivo} - ${MESES_LABELS[mesIndex]}: ${value} bajas`}
                                 >
                                   {value || ''}
                                 </td>
                               );
                             })}
-                            <td className="p-2 text-center font-bold text-gray-900">
+                            <td className={cn('p-2 text-center font-semibold', isDark ? 'text-brand-ink' : 'text-slate-900')}>
                               {total}
                             </td>
                           </tr>
@@ -211,24 +251,21 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
         </VisualizationContainer>
 
         {/* Leyenda */}
-        <div className="mt-4 flex items-center gap-4 text-sm">
-          <span className="text-gray-600">Intensidad:</span>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-gray-50 border rounded"></div>
-            <span className="text-xs text-gray-500">0</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-red-100 rounded"></div>
-            <span className="text-xs text-gray-500">Bajo</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-red-300 rounded"></div>
-            <span className="text-xs text-gray-500">Medio</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-red-500 rounded"></div>
-            <span className="text-xs text-gray-500">Alto</span>
-          </div>
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
+          <span className={cn('font-semibold', isDark ? 'text-brand-ink/80' : 'text-slate-600')}>Intensidad:</span>
+          {([0, 1, 2, 3, 4] as const).map((level) => {
+            const paletteValue = intensityPalette[Math.min(level, intensityPalette.length - 1)]
+            const label = ['0', 'Bajo', 'Medio', 'Alto', 'Crítico'][level]
+            return (
+              <div key={level} className="flex items-center gap-2">
+                <div
+                  className="h-4 w-4 rounded"
+                  style={{ backgroundColor: paletteValue.bg, border: `1px solid ${paletteValue.border}` }}
+                ></div>
+                <span className={cn('text-xs', isDark ? 'text-brand-ink/70' : 'text-slate-500')}>{label}</span>
+              </div>
+            )
+          })}
         </div>
       </CardContent>
     </Card>

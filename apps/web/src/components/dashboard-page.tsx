@@ -34,6 +34,7 @@ import { createBrowserClient } from "@/lib/supabase-client";
 import { format } from "date-fns";
 import { es } from 'date-fns/locale';
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/theme-provider";
 // 🆕 Import helper functions
 import {
   calculateActivosPromedio,
@@ -81,6 +82,15 @@ export function DashboardPage() {
   const supabase = createBrowserClient();
   const refreshEnabled = DASHBOARD_UI_REFRESH_ENABLED;
   const { isAdmin } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const chartAxisColor = isDark ? "#F8FAFC" : "#334155";
+  const chartSecondaryAxisColor = isDark ? "#CBD5F5" : "#64748b";
+  const chartGridColor = isDark ? "rgba(148, 163, 184, 0.25)" : "#e2e8f0";
+  const chartTooltipBg = isDark ? "hsl(var(--card))" : "#FFFFFF";
+  const chartTooltipBorder = isDark ? "rgba(148, 163, 184, 0.35)" : "#e2e8f0";
+  const chartTooltipLabelColor = isDark ? "#E2E8F0" : "#0f172a";
+  const chartTooltipShadow = isDark ? "0 16px 45px -20px rgba(8, 14, 26, 0.65)" : "0 10px 35px -15px rgba(15, 23, 42, 0.35)";
 
   // Removed unused sanitizeChip function
   const [data, setData] = useState<DashboardData>({
@@ -758,11 +768,11 @@ export function DashboardPage() {
     ? "rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] data-[state=active]:bg-brand data-[state=active]:text-brand-foreground"
     : undefined;
   const elevatedCardClass = refreshEnabled
-    ? "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand transition-shadow"
+    ? "rounded-2xl border border-brand-border/50 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface/80"
     : undefined;
   const elevatedCardHeaderClass = refreshEnabled ? "pb-6" : undefined;
-  const elevatedTitleClass = refreshEnabled ? "font-heading text-brand-ink" : undefined;
-  const elevatedSubtleTextClass = refreshEnabled ? "text-brand-ink/70" : undefined;
+  const elevatedTitleClass = refreshEnabled ? "font-heading text-brand-ink dark:text-white" : undefined;
+  const elevatedSubtleTextClass = refreshEnabled ? "text-brand-ink/70 dark:text-brand-ink/70" : undefined;
   const visualizationExportContextValue = useMemo(
     () => ({
       filters: retentionFilters,
@@ -792,7 +802,9 @@ export function DashboardPage() {
       <header
         className={cn(
           "border-b bg-card",
-          refreshEnabled && "border-brand-border/60 bg-white/90 dark:bg-brand-surface-accent/60 shadow-sm backdrop-blur"
+          refreshEnabled && (isDark
+            ? "border-brand-border/60 bg-brand-surface/95 shadow-sm backdrop-blur"
+            : "border-brand-border/60 bg-white/90 shadow-sm backdrop-blur")
         )}
       >
         <div
@@ -804,13 +816,23 @@ export function DashboardPage() {
         >
           {refreshEnabled ? (
             <div className="flex w-full flex-col gap-4">
-              <span className="text-xs font-semibold uppercase tracking-[0.28em] text-brand-ink/60">
+              <span
+                className={cn(
+                  "text-xs font-semibold uppercase tracking-[0.28em]",
+                  refreshEnabled && (isDark ? "text-brand-ink/70" : "text-brand-ink/60")
+                )}
+              >
                 Panel de Talento
               </span>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="font-heading text-4xl tracking-tight text-brand-ink">
+                    <h1
+                      className={cn(
+                        "font-heading text-4xl tracking-tight",
+                        refreshEnabled && (isDark ? "text-white" : "text-brand-ink")
+                      )}
+                    >
                       Dashboard MRM · KPIs de RRHH
                     </h1>
                     {data.loading ? (
@@ -818,22 +840,53 @@ export function DashboardPage() {
                     ) : (
                       <Badge
                         variant="outline"
-                        className="border-none bg-brand-surface-accent px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-brand-ink/80"
+                        className={cn(
+                          "border-none px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]",
+                          refreshEnabled && (isDark
+                            ? "bg-brand-surface-accent/80 text-brand-ink"
+                            : "bg-brand-surface-accent text-brand-ink/80")
+                        )}
                       >
                         Datos al día
                       </Badge>
                     )}
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-brand-ink/60">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 dark:bg-brand-surface-accent/40 px-4 py-1 text-[11px] text-brand-ink/70">
+                  <div
+                    className={cn(
+                      "flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em]",
+                      refreshEnabled && (isDark ? "text-brand-ink/70" : "text-brand-ink/60")
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border px-4 py-1 text-[11px]",
+                        refreshEnabled && (isDark
+                          ? "border-brand-border/40 bg-brand-surface/70 text-brand-ink/80"
+                          : "border-brand-border/50 bg-white/90 text-brand-ink/70")
+                      )}
+                    >
                       Período: {periodLabel}
                     </span>
                     {lastUpdatedDisplay ? (
                       <>
-                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 dark:bg-brand-surface-accent/40 px-4 py-1 text-[11px] text-brand-ink/70">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-full border px-4 py-1 text-[11px]",
+                            refreshEnabled && (isDark
+                              ? "border-brand-border/40 bg-brand-surface/70 text-brand-ink/80"
+                              : "border-brand-border/50 bg-white/90 text-brand-ink/70")
+                          )}
+                        >
                           Actualizado: {lastUpdatedDisplay}
                         </span>
-                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 dark:bg-brand-surface-accent/40 px-4 py-1 text-[11px] text-brand-ink/70">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-full border px-4 py-1 text-[11px]",
+                            refreshEnabled && (isDark
+                              ? "border-brand-border/40 bg-brand-surface/70 text-brand-ink/80"
+                              : "border-brand-border/50 bg-white/90 text-brand-ink/70")
+                          )}
+                        >
                           {data.kpis.length} KPIs
                         </span>
                       </>
@@ -980,7 +1033,7 @@ export function DashboardPage() {
               <Card className={cn(elevatedCardClass)}>
                 <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
                   <CardTitle className={cn("text-base", elevatedTitleClass)}>Clasificación</CardTitle>
-                  <p className={cn("text-sm text-gray-600", elevatedSubtleTextClass)}>
+                  <p className={cn("text-sm text-muted-foreground", elevatedSubtleTextClass)}>
                     Confianza vs Sindicalizado
                   </p>
                 </CardHeader>
@@ -1000,7 +1053,7 @@ export function DashboardPage() {
                           >
                             <CartesianGrid
                               strokeDasharray="4 8"
-                              stroke="#e2e8f0"
+                              stroke={chartGridColor}
                               strokeOpacity={0.65}
                               vertical={false}
                             />
@@ -1008,7 +1061,7 @@ export function DashboardPage() {
                               dataKey="name"
                               axisLine={false}
                               tickLine={false}
-                              tick={{ fontSize: 12, fill: "#334155" }}
+                              tick={{ fontSize: 12, fill: chartAxisColor }}
                               interval={0}
                               tickMargin={12}
                             />
@@ -1016,18 +1069,19 @@ export function DashboardPage() {
                               type="number"
                               axisLine={false}
                               tickLine={false}
-                              tick={{ fontSize: 12, fill: "#64748b" }}
+                              tick={{ fontSize: 12, fill: chartSecondaryAxisColor }}
                               allowDecimals={false}
                               domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.15)]}
                             />
                             <Tooltip
-                              cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
+                              cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.16)" : "rgba(148, 163, 184, 0.08)" }}
                               contentStyle={{
                                 borderRadius: 12,
-                                borderColor: "#e2e8f0",
-                                boxShadow: "0 10px 35px -15px rgba(15, 23, 42, 0.35)",
+                                borderColor: chartTooltipBorder,
+                                backgroundColor: chartTooltipBg,
+                                boxShadow: chartTooltipShadow,
                               }}
-                              labelStyle={{ fontWeight: 600, color: "#0f172a" }}
+                              labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
                               formatter={(value: number) => value.toLocaleString("es-MX")}
                             />
                             <defs>
@@ -1046,7 +1100,7 @@ export function DashboardPage() {
                                 dataKey="value"
                                 position="top"
                                 formatter={(value: number) => value.toLocaleString("es-MX")}
-                                style={{ fill: "#0f172a", fontWeight: 600, fontSize: 12 }}
+                                style={{ fill: chartTooltipLabelColor, fontWeight: 600, fontSize: 12 }}
                                 offset={14}
                               />
                             </Bar>
@@ -1061,7 +1115,7 @@ export function DashboardPage() {
               <Card className={cn(elevatedCardClass)}>
                 <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
                   <CardTitle className={cn("text-base", elevatedTitleClass)}>Género</CardTitle>
-                  <p className={cn("text-sm text-gray-600", elevatedSubtleTextClass)}>
+                  <p className={cn("text-sm text-muted-foreground", elevatedSubtleTextClass)}>
                     Hombre / Mujer
                   </p>
                 </CardHeader>
@@ -1081,7 +1135,7 @@ export function DashboardPage() {
                           >
                             <CartesianGrid
                               strokeDasharray="4 8"
-                              stroke="#e2e8f0"
+                              stroke={chartGridColor}
                               strokeOpacity={0.65}
                               vertical={false}
                             />
@@ -1089,7 +1143,7 @@ export function DashboardPage() {
                               dataKey="name"
                               axisLine={false}
                               tickLine={false}
-                              tick={{ fontSize: 12, fill: "#334155" }}
+                              tick={{ fontSize: 12, fill: chartAxisColor }}
                               interval={0}
                               tickMargin={12}
                             />
@@ -1097,18 +1151,19 @@ export function DashboardPage() {
                               type="number"
                               axisLine={false}
                               tickLine={false}
-                              tick={{ fontSize: 12, fill: "#64748b" }}
+                              tick={{ fontSize: 12, fill: chartSecondaryAxisColor }}
                               allowDecimals={false}
                               domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.15)]}
                             />
                             <Tooltip
-                              cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
+                              cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.16)" : "rgba(148, 163, 184, 0.08)" }}
                               contentStyle={{
                                 borderRadius: 12,
-                                borderColor: "#e2e8f0",
-                                boxShadow: "0 10px 35px -15px rgba(15, 23, 42, 0.35)",
+                                borderColor: chartTooltipBorder,
+                                backgroundColor: chartTooltipBg,
+                                boxShadow: chartTooltipShadow,
                               }}
-                              labelStyle={{ fontWeight: 600, color: "#0f172a" }}
+                              labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
                               formatter={(value: number) => value.toLocaleString("es-MX")}
                             />
                             <defs>
@@ -1127,7 +1182,7 @@ export function DashboardPage() {
                                 dataKey="value"
                                 position="top"
                                 formatter={(value: number) => value.toLocaleString("es-MX")}
-                                style={{ fill: "#0f172a", fontWeight: 600, fontSize: 12 }}
+                                style={{ fill: chartTooltipLabelColor, fontWeight: 600, fontSize: 12 }}
                                 offset={14}
                               />
                             </Bar>
@@ -1144,7 +1199,7 @@ export function DashboardPage() {
                   <CardTitle className={cn("text-base", elevatedTitleClass)}>
                     Distribución por Edad
                   </CardTitle>
-                  <p className={cn("text-sm text-gray-600", elevatedSubtleTextClass)}>
+                  <p className={cn("text-sm text-muted-foreground", elevatedSubtleTextClass)}>
                     Gráfica de dispersión
                   </p>
                 </CardHeader>
@@ -1159,10 +1214,32 @@ export function DashboardPage() {
                       <div style={{ width: '100%', height: fullscreen ? 340 : 280 }}>
                         <ResponsiveContainer width="100%" height="100%">
                       <ScatterChart margin={{ left: 16, right: 16, top: 8, bottom: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="age" name="Edad" unit=" años" type="number" allowDecimals={false} />
-                        <YAxis dataKey="count" name="# Empleados" type="number" allowDecimals={false} />
-                        <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
+                        <XAxis
+                          dataKey="age"
+                          name="Edad"
+                          unit=" años"
+                          type="number"
+                          allowDecimals={false}
+                          tick={{ fill: chartAxisColor, fontSize: 12 }}
+                        />
+                        <YAxis
+                          dataKey="count"
+                          name="# Empleados"
+                          type="number"
+                          allowDecimals={false}
+                          tick={{ fill: chartSecondaryAxisColor, fontSize: 12 }}
+                        />
+                        <Tooltip
+                          cursor={{ strokeDasharray: '3 3', stroke: isDark ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.45)' }}
+                          contentStyle={{
+                            borderRadius: 12,
+                            borderColor: chartTooltipBorder,
+                            backgroundColor: chartTooltipBg,
+                            boxShadow: chartTooltipShadow
+                          }}
+                          labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
+                        />
                         <Scatter data={ageScatterData} fill="#ef4444" />
                       </ScatterChart>
                         </ResponsiveContainer>
@@ -1192,10 +1269,20 @@ export function DashboardPage() {
                       <div style={{ width: '100%', height: fullscreen ? 360 : 300 }}>
                         <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={hcDeptData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
+                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                         <XAxis dataKey="departamento" tick={false} height={20} />
-                        <YAxis allowDecimals={false} />
-                        <Tooltip />
+                        <YAxis allowDecimals={false} tick={{ fill: chartAxisColor, fontSize: 12 }} />
+                        <Tooltip
+                          cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.16)" : "rgba(148, 163, 184, 0.08)" }}
+                          contentStyle={{
+                            borderRadius: 12,
+                            borderColor: chartTooltipBorder,
+                            backgroundColor: chartTooltipBg,
+                            boxShadow: chartTooltipShadow
+                          }}
+                          labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
+                          formatter={(value: number) => value.toLocaleString("es-MX")}
+                        />
                         <Bar dataKey="count" fill="#6366f1" />
                       </BarChart>
                         </ResponsiveContainer>
@@ -1220,10 +1307,20 @@ export function DashboardPage() {
                       <div style={{ width: '100%', height: fullscreen ? 360 : 300 }}>
                         <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={hcAreaData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
+                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                         <XAxis dataKey="area" tick={false} height={20} />
-                        <YAxis allowDecimals={false} />
-                        <Tooltip />
+                        <YAxis allowDecimals={false} tick={{ fill: chartAxisColor, fontSize: 12 }} />
+                        <Tooltip
+                          cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.16)" : "rgba(148, 163, 184, 0.08)" }}
+                          contentStyle={{
+                            borderRadius: 12,
+                            borderColor: chartTooltipBorder,
+                            backgroundColor: chartTooltipBg,
+                            boxShadow: chartTooltipShadow
+                          }}
+                          labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
+                          formatter={(value: number) => value.toLocaleString("es-MX")}
+                        />
                         <Bar dataKey="count" fill="#f59e0b" />
                       </BarChart>
                         </ResponsiveContainer>
@@ -1238,7 +1335,7 @@ export function DashboardPage() {
                   <CardTitle className={cn("text-base", elevatedTitleClass)}>
                     Antigüedad por Área
                   </CardTitle>
-                  <p className={cn("text-sm text-gray-600", elevatedSubtleTextClass)}>
+                  <p className={cn("text-sm text-muted-foreground", elevatedSubtleTextClass)}>
                     Barras horizontales por grupos
                   </p>
                 </CardHeader>
@@ -1253,11 +1350,21 @@ export function DashboardPage() {
                       <div style={{ width: '100%', height: fullscreen ? 360 : 300 }}>
                         <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={seniorityByArea} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" allowDecimals={false} />
-                        <YAxis dataKey="area" type="category" width={120} />
-                        <Legend />
-                        <Tooltip />
+                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
+                        <XAxis type="number" allowDecimals={false} tick={{ fill: chartAxisColor, fontSize: 12 }} />
+                        <YAxis dataKey="area" type="category" width={120} tick={{ fill: chartAxisColor, fontSize: 12 }} />
+                        <Legend wrapperStyle={{ color: chartAxisColor }} />
+                        <Tooltip
+                          cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.12)" : "rgba(148, 163, 184, 0.06)" }}
+                          contentStyle={{
+                            borderRadius: 12,
+                            borderColor: chartTooltipBorder,
+                            backgroundColor: chartTooltipBg,
+                            boxShadow: chartTooltipShadow
+                          }}
+                          labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
+                          formatter={(value: number) => value.toLocaleString("es-MX")}
+                        />
                         <Bar dataKey="<3m" stackId="a" fill="#22c55e" />
                         <Bar dataKey="3-6m" stackId="a" fill="#3b82f6" />
                         <Bar dataKey="6-12m" stackId="a" fill="#a855f7" />
@@ -1407,14 +1514,22 @@ export function DashboardPage() {
             </div>
 
             {/* Toggle para filtrar visualizaciones por motivo */}
-            <div className={cn(
-              "flex items-center justify-center gap-4 rounded-lg border bg-white p-4",
-              refreshEnabled && "rounded-2xl border-brand-border/40 bg-brand-surface-accent/60"
-            )}>
-              <span className={cn(
-                "text-sm font-medium",
-                refreshEnabled && "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink/80"
-              )}>
+            <div
+              className={cn(
+                "flex items-center justify-center gap-4 rounded-lg border bg-card p-4",
+                refreshEnabled && (isDark
+                  ? "rounded-2xl border-brand-border/40 bg-brand-surface/70 shadow-brand/10"
+                  : "rounded-2xl border-brand-border/40 bg-brand-surface-accent/60 shadow-brand/10")
+              )}
+            >
+              <span
+                className={cn(
+                  "text-sm font-medium",
+                  refreshEnabled && (isDark
+                    ? "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink"
+                    : "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink/80")
+                )}
+              >
                 Filtrar visualizaciones por:
               </span>
               <div className="flex gap-2">

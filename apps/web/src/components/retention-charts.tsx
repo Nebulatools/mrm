@@ -12,6 +12,7 @@ import { applyFiltersWithScope } from '@/lib/filters/filters';
 import { isMotivoClave } from '@/lib/normalizers';
 import { VisualizationContainer } from "./visualization-container";
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
+import { useTheme } from "@/components/theme-provider";
 //
 
 interface MonthlyRetentionData {
@@ -56,7 +57,7 @@ interface RetentionChartsProps {
 
 const LEGEND_WRAPPER_STYLE: CSSProperties = { paddingTop: 6 };
 const legendFormatter = (value: string) => (
-  <span className="text-[11px] font-medium text-slate-600">{value}</span>
+  <span className="text-[11px] font-medium text-muted-foreground">{value}</span>
 );
 const TOOLTIP_WRAPPER_STYLE: CSSProperties = {
   backgroundColor: 'transparent',
@@ -73,10 +74,10 @@ const MONTHLY_SERIES_COLORS = {
   activos: getModernColor(3)
 };
 const TEMPORALITY_COLORS = [
-  getModernColor(0),
-  getModernColor(3),
-  getModernColor(4),
-  getModernColor(2)
+  '#4f46e5', // <3m
+  '#0ea5e9', // 3-6m
+  '#14b8a6', // 6-12m
+  '#f97316'  // +12m
 ];
 
 export function RetentionCharts({ currentDate = new Date(), currentYear, filters, motivoFilter = 'all' }: RetentionChartsProps) {
@@ -87,6 +88,17 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
   const [yearlyComparison, setYearlyComparison] = useState<YearlyComparisonData[]>([]);
   const [loading, setLoading] = useState(true);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const axisPrimaryColor = isDark ? "#E2E8F0" : "#0f172a";
+  const axisSecondaryColor = isDark ? "#CBD5F5" : "#64748b";
+  const axisMutedColor = isDark ? "#CBD5F5" : "#475569";
+  const gridStrokeColor = isDark ? "rgba(148, 163, 184, 0.25)" : "#E2E8F0";
+  const tooltipBackground = isDark ? "hsl(var(--card))" : "#FFFFFF";
+  const tooltipBorder = isDark ? "rgba(148, 163, 184, 0.35)" : "#E2E8F0";
+  const tooltipLabelColor = isDark ? "#E2E8F0" : "#0f172a";
+  const tooltipTextColor = isDark ? "#CBD5F5" : "#475569";
+  const tooltipShadow = isDark ? "0 16px 45px -20px rgba(8, 14, 26, 0.65)" : "0 10px 35px -15px rgba(15, 23, 42, 0.35)";
 
   const bajaMatchesMotivo = (emp: PlantillaRecord): boolean => {
     if (!emp.fecha_baja) {
@@ -379,13 +391,28 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     }
 
     return (
-      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-lg">
-        <p className="text-[11px] font-semibold text-slate-700">{label}</p>
+      <div
+        className="rounded-xl border px-3 py-2 shadow-lg"
+        style={{
+          borderColor: tooltipBorder,
+          backgroundColor: tooltipBackground,
+          boxShadow: tooltipShadow
+        }}
+      >
+        <p className="text-[11px] font-semibold" style={{ color: tooltipLabelColor }}>
+          {label}
+        </p>
         <div className="mt-1 space-y-1">
           {payload.map((entry, index) => (
-            <div key={`tooltip-${entry.dataKey}-${index}`} className="flex items-center gap-2 text-[11px] text-slate-600">
+            <div
+              key={`tooltip-${entry.dataKey}-${index}`}
+              className="flex items-center gap-2 text-[11px]"
+              style={{ color: tooltipTextColor }}
+            >
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
-              <span className="font-medium text-slate-700">{entry.name}</span>
+              <span className="font-medium" style={{ color: tooltipLabelColor }}>
+                {entry.name}
+              </span>
               <span className="ml-auto">
                 {entry.dataKey?.toLowerCase().includes('rotacion') || entry.name.toLowerCase().includes('rotación')
                   ? `${Number(entry.value ?? 0).toFixed(1)}%`
@@ -400,12 +427,34 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
   const renderVariationPill = (rawValue: number | null | undefined) => {
     if (rawValue === null || rawValue === undefined || Number.isNaN(rawValue)) {
-      return <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">—</span>;
+      return (
+        <span
+          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+          style={{
+            backgroundColor: isDark ? "rgba(148, 163, 184, 0.14)" : "rgba(148, 163, 184, 0.18)",
+            color: isDark ? "#CBD5F5" : "#475569",
+            border: `1px solid ${isDark ? "rgba(148, 163, 184, 0.32)" : "rgba(148, 163, 184, 0.45)"}`
+          }}
+        >
+          —
+        </span>
+      );
     }
 
     const value = Number(rawValue);
     if (value === 0) {
-      return <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">0.0%</span>;
+      return (
+        <span
+          className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+          style={{
+            backgroundColor: isDark ? "rgba(148, 163, 184, 0.14)" : "rgba(148, 163, 184, 0.18)",
+            color: isDark ? "#CBD5F5" : "#475569",
+            border: `1px solid ${isDark ? "rgba(148, 163, 184, 0.32)" : "rgba(148, 163, 184, 0.45)"}`
+          }}
+        >
+          0.0%
+        </span>
+      );
     }
 
     const isIncrease = value > 0;
@@ -422,7 +471,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
         style={{
           backgroundColor: `rgba(${base.r}, ${base.g}, ${base.b}, ${backgroundAlpha.toFixed(2)})`,
-          color: `rgba(${base.r}, ${base.g}, ${base.b}, 0.92)`,
+          color: isDark ? "#F8FAFC" : `rgba(${base.r}, ${base.g}, ${base.b}, 0.92)`,
           border: `1px solid rgba(${base.r}, ${base.g}, ${base.b}, ${borderAlpha.toFixed(2)})`
         }}
       >
@@ -436,8 +485,11 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {[1, 2, 3].map(i => (
-          <div key={i} className="h-[300px] bg-gray-100 rounded-lg animate-pulse flex items-center justify-center">
-            <span className="text-gray-500">Cargando...</span>
+          <div
+            key={i}
+            className="flex h-[300px] items-center justify-center rounded-lg border border-slate-200 bg-slate-100/80 p-4 animate-pulse dark:border-slate-700/70 dark:bg-slate-800/60"
+          >
+            <span className="text-muted-foreground dark:text-slate-300">Cargando...</span>
           </div>
         ))}
       </div>
@@ -472,9 +524,9 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       {/* Primera fila de gráficas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Gráfico 1: Rotación Acumulada (12 meses móviles) con comparación anual */}
-        <div className="bg-white p-4 rounded-lg border">
+        <div className="rounded-lg border bg-card p-4 shadow-sm dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación Acumulada (12 meses móviles)</h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="mb-4 text-sm text-muted-foreground">
             {availableYears.length > 0 
               ? `Comparación ${availableYears[0]} vs ${availableYears[availableYears.length - 1]}`
               : 'Comparación anual'}
@@ -489,14 +541,14 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               <div style={{ height: fullscreen ? 360 : 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={yearlyComparison}>
-                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                    <CartesianGrid strokeDasharray="4 8" stroke={gridStrokeColor} />
                     <XAxis
                       dataKey="mes"
-                      tick={{ fontSize: 11, fill: '#475569' }}
+                      tick={{ fontSize: 11, fill: axisSecondaryColor }}
                     />
                     <YAxis
-                      tick={{ fontSize: 11, fill: '#475569' }}
-                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }}
+                      tick={{ fontSize: 11, fill: axisMutedColor }}
+                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisPrimaryColor } }}
                       domain={rotationDomain}
                     />
                     <Tooltip cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(0), 0.35) }} content={<CustomTooltip />} wrapperStyle={TOOLTIP_WRAPPER_STYLE} />
@@ -523,9 +575,9 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         </div>
 
         {/* Gráfico 2: Rotación Mensual (Múltiples Líneas) */}
-        <div className="bg-white p-4 rounded-lg border">
+        <div className="rounded-lg border bg-card p-4 shadow-sm dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación Mensual</h3>
-          <p className="text-sm text-gray-600 mb-4">Rotación mensual %, bajas y activos por mes</p>
+          <p className="mb-4 text-sm text-muted-foreground">Rotación mensual %, bajas y activos por mes</p>
           <VisualizationContainer
             title="Rotación mensual"
             type="chart"
@@ -535,15 +587,17 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             {(fullscreen) => (
               <div style={{ height: fullscreen ? 360 : 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={monthlyData.filter(d => {
-                    const fecha = new Date(d.year, d.month - 1, 1);
-                    const targetYear = currentYear || new Date().getFullYear();
-                    return d.year === targetYear && fecha <= new Date();
-                  })}>
-                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                  <LineChart
+                    data={monthlyData.filter(d => {
+                      const fecha = new Date(d.year, d.month - 1, 1);
+                      const targetYear = currentYear || new Date().getFullYear();
+                      return d.year === targetYear && fecha <= new Date();
+                    })}
+                  >
+                    <CartesianGrid strokeDasharray="4 8" stroke={gridStrokeColor} />
                     <XAxis
                       dataKey="mes"
-                      tick={{ fontSize: 11, fill: '#475569' }}
+                      tick={{ fontSize: 11, fill: axisSecondaryColor }}
                       angle={-45}
                       textAnchor="end"
                       height={60}
@@ -551,8 +605,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     <YAxis
                       yAxisId="percentage"
                       orientation="left"
-                      tick={{ fontSize: 11, fill: '#475569' }}
-                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#334155' } }}
+                      tick={{ fontSize: 11, fill: axisMutedColor }}
+                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisPrimaryColor } }}
                       domain={[0, 10]}
                       tickCount={6}
                       allowDecimals={false}
@@ -560,8 +614,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     <YAxis
                       yAxisId="numbers"
                       orientation="right"
-                      tick={{ fontSize: 11, fill: '#475569' }}
-                      label={{ value: 'Cantidad', angle: 90, position: 'insideRight', style: { fontSize: 11, fill: '#334155' } }}
+                      tick={{ fontSize: 11, fill: axisMutedColor }}
+                      label={{ value: 'Cantidad', angle: 90, position: 'insideRight', style: { fontSize: 11, fill: axisPrimaryColor } }}
                       domain={[0, 'dataMax + 100']}
                       allowDecimals={false}
                     />
@@ -602,9 +656,9 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         </div>
 
         {/* Gráfico 3: Rotación por Temporalidad (Barras Apiladas por Mes) */}
-        <div className="bg-white p-4 rounded-lg border">
+        <div className="rounded-lg border bg-card p-4 shadow-sm dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación por Temporalidad</h3>
-          <p className="text-sm text-gray-600 mb-4">Bajas por tiempo trabajado por mes</p>
+          <p className="mb-4 text-sm text-muted-foreground">Bajas por tiempo trabajado por mes</p>
           <VisualizationContainer
             title="Rotación por temporalidad"
             type="chart"
@@ -668,21 +722,21 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             >
               {() => (
             <div className="overflow-x-auto">
-              <table className="w-full border-separate border-spacing-0 text-sm text-slate-800">
+              <table className="w-full border-separate border-spacing-0 text-sm text-foreground">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900" rowSpan={2}>Mes</th>
-                    <th className="text-center py-3 px-4 bg-blue-100 text-sm font-semibold text-slate-900" colSpan={3}>{availableYears[0] || new Date().getFullYear() - 1}</th>
-                    <th className="text-center py-3 px-4 bg-red-100 text-sm font-semibold text-slate-900" colSpan={3}>{availableYears[1] || new Date().getFullYear()}</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-slate-900" rowSpan={2}>Variación</th>
+                  <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-800/60">
+                    <th className="py-3 px-4 text-left text-sm font-semibold text-brand-ink dark:text-slate-100" rowSpan={2}>Mes</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-brand-ink dark:text-slate-100 bg-blue-100 dark:bg-blue-500/20" colSpan={3}>{availableYears[0] || new Date().getFullYear() - 1}</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-brand-ink dark:text-slate-100 bg-red-100 dark:bg-red-500/20" colSpan={3}>{availableYears[1] || new Date().getFullYear()}</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-brand-ink dark:text-slate-100" rowSpan={2}>Variación</th>
                   </tr>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900">% Rot. 12M</th>
-                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900"># Bajas 12M</th>
-                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900"># Activos</th>
-                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900">% Rot. 12M</th>
-                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900"># Bajas 12M</th>
-                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900"># Activos</th>
+                  <tr className="border-b border-slate-200 dark:border-slate-700/70">
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-blue-50 dark:bg-blue-500/15">% Rot. 12M</th>
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-blue-50 dark:bg-blue-500/15"># Bajas 12M</th>
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-blue-50 dark:bg-blue-500/15"># Activos</th>
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-red-50 dark:bg-red-500/15">% Rot. 12M</th>
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-red-50 dark:bg-red-500/15"># Bajas 12M</th>
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-red-50 dark:bg-red-500/15"># Activos</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -725,24 +779,27 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       : null;
                       
                     return (
-                      <tr key={row.mes} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                        <td className="py-2.5 px-4 text-sm font-semibold text-slate-900">{row.mes}</td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                      <tr
+                        key={row.mes}
+                        className={index % 2 === 0 ? 'bg-gray-50 dark:bg-slate-800/40' : ''}
+                      >
+                        <td className="py-2.5 px-4 text-sm font-semibold text-brand-ink dark:text-slate-100">{row.mes}</td>
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {rotacion1 ? `${rotacion1.toFixed(1)}%` : '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {bajas12M_1 || '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {monthData1?.activos ?? '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {rotacion2 ? `${rotacion2.toFixed(1)}%` : '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {bajas12M_2 || '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {monthData2?.activos ?? '-'}
                         </td>
                         <td className="py-2.5 px-3 text-center">
@@ -773,21 +830,21 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             >
               {() => (
             <div className="overflow-x-auto">
-              <table className="w-full border-separate border-spacing-0 text-sm text-slate-800">
+              <table className="w-full border-separate border-spacing-0 text-sm text-foreground">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900" rowSpan={2}>Mes</th>
-                    <th className="text-center py-3 px-4 bg-blue-100 text-sm font-semibold text-slate-900" colSpan={3}>{availableYears[0] || 2024}</th>
-                    <th className="text-center py-3 px-4 bg-red-100 text-sm font-semibold text-slate-900" colSpan={3}>{availableYears[availableYears.length - 1] || 2025}</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-slate-900" rowSpan={2}>Variación</th>
+                  <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-800/60">
+                    <th className="py-3 px-4 text-left text-sm font-semibold text-brand-ink dark:text-slate-100" rowSpan={2}>Mes</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-brand-ink dark:text-slate-100 bg-blue-100 dark:bg-blue-500/20" colSpan={3}>{availableYears[0] || 2024}</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-brand-ink dark:text-slate-100 bg-red-100 dark:bg-red-500/20" colSpan={3}>{availableYears[availableYears.length - 1] || 2025}</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-brand-ink dark:text-slate-100" rowSpan={2}>Variación</th>
                   </tr>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900">% Rotación</th>
-                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900"># Bajas</th>
-                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900"># Activos</th>
-                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900">% Rotación</th>
-                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900"># Bajas</th>
-                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900"># Activos</th>
+                  <tr className="border-b border-slate-200 dark:border-slate-700/70">
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-blue-50 dark:bg-blue-500/15">% Rotación</th>
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-blue-50 dark:bg-blue-500/15"># Bajas</th>
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-blue-50 dark:bg-blue-500/15"># Activos</th>
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-red-50 dark:bg-red-500/15">% Rotación</th>
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-red-50 dark:bg-red-500/15"># Bajas</th>
+                    <th className="py-2.5 px-3 text-center text-[13px] font-medium text-brand-ink dark:text-slate-100 bg-red-50 dark:bg-red-500/15"># Activos</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -805,24 +862,27 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       : null;
 
                     return (
-                      <tr key={monthName} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                        <td className="py-2.5 px-4 text-sm font-semibold text-slate-900">{monthName}</td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                      <tr
+                        key={monthName}
+                        className={index % 2 === 0 ? 'bg-gray-50 dark:bg-slate-800/40' : ''}
+                      >
+                        <td className="py-2.5 px-4 text-sm font-semibold text-brand-ink dark:text-slate-100">{monthName}</td>
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {monthYear1?.rotacionPorcentaje ? `${monthYear1.rotacionPorcentaje.toFixed(1)}%` : '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {monthYear1?.bajas ?? '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {monthYear1?.activos ?? '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {monthYear2?.rotacionPorcentaje ? `${monthYear2.rotacionPorcentaje.toFixed(1)}%` : '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {monthYear2?.bajas ?? '-'}
                         </td>
-                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-brand-ink dark:text-slate-100">
                           {monthYear2?.activos ?? '-'}
                         </td>
                         <td className="py-2.5 px-3 text-center">

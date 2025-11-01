@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { countActiveFilters, getFilterSummary, sanitizeFilterValue } from "@/lib/filters/summary";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/theme-provider";
 
 // Type moved to lib/filters/filters (renamed from retention)
 
@@ -26,6 +27,8 @@ export function RetentionFilterPanel({
   className,
   refreshEnabled = false,
 }: RetentionFilterPanelProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [isExpanded, setIsExpanded] = useState(false);
   const [filters, setFilters] = useState<RetentionFilterOptions>({
     years: [],
@@ -342,12 +345,34 @@ export function RetentionFilterPanel({
 
     return (
       <div className="relative" data-dropdown={label}>
-        <Label className="text-xs font-semibold uppercase tracking-wide text-gray-600">{label}</Label>
+        <Label
+          className={cn(
+            "text-xs font-semibold uppercase tracking-wide",
+            refreshEnabled
+              ? isDark
+                ? "text-brand-ink/70"
+                : "text-brand-ink/60"
+              : isDark
+                ? "text-brand-ink/60"
+                : "text-muted-foreground"
+          )}
+        >
+          {label}
+        </Label>
         <div className="mt-0.5">
           <Button
             variant="outline"
             onClick={toggleDropdown}
-            className="w-full justify-between h-9 px-3 text-sm"
+            className={cn(
+              "h-9 w-full justify-between rounded-lg px-3 text-sm transition-colors",
+              refreshEnabled
+                ? isDark
+                  ? "border-brand-border/40 bg-brand-surface/70 text-brand-ink hover:bg-brand-surface/80"
+                  : "border-brand-border/40 bg-white text-brand-ink/80 hover:bg-white/90"
+                : isDark
+                  ? "border-brand-border/40 bg-brand-surface/80 text-brand-ink hover:bg-brand-surface/70"
+                  : "border-gray-200 bg-white text-slate-700 hover:bg-slate-50"
+            )}
           >
             <span className="truncate">
               {previewLabel}
@@ -356,8 +381,22 @@ export function RetentionFilterPanel({
           </Button>
           
           {isOpen && (
-            <div className="absolute z-50 w-full mt-1 overflow-hidden rounded-lg border bg-white shadow-lg">
-              <div className="flex items-center gap-2 border-b bg-gray-50 px-3 py-2">
+            <div
+              className={cn(
+                "absolute z-50 mt-1 w-full overflow-hidden rounded-xl border shadow-lg",
+                isDark
+                  ? "border-brand-border/40 bg-brand-surface/90 backdrop-blur"
+                  : "border-brand-border/40 bg-white"
+              )}
+            >
+              <div
+                className={cn(
+                  "flex items-center gap-2 border-b px-3 py-2",
+                  isDark
+                    ? "border-brand-border/30 bg-brand-surface/80"
+                    : "border-brand-border/40 bg-slate-50"
+                )}
+              >
                 <Input
                   value={searchTerm}
                   onChange={event => setSearchTerm(event.target.value)}
@@ -369,7 +408,10 @@ export function RetentionFilterPanel({
                     variant="ghost"
                     size="icon"
                     onClick={clearSelection}
-                    className="h-8 w-8 text-muted-foreground hover:text-red-600"
+                    className={cn(
+                      "h-8 w-8 text-muted-foreground",
+                      isDark ? "text-brand-ink/70 hover:text-brand-ink" : "hover:text-red-600"
+                    )}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -382,7 +424,13 @@ export function RetentionFilterPanel({
                   </p>
                 ) : (
                   filteredOptions.map(option => (
-                    <div key={option} className="flex items-center space-x-2 rounded px-2 py-1 hover:bg-gray-50">
+                    <div
+                      key={option}
+                      className={cn(
+                        "flex items-center space-x-2 rounded-lg px-2 py-1",
+                        isDark ? "hover:bg-brand-surface/70" : "hover:bg-slate-100"
+                      )}
+                    >
                       <Checkbox
                         id={`${label}-${option}`}
                         checked={selectedValues.includes(option)}
@@ -390,7 +438,7 @@ export function RetentionFilterPanel({
                       />
                       <Label 
                         htmlFor={`${label}-${option}`} 
-                        className="flex-1 cursor-pointer text-sm"
+                        className="flex-1 cursor-pointer text-sm text-foreground"
                       >
                         {renderOption(option)}
                       </Label>
@@ -407,13 +455,24 @@ export function RetentionFilterPanel({
 
   const wrapperClassName = cn("relative z-30 w-full", className);
   const containerClassName = cn(
-    "flex w-full flex-col gap-4 rounded-xl border border-gray-200/80 bg-white px-4 py-4 shadow-none",
-    refreshEnabled &&
-      "rounded-2xl border-brand-border/60 bg-white/95 px-6 py-6 backdrop-blur"
+    "flex w-full flex-col gap-4 rounded-xl border px-4 py-4 transition-colors",
+    refreshEnabled
+      ? isDark
+        ? "rounded-2xl border-brand-border/40 bg-brand-surface/80 px-6 py-6 shadow-brand/10 backdrop-blur"
+        : "rounded-2xl border-brand-border/60 bg-white/95 px-6 py-6 shadow-brand/10 backdrop-blur"
+      : isDark
+        ? "border-brand-border/40 bg-brand-surface/90"
+        : "border-gray-200/80 bg-white"
   );
   const summaryBadgeClass = cn(
-    "inline-flex max-w-full items-center justify-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600",
-    refreshEnabled && "bg-brand-surface-accent/70 text-brand-ink/70"
+    "inline-flex max-w-full items-center justify-center rounded-full px-3 py-1 text-xs font-medium",
+    refreshEnabled
+      ? isDark
+        ? "border border-brand-border/40 bg-brand-surface/70 text-brand-ink/80"
+        : "bg-brand-surface-accent/70 text-brand-ink/70"
+      : isDark
+        ? "border border-brand-border/40 bg-brand-surface/70 text-brand-ink/70"
+        : "bg-gray-100 text-gray-600"
   );
 
   const summaryText = hasActiveFilters && filtersSummary
@@ -429,8 +488,10 @@ export function RetentionFilterPanel({
               variant={refreshEnabled ? "cta" : "outline"}
               onClick={() => setIsExpanded((prev) => !prev)}
               className={cn(
-                "gap-2",
-                refreshEnabled && "rounded-full px-4 py-2 text-sm font-semibold shadow-brand"
+                "gap-2 transition-colors",
+                refreshEnabled && "rounded-full px-4 py-2 text-sm font-semibold shadow-brand",
+                refreshEnabled && isDark && "text-brand-foreground",
+                !refreshEnabled && isDark && "border-brand-border/40 text-brand-ink hover:bg-brand-surface/80 hover:text-brand-ink"
               )}
             >
               <Filter className="h-4 w-4" />
@@ -459,8 +520,14 @@ export function RetentionFilterPanel({
                 size="sm"
                 onClick={clearAllFilters}
                 className={cn(
-                  "text-xs font-semibold text-blue-600 hover:text-red-600",
-                  refreshEnabled && "text-brand-ink/70 hover:text-brand-ink"
+                  "text-xs font-semibold transition-colors",
+                  refreshEnabled
+                    ? isDark
+                      ? "text-brand-ink/80 hover:text-brand-ink"
+                      : "text-brand-ink/70 hover:text-brand-ink"
+                    : isDark
+                      ? "text-brand-ink/70 hover:text-brand-ink"
+                      : "text-blue-600 hover:text-red-600"
                 )}
               >
                 <X className="mr-1 h-3 w-3" />
@@ -468,7 +535,18 @@ export function RetentionFilterPanel({
               </Button>
             )}
           </div>
-          <div className="flex max-w-full flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div
+            className={cn(
+              "flex max-w-full flex-wrap items-center gap-2 text-xs",
+              refreshEnabled
+                ? isDark
+                  ? "text-brand-ink/70"
+                  : "text-brand-ink/60"
+                : isDark
+                  ? "text-brand-ink/60"
+                  : "text-muted-foreground"
+            )}
+          >
             <span className={summaryBadgeClass} title={summaryText}>
               {summaryText}
             </span>
@@ -476,7 +554,18 @@ export function RetentionFilterPanel({
         </div>
 
         {isExpanded && (
-          <div className="border-t border-dashed pt-4">
+          <div
+            className={cn(
+              "border-t border-dashed pt-4",
+              refreshEnabled
+                ? isDark
+                  ? "border-brand-border/40"
+                  : "border-brand-border/40"
+                : isDark
+                  ? "border-brand-border/40"
+                  : "border-gray-200"
+            )}
+          >
             <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,_1fr))] gap-3">
               <MultiSelectDropdown
                 label="Año"
