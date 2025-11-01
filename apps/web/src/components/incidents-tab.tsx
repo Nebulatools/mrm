@@ -44,6 +44,18 @@ const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]); // Para 
 const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST"]);
 
 const PIE_COLORS = [getModernColor(0), getModernColor(2)];
+const AUSENTISMO_COLOR = '#EF4444';
+const PERMISO_COLOR = '#2563EB';
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
+const WEEKDAY_LABELS: Record<number, string> = {
+  0: 'Domingo',
+  1: 'Lunes',
+  2: 'Martes',
+  3: 'Miércoles',
+  4: 'Jueves',
+  5: 'Viernes',
+  6: 'Sábado'
+};
 const PIE_LEGEND_STYLE: CSSProperties = { paddingTop: 8 };
 const pieLegendFormatter = (value: string) => (
   <span className="text-[11px] font-medium text-slate-600">{value}</span>
@@ -79,24 +91,91 @@ const renderPieInnerLabel = ({
   midAngle = 0,
   innerRadius = 0,
   outerRadius = 0,
+  percent = 0,
   payload,
 }: PieLabelRenderProps) => {
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  const safePercent = Number.isFinite(percent) ? percent * 100 : 0;
+  const value = typeof payload?.value === "number" ? payload.value : 0;
   const label = typeof payload?.name === "string" ? payload.name : "";
+  const displayValue = `${value.toLocaleString("es-MX")} · ${safePercent.toFixed(1)}%`;
+  const isSmallSlice = safePercent < 12;
+  const outerPointRadius = outerRadius + 8;
+  const accentRadius = outerRadius + 28;
+  const angle = -midAngle * RADIAN;
+  const connectorStartX = cx + outerRadius * Math.cos(angle);
+  const connectorStartY = cy + outerRadius * Math.sin(angle);
+  const connectorMidX = cx + outerPointRadius * Math.cos(angle);
+  const connectorMidY = cy + outerPointRadius * Math.sin(angle);
+  const textX = cx + accentRadius * Math.cos(angle);
+  const textY = cy + accentRadius * Math.sin(angle);
+  const textAnchor = textX > cx ? "start" : "end";
+  const textOffset = textAnchor === "start" ? 10 : -10;
+
+  if (isSmallSlice) {
+    return (
+      <g>
+        <polyline
+          points={`${connectorStartX},${connectorStartY} ${connectorMidX},${connectorMidY} ${textX},${textY}`}
+          stroke="#94A3B8"
+          strokeWidth={1}
+          fill="none"
+        />
+        <circle cx={textX} cy={textY} r={2.5} fill="#64748B" />
+        <text
+          x={textX + textOffset}
+          y={textY - 4}
+          textAnchor={textAnchor}
+          fill="#0F172A"
+          fontSize={12}
+          fontWeight={700}
+        >
+          {label}
+        </text>
+        <text
+          x={textX + textOffset}
+          y={textY + 12}
+          textAnchor={textAnchor}
+          fill="#475569"
+          fontSize={11}
+          fontWeight={600}
+        >
+          {displayValue}
+        </text>
+      </g>
+    );
+  }
+
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.52;
+  const innerX = cx + radius * Math.cos(angle);
+  const innerY = cy + radius * Math.sin(angle);
 
   return (
-    <text
-      x={x}
-      y={y}
-      fill="#1E293B"
-      textAnchor="middle"
-      dominantBaseline="central"
-      className="text-[11px] font-semibold"
-    >
-      {label}
-    </text>
+    <g>
+      <text
+        x={innerX}
+        y={innerY - 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#0F172A"
+        fontSize={13}
+        fontWeight={700}
+        style={{ paintOrder: "stroke", stroke: "#FFFFFF", strokeWidth: 4, strokeLinejoin: "round" }}
+      >
+        {label}
+      </text>
+      <text
+        x={innerX}
+        y={innerY + 14}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#475569"
+        fontSize={11}
+        fontWeight={600}
+        style={{ paintOrder: "stroke", stroke: "#FFFFFF", strokeWidth: 3, strokeLinejoin: "round" }}
+      >
+        {displayValue}
+      </text>
+    </g>
   );
 };
 
@@ -476,6 +555,84 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     { name: 'Permisos', value: totalPermisos },
   ]), [totalIncidencias, totalPermisos]);
 
+  const incidenciasPorDia = useMemo(() => {
+    const base = WEEKDAY_ORDER.map(day => ({
+      dia: WEEKDAY_LABELS[day],
+      ausentismos: 0,
+      permisos: 0,
+    }));
+    const indexMap = new Map<number, number>();
+    WEEKDAY_ORDER.forEach((day, idx) => indexMap.set(day, idx));
+
+    enrichedPeriodo.forEach(inc => {
+      if (!inc.fecha) return;
+      const fecha = new Date(inc.fecha);
+      if (Number.isNaN(fecha.getTime())) return;
+      const weekday = fecha.getDay();
+      const bucketIndex = indexMap.get(weekday);
+      if (bucketIndex === undefined) return;
+
+      const code = normalizeIncidenciaCode(inc.inci);
+      if (!code) return;
+      if (INCIDENT_CODES.has(code)) {
+        base[bucketIndex].ausentismos += 1;
+      } else if (PERMISO_CODES.has(code)) {
+        base[bucketIndex].permisos += 1;
+      }
+    });
+
+    return base;
+  }, [enrichedPeriodo]);
+
+  const incidenciasPorArea = useMemo(() => {
+    const map = new Map<string, { ausentismos: number; permisos: number }>();
+
+    enrichedPeriodo.forEach(inc => {
+      const code = normalizeIncidenciaCode(inc.inci);
+      if (!code) return;
+      if (!INCIDENT_CODES.has(code) && !PERMISO_CODES.has(code)) return;
+
+      const rawArea = (inc.area || '').trim();
+      const area = rawArea.length > 0 ? rawArea : 'Sin área definida';
+
+      if (!map.has(area)) {
+        map.set(area, { ausentismos: 0, permisos: 0 });
+      }
+      const bucket = map.get(area)!;
+      if (INCIDENT_CODES.has(code)) {
+        bucket.ausentismos += 1;
+      } else if (PERMISO_CODES.has(code)) {
+        bucket.permisos += 1;
+      }
+    });
+
+    const entries = Array.from(map.entries())
+      .map(([area, counts]) => ({
+        area,
+        ausentismos: counts.ausentismos,
+        permisos: counts.permisos,
+        total: counts.ausentismos + counts.permisos,
+      }))
+      .filter(entry => entry.total > 0)
+      .sort((a, b) => b.total - a.total);
+
+    const TOP_LIMIT = 8;
+    return entries.slice(0, TOP_LIMIT).map(({ area, ausentismos, permisos }) => ({
+      area,
+      ausentismos,
+      permisos,
+    }));
+  }, [enrichedPeriodo]);
+
+  const hasWeekdayData = useMemo(
+    () => incidenciasPorDia.some(item => item.ausentismos > 0 || item.permisos > 0),
+    [incidenciasPorDia]
+  );
+  const hasAreaData = useMemo(
+    () => incidenciasPorArea.some(item => item.ausentismos > 0 || item.permisos > 0),
+    [incidenciasPorArea]
+  );
+
 
   // Calcular tendencias mensuales para el año actual
   const monthlyTrendsData = useMemo(() => {
@@ -734,19 +891,113 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           {pieData.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                           ))}
-                          <LabelList
-                            dataKey="value"
-                            position="outside"
-                            formatter={(value: number) => Number(value).toLocaleString('es-MX')}
-                            style={{ fontSize: 11, fill: '#475569', fontWeight: 600 }}
-                            offset={12}
-                          />
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
                 )}
               </VisualizationContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Ausentismos vs permisos por día y por área */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="h-[420px] flex flex-col">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Ausentismos vs Permisos por día</CardTitle>
+            <p className="text-sm text-gray-600">Comparativo del periodo seleccionado, lunes a domingo</p>
+          </CardHeader>
+          <CardContent className="flex-1">
+            {loadingIncidencias ? (
+              <ChartLoadingPlaceholder height={320} />
+            ) : hasWeekdayData ? (
+              <VisualizationContainer
+                title="Ausentismos vs permisos por día de la semana"
+                type="chart"
+                className="h-full w-full"
+                filename="incidencias-dia-semana"
+              >
+                {(fullscreen) => (
+                  <div style={{ height: fullscreen ? 420 : 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={incidenciasPorDia} margin={{ left: 16, right: 24, top: 16, bottom: 32 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="dia" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip
+                          wrapperStyle={TOOLTIP_WRAPPER_STYLE}
+                          contentStyle={LINE_TOOLTIP_STYLE}
+                          labelStyle={LINE_TOOLTIP_LABEL_STYLE}
+                          formatter={(value: number, name: string) => [`${Number(value || 0).toLocaleString('es-MX')} registros`, name]}
+                        />
+                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={pieLegendFormatter} />
+                        <Bar dataKey="ausentismos" name="Ausentismos" fill={AUSENTISMO_COLOR} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="permisos" name="Permisos" fill={PERMISO_COLOR} radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </VisualizationContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                No hay ausentismos o permisos registrados en el periodo seleccionado.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="h-[420px] flex flex-col">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Ausentismos vs Permisos por área</CardTitle>
+            <p className="text-sm text-gray-600">Top áreas con mayor número de registros</p>
+          </CardHeader>
+          <CardContent className="flex-1">
+            {loadingIncidencias ? (
+              <ChartLoadingPlaceholder height={320} />
+            ) : hasAreaData ? (
+              <VisualizationContainer
+                title="Ausentismos vs permisos por área"
+                type="chart"
+                className="h-full w-full"
+                filename="incidencias-por-area"
+              >
+                {(fullscreen) => (
+                  <div style={{ height: fullscreen ? 420 : 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={incidenciasPorArea}
+                        layout="vertical"
+                        margin={{ left: 32, right: 24, top: 16, bottom: 16 }}
+                        barCategoryGap="16%"
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" tick={{ fontSize: 12 }} />
+                        <YAxis
+                          dataKey="area"
+                          type="category"
+                          width={fullscreen ? 140 : 120}
+                          tick={{ fontSize: 12 }}
+                        />
+                        <Tooltip
+                          wrapperStyle={TOOLTIP_WRAPPER_STYLE}
+                          contentStyle={LINE_TOOLTIP_STYLE}
+                          labelStyle={LINE_TOOLTIP_LABEL_STYLE}
+                          formatter={(value: number, name: string) => [`${Number(value || 0).toLocaleString('es-MX')} registros`, name]}
+                        />
+                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={pieLegendFormatter} />
+                        <Bar dataKey="ausentismos" name="Ausentismos" fill={AUSENTISMO_COLOR} radius={[0, 4, 4, 0]} />
+                        <Bar dataKey="permisos" name="Permisos" fill={PERMISO_COLOR} radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </VisualizationContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                No hay registros por área en el periodo seleccionado.
+              </div>
             )}
           </CardContent>
         </Card>

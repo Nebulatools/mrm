@@ -26,6 +26,7 @@ import { CorrelationMatrix } from "./correlation-matrix";
 import { RetentionFilterPanel } from "./filter-panel";
 import { SummaryComparison } from "./summary-comparison";
 import { UserMenu } from "./user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters/filters";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord, type IncidenciaCSVRecord } from "@/lib/supabase";
@@ -784,14 +785,14 @@ export function DashboardPage() {
   return (
     <div
       className={cn(
-        "min-h-screen transition-colors",
-        refreshEnabled ? "bg-brand-surface text-brand-ink" : "bg-gray-50 dark:bg-gray-900"
+        "min-h-screen transition-colors bg-background text-foreground",
+        refreshEnabled && "bg-brand-surface text-brand-ink"
       )}
     >
       <header
         className={cn(
-          "border-b bg-white dark:bg-gray-800",
-          refreshEnabled && "border-brand-border/60 bg-white/90 shadow-sm backdrop-blur"
+          "border-b bg-card",
+          refreshEnabled && "border-brand-border/60 bg-white/90 dark:bg-brand-surface-accent/60 shadow-sm backdrop-blur"
         )}
       >
         <div
@@ -824,15 +825,15 @@ export function DashboardPage() {
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-brand-ink/60">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 px-4 py-1 text-[11px] text-brand-ink/70">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 dark:bg-brand-surface-accent/40 px-4 py-1 text-[11px] text-brand-ink/70">
                       Período: {periodLabel}
                     </span>
                     {lastUpdatedDisplay ? (
                       <>
-                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 px-4 py-1 text-[11px] text-brand-ink/70">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 dark:bg-brand-surface-accent/40 px-4 py-1 text-[11px] text-brand-ink/70">
                           Actualizado: {lastUpdatedDisplay}
                         </span>
-                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 px-4 py-1 text-[11px] text-brand-ink/70">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-border/50 bg-white/80 dark:bg-brand-surface-accent/40 px-4 py-1 text-[11px] text-brand-ink/70">
                           {data.kpis.length} KPIs
                         </span>
                       </>
@@ -841,7 +842,8 @@ export function DashboardPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center justify-end">
+                <div className="flex items-center justify-end gap-2">
+                  <ThemeToggle />
                   <UserMenu />
                 </div>
               </div>
@@ -868,6 +870,7 @@ export function DashboardPage() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                <ThemeToggle />
                 <UserMenu />
               </div>
             </>

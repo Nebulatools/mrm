@@ -1,7 +1,7 @@
 import { db, supabase, type PlantillaRecord, type AsistenciaDiariaRecord, type EmpleadoSFTPRecord } from './supabase';
 import { normalizeMotivo, prettyMotivo, normalizeArea } from './normalizers';
 import { sftpClient } from './sftp-client';
-import { startOfMonth, endOfMonth, format, differenceInDays, isWithinInterval, subMonths } from 'date-fns';
+import { startOfMonth, endOfMonth, format, differenceInDays, isWithinInterval, subMonths, subYears } from 'date-fns';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface KPIResult {
@@ -357,8 +357,11 @@ export class KPICalculator {
     const rotacionMensual = (bajasPeriodo / (activosProm || 1)) * 100;
     const prevRotacionMensual = (prevBajasPeriodo / (prevActivosProm || 1)) * 100;
 
+    const previousYearEndDate = endOfMonth(subYears(endDate, 1));
     const rotacionAcumuladaActual = this.calculateRotacionAcumulada(plantilla, endDate);
-    const rotacionAcumuladaPrevYear = this.calculateRotacionAcumulada(plantilla, subMonths(endDate, 12));
+    const rotacionAcumuladaPrevYear = this.calculateRotacionAcumulada(plantilla, previousYearEndDate);
+    const rotacionAnioActualActual = this.calculateRotacionAnioActual(plantilla, endDate);
+    const rotacionAnioActualPrevYear = this.calculateRotacionAnioActual(plantilla, previousYearEndDate);
 
     // 6. Incidencias - Count(INCIDENCIAS[EMP]) - Count of incidents
     const incidenciasCount = incidenciasFiltered.length;
@@ -491,6 +494,16 @@ export class KPICalculator {
         previous_value: rotacionAcumuladaPrevYear,
         variance_percentage: calculateVariance(rotacionAcumuladaActual, rotacionAcumuladaPrevYear),
         period_start: periodStart,
+        period_end: periodEnd
+      },
+      {
+        name: 'Rotación Año Actual',
+        category: 'retention',
+        value: rotacionAnioActualActual,
+        target: undefined,
+        previous_value: rotacionAnioActualPrevYear,
+        variance_percentage: calculateVariance(rotacionAnioActualActual, rotacionAnioActualPrevYear),
+        period_start: format(new Date(endDate.getFullYear(), 0, 1), 'yyyy-MM-dd'),
         period_end: periodEnd
       },
       {
@@ -713,6 +726,39 @@ export class KPICalculator {
       return Number(rotacionAcumulada.toFixed(2));
     } catch (error) {
       console.error('Error calculating rotación acumulada:', error);
+      return 0;
+    }
+  }
+
+  private calculateRotacionAnioActual(plantilla: PlantillaRecord[], referenceDate: Date): number {
+    try {
+      const endDate = endOfMonth(referenceDate);
+      const startOfYear = new Date(endDate.getFullYear(), 0, 1);
+
+      const bajasYTD = plantilla.filter(emp => {
+        if (!emp.fecha_baja || emp.activo) return false;
+        const fechaBaja = new Date(emp.fecha_baja);
+        return fechaBaja >= startOfYear && fechaBaja <= endDate;
+      }).length;
+
+      const activosInicio = plantilla.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        return fechaIngreso <= startOfYear && (!fechaBaja || fechaBaja > startOfYear);
+      }).length;
+
+      const activosFin = plantilla.filter(emp => {
+        const fechaIngreso = new Date(emp.fecha_ingreso);
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        return fechaIngreso <= endDate && (!fechaBaja || fechaBaja > endDate);
+      }).length;
+
+      const promedioActivos = (activosInicio + activosFin) / 2;
+      const rotacionYTD = promedioActivos > 0 ? (bajasYTD / promedioActivos) * 100 : 0;
+
+      return Number(rotacionYTD.toFixed(2));
+    } catch (error) {
+      console.error('Error calculating rotación año actual:', error);
       return 0;
     }
   }

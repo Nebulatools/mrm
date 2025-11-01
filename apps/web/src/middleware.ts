@@ -45,6 +45,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
+  const isAdminPath = request.nextUrl.pathname.startsWith('/admin');
+  if (user && isAdminPath) {
+    const { data: profile, error } = await supabase
+      .from('user_profiles')
+      .select('email, role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const email = profile?.email ?? user.email ?? '';
+    const isAdminEmail = email.toLowerCase() === 'admin@mrm.com';
+    const isAdminRole = profile?.role === 'admin';
+
+    if (error || (!isAdminEmail && !isAdminRole)) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
   return response;
 }
 

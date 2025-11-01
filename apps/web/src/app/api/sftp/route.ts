@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/server-auth';
 export const runtime = 'nodejs';
 import SftpClient from 'ssh2-sftp-client';
 import * as XLSX from 'xlsx';
@@ -268,6 +269,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
   const filename = searchParams.get('filename');
+
+  const auth = await requireAdmin(request);
+  if ('error' in auth) {
+    return auth.error;
+  }
 
   try {
     // Initialize SFTP service inside the handler to catch initialization errors

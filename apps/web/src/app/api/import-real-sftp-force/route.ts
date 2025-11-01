@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 export const runtime = 'nodejs';
 import SftpClient from 'ssh2-sftp-client';
 import * as XLSX from 'xlsx';
+import { requireAdmin } from '@/lib/server-auth';
+import { computeNextRun, normalizeDayOfWeek, normalizeFrequency, normalizeRunTime } from '@/lib/utils/sync-schedule';
 
 // Helper function to safely parse dates
 function parseDate(dateValue: unknown): string | null {
@@ -142,7 +144,12 @@ async function downloadFromSFTP(filename: string): Promise<Record<string, unknow
 }
 
 // FORZAR IMPORTACIÓN REAL SIN CACHÉ
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = await requireAdmin(request);
+  if ('error' in auth) {
+    return auth.error;
+  }
+
   console.log('🚀 FORZANDO IMPORTACIÓN REAL DE DATOS SFTP (SIN CACHÉ)...');
 
   try {
@@ -297,8 +304,52 @@ export async function POST(request: Request) {
     // ========================================
     console.log('🗑️ Limpiando datos existentes...');
     
-    await supabaseAdmin.from('empleados_sftp').delete().neq('id', 0);
-    await supabaseAdmin.from('motivos_baja').delete().neq('id', 0);
+    const employeeNumbers = Array.from(new Set(
+      empleadosReales
+        .map((emp) => emp.numero_empleado)
+        .filter((num) => Number.isFinite(num))
+    ));
+
+    if (employeeNumbers.length > 0) {
+      console.log(`🧹 Eliminando ${employeeNumbers.length} empleados previos para actualización`);
+      await supabaseAdmin
+        .from('empleados_sftp')
+        .delete()
+        .in('numero_empleado', employeeNumbers);
+    }
+
+    const bajaEmployeeNumbers = Array.from(new Set(
+      bajasReales
+        .map((baja) => baja.numero_empleado)
+        .filter((num) => Number.isFinite(num))
+    ));
+
+    let bajaIdsToDelete: number[] = [];
+    if (bajaEmployeeNumbers.length > 0) {
+      const { data: existingBajas, error: existingBajasError } = await supabaseAdmin
+        .from('motivos_baja')
+        .select('id, numero_empleado, fecha_baja, motivo')
+        .in('numero_empleado', bajaEmployeeNumbers);
+
+      if (!existingBajasError && existingBajas) {
+        const incomingKeys = new Set(
+          bajasReales.map((baja) => `${baja.numero_empleado}|${baja.fecha_baja}|${baja.motivo}`)
+        );
+
+        bajaIdsToDelete = existingBajas
+          .filter((row) => incomingKeys.has(`${row.numero_empleado}|${row.fecha_baja}|${row.motivo}`))
+          .map((row) => row.id as number)
+          .filter((id) => typeof id === 'number');
+      }
+    }
+
+    if (bajaIdsToDelete.length > 0) {
+      console.log(`🧹 Eliminando ${bajaIdsToDelete.length} motivos_baja previos para reemplazo`);
+      await supabaseAdmin
+        .from('motivos_baja')
+        .delete()
+        .in('id', bajaIdsToDelete);
+    }
 
     // ========================================
     // PASO 5: INSERTAR DATOS REALES
@@ -468,6 +519,44 @@ export async function POST(request: Request) {
     console.log(`📊 Total bajas en BD: ${totalBajas}`);
     console.log(`📊 Total asistencia en BD: ${totalAsistencia}`);
 
+    let scheduleMeta: { last_run?: string | null; next_run?: string | null } = {};
+    const { data: scheduleRow, error: scheduleError } = await supabaseAdmin
+      .from('sync_settings')
+      .select('frequency, day_of_week, run_time')
+      .eq('singleton', true)
+      .maybeSingle();
+
+    if (!scheduleError) {
+      const frequency = normalizeFrequency(scheduleRow?.frequency);
+      const dayOfWeek = normalizeDayOfWeek(scheduleRow?.day_of_week);
+      const runTime = normalizeRunTime(scheduleRow?.run_time);
+      const nextRunDate = computeNextRun(frequency, dayOfWeek, runTime);
+      const lastRunIso = new Date().toISOString();
+
+      const { data: updatedSchedule, error: updateScheduleError } = await supabaseAdmin
+        .from('sync_settings')
+        .upsert(
+          {
+            singleton: true,
+            frequency,
+            day_of_week: dayOfWeek,
+            run_time: runTime,
+            last_run: lastRunIso,
+            next_run: nextRunDate ? nextRunDate.toISOString() : null,
+          },
+          { onConflict: 'singleton' }
+        )
+        .select('last_run, next_run')
+        .single();
+
+      if (!updateScheduleError && updatedSchedule) {
+        scheduleMeta = {
+          last_run: updatedSchedule.last_run,
+          next_run: updatedSchedule.next_run,
+        };
+      }
+    }
+
     return NextResponse.json({ 
       success: true,
       message: 'Importación real de datos SFTP completada exitosamente',
@@ -491,7 +580,8 @@ export async function POST(request: Request) {
           insertadas: incidenciasInsertadas,
           total_en_bd: totalIncidencias
         }
-      }
+      },
+      schedule: scheduleMeta,
     });
 
   } catch (error) {

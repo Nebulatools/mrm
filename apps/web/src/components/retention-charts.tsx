@@ -668,21 +668,21 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             >
               {() => (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full border-separate border-spacing-0 text-sm text-slate-800">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2 px-3" rowSpan={2}>Mes</th>
-                    <th className="text-center py-2 px-3 bg-blue-50" colSpan={3}>{availableYears[0] || new Date().getFullYear() - 1}</th>
-                    <th className="text-center py-2 px-3 bg-red-50" colSpan={3}>{availableYears[1] || new Date().getFullYear()}</th>
-                    <th className="text-center py-2 px-3" rowSpan={2}>Variación</th>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900" rowSpan={2}>Mes</th>
+                    <th className="text-center py-3 px-4 bg-blue-100 text-sm font-semibold text-slate-900" colSpan={3}>{availableYears[0] || new Date().getFullYear() - 1}</th>
+                    <th className="text-center py-3 px-4 bg-red-100 text-sm font-semibold text-slate-900" colSpan={3}>{availableYears[1] || new Date().getFullYear()}</th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-slate-900" rowSpan={2}>Variación</th>
                   </tr>
-                  <tr className="border-b">
-                    <th className="text-center py-2 px-3 bg-blue-50 text-xs">% Rot. 12M</th>
-                    <th className="text-center py-2 px-3 bg-blue-50 text-xs"># Bajas 12M</th>
-                    <th className="text-center py-2 px-3 bg-blue-50 text-xs"># Activos</th>
-                    <th className="text-center py-2 px-3 bg-red-50 text-xs">% Rot. 12M</th>
-                    <th className="text-center py-2 px-3 bg-red-50 text-xs"># Bajas 12M</th>
-                    <th className="text-center py-2 px-3 bg-red-50 text-xs"># Activos</th>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900">% Rot. 12M</th>
+                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900"># Bajas 12M</th>
+                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900"># Activos</th>
+                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900">% Rot. 12M</th>
+                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900"># Bajas 12M</th>
+                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900"># Activos</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -726,26 +726,26 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       
                     return (
                       <tr key={row.mes} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                        <td className="py-2 px-3 font-medium">{row.mes}</td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-4 text-sm font-semibold text-slate-900">{row.mes}</td>
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {rotacion1 ? `${rotacion1.toFixed(1)}%` : '-'}
                         </td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {bajas12M_1 || '-'}
                         </td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {monthData1?.activos ?? '-'}
                         </td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {rotacion2 ? `${rotacion2.toFixed(1)}%` : '-'}
                         </td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {bajas12M_2 || '-'}
                         </td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {monthData2?.activos ?? '-'}
                         </td>
-                        <td className="py-2 px-3 text-center">
+                        <td className="py-2.5 px-3 text-center">
                           {renderVariationPill(variationValue)}
                         </td>
                       </tr>
@@ -773,21 +773,21 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             >
               {() => (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full border-separate border-spacing-0 text-sm text-slate-800">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2 px-3" rowSpan={2}>Mes</th>
-                    <th className="text-center py-2 px-3 bg-blue-50" colSpan={3}>{availableYears[0] || 2024}</th>
-                    <th className="text-center py-2 px-3 bg-red-50" colSpan={3}>{availableYears[availableYears.length - 1] || 2025}</th>
-                    <th className="text-center py-2 px-3" rowSpan={2}>Variación</th>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-900" rowSpan={2}>Mes</th>
+                    <th className="text-center py-3 px-4 bg-blue-100 text-sm font-semibold text-slate-900" colSpan={3}>{availableYears[0] || 2024}</th>
+                    <th className="text-center py-3 px-4 bg-red-100 text-sm font-semibold text-slate-900" colSpan={3}>{availableYears[availableYears.length - 1] || 2025}</th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-slate-900" rowSpan={2}>Variación</th>
                   </tr>
-                  <tr className="border-b">
-                    <th className="text-center py-2 px-3 bg-blue-50 text-xs">% Rotación</th>
-                    <th className="text-center py-2 px-3 bg-blue-50 text-xs"># Bajas</th>
-                    <th className="text-center py-2 px-3 bg-blue-50 text-xs"># Activos</th>
-                    <th className="text-center py-2 px-3 bg-red-50 text-xs">% Rotación</th>
-                    <th className="text-center py-2 px-3 bg-red-50 text-xs"># Bajas</th>
-                    <th className="text-center py-2 px-3 bg-red-50 text-xs"># Activos</th>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900">% Rotación</th>
+                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900"># Bajas</th>
+                    <th className="text-center py-2.5 px-3 bg-blue-50 text-[13px] font-medium text-slate-900"># Activos</th>
+                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900">% Rotación</th>
+                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900"># Bajas</th>
+                    <th className="text-center py-2.5 px-3 bg-red-50 text-[13px] font-medium text-slate-900"># Activos</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -806,26 +806,26 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
                     return (
                       <tr key={monthName} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                        <td className="py-2 px-3 font-medium">{monthName}</td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-4 text-sm font-semibold text-slate-900">{monthName}</td>
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {monthYear1?.rotacionPorcentaje ? `${monthYear1.rotacionPorcentaje.toFixed(1)}%` : '-'}
                         </td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {monthYear1?.bajas ?? '-'}
                         </td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {monthYear1?.activos ?? '-'}
                         </td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {monthYear2?.rotacionPorcentaje ? `${monthYear2.rotacionPorcentaje.toFixed(1)}%` : '-'}
                         </td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {monthYear2?.bajas ?? '-'}
                         </td>
-                        <td className="py-2 px-3 text-center text-xs">
+                        <td className="py-2.5 px-3 text-center text-sm font-semibold text-slate-900">
                           {monthYear2?.activos ?? '-'}
                         </td>
-                        <td className="py-2 px-3 text-center">
+                        <td className="py-2.5 px-3 text-center">
                           {renderVariationPill(variationValue)}
                         </td>
                       </tr>

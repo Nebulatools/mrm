@@ -5,7 +5,7 @@ import type { CSSProperties } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, TrendingDown, AlertCircle, TrendingUp, Minus, ArrowUp, ArrowDown } from 'lucide-react';
+import { Users, TrendingDown, AlertCircle, TrendingUp } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import type { TooltipProps, TooltipPayload } from 'recharts';
 import { isMotivoClave, normalizeIncidenciaCode } from '@/lib/normalizers';
@@ -13,13 +13,15 @@ import { cn } from '@/lib/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
 import {
   calculateActivosPromedio,
+  calculateVariancePercentage,
   calcularRotacionConDesglose,
   calcularRotacionAcumulada12mConDesglose,
   calcularRotacionYTDConDesglose
 } from '@/lib/utils/kpi-helpers';
 import { VisualizationContainer } from '@/components/visualization-container';
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
-import { endOfMonth, startOfMonth, subMonths } from 'date-fns';
+import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
+import { KPICard } from '@/components/kpi-card';
 
 interface BajaRecord {
   numero_empleado: number;
@@ -481,73 +483,6 @@ export function SummaryComparison({
     return result;
   };
 
-  // Renderizar tarjeta KPI con indicador de tendencia
-  const renderKPICard = (
-    titulo: string,
-    valorActual: number,
-    valorAnterior: number,
-    esPercentaje: boolean,
-    icon: React.ReactNode,
-    etiquetaComparacion: string
-  ) => {
-    const diferencia = valorActual - valorAnterior;
-    const porcentajeCambio = valorAnterior !== 0 ? ((diferencia / valorAnterior) * 100) : 0;
-    const tituloNormalizado = titulo.toLowerCase();
-    const usaDiferenciaAbsoluta = tituloNormalizado.includes('empleados activos') || tituloNormalizado.includes('baja');
-
-    const esIncidenciaOPermiso = tituloNormalizado.includes('incidencia') || tituloNormalizado.includes('permiso');
-    const umbralSignificativo = usaDiferenciaAbsoluta ? 1 : 0.1;
-    const variacionSignificativa = Math.abs(diferencia) >= umbralSignificativo;
-    const colorIndicador = !variacionSignificativa
-      ? 'text-gray-500 dark:text-gray-400'
-      : diferencia > 0
-        ? esIncidenciaOPermiso
-          ? 'text-red-600 dark:text-red-400'
-          : 'text-green-600 dark:text-green-400'
-        : esIncidenciaOPermiso
-          ? 'text-green-600 dark:text-green-400'
-          : 'text-red-600 dark:text-red-400';
-
-    const IconoTendencia = !variacionSignificativa
-      ? Minus
-      : diferencia > 0
-      ? ArrowUp
-      : ArrowDown;
-
-    const valorActualFormateado = esPercentaje
-      ? `${valorActual.toFixed(1)}%`
-      : Math.round(valorActual).toLocaleString('es-MX');
-    const variacionFormateada = usaDiferenciaAbsoluta
-      ? `${diferencia > 0 ? '+' : ''}${Math.round(diferencia).toLocaleString('es-MX')}`
-      : `${porcentajeCambio > 0 ? '+' : ''}${porcentajeCambio.toFixed(1)}%`;
-
-    return (
-      <Card className={cn(refreshEnabled && "rounded-2xl border border-brand-border/60 bg-white/95 shadow-brand")}> 
-        <CardHeader className={cn("pb-3", refreshEnabled && "pb-4")}> 
-          <div className="flex items-center justify-between"> 
-            <div className="flex items-center gap-2"> 
-              {icon}
-              <CardTitle className={cn("text-sm font-medium", refreshEnabled && "font-heading text-brand-ink")}> 
-                {titulo}
-              </CardTitle>
-            </div>
-            <IconoTendencia className={cn("h-5 w-5", colorIndicador)} />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-1">
-            <div className={cn("text-2xl font-bold", refreshEnabled && "font-heading text-3xl text-brand-ink")}> 
-              {valorActualFormateado}
-            </div>
-            <div className={cn("text-xs", colorIndicador)}> 
-              {variacionFormateada} {etiquetaComparacion}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
   // Calcular ausentismo
   const calcularAusentismo = (grupo: PlantillaRecord[]) => {
     const empleadosIds = grupo.map(e => e.numero_empleado || Number(e.emp_id));
@@ -696,6 +631,106 @@ export function SummaryComparison({
       kpisPrevMonth.permisos = incidentsKPIsOverride.permisosAnterior;
     }
 
+    const effectiveReference = referenceDate ?? new Date();
+    const currentMonthStart = startOfMonth(effectiveReference);
+    const currentMonthEnd = endOfMonth(effectiveReference);
+    const rollingWindowStart = startOfMonth(subMonths(effectiveReference, 11));
+    const currentYearStart = new Date(effectiveReference.getFullYear(), 0, 1);
+    const summaryCardItems = [
+      {
+        key: 'empleados-activos',
+        icon: <Users className="h-6 w-6" />,
+        secondaryLabel: 'vs mes anterior',
+        secondaryValue: kpisPrevMonth.empleadosActivos,
+        kpi: {
+          name: 'Empleados Activos',
+          category: 'headcount',
+          value: kpisActuales.empleadosActivos,
+          previous_value: kpisPrevMonth.empleadosActivos,
+          variance_percentage: calculateVariancePercentage(kpisActuales.empleadosActivos, kpisPrevMonth.empleadosActivos),
+          period_start: format(currentMonthStart, 'yyyy-MM-dd'),
+          period_end: format(currentMonthEnd, 'yyyy-MM-dd')
+        }
+      },
+      {
+        key: 'rotacion-mensual',
+        icon: <TrendingDown className="h-6 w-6" />,
+        secondaryLabel: 'vs mes anterior',
+        secondaryValue: kpisPrevMonth.rotacionMensual,
+        kpi: {
+          name: 'Rotación Mensual',
+          category: 'retention',
+          value: kpisActuales.rotacionMensual,
+          previous_value: kpisPrevMonth.rotacionMensual,
+          variance_percentage: calculateVariancePercentage(kpisActuales.rotacionMensual, kpisPrevMonth.rotacionMensual),
+          period_start: format(currentMonthStart, 'yyyy-MM-dd'),
+          period_end: format(currentMonthEnd, 'yyyy-MM-dd')
+        }
+      },
+      {
+        key: 'rotacion-acumulada',
+        icon: <TrendingDown className="h-6 w-6" />,
+        secondaryLabel: 'vs mismo mes año anterior',
+        secondaryValue: kpisPrevYear.rotacionAcumulada,
+        kpi: {
+          name: 'Rotación Acumulada',
+          category: 'retention',
+          value: kpisActuales.rotacionAcumulada,
+          previous_value: kpisPrevYear.rotacionAcumulada,
+          variance_percentage: calculateVariancePercentage(kpisActuales.rotacionAcumulada, kpisPrevYear.rotacionAcumulada),
+          period_start: format(rollingWindowStart, 'yyyy-MM-dd'),
+          period_end: format(currentMonthEnd, 'yyyy-MM-dd')
+        },
+        secondaryIsPercent: true
+      },
+      {
+        key: 'rotacion-anio-actual',
+        icon: <TrendingDown className="h-6 w-6" />,
+        secondaryLabel: 'vs mismo mes año anterior',
+        secondaryValue: kpisPrevYear.rotacionAnioActual,
+        kpi: {
+          name: 'Rotación Año Actual',
+          category: 'retention',
+          value: kpisActuales.rotacionAnioActual,
+          previous_value: kpisPrevYear.rotacionAnioActual,
+          variance_percentage: calculateVariancePercentage(kpisActuales.rotacionAnioActual, kpisPrevYear.rotacionAnioActual),
+          period_start: format(currentYearStart, 'yyyy-MM-dd'),
+          period_end: format(currentMonthEnd, 'yyyy-MM-dd')
+        },
+        secondaryIsPercent: true
+      },
+      {
+        key: 'incidencias',
+        icon: <AlertCircle className="h-6 w-6" />,
+        secondaryLabel: 'vs mes anterior',
+        secondaryValue: kpisPrevMonth.incidencias,
+        kpi: {
+          name: 'Incidencias',
+          category: 'incidents',
+          value: kpisActuales.incidencias,
+          previous_value: kpisPrevMonth.incidencias,
+          variance_percentage: calculateVariancePercentage(kpisActuales.incidencias, kpisPrevMonth.incidencias),
+          period_start: format(currentMonthStart, 'yyyy-MM-dd'),
+          period_end: format(currentMonthEnd, 'yyyy-MM-dd')
+        }
+      },
+      {
+        key: 'permisos',
+        icon: <TrendingUp className="h-6 w-6" />,
+        secondaryLabel: 'vs mes anterior',
+        secondaryValue: kpisPrevMonth.permisos,
+        kpi: {
+          name: 'Permisos',
+          category: 'incidents',
+          value: kpisActuales.permisos,
+          previous_value: kpisPrevMonth.permisos,
+          variance_percentage: calculateVariancePercentage(kpisActuales.permisos, kpisPrevMonth.permisos),
+          period_start: format(currentMonthStart, 'yyyy-MM-dd'),
+          period_end: format(currentMonthEnd, 'yyyy-MM-dd')
+        }
+      }
+    ];
+
     // Preparar datos para gráfico de activos por antigüedad
     const datosActivos = datos.map(d => {
       // Acortar nombres muy largos pero mantener legibilidad
@@ -823,12 +858,17 @@ export function SummaryComparison({
       <div className={cn("space-y-6", refreshEnabled && "space-y-8")}>
         {/* KPI CARDS CON SEMAFORIZACIÓN */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        {renderKPICard('Empleados Activos', kpisActuales.empleadosActivos, kpisPrevMonth.empleadosActivos, false, <Users className="h-4 w-4" />, 'vs mes anterior')}
-        {renderKPICard('Rotación Mensual', kpisActuales.rotacionMensual, kpisPrevMonth.rotacionMensual, true, <TrendingDown className="h-4 w-4" />, 'vs mes anterior')}
-        {renderKPICard('Rotación Acumulada', kpisActuales.rotacionAcumulada, kpisPrevYear.rotacionAcumulada, true, <TrendingDown className="h-4 w-4" />, 'vs mismo mes año anterior')}
-        {renderKPICard('Rotación Año Actual', kpisActuales.rotacionAnioActual, kpisPrevYear.rotacionAnioActual, true, <TrendingDown className="h-4 w-4" />, 'vs mismo mes año anterior')}
-        {renderKPICard('Incidencias', kpisActuales.incidencias, kpisPrevMonth.incidencias, false, <AlertCircle className="h-4 w-4" />, 'vs mes anterior')}
-        {renderKPICard('Permisos', kpisActuales.permisos, kpisPrevMonth.permisos, false, <TrendingUp className="h-4 w-4" />, 'vs mes anterior')}
+          {summaryCardItems.map(({ key, kpi, icon, secondaryLabel, secondaryValue, secondaryIsPercent }) => (
+            <KPICard
+              key={key}
+              refreshEnabled={refreshEnabled}
+              kpi={kpi}
+              icon={icon}
+              secondaryLabel={secondaryLabel}
+              secondaryValue={secondaryValue}
+              secondaryIsPercent={secondaryIsPercent}
+            />
+          ))}
         </div>
 
         {/* 1. ACTIVOS POR ANTIGÜEDAD - DISEÑO MEJORADO */}

@@ -156,49 +156,53 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
                   </td>
                 </tr>
               ) : (
-                sections.map(section => (
-                  <Fragment key={section.key}>
-                    <tr
-                      className={`${motivoFilter === section.key ? 'bg-red-50' : 'bg-gray-100'} border-b border-gray-200`}
-                    >
-                      <td
-                        colSpan={MESES.length + 2}
-                        className="p-2 text-left text-sm font-semibold uppercase tracking-wide text-gray-700"
-                      >
-                        <span>{section.title}</span>
-                        <span className="ml-2 text-xs font-medium normal-case text-gray-500">
-                          {section.rows.length} motivo{section.rows.length !== 1 ? 's' : ''}
-                        </span>
-                      </td>
-                    </tr>
-                    {section.rows.map((row, rowIndex) => {
-                      const total = computeTotal(row)
+                sections.map(section => {
+                  const sectionTotal = section.rows.reduce((sum, row) => sum + computeTotal(row), 0);
 
-                      return (
-                        <tr key={`${section.key}-${rowIndex}`} className="border-b border-gray-100">
-                          <td className="p-2 font-medium text-gray-900">
-                            {row.motivo}
-                          </td>
-                          {MESES.map((mes, mesIndex) => {
-                            const value = row[mes as keyof BajasPorMotivoData] as number
-                            return (
-                              <td
-                                key={mesIndex}
-                                className={`p-2 text-center text-sm font-medium rounded-sm mx-1 ${getColorIntensity(value)} ${getTextColor(value)}`}
-                                title={`${row.motivo} - ${MESES_LABELS[mesIndex]}: ${value} bajas`}
-                              >
-                                {value || ''}
-                              </td>
-                            )
-                          })}
-                          <td className="p-2 text-center font-bold text-gray-900">
-                            {total}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </Fragment>
-                ))
+                  return (
+                    <Fragment key={section.key}>
+                      <tr
+                        className={`${motivoFilter === section.key ? 'bg-red-50' : 'bg-gray-100'} border-b border-gray-200`}
+                      >
+                        <td
+                          colSpan={MESES.length + 2}
+                          className="p-2 text-left text-sm font-semibold uppercase tracking-wide text-gray-700 flex items-center justify-between"
+                        >
+                          <span>{section.title}</span>
+                          <span className="text-xs font-semibold text-gray-600 normal-case">
+                            Total: {sectionTotal.toLocaleString('es-MX')}
+                          </span>
+                        </td>
+                      </tr>
+                      {section.rows.map((row, rowIndex) => {
+                        const total = computeTotal(row);
+
+                        return (
+                          <tr key={`${section.key}-${rowIndex}`} className="border-b border-gray-100">
+                            <td className="p-2 font-medium text-gray-900">
+                              {row.motivo}
+                            </td>
+                            {MESES.map((mes, mesIndex) => {
+                              const value = row[mes as keyof BajasPorMotivoData] as number;
+                              return (
+                                <td
+                                  key={mesIndex}
+                                  className={`p-2 text-center text-sm font-semibold rounded-sm mx-1 ${getColorIntensity(value)} ${getTextColor(value)}`}
+                                  title={`${row.motivo} - ${MESES_LABELS[mesIndex]}: ${value} bajas`}
+                                >
+                                  {value || ''}
+                                </td>
+                              );
+                            })}
+                            <td className="p-2 text-center font-bold text-gray-900">
+                              {total}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })
               )}
             </tbody>
               </table>

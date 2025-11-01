@@ -1,10 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import {
   Upload,
   Database,
@@ -41,6 +45,40 @@ interface PreviewData {
   previewRows: number;
 }
 
+type SyncFrequency = 'manual' | 'daily' | 'weekly' | 'monthly';
+
+interface SyncSchedule {
+  frequency: SyncFrequency;
+  day_of_week: string;
+  run_time: string;
+  last_run: string | null;
+  next_run: string | null;
+}
+
+const DEFAULT_SCHEDULE: SyncSchedule = {
+  frequency: 'manual',
+  day_of_week: 'monday',
+  run_time: '02:00',
+  last_run: null,
+  next_run: null,
+};
+
+const FREQUENCY_OPTIONS: { value: SyncFrequency; label: string }[] = [
+  { value: 'manual', label: 'Manual' },
+  { value: 'daily', label: 'Diario' },
+  { value: 'weekly', label: 'Semanal' },
+];
+
+const DAY_OPTIONS = [
+  { value: 'monday', label: 'Lunes' },
+  { value: 'tuesday', label: 'Martes' },
+  { value: 'wednesday', label: 'Miércoles' },
+  { value: 'thursday', label: 'Jueves' },
+  { value: 'friday', label: 'Viernes' },
+  { value: 'saturday', label: 'Sábado' },
+  { value: 'sunday', label: 'Domingo' },
+];
+
 export function SFTPImportAdmin() {
   const [isImporting, setIsImporting] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
@@ -51,6 +89,26 @@ export function SFTPImportAdmin() {
   const [expandedPreviews, setExpandedPreviews] = useState<Record<string, boolean>>({});
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [schedule, setSchedule] = useState<SyncSchedule>(DEFAULT_SCHEDULE);
+  const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+
+  const mapScheduleFromApi = (payload: any): SyncSchedule => {
+    const rawFrequency = String(payload?.frequency ?? 'manual').toLowerCase();
+    const allowed: SyncFrequency[] = ['manual', 'daily', 'weekly', 'monthly'];
+    const frequency = (allowed.includes(rawFrequency as SyncFrequency)
+      ? rawFrequency
+      : 'manual') as SyncFrequency;
+
+    return {
+      frequency,
+      day_of_week: String(payload?.day_of_week ?? 'monday').toLowerCase(),
+      run_time: (payload?.run_time ?? '02:00').slice(0, 5),
+      last_run: payload?.last_run ?? null,
+      next_run: payload?.next_run ?? null,
+    };
+  };
 
   const loadSFTPFiles = async () => {
     setIsLoadingFiles(true);
@@ -73,6 +131,72 @@ export function SFTPImportAdmin() {
       setIsLoadingFiles(false);
     }
   };
+
+  const fetchSchedule = async () => {
+    setScheduleLoading(true);
+    setScheduleError(null);
+    try {
+      const response = await fetch('/api/sftp/settings', { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error('Respuesta no válida del servidor');
+      }
+      const data = await response.json();
+      if (data?.settings) {
+        setSchedule(mapScheduleFromApi(data.settings));
+      } else {
+        setSchedule(DEFAULT_SCHEDULE);
+      }
+    } catch (error) {
+      console.error('Error fetching schedule:', error);
+      setScheduleError('No se pudo cargar la programación automática.');
+      setSchedule(DEFAULT_SCHEDULE);
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
+  const formatDateTime = (value: string | null) => {
+    if (!value) return 'Sin ejecutar';
+    try {
+      return format(new Date(value), "dd 'de' MMMM yyyy · HH:mm", { locale: es });
+    } catch (error) {
+      return 'Sin ejecutar';
+    }
+  };
+
+  const handleSaveSchedule = async () => {
+    setScheduleSaving(true);
+    setScheduleError(null);
+    try {
+      const response = await fetch('/api/sftp/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          frequency: schedule.frequency,
+          day_of_week: schedule.day_of_week,
+          run_time: schedule.run_time,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Respuesta no válida del servidor');
+      }
+
+      const data = await response.json();
+      if (data?.settings) {
+        setSchedule(mapScheduleFromApi(data.settings));
+      }
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+      setScheduleError('No se pudo guardar la programación. Intenta nuevamente.');
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSchedule();
+  }, []);
 
   const executeForceImport = async () => {
     setIsImporting(true);
@@ -98,6 +222,9 @@ export function SFTPImportAdmin() {
           incidencias: result.data.incidencias?.total_en_bd || 0,
           errors: []
         });
+        if (result.schedule) {
+          setSchedule(mapScheduleFromApi(result.schedule));
+        }
         console.log('✅ Importación real completada:', result.data);
       } else {
         console.error('❌ Error en importación real:', result.error);
@@ -140,6 +267,9 @@ export function SFTPImportAdmin() {
       
       if (result.success) {
         setImportResults(result.results);
+        if (result.schedule) {
+          setSchedule(mapScheduleFromApi(result.schedule));
+        }
         console.log('✅ Importación completada:', result.results);
       } else {
         console.error('❌ Error en importación:', result.error);
@@ -235,6 +365,139 @@ export function SFTPImportAdmin() {
           Importa datos reales desde el servidor SFTP hacia la base de datos
         </p>
       </div>
+
+      <Card className="mb-6">
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-base">Programación automática de sincronización</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Define cada cuánto deseas actualizar los datos desde el SFTP.
+            </p>
+          </div>
+          {!scheduleLoading && (
+            <Badge variant="outline" className="uppercase tracking-wide text-xs">
+              {FREQUENCY_OPTIONS.find((option) => option.value === schedule.frequency)?.label ?? 'Manual'}
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {scheduleLoading ? (
+            <div className="space-y-3">
+              <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
+              <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
+              <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
+            </div>
+          ) : (
+            <>
+              {scheduleError && (
+                <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {scheduleError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Frecuencia
+                  </label>
+                  <Select
+                    value={schedule.frequency}
+                    onValueChange={(value) =>
+                      setSchedule((prev) => ({
+                        ...prev,
+                        frequency: value as SyncFrequency,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona frecuencia" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FREQUENCY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {schedule.frequency === 'weekly' && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Día de la semana
+                    </label>
+                    <Select
+                      value={schedule.day_of_week}
+                      onValueChange={(value) =>
+                        setSchedule((prev) => ({
+                          ...prev,
+                          day_of_week: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona día" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DAY_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Horario (24h)
+                  </label>
+                  <Input
+                    type="time"
+                    value={schedule.run_time}
+                    onChange={(event) =>
+                      setSchedule((prev) => ({
+                        ...prev,
+                        run_time: event.target.value,
+                      }))
+                    }
+                    disabled={schedule.frequency === 'manual'}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                <span>
+                  Última ejecución:{' '}
+                  <span className="font-medium text-foreground">
+                    {formatDateTime(schedule.last_run)}
+                  </span>
+                </span>
+                <span>
+                  Próxima ejecución:{' '}
+                  <span className="font-medium text-foreground">
+                    {schedule.frequency === 'manual'
+                      ? 'Cuando el administrador lo decida'
+                      : formatDateTime(schedule.next_run)}
+                  </span>
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button onClick={handleSaveSchedule} disabled={scheduleSaving}>
+                  {scheduleSaving ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Guardando…
+                    </span>
+                  ) : (
+                    'Guardar programación'
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Configura un cron externo (por ejemplo, Vercel Cron) para invocar el endpoint automático según esta programación.
+                </p>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Archivos SFTP */}
       <Card className="mb-6">

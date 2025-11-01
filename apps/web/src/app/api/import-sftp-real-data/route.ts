@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sftpClient } from '@/lib/sftp-client';
+import { requireAdmin } from '@/lib/server-auth';
+import { computeNextRun, normalizeDayOfWeek, normalizeFrequency, normalizeRunTime } from '@/lib/utils/sync-schedule';
 
 interface EmpleadoSFTP {
   numero_empleado: number;
@@ -44,7 +46,63 @@ interface MotivoBaja {
   observaciones?: string;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const auth = await requireAdmin(request);
+  if ('error' in auth) {
+    return auth.error;
+  }
+
+  const isServiceRun = auth.userId === 'service';
+
+  if (isServiceRun) {
+    const { data: scheduleRow, error: scheduleError } = await supabaseAdmin
+      .from('sync_settings')
+      .select('frequency, day_of_week, run_time, next_run')
+      .eq('singleton', true)
+      .maybeSingle();
+
+    if (!scheduleError && scheduleRow) {
+      const frequency = normalizeFrequency(scheduleRow.frequency);
+      if (frequency === 'manual') {
+        return NextResponse.json({
+          success: true,
+          skipped: true,
+          message: 'La sincronización está configurada en modo manual.',
+        });
+      }
+
+      const dayOfWeek = normalizeDayOfWeek(scheduleRow.day_of_week);
+      const runTime = normalizeRunTime(scheduleRow.run_time);
+      const now = new Date();
+      let nextRunDate = scheduleRow.next_run ? new Date(scheduleRow.next_run) : null;
+      if (!nextRunDate || Number.isNaN(nextRunDate.getTime())) {
+        nextRunDate = computeNextRun(frequency, dayOfWeek, runTime, now) || null;
+      }
+
+      if (nextRunDate && now < nextRunDate) {
+        if (!scheduleRow.next_run) {
+          await supabaseAdmin
+            .from('sync_settings')
+            .upsert(
+              {
+                singleton: true,
+                frequency,
+                day_of_week: dayOfWeek,
+                run_time: runTime,
+                next_run: nextRunDate.toISOString(),
+              },
+              { onConflict: 'singleton' }
+            );
+        }
+        return NextResponse.json({
+          success: true,
+          skipped: true,
+          next_run: nextRunDate.toISOString(),
+          message: 'La sincronización aún no está programada para ejecutarse.',
+        });
+      }
+    }
+  }
   try {
     console.log('🚀 Iniciando importación real de datos SFTP...');
     
@@ -55,6 +113,7 @@ export async function POST() {
     const results = {
       empleados: 0,
       bajas: 0,
+      asistencia: 0,
       errors: [] as string[]
     };
 
@@ -124,9 +183,20 @@ export async function POST() {
           console.log(`🔄 Empleados transformados: ${empleadosTransformados.length}`);
           console.log('Sample empleado:', empleadosTransformados[0]);
           
-          // Limpiar tabla y insertar datos
-          console.log('🗑️ Limpiando tabla empleados_sftp...');
-          await supabaseAdmin.from('empleados_sftp').delete().neq('id', 0);
+          // Reemplazar registros existentes de los mismos empleados
+          const employeeNumbers = Array.from(new Set(
+            empleadosTransformados
+              .map((emp) => emp.numero_empleado)
+              .filter((num) => Number.isFinite(num))
+          ));
+
+          if (employeeNumbers.length > 0) {
+            console.log(`🧹 Eliminando ${employeeNumbers.length} registros previos de empleados_sftp`);
+            await supabaseAdmin
+              .from('empleados_sftp')
+              .delete()
+              .in('numero_empleado', employeeNumbers);
+          }
           
           // Insertar en lotes de 50
           const batchSize = 50;
@@ -182,10 +252,44 @@ export async function POST() {
           console.log(`🔄 Bajas transformadas: ${bajasTransformadas.length}`);
           console.log('Sample baja:', bajasTransformadas[0]);
           
-          // Limpiar tabla y insertar datos
-          console.log('🗑️ Limpiando tabla motivos_baja...');
-          await supabaseAdmin.from('motivos_baja').delete().neq('id', 0);
-          
+          const uniqueEmployeeNumbers = Array.from(new Set(
+            bajasTransformadas
+              .map((baja) => baja.numero_empleado)
+              .filter((num) => Number.isFinite(num))
+          ));
+
+          let idsToDelete: number[] = [];
+
+          if (uniqueEmployeeNumbers.length > 0) {
+            const { data: existingRows, error: fetchExistingError } = await supabaseAdmin
+              .from('motivos_baja')
+              .select('id, numero_empleado, fecha_baja, motivo')
+              .in('numero_empleado', uniqueEmployeeNumbers);
+
+            if (fetchExistingError) {
+              console.error('Error obteniendo motivos existentes:', fetchExistingError);
+            } else if (existingRows) {
+              const incomingKeys = new Set(
+                bajasTransformadas.map(
+                  (baja) => `${baja.numero_empleado}|${baja.fecha_baja}|${baja.motivo}`
+                )
+              );
+
+              idsToDelete = existingRows
+                .filter((row) => incomingKeys.has(`${row.numero_empleado}|${row.fecha_baja}|${row.motivo}`))
+                .map((row) => row.id as number)
+                .filter((id) => typeof id === 'number');
+            }
+          }
+
+          if (idsToDelete.length > 0) {
+            console.log(`🧹 Eliminando ${idsToDelete.length} motivos_baja existentes que serán reemplazados`);
+            await supabaseAdmin
+              .from('motivos_baja')
+              .delete()
+              .in('id', idsToDelete);
+          }
+
           const { error } = await supabaseAdmin
             .from('motivos_baja')
             .insert(bajasTransformadas);
@@ -207,11 +311,50 @@ export async function POST() {
 
     console.log('✅ Importación de datos SFTP completada!');
     console.log(`📊 Resultados finales - Empleados: ${results.empleados}, Bajas: ${results.bajas}`);
-    
+
+    let scheduleMeta: { last_run?: string | null; next_run?: string | null } = {};
+    const { data: scheduleRow, error: scheduleError } = await supabaseAdmin
+      .from('sync_settings')
+      .select('frequency, day_of_week, run_time')
+      .eq('singleton', true)
+      .maybeSingle();
+
+    if (!scheduleError) {
+      const frequency = normalizeFrequency(scheduleRow?.frequency);
+      const dayOfWeek = normalizeDayOfWeek(scheduleRow?.day_of_week);
+      const runTime = normalizeRunTime(scheduleRow?.run_time);
+      const nextRunDate = computeNextRun(frequency, dayOfWeek, runTime);
+      const lastRunIso = new Date().toISOString();
+
+      const { data: updatedSchedule, error: updateScheduleError } = await supabaseAdmin
+        .from('sync_settings')
+        .upsert(
+          {
+            singleton: true,
+            frequency,
+            day_of_week: dayOfWeek,
+            run_time: runTime,
+            last_run: lastRunIso,
+            next_run: nextRunDate ? nextRunDate.toISOString() : null,
+          },
+          { onConflict: 'singleton' }
+        )
+        .select('last_run, next_run')
+        .single();
+
+      if (!updateScheduleError && updatedSchedule) {
+        scheduleMeta = {
+          last_run: updatedSchedule.last_run,
+          next_run: updatedSchedule.next_run,
+        };
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Importación de datos SFTP completada',
-      results
+      results,
+      schedule: scheduleMeta,
     });
 
   } catch (error) {
