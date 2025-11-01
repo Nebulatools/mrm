@@ -53,6 +53,13 @@ export async function POST(request: NextRequest) {
   }
 
   const isServiceRun = auth.userId === 'service';
+  const triggerSource = request.nextUrl.searchParams.get('trigger') ?? '';
+  const manualTrigger = triggerSource === 'manual';
+
+  if (manualTrigger) {
+    console.log('🔄 Actualización manual solicitada: limpiando caché del cliente SFTP');
+    sftpClient.clearCache();
+  }
 
   if (isServiceRun) {
     const { data: scheduleRow, error: scheduleError } = await supabaseAdmin

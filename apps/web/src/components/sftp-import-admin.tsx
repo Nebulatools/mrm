@@ -80,7 +80,7 @@ const DAY_OPTIONS = [
 ];
 
 export function SFTPImportAdmin() {
-  const [isImporting, setIsImporting] = useState(false);
+  const [isManualUpdating, setIsManualUpdating] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [sftpFiles, setSftpFiles] = useState<SFTPFile[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
@@ -198,65 +198,15 @@ export function SFTPImportAdmin() {
     fetchSchedule();
   }, []);
 
-  const executeForceImport = async () => {
-    setIsImporting(true);
+  const executeManualUpdate = async () => {
+    if (isManualUpdating) return;
+    setIsManualUpdating(true);
     setImportResults(null);
     
     try {
-      console.log('🔥 FORZANDO IMPORTACIÓN REAL SIN CACHÉ...');
+      console.log('🔄 Ejecutando actualización manual de datos SFTP...');
       
-      const response = await fetch('/api/import-real-sftp-force', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setImportResults({
-          empleados: result.data.empleados.total_en_bd || 0,
-          bajas: result.data.bajas.total_en_bd || 0,
-          asistencia: result.data.asistencia.total_en_bd || 0,
-          incidencias: result.data.incidencias?.total_en_bd || 0,
-          errors: []
-        });
-        if (result.schedule) {
-          setSchedule(mapScheduleFromApi(result.schedule));
-        }
-        console.log('✅ Importación real completada:', result.data);
-      } else {
-        console.error('❌ Error en importación real:', result.error);
-        setImportResults({
-          empleados: 0,
-          bajas: 0,
-          asistencia: 0,
-          errors: [result.error || 'Error desconocido']
-        });
-      }
-      
-    } catch (error) {
-      console.error('❌ Error ejecutando importación real:', error);
-      setImportResults({
-        empleados: 0,
-        bajas: 0,
-        asistencia: 0,
-        errors: [error instanceof Error ? error.message : 'Error de conexión']
-      });
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const executeImport = async () => {
-    setIsImporting(true);
-    setImportResults(null);
-    
-    try {
-      console.log('🚀 Iniciando importación desde admin panel...');
-      
-      const response = await fetch('/api/import-sftp-real-data', {
+      const response = await fetch('/api/import-sftp-real-data?trigger=manual', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -270,9 +220,9 @@ export function SFTPImportAdmin() {
         if (result.schedule) {
           setSchedule(mapScheduleFromApi(result.schedule));
         }
-        console.log('✅ Importación completada:', result.results);
+        console.log('✅ Actualización manual completada:', result.results);
       } else {
-        console.error('❌ Error en importación:', result.error);
+        console.error('❌ Error en actualización manual:', result.error);
         setImportResults({
           empleados: 0,
           bajas: 0,
@@ -282,7 +232,7 @@ export function SFTPImportAdmin() {
       }
       
     } catch (error) {
-      console.error('❌ Error ejecutando importación:', error);
+      console.error('❌ Error ejecutando actualización manual:', error);
       setImportResults({
         empleados: 0,
         bajas: 0,
@@ -290,7 +240,7 @@ export function SFTPImportAdmin() {
         errors: [error instanceof Error ? error.message : 'Error de conexión']
       });
     } finally {
-      setIsImporting(false);
+      setIsManualUpdating(false);
     }
   };
 
@@ -739,46 +689,24 @@ export function SFTPImportAdmin() {
               </ul>
             </div>
             
-            <div className="space-y-3">
-              <Button 
-                onClick={executeForceImport}
-                disabled={isImporting}
-                className="w-full bg-green-600 hover:bg-green-700"
-                size="lg"
-              >
-                {isImporting ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    Forzando importación real...
-                  </>
-                ) : (
-                  <>
-                    <Database className="h-5 w-5 mr-2" />
-                    🔥 FORZAR IMPORTACIÓN REAL (SIN CACHÉ)
-                  </>
-                )}
-              </Button>
-              
-              <Button 
-                onClick={executeImport}
-                disabled={isImporting}
-                variant="outline"
-                className="w-full"
-                size="lg"
-              >
-                {isImporting ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    Importando datos...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-5 w-5 mr-2" />
-                    Importación Estándar
-                  </>
-                )}
-              </Button>
-            </div>
+            <Button 
+              onClick={executeManualUpdate}
+              disabled={isManualUpdating}
+              className="w-full bg-green-600 hover:bg-green-700"
+              size="lg"
+            >
+              {isManualUpdating ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  Actualizando información...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-5 w-5 mr-2" />
+                  Actualizar Información (Manual)
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
