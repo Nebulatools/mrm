@@ -34,6 +34,12 @@ Un dashboard completo de Business Intelligence para el análisis de KPIs de Recu
   - Proyecciones futuras
   - Categorización por impacto y confianza
 
+- **🤖 Analítica Avanzada RH**: Servicio FastAPI con modelos de data science
+  - Predicción de rotación individual y por segmento
+  - Riesgo de ausentismo y forecast de permisos
+  - Clustering de patrones laborales y análisis de supervivencia
+  - Scheduler configurable desde el panel de administración
+
 - **⚙️ Ajustes Retroactivos**: Sistema completo de auditoría
   - Modificación de valores históricos con registro completo
   - Historial de cambios con usuario y fecha
@@ -59,6 +65,7 @@ Un dashboard completo de Business Intelligence para el análisis de KPIs de Recu
 /hr-kpi-dashboard
 ├── apps/
 │   ├── web/                    # Next.js 14 frontend
+│   ├── ml_service/             # FastAPI + modelos de analítica avanzada
 │   └── functions/              # Supabase Edge Functions
 ├── packages/
 │   └── shared/                 # Tipos y utilidades compartidas
@@ -96,6 +103,7 @@ Un dashboard completo de Business Intelligence para el análisis de KPIs de Recu
 - Node.js 18+
 - npm o yarn
 - Cuenta de Supabase
+- Claude Code (opcional - para MCP de Supabase)
 
 ### Configuración del Proyecto
 
@@ -115,6 +123,7 @@ npm install
 # apps/web/.env.local
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+ML_SERVICE_URL=http://localhost:8000
 ```
 
 4. **Ejecutar el proyecto**
@@ -123,6 +132,24 @@ npm run dev
 ```
 
 El dashboard estará disponible en `http://localhost:3000`
+
+### 🔌 Configuración MCP de Supabase (Opcional)
+
+Para desarrolladores que usan **Claude Code**, el proyecto incluye configuración de MCP (Model Context Protocol) para interactuar directamente con Supabase:
+
+1. **Configuración automática**: Ya está configurado en `.claude/mcp.json`
+2. **Reiniciar Claude Code**: Cmd+Shift+P → "Developer: Reload Window"
+3. **Verificar**: Pregunta a Claude "lista mis proyectos de Supabase"
+
+**Capacidades disponibles con MCP:**
+- ✅ Ejecutar consultas SQL directamente
+- ✅ Aplicar migraciones
+- ✅ Listar tablas y estructura
+- ✅ Ver logs del proyecto
+- ✅ Obtener recomendaciones de seguridad/performance
+- ✅ Generar tipos TypeScript automáticamente
+
+📖 **Documentación completa**: Ver [`docs/MCP_SUPABASE_SETUP.md`](docs/MCP_SUPABASE_SETUP.md)
 
 ## 📱 Uso del Dashboard
 

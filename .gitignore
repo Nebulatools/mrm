@@ -33,6 +33,10 @@ next-env.d.ts
 .vscode/
 .idea/
 
+# Claude Code MCP (contains credentials)
+.claude/mcp.json
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db

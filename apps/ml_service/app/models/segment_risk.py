@@ -13,7 +13,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .base import BaseModelTrainer, TrainOutput
-from .rotation import ROTATION_FEATURES_SQL, RotationAttritionTrainer
+from .rotation import ROTATION_FEATURES_SQL, MultiHorizonRotationEnsemble, RotationAttritionTrainer
 from ..config import Settings
 from ..database import Database
 from ..schemas import ModelType
@@ -37,11 +37,19 @@ class SegmentRiskTrainer(BaseModelTrainer):
     def run_training(self, frame: pd.DataFrame, **kwargs: Any) -> TrainOutput:
         df = frame.copy()
 
-        rotation_pipeline = self._ensure_rotation_pipeline(df)
+        rotation_model = self._ensure_rotation_model(df)
         X_features, _, _, _ = self.rotation_trainer.prepare_features(df, include_target=False)
 
-        probabilities = rotation_pipeline.predict_proba(X_features)[:, 1]
-        df['rotation_probability'] = probabilities
+        probabilities_map = rotation_model.predict_proba(X_features)
+        if isinstance(probabilities_map, dict):
+            probabilities = probabilities_map.get(90)
+            if probabilities is None:
+                # Si el modelo multi-horizonte no contiene 90d, utilizamos el mayor disponible.
+                horizon = max(probabilities_map.keys())
+                probabilities = probabilities_map[horizon]
+        else:
+            probabilities = probabilities_map
+        df['rotation_probability'] = np.asarray(probabilities, dtype=float)
 
         aggregated = (
             df.groupby(['empresa', 'area', 'departamento'], dropna=False)
@@ -112,14 +120,19 @@ class SegmentRiskTrainer(BaseModelTrainer):
 
         return TrainOutput(estimator=pipeline, metrics=metrics, artifacts=artifacts)
 
-    def _ensure_rotation_pipeline(self, frame: pd.DataFrame):
+    def _ensure_rotation_model(self, frame: pd.DataFrame) -> MultiHorizonRotationEnsemble:
         rotation_model_path = (
             self.settings.models_dir
             / self.rotation_trainer.model_id
             / f'{self.rotation_trainer.model_version}.joblib'
         )
         if rotation_model_path.exists():
-            return joblib.load(rotation_model_path)
+            loaded = joblib.load(rotation_model_path)
+            if isinstance(loaded, MultiHorizonRotationEnsemble):
+                return loaded
+            if hasattr(loaded, 'predict_proba'):
+                return MultiHorizonRotationEnsemble({90: loaded})
+            raise ValueError('Artefacto de rotación desconocido; reentrena el modelo para actualizarlo.')
 
         # If not available, train rotation model first using the provided frame
         rotation_output = self.rotation_trainer.run_training(frame)
@@ -129,4 +142,7 @@ class SegmentRiskTrainer(BaseModelTrainer):
             datetime.now(timezone.utc),
             rotation_output.artifacts,
         )
-        return rotation_output.estimator
+        estimator = rotation_output.estimator
+        if isinstance(estimator, MultiHorizonRotationEnsemble):
+            return estimator
+        return MultiHorizonRotationEnsemble({90: estimator})

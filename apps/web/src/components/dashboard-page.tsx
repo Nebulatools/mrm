@@ -16,17 +16,15 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter, LabelList } from 'recharts';
 import { KPICard, KPICardSkeleton } from "./kpi-card";
-import { AIInsights } from "./ai-insights";
-import { RetroactiveAdjustment } from "./retroactive-adjustment";
 import { DismissalReasonsTable } from "./dismissal-reasons-table";
 import { BajasPorMotivoHeatmap } from "./bajas-por-motivo-heatmap";
 import { RetentionCharts } from "./retention-charts";
 import IncidentsTab from "./incidents-tab";
-import { CorrelationMatrix } from "./correlation-matrix";
 import { RetentionFilterPanel } from "./filter-panel";
 import { SummaryComparison } from "./summary-comparison";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ModelTrendsTab } from "./model-trends-tab";
 import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters/filters";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord, type IncidenciaCSVRecord } from "@/lib/supabase";
@@ -975,14 +973,6 @@ export function DashboardPage() {
                 Tendencias
               </TabsTrigger>
             )}
-            {isAdmin && (
-              <TabsTrigger value="ai-insights" className={tabTriggerClass}>
-                IA Generativa
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="adjustments" className={tabTriggerClass}>
-              Ajustes
-            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab - Nuevo Resumen Comparativo */}
@@ -1594,20 +1584,7 @@ export function DashboardPage() {
 
           {/* Trends Tab */}
           <TabsContent value="trends" className="space-y-6">
-            <CorrelationMatrix year={currentYear} />
-          </TabsContent>
-
-          {/* AI Insights Tab */}
-          <TabsContent value="ai-insights" className="space-y-6">
-            <AIInsights kpis={data.kpis} period={timePeriod} />
-          </TabsContent>
-
-          {/* Retroactive Adjustments Tab */}
-          <TabsContent value="adjustments" className="space-y-6">
-            <RetroactiveAdjustment 
-              kpis={data.kpis} 
-              onAdjustmentMade={() => loadDashboardData({ period: timePeriod, date: selectedPeriod }, true)}
-            />
+            <ModelTrendsTab />
           </TabsContent>
           </Tabs>
         </main>

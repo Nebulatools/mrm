@@ -1,0 +1,43 @@
+{
+  "artifacts": {
+    "feature_importances": {
+      "antiguedad_days": 0.0,
+      "area_Operaciones": 0.0,
+      "area_Ventas": 0.0,
+      "clasificacion_SINDICALIZADO": 0.0,
+      "departamento_Depto A": 0.0,
+      "empresa_MRM": 0.0,
+      "genero_F": 0.0,
+      "genero_M": 0.0003623563679866493,
+      "motivo_detalle_None": 0.0,
+      "motivo_detalle_Separación voluntaria": 0.0,
+      "motivo_tipo_None": 0.0,
+      "motivo_tipo_Término del contrato": 0.0,
+      "neg_30d": 0.0,
+      "neg_365d": 0.40991127490997314,
+      "neg_90d": 0.3488365709781647,
+      "permisos_365d": 0.0,
+      "permisos_90d": 0.0,
+      "puesto_Operador": 0.0,
+      "ratio_neg_365d": 0.04281138256192207,
+      "ratio_neg_90d": 0.19807839393615723,
+      "ratio_permisos_365d": 0.0,
+      "tenure_days": 0.0,
+      "tipo_nomina_Mensual": 0.0,
+      "turno_Matutino": 0.0,
+      "ubicacion_PLANTA": 0.0
+    }
+  },
+  "metrics": {
+    "average_precision": 1.0,
+    "f1": 1.0,
+    "positive_rate": 0.2,
+    "roc_auc": 1.0,
+    "test_size": 12,
+    "train_size": 48
+  },
+  "model_id": "rotation",
+  "model_name": "Predicción de rotación individual",
+  "model_version": "v1",
+  "trained_at": "2025-11-02T06:22:27.191098+00:00"
+}

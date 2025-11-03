@@ -132,6 +132,15 @@ class DatabaseREST:
         """
         query_lower = query.lower()
 
+        # Direct table lookups
+        if (
+            'from empleados_sftp' in query_lower
+            and 'select numero_empleado' in query_lower
+            and 'clasificacion' in query_lower
+            and 'neg_30d' not in query_lower
+        ):
+            return 'empleados_sftp'
+
         # Check for rotation features (most common)
         if 'target_rotacion' in query_lower or 'motivo_tipo' in query_lower:
             return 'ml_rotation_features'
@@ -185,23 +194,43 @@ class DatabaseREST:
         client = await self.connect()
 
         try:
-            # Make request to Supabase REST API
-            response = await client.get(
-                f'/{view_name}',
-                params={'select': '*'},
-            )
-            response.raise_for_status()
+            results: list[dict[str, Any]] = []
+            limit = 1000
+            offset = 0
+            total: Optional[int] = None
 
-            # Parse JSON response
-            data = response.json()
+            while True:
+                response = await client.get(
+                    f'/{view_name}',
+                    params={'select': '*', 'limit': limit, 'offset': offset},
+                )
+                response.raise_for_status()
 
-            if not data:
+                batch = response.json()
+                if not batch:
+                    break
+
+                results.extend(batch)
+
+                content_range = response.headers.get('content-range')
+                if content_range:
+                    try:
+                        _, range_part = content_range.split(' ')
+                        _, total_part = range_part.split('/')
+                        total = int(total_part)
+                    except (ValueError, IndexError):
+                        total = None
+
+                offset += limit
+                if total is not None and offset >= total:
+                    break
+                if len(batch) < limit:
+                    break
+
+            if not results:
                 return pd.DataFrame()
 
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
-
-            return df
+            return pd.DataFrame(results)
 
         except httpx.HTTPStatusError as e:
             # Better error messages

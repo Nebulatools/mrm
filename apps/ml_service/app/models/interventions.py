@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 import joblib
 
+import numpy as np
 import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import accuracy_score
@@ -14,7 +15,7 @@ from sklearn.tree import DecisionTreeClassifier
 
 from .absenteeism import ABSENTEEISM_SQL
 from .base import BaseModelTrainer, TrainOutput
-from .rotation import ROTATION_FEATURES_SQL, RotationAttritionTrainer
+from .rotation import ROTATION_FEATURES_SQL, MultiHorizonRotationEnsemble, RotationAttritionTrainer
 from ..schemas import ModelType
 from ..utils.sklearn import build_one_hot_encoder
 
@@ -56,10 +57,17 @@ class PreventiveInterventionsTrainer(BaseModelTrainer):
         if df.empty:
             raise ValueError('No hay suficientes datos combinados para generar recomendaciones preventivas.')
 
-        rotation_pipeline = self._ensure_rotation_pipeline(df)
+        rotation_model = self._ensure_rotation_model(df)
         X_rot, _, _, _ = self.rotation_trainer.prepare_features(df, include_target=False)
-        rot_prob = rotation_pipeline.predict_proba(X_rot)[:, 1]
-        df['rotation_probability'] = rot_prob
+        probabilities_map = rotation_model.predict_proba(X_rot)
+        if isinstance(probabilities_map, dict):
+            rot_prob = probabilities_map.get(90)
+            if rot_prob is None:
+                horizon = max(probabilities_map.keys())
+                rot_prob = probabilities_map[horizon]
+        else:
+            rot_prob = probabilities_map
+        df['rotation_probability'] = np.asarray(rot_prob, dtype=float)
 
         df['neg_prev_28d'] = df['neg_prev_28d'].fillna(0)
         df['neg_prev_56d'] = df['neg_prev_56d'].fillna(0)
@@ -142,14 +150,19 @@ class PreventiveInterventionsTrainer(BaseModelTrainer):
             return 'Acción disciplinaria y coaching'
         return 'Reconocimiento y refuerzo positivo'
 
-    def _ensure_rotation_pipeline(self, df: pd.DataFrame):
+    def _ensure_rotation_model(self, df: pd.DataFrame) -> MultiHorizonRotationEnsemble:
         rotation_model_path = (
             self.settings.models_dir
             / self.rotation_trainer.model_id
             / f'{self.rotation_trainer.model_version}.joblib'
         )
         if rotation_model_path.exists():
-            return joblib.load(rotation_model_path)
+            loaded = joblib.load(rotation_model_path)
+            if isinstance(loaded, MultiHorizonRotationEnsemble):
+                return loaded
+            if hasattr(loaded, 'predict_proba'):
+                return MultiHorizonRotationEnsemble({90: loaded})
+            raise ValueError('Artefacto de rotación desconocido; reentrena el modelo para actualizarlo.')
 
         rotation_output = self.rotation_trainer.run_training(df)
         self.rotation_trainer._persist_estimator(rotation_output.estimator)
@@ -158,4 +171,7 @@ class PreventiveInterventionsTrainer(BaseModelTrainer):
             datetime.now(timezone.utc),
             rotation_output.artifacts,
         )
-        return rotation_output.estimator
+        estimator = rotation_output.estimator
+        if isinstance(estimator, MultiHorizonRotationEnsemble):
+            return estimator
+        return MultiHorizonRotationEnsemble({90: estimator})
