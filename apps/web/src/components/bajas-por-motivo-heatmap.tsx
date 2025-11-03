@@ -26,7 +26,7 @@ interface BajasPorMotivoData {
 interface BajasPorMotivoHeatmapProps {
   data: BajasPorMotivoData[]
   year: number
-  motivoFilter?: 'involuntaria' | 'voluntaria'
+  motivoFilter?: 'involuntaria' | 'voluntaria' | 'all'
 }
 
 const MESES = [
@@ -39,7 +39,7 @@ const MESES_LABELS = [
   'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
 ]
 
-export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria' }: BajasPorMotivoHeatmapProps) {
+export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'all' }: BajasPorMotivoHeatmapProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -191,7 +191,7 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'involuntaria
                       <tr
                         className={cn(
                           'border-b',
-                          motivoFilter === section.key
+                          motivoFilter !== 'all' && motivoFilter === section.key
                             ? (isDark ? 'bg-rose-500/15 border-rose-300/30' : 'bg-red-50 border-red-200')
                             : (isDark ? 'bg-brand-surface/70 border-brand-border/30' : 'bg-slate-100 border-slate-200')
                         )}

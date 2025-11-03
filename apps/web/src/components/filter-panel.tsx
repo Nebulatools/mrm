@@ -13,6 +13,7 @@ import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { countActiveFilters, getFilterSummary, sanitizeFilterValue } from "@/lib/filters/summary";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
+import { endOfMonth, subMonths } from "date-fns";
 
 // Type moved to lib/filters/filters (renamed from retention)
 
@@ -47,12 +48,14 @@ export function RetentionFilterPanel({
   // Set default filters to current month and year
   useEffect(() => {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11, we need 1-12
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthEnd = endOfMonth(currentMonthStart);
+    const isMonthClosed = now > currentMonthEnd;
+    const referenceMonthStart = isMonthClosed ? currentMonthStart : subMonths(currentMonthStart, 1);
 
     const defaultFilters = {
-      years: [currentYear],
-      months: [currentMonth], // Default to current month
+      years: [referenceMonthStart.getFullYear()],
+      months: [referenceMonthStart.getMonth() + 1],
       departamentos: [],
       puestos: [],
       clasificaciones: [],

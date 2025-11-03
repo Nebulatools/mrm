@@ -117,17 +117,35 @@ export const db = {
     });
 
     // Obtener empleados con TODOS los campos incluyendo clasificacion
-    const { data: empleados, error: empleadosError } = await client
-      .from('empleados_sftp')
-      .select('*')
-      .order('numero_empleado')
+    const pageSize = 1000;
+    let from = 0;
+    let hasMore = true;
+    const empleados: any[] = [];
 
-    if (empleadosError) {
-      console.error('❌ Error fetching empleados_sftp:', empleadosError);
-      throw empleadosError;
+    while (hasMore) {
+      const { data, error } = await client
+        .from('empleados_sftp')
+        .select('*')
+        .order('numero_empleado', { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (error) {
+        console.error('❌ Error fetching empleados_sftp:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        hasMore = false;
+      } else {
+        empleados.push(...data);
+        from += pageSize;
+        if (data.length < pageSize) {
+          hasMore = false;
+        }
+      }
     }
 
-    // Obtener motivos de baja
+    // Obtener motivos de baja (volumen < 1000 actualmente, una sola petición)
     const { data: motivos, error: motivosError } = await client
       .from('motivos_baja')
       .select('*')
@@ -147,7 +165,7 @@ export const db = {
     });
     
     // Transform to PlantillaRecord format for compatibility
-    const transformed = (empleados || []).map(emp => {
+    const transformed = empleados.map(emp => {
       const motivosEmpleado = motivosMap.get(emp.numero_empleado) || [];
       // Ordenar por fecha_baja desc para tomar el último motivo real
       motivosEmpleado.sort((a: any, b: any) => new Date(b.fecha_baja).getTime() - new Date(a.fecha_baja).getTime());

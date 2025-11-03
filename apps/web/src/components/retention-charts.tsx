@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import type { CSSProperties } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { db, type PlantillaRecord } from '@/lib/supabase';
+import { db, type PlantillaRecord, type MotivoBajaRecord } from '@/lib/supabase';
 import { createBrowserClient } from '@/lib/supabase-client';
 import { format, subMonths, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { applyFiltersWithScope } from '@/lib/filters/filters';
-import { isMotivoClave } from '@/lib/normalizers';
+import { isMotivoClave, normalizeMotivo } from '@/lib/normalizers';
 import { VisualizationContainer } from "./visualization-container";
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
 import { useTheme } from "@/components/theme-provider";
@@ -20,8 +20,12 @@ interface MonthlyRetentionData {
   year: number;
   month: number;
   rotacionPorcentaje: number;
+  rotacionVoluntaria: number;
+  rotacionInvoluntaria: number;
   rotacionAcumulada12m: number;
   bajas: number;
+  bajasVoluntarias: number;
+  bajasInvoluntarias: number;
   activos: number;
   activosProm: number;
   
@@ -30,6 +34,12 @@ interface MonthlyRetentionData {
   bajas3a6m: number;
   bajas6a12m: number;
   bajasMas12m: number;
+}
+
+interface BajaEvento {
+  numero_empleado: number;
+  fecha_baja: string;
+  motivo_normalizado: string;
 }
 
 interface YearlyComparisonData {
@@ -85,8 +95,10 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
   const supabase = createBrowserClient();
 
   const [monthlyData, setMonthlyData] = useState<MonthlyRetentionData[]>([]);
+  const [allMonthlyData, setAllMonthlyData] = useState<MonthlyRetentionData[]>([]);
   const [yearlyComparison, setYearlyComparison] = useState<YearlyComparisonData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(false);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -100,15 +112,21 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
   const tooltipTextColor = isDark ? "#CBD5F5" : "#475569";
   const tooltipShadow = isDark ? "0 16px 45px -20px rgba(8, 14, 26, 0.65)" : "0 10px 35px -15px rgba(15, 23, 42, 0.35)";
 
-  const bajaMatchesMotivo = (emp: PlantillaRecord): boolean => {
-    if (!emp.fecha_baja) {
+  const bajaMatchesMotivo = (
+    emp: PlantillaRecord,
+    motive: 'involuntaria' | 'voluntaria' | 'all' = 'all',
+    overrideMotivo?: string
+  ): boolean => {
+    if (!emp.fecha_baja && !overrideMotivo) {
       return false;
     }
-    const esInvoluntaria = isMotivoClave((emp as any).motivo_baja);
-    if (motivoFilter === 'involuntaria') {
+    const motivoEvaluado = overrideMotivo ?? (emp as any).motivo_baja;
+    const motivoNormalizado = normalizeMotivo(motivoEvaluado);
+    const esInvoluntaria = isMotivoClave(motivoNormalizado);
+    if (motive === 'involuntaria') {
       return esInvoluntaria;
     }
-    if (motivoFilter === 'voluntaria') {
+    if (motive === 'voluntaria') {
       return !esInvoluntaria;
     }
     return true; // 'all'
@@ -121,15 +139,48 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
   const loadMonthlyRetentionData = async () => {
     try {
-      setLoading(true);
+      // Solo mostrar loading completo en carga inicial, después usar chartsLoading
+      const isInitialLoad = allMonthlyData.length === 0;
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setChartsLoading(true);
+      }
+
       console.log('🔄 RetentionCharts: Loading monthly retention data...');
 
-      // Cargar empleados SFTP una sola vez para todos los meses (optimización)
-      let plantilla = await db.getEmpleadosSFTP(supabase);
+      // Cargar empleados y motivos de baja en paralelo (optimización)
+      const [plantillaRaw, motivosRaw] = await Promise.all([
+        db.getEmpleadosSFTP(supabase),
+        db.getMotivosBaja(undefined, undefined, supabase)
+      ]);
+
+      let plantilla = (plantillaRaw || []) as PlantillaRecord[];
+      const motivos = (motivosRaw || []) as MotivoBajaRecord[];
+
       console.log('👥 Empleados SFTP loaded:', plantilla?.length, 'records');
-      if (!plantilla) {
+      console.log('📄 Motivos de baja loaded:', motivos.length, 'records');
+
+      if (!plantilla || plantilla.length === 0) {
         throw new Error('No plantilla data found');
       }
+
+      // 🐛 DEBUG: Bajas en octubre 2025 ANTES de filtros
+      const bajasOctubre2025Raw = plantilla.filter(p => {
+        if (!p.fecha_baja) return false;
+        const fb = new Date(p.fecha_baja);
+        return fb.getFullYear() === 2025 && fb.getMonth() === 9;
+      });
+      console.log('🐛 DEBUG Bajas Octubre 2025 RAW (sin filtros):', {
+        total: bajasOctubre2025Raw.length,
+        empleados: bajasOctubre2025Raw.map(e => ({
+          numero: e.numero_empleado,
+          fecha_baja: e.fecha_baja,
+          motivo: (e as any).motivo_baja,
+          departamento: e.departamento,
+          puesto: e.puesto
+        }))
+      });
 
       // ✅ Aplicar filtros generales (sin año/mes) usando helper centralizado
       if (filters) {
@@ -159,13 +210,36 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         plantilla = filteredByScope;
       }
 
+      const empleadosMap = new Map<number, PlantillaRecord>();
+      plantilla.forEach(emp => {
+        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
+        if (Number.isFinite(numero)) {
+          empleadosMap.set(numero, emp);
+        }
+      });
+
+      const bajaEventos: BajaEvento[] = motivos
+        .filter(evento => {
+          const numero = Number(evento.numero_empleado);
+          return Number.isFinite(numero) && empleadosMap.has(numero) && evento.fecha_baja;
+        })
+        .map(evento => {
+          const numero = Number(evento.numero_empleado);
+          const motivoNormalizado = normalizeMotivo(evento.descripcion || evento.motivo || '');
+          return {
+            numero_empleado: numero,
+            fecha_baja: evento.fecha_baja,
+            motivo_normalizado: motivoNormalizado || 'Otra razón'
+          };
+        });
+
       // Detectar el rango de años con datos reales de bajas - DINÁMICO
       const hoy = new Date();
       const añoActual = hoy.getFullYear();
-      
-      const bajasConFecha = plantilla.filter(emp => bajaMatchesMotivo(emp));
+
+      const bajasConFecha = plantilla.filter(emp => bajaMatchesMotivo(emp, 'all'));
       const años = new Set<number>();
-      
+
       bajasConFecha.forEach(emp => {
         if (emp.fecha_baja) {
           const fechaBaja = new Date(emp.fecha_baja);
@@ -176,41 +250,65 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
           }
         }
       });
-      
+
       // Si no hay bajas, usar solo el año actual
       const years = años.size > 0 ? Array.from(años).sort() : [añoActual];
       console.log('📅 Years with dismissal data:', years);
-      
-      // Generar datos para todos los años con bajas - SOLO MESES CON DATOS
+
+      // Generar datos mensuales completos (sin filtro por motivo) y versión filtrada para el toggle
       const allMonthsData: MonthlyRetentionData[] = [];
-      
+      const motiveMonthsData: MonthlyRetentionData[] = [];
+
       for (const year of years) {
         for (let month = 0; month < 12; month++) {
           const startDate = new Date(year, month, 1);
           const endDate = new Date(year, month + 1, 0);
-          
+
           // NO incluir meses futuros
           if (startDate > hoy) {
             continue;
           }
-          
-          const monthData = await calculateMonthlyRetention(startDate, endDate, plantilla);
-          allMonthsData.push({
-            ...monthData,
+
+          const monthDataAll = await calculateMonthlyRetention(startDate, endDate, plantilla, 'all', bajaEventos);
+          const monthEntryAll: MonthlyRetentionData = {
+            ...monthDataAll,
             year,
             month: month + 1
-          });
+          };
+
+          // 🐛 DEBUG: Log para octubre 2025
+          if (year === 2025 && month === 9) {
+            console.log('🐛 DEBUG Octubre 2025 (allMonthsData):', {
+              bajas: monthDataAll.bajas,
+              motivo: 'all',
+              activosProm: monthDataAll.activosProm
+            });
+          }
+
+          allMonthsData.push(monthEntryAll);
+
+          if (motivoFilter === 'all') {
+            motiveMonthsData.push(monthEntryAll);
+          } else {
+            const monthDataFiltered = await calculateMonthlyRetention(startDate, endDate, plantilla, motivoFilter, bajaEventos);
+            motiveMonthsData.push({
+              ...monthDataFiltered,
+              year,
+              month: month + 1
+            });
+          }
         }
       }
-      
-      // Calcular rotación acumulada de 12 meses móviles para cada punto
+
+      // Calcular rotación acumulada de 12 meses móviles para cada conjunto
       for (let i = 0; i < allMonthsData.length; i++) {
-        const rotacionAcumulada12m = calculateRolling12MonthRotation(allMonthsData, i, plantilla);
-        allMonthsData[i].rotacionAcumulada12m = rotacionAcumulada12m;
+        allMonthsData[i].rotacionAcumulada12m = calculateRolling12MonthRotation(allMonthsData, i, plantilla, 'all', bajaEventos);
       }
-      
-      // No aplicar filtros - mostrar siempre todos los datos históricos (gráficas generales)
-      let filteredMonthsData = allMonthsData;
+      for (let i = 0; i < motiveMonthsData.length; i++) {
+        motiveMonthsData[i].rotacionAcumulada12m = calculateRolling12MonthRotation(motiveMonthsData, i, plantilla, motivoFilter, bajaEventos);
+      }
+
+      const filteredMonthsData = motivoFilter === 'all' ? allMonthsData : motiveMonthsData;
       
       // Preparar datos para comparación por año (año filtrado vs anterior)
       const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -222,31 +320,39 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         const dataByYear: YearlyComparisonData = {
           mes: monthName
         };
-        
-        // Agregar datos para cada año disponible
+
+        // Agregar datos para cada año disponible usando los datos filtrados por motivo
         lastTwoYears.forEach(year => {
-          const monthData = allMonthsData.find(d => d.year === year && d.month === index + 1);
+          const monthData = filteredMonthsData.find(d => d.year === year && d.month === index + 1);
           if (monthData) {
             dataByYear[`rotacion${year}`] = monthData.rotacionAcumulada12m;
             dataByYear[`bajas${year}`] = monthData.bajas;
             dataByYear[`activos${year}`] = monthData.activos;
           }
         });
-        
+
         return dataByYear;
       });
       
       setMonthlyData(filteredMonthsData);
+      setAllMonthlyData(allMonthsData);
       setYearlyComparison(comparisonData);
       setAvailableYears(lastTwoYears);
     } catch (error) {
       console.error('Error loading monthly retention data:', error);
     } finally {
       setLoading(false);
+      setChartsLoading(false);
     }
   };
 
-  const calculateRolling12MonthRotation = (monthsData: MonthlyRetentionData[], currentIndex: number, plantilla: PlantillaRecord[]): number => {
+  const calculateRolling12MonthRotation = (
+    monthsData: MonthlyRetentionData[],
+    currentIndex: number,
+    plantilla: PlantillaRecord[],
+    motive: 'involuntaria' | 'voluntaria' | 'all',
+    bajaEventos?: BajaEvento[]
+  ): number => {
     try {
       const currentMonthData = monthsData[currentIndex];
       if (!currentMonthData) return 0;
@@ -256,14 +362,38 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       const endDate12m = endOfMonth(currentMonthDate);
 
       const plantillaFiltrada = plantilla;
+      const empleadosMap = new Map<number, PlantillaRecord>();
+      plantillaFiltrada.forEach(emp => {
+        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
+        if (Number.isFinite(numero)) {
+          empleadosMap.set(numero, emp);
+        }
+      });
 
       // Contar todas las bajas en el período de 12 meses
-      const bajasEn12Meses = plantillaFiltrada.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
-        if (!bajaMatchesMotivo(emp)) return false;
-        const fechaBaja = new Date(emp.fecha_baja);
-        return fechaBaja >= startDate12m && fechaBaja <= endDate12m;
-      }).length;
+      let bajasEn12Meses: number;
+
+      if (bajaEventos && bajaEventos.length > 0) {
+        const eventosSet = new Set<string>();
+        bajaEventos.forEach(evento => {
+          const numero = Number(evento.numero_empleado);
+          if (!Number.isFinite(numero)) return;
+          const empleado = empleadosMap.get(numero);
+          if (!empleado) return;
+          const fechaBaja = new Date(evento.fecha_baja);
+          if (fechaBaja < startDate12m || fechaBaja > endDate12m) return;
+          if (!bajaMatchesMotivo(empleado, motive, evento.motivo_normalizado)) return;
+          eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
+        });
+        bajasEn12Meses = eventosSet.size;
+      } else {
+        bajasEn12Meses = plantillaFiltrada.filter(emp => {
+          if (!emp.fecha_baja) return false;
+          if (!bajaMatchesMotivo(emp, motive)) return false;
+          const fechaBaja = new Date(emp.fecha_baja);
+          return fechaBaja >= startDate12m && fechaBaja <= endDate12m;
+        }).length;
+      }
 
       // Calcular promedio de empleados activos en el período de 12 meses
       const activosInicioRango = plantillaFiltrada.filter(emp => {
@@ -288,83 +418,155 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     }
   };
 
-  const calculateMonthlyRetention = async (startDate: Date, endDate: Date, plantilla: PlantillaRecord[]): Promise<MonthlyRetentionData> => {
+  const calculateMonthlyRetention = async (
+    startDate: Date,
+    endDate: Date,
+    plantilla: PlantillaRecord[],
+    motive: 'involuntaria' | 'voluntaria' | 'all',
+    bajaEventos?: BajaEvento[]
+  ): Promise<MonthlyRetentionData> => {
     try {
-      // Plantilla ya filtrada por opciones del panel; solo filtrar por fecha ingreso <= fin de mes
       const plantillaFiltered = plantilla.filter(emp => new Date(emp.fecha_ingreso) <= endDate);
 
-      // Empleados al inicio y fin del mes para calcular promedio correcto
+      const empleadosMap = new Map<number, PlantillaRecord>();
+      plantillaFiltered.forEach(emp => {
+        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
+        if (Number.isFinite(numero)) {
+          empleadosMap.set(numero, emp);
+        }
+      });
+
+      type EventoDetallado = {
+        numero_empleado: number;
+        fecha: Date;
+        motivo: string;
+        empleado: PlantillaRecord;
+      };
+
+      const buildEventos = (rangeStart: Date, rangeEnd: Date): EventoDetallado[] => {
+        const eventosMap = new Map<string, EventoDetallado>();
+
+        const addEvento = (numero: number, fecha: Date, motivo: string, empleado: PlantillaRecord) => {
+          const key = `${numero}-${fecha.toISOString().slice(0, 10)}`;
+          if (!eventosMap.has(key)) {
+            eventosMap.set(key, { numero_empleado: numero, fecha, motivo, empleado });
+          }
+        };
+
+        if (bajaEventos && bajaEventos.length > 0) {
+          bajaEventos.forEach(evento => {
+            const numero = Number(evento.numero_empleado);
+            if (!Number.isFinite(numero)) return;
+            const empleado = empleadosMap.get(numero);
+            if (!empleado) return;
+            const fechaBaja = new Date(evento.fecha_baja);
+            if (fechaBaja < rangeStart || fechaBaja > rangeEnd) return;
+            if (!bajaMatchesMotivo(empleado, motive, evento.motivo_normalizado)) return;
+            addEvento(numero, fechaBaja, evento.motivo_normalizado, empleado);
+          });
+        }
+
+        plantillaFiltered.forEach(emp => {
+          if (!emp.fecha_baja) return;
+          const fechaBaja = new Date(emp.fecha_baja);
+          if (fechaBaja < rangeStart || fechaBaja > rangeEnd) return;
+          if (!bajaMatchesMotivo(emp, motive)) return;
+          const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
+          if (!Number.isFinite(numero)) return;
+          addEvento(numero, fechaBaja, normalizeMotivo((emp as any).motivo_baja || ''), emp);
+        });
+
+        return Array.from(eventosMap.values());
+      };
+
+      const eventosMes = buildEventos(startDate, endDate);
+
       const empleadosInicioMes = plantillaFiltered.filter(emp => {
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
         return fechaIngreso <= startDate && (!fechaBaja || fechaBaja > startDate);
       }).length;
-      
+
       const empleadosFinMes = plantillaFiltered.filter(emp => {
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
         return fechaIngreso <= endDate && (!fechaBaja || fechaBaja > endDate);
       }).length;
-      
+
       const activosProm = (empleadosInicioMes + empleadosFinMes) / 2;
-      
-      // Bajas totales en el mes
-      const bajasEnMes = plantillaFiltered.filter(p => {
-        if (!p.fecha_baja || p.activo) return false;
-        if (!bajaMatchesMotivo(p)) return false;
-        const fechaBaja = new Date(p.fecha_baja);
-        return fechaBaja >= startDate && fechaBaja <= endDate;
-      });
 
-      const bajas = bajasEnMes.length;
+      if (startDate.getFullYear() === 2025 && startDate.getMonth() === 9) {
+        console.log('🐛 DEBUG calculateMonthlyRetention Octubre 2025:', {
+          motive,
+          plantillaFilteredTotal: plantillaFiltered.length,
+          eventosMesTotal: eventosMes.length,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          eventosDetalle: eventosMes.map(evento => ({
+            numero: evento.numero_empleado,
+            fecha: evento.fecha.toISOString().split('T')[0],
+            motivo: evento.motivo
+          }))
+        });
+      }
+
+      const bajas = eventosMes.length;
+      const bajasInvoluntarias = eventosMes.filter(evento => isMotivoClave(evento.motivo)).length;
+      const bajasVoluntarias = bajas - bajasInvoluntarias;
+
       const rotacionPorcentaje = (bajas / (activosProm || 1)) * 100;
+      const rotacionInvoluntaria = (bajasInvoluntarias / (activosProm || 1)) * 100;
+      const rotacionVoluntaria = (bajasVoluntarias / (activosProm || 1)) * 100;
 
-      // Calcular bajas por temporalidad
-      const bajasMenor3m = bajasEnMes.filter(emp => {
-        if (!emp.fecha_baja) return false;
-        const fechaIngreso = new Date(emp.fecha_ingreso);
-        const fechaBaja = new Date(emp.fecha_baja);
-        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        return mesesTrabajados < 3;
-      }).length;
+      const calcularTemporalidades = (eventos: EventoDetallado[]) => {
+        let menor3 = 0;
+        let entre3y6 = 0;
+        let entre6y12 = 0;
+        let mas12 = 0;
 
-      const bajas3a6m = bajasEnMes.filter(emp => {
-        if (!emp.fecha_baja) return false;
-        const fechaIngreso = new Date(emp.fecha_ingreso);
-        const fechaBaja = new Date(emp.fecha_baja);
-        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        return mesesTrabajados >= 3 && mesesTrabajados < 6;
-      }).length;
+        eventos.forEach(evento => {
+          const empleado = evento.empleado;
+          if (!empleado) return;
+          const fechaIngreso = new Date(empleado.fecha_ingreso);
+          const mesesTrabajados = (evento.fecha.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
+          if (mesesTrabajados < 3) {
+            menor3 += 1;
+          } else if (mesesTrabajados >= 3 && mesesTrabajados < 6) {
+            entre3y6 += 1;
+          } else if (mesesTrabajados >= 6 && mesesTrabajados < 12) {
+            entre6y12 += 1;
+          } else if (mesesTrabajados >= 12) {
+            mas12 += 1;
+          }
+        });
 
-      const bajas6a12m = bajasEnMes.filter(emp => {
-        if (!emp.fecha_baja) return false;
-        const fechaIngreso = new Date(emp.fecha_ingreso);
-        const fechaBaja = new Date(emp.fecha_baja);
-        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        return mesesTrabajados >= 6 && mesesTrabajados < 12;
-      }).length;
+        return {
+          menor3meses: menor3,
+          entre3y6meses: entre3y6,
+          entre6y12meses: entre6y12,
+          mas12meses: mas12
+        };
+      };
 
-      const bajasMas12m = bajasEnMes.filter(emp => {
-        if (!emp.fecha_baja) return false;
-        const fechaIngreso = new Date(emp.fecha_ingreso);
-        const fechaBaja = new Date(emp.fecha_baja);
-        const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
-        return mesesTrabajados >= 12;
-      }).length;
+      const temporalidadesActual = calcularTemporalidades(eventosMes);
 
       return {
         mes: format(startDate, 'MMM yyyy', { locale: es }),
         year: startDate.getFullYear(),
         month: startDate.getMonth() + 1,
         rotacionPorcentaje: Number(rotacionPorcentaje.toFixed(2)),
-        rotacionAcumulada12m: 0, // Se calculará después
+        rotacionVoluntaria: Number(rotacionVoluntaria.toFixed(2)),
+        rotacionInvoluntaria: Number(rotacionInvoluntaria.toFixed(2)),
+        rotacionAcumulada12m: 0,
         bajas,
+        bajasVoluntarias,
+        bajasInvoluntarias,
         activos: empleadosFinMes,
         activosProm: Number(activosProm.toFixed(2)),
-        bajasMenor3m,
-        bajas3a6m,
-        bajas6a12m,
-        bajasMas12m
+        bajasMenor3m: temporalidadesActual.menor3meses,
+        bajas3a6m: temporalidadesActual.entre3y6meses,
+        bajas6a12m: temporalidadesActual.entre6y12meses,
+        bajasMas12m: temporalidadesActual.mas12meses
       };
     } catch (error) {
       console.error('Error calculating monthly retention:', error);
@@ -373,8 +575,12 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         year: startDate.getFullYear(),
         month: startDate.getMonth() + 1,
         rotacionPorcentaje: 0,
+        rotacionVoluntaria: 0,
+        rotacionInvoluntaria: 0,
         rotacionAcumulada12m: 0,
         bajas: 0,
+        bajasVoluntarias: 0,
+        bajasInvoluntarias: 0,
         activos: 0,
         activosProm: 0,
         bajasMenor3m: 0,
@@ -484,15 +690,17 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {[1, 2, 3].map(i => (
-          <div
-            key={i}
-            className="flex h-[300px] items-center justify-center rounded-lg border border-slate-200 bg-slate-100/80 p-4 animate-pulse dark:border-slate-700/70 dark:bg-slate-800/60"
-          >
-            <span className="text-muted-foreground dark:text-slate-300">Cargando...</span>
-          </div>
-        ))}
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => (
+            <div
+              key={i}
+              className="flex h-[300px] items-center justify-center rounded-lg border border-slate-200 bg-slate-100/80 p-4 animate-pulse dark:border-slate-700/70 dark:bg-slate-800/60"
+            >
+              <span className="text-muted-foreground dark:text-slate-300">Cargando...</span>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -522,8 +730,19 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
   
   return (
     <div className="space-y-6">
-      {/* Primera fila de gráficas */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Primera fila de gráficas - con borde sutil para distinguir del resto */}
+      <div className="relative rounded-2xl border-2 border-blue-500/20 bg-gradient-to-br from-blue-50/30 to-transparent p-4 dark:border-blue-400/20 dark:from-blue-950/20">
+        {/* Loading overlay para las gráficas */}
+        {chartsLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-background/80 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500/30 border-t-blue-500" />
+              <span className="text-sm font-medium text-muted-foreground">Actualizando gráficas...</span>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Gráfico 1: Rotación Acumulada (12 meses móviles) con comparación anual */}
         <div className="rounded-lg border bg-card p-4 shadow-sm dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación Acumulada (12 meses móviles)</h3>
@@ -705,6 +924,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             )}
           </VisualizationContainer>
         </div>
+        </div>
       </div>
 
       {/* Tablas comparativas lado a lado */}
@@ -722,14 +942,14 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               filename="tabla-rotacion-acumulada"
             >
               {() => (
-            <div className="relative w-full overflow-hidden">
-              <table className="w-full table-fixed border-separate border-spacing-0 text-xs text-foreground md:text-sm">
+            <div className="relative w-full overflow-x-auto">
+              <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-800/60">
                     <th className="px-3 py-2 text-left text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm" rowSpan={2}>Mes</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm bg-blue-100 dark:bg-blue-500/20" colSpan={3}>{availableYears[0] || new Date().getFullYear() - 1}</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm bg-red-100 dark:bg-red-500/20" colSpan={3}>{availableYears[1] || new Date().getFullYear()}</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm" rowSpan={2}>Variación</th>
+                    <th className="min-w-[90px] px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm" rowSpan={2}>Variación</th>
                   </tr>
                   <tr className="border-b border-slate-200 dark:border-slate-700/70">
                     <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-blue-50 dark:bg-blue-500/15">% Rot. 12M</th>
@@ -748,20 +968,20 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     // Buscar datos del mes para cada año en monthlyData
                     const monthIndex = yearlyComparison.indexOf(row);
                     const monthNumber = monthIndex + 1;
-                    
-                    const monthData1 = monthlyData.find(d => d.year === year1 && d.month === monthNumber);
-                    const monthData2 = monthlyData.find(d => d.year === year2 && d.month === monthNumber);
-                    
+
+                    const monthData1 = allMonthlyData.find(d => d.year === year1 && d.month === monthNumber);
+                    const monthData2 = allMonthlyData.find(d => d.year === year2 && d.month === monthNumber);
+
                     // Calcular bajas acumuladas de 12 meses para cada año
                     const getBajas12M = (targetYear: number, targetMonth: number) => {
                       const startDate = new Date(targetYear, targetMonth - 13, 1);
-                      
+
                       let totalBajas = 0;
                       for (let i = 0; i < 12; i++) {
                         const checkMonth = new Date(startDate);
                         checkMonth.setMonth(startDate.getMonth() + i);
-                        const data = monthlyData.find(d => 
-                          d.year === checkMonth.getFullYear() && 
+                        const data = allMonthlyData.find(d =>
+                          d.year === checkMonth.getFullYear() &&
                           d.month === checkMonth.getMonth() + 1
                         );
                         if (data) totalBajas += data.bajas;
@@ -803,7 +1023,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
                           {monthData2?.activos ?? '-'}
                         </td>
-                        <td className="px-3 py-2 text-center">
+                        <td className="px-4 py-2 text-center">
                           {renderVariationPill(variationValue)}
                         </td>
                       </tr>
@@ -830,14 +1050,14 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               filename="tabla-rotacion-mensual"
             >
               {() => (
-            <div className="relative w-full overflow-hidden">
-              <table className="w-full table-fixed border-separate border-spacing-0 text-xs text-foreground md:text-sm">
+            <div className="relative w-full overflow-x-auto">
+              <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-800/60">
                     <th className="px-3 py-2 text-left text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm" rowSpan={2}>Mes</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm bg-blue-100 dark:bg-blue-500/20" colSpan={3}>{availableYears[0] || 2024}</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm bg-red-100 dark:bg-red-500/20" colSpan={3}>{availableYears[availableYears.length - 1] || 2025}</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm" rowSpan={2}>Variación</th>
+                    <th className="min-w-[90px] px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm" rowSpan={2}>Variación</th>
                   </tr>
                   <tr className="border-b border-slate-200 dark:border-slate-700/70">
                     <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-blue-50 dark:bg-blue-500/15">% Rotación</th>
@@ -852,8 +1072,18 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                   {monthNames.map((monthName, index) => {
                     const year1 = availableYears[0] || 2024;
                     const year2 = availableYears[availableYears.length - 1] || 2025;
-                    const monthYear1 = monthlyData.find(d => d.year === year1 && d.month === index + 1);
-                    const monthYear2 = monthlyData.find(d => d.year === year2 && d.month === index + 1);
+                    const monthYear1 = allMonthlyData.find(d => d.year === year1 && d.month === index + 1);
+                    const monthYear2 = allMonthlyData.find(d => d.year === year2 && d.month === index + 1);
+
+                    // 🐛 DEBUG: Log para octubre 2025 en tabla
+                    if (index === 9 && year2 === 2025) {
+                      console.log('🐛 DEBUG Tabla Octubre 2025:', {
+                        monthName,
+                        bajas: monthYear2?.bajas,
+                        activosProm: monthYear2?.activosProm,
+                        allMonthlyDataLength: allMonthlyData.length
+                      });
+                    }
 
                     // Calculate variation percentage for monthly rotation
                     const rotation1 = monthYear1?.rotacionPorcentaje || 0;
@@ -886,7 +1116,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
                           {monthYear2?.activos ?? '-'}
                         </td>
-                        <td className="px-3 py-2 text-center">
+                        <td className="px-4 py-2 text-center">
                           {renderVariationPill(variationValue)}
                         </td>
                       </tr>

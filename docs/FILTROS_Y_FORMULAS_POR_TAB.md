@@ -1,6 +1,6 @@
 # FILTROS Y FÓRMULAS POR TAB - ESPECIFICACIÓN COMPLETA
 
-**Fecha actualización**: 2025-10-23 (Última revisión completa)
+**Fecha actualización**: 2025-11-04 (Última revisión completa)
 **Estado**: ✅ Implementado, verificado y auditado
 
 ## 📋 RESUMEN EJECUTIVO
@@ -13,7 +13,7 @@ Este documento especifica cómo cada métrica y gráfico en el dashboard respond
 **Función principal**: `applyRetentionFilters(plantilla, filters)`
 **Panel de filtros**: `/apps/web/src/components/filter-panel.tsx`
 
-**Filtros por defecto**: Año actual + Mes actual (se establecen automáticamente al cargar)
+**Filtros por defecto**: Último mes completo disponible (si el mes actual sigue en curso, se selecciona el mes anterior de forma automática)
 
 ### Tipos de Filtrado
 
@@ -168,10 +168,13 @@ const scopedByEmployee = incidencias; // TODAS las incidencias sin filtro
 | **Rotación Acumulada 12M (Línea)** | 🟡 PARCIAL | Muestra todos los meses históricos; ignora Mes y respeta Año, Depto, Puesto, Empresa, Área, Clasificación, Ubicación. |
 | **Rotación Mensual (Línea)** | 🟡 PARCIAL | Muestra todos los meses del año filtrado; ignora Mes, respeta Año y filtros organizacionales. |
 | **Rotación por Temporalidad (Barras)** | 🟡 PARCIAL | Muestra todos los meses del año filtrado; ignora Mes, respeta Año, Negocio, Área, etc. |
-| **Tabla Comparativa - Rotación Acumulada 12M** | 🟡 PARCIAL | Compara 2 años completos; ignora Mes, respeta Año y los demás filtros. |
-| **Tabla Comparativa - Rotación Mensual** | 🟡 PARCIAL | Compara 2 años completos; ignora Mes, respeta Año y los demás filtros. |
-| **Mapa de Calor** | 🟡 PARCIAL | Responde a todos los filtros EXCEPTO mes (año SÍ aplica) |
+| **Tabla Comparativa - Rotación Acumulada 12M** | 🟡 PARCIAL | Compara 2 años completos; ignora Mes, respeta Año y los demás filtros. (No responde al toggle de motivo) |
+| **Tabla Comparativa - Rotación Mensual** | 🟡 PARCIAL | Compara 2 años completos; ignora Mes, respeta Año y los demás filtros. (No responde al toggle de motivo) |
+| **Mapa de Calor** | 🟡 PARCIAL | Responde a todos los filtros EXCEPTO mes (año SÍ aplica). Siempre muestra voluntarias + involuntarias (ignora el toggle). |
 | **Tabla Detalle de Bajas (empleados_sftp)** | 🟢 ESPECÍFICO | Responde a TODOS los filtros (usa `plantillaFiltered`, incluyendo mes) |
+
+**🎚️ Toggle "Filtrar visualizaciones por" (Rotación Involuntaria/Voluntaria)**  
+Aplica únicamente a las tres visualizaciones centrales de rotación (Rotación Acumulada 12M, Rotación Mensual, Rotación por Temporalidad). El mapa de calor, las tablas comparativas y el detalle de bajas siempre muestran el conjunto completo de motivos.
 
 ---
 

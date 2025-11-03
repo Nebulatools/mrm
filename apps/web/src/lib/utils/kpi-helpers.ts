@@ -471,11 +471,23 @@ export function calcularRotacionConDesglose(
   // Calcular activos promedio con TODA la plantilla (sin filtrar)
   const activosPromedio = calculateActivosPromedio(plantilla, startDate, endDate);
 
-  // Obtener todas las bajas del período
+  const formatDateKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const startKey = formatDateKey(startDate);
+  const endKey = formatDateKey(endDate);
+
+  // Obtener todas las bajas del período (comparación sin sesgo de zona horaria)
   const todasLasBajas = plantilla.filter(emp => {
     if (!emp.fecha_baja) return false;
-    const fechaBaja = new Date(emp.fecha_baja);
-    return fechaBaja >= startDate && fechaBaja <= endDate;
+    const raw = typeof emp.fecha_baja === 'string'
+      ? emp.fecha_baja.slice(0, 10)
+      : formatDateKey(new Date(emp.fecha_baja));
+    return raw >= startKey && raw <= endKey;
   });
 
   // Separar bajas por motivo

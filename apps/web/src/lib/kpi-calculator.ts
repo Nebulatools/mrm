@@ -290,20 +290,20 @@ export class KPICalculator {
     
     // 4.1. Bajas del período = Only departures within the specific period
     const bajasPeriodo = plantilla.filter(p => {
-      if (!p.fecha_baja || p.activo) return false;
+      if (!p.fecha_baja) return false;
       const fechaBaja = new Date(p.fecha_baja);
       return isWithinInterval(fechaBaja, { start: startDate, end: endDate });
     }).length;
     
     const prevBajasPeriodo = plantilla.filter(p => {
-      if (!p.fecha_baja || p.activo) return false;
+      if (!p.fecha_baja) return false;
       const fechaBaja = new Date(p.fecha_baja);
       return isWithinInterval(fechaBaja, { start: subMonths(startDate, 1), end: subMonths(endDate, 1) });
     }).length;
 
     // 5. Bajas Tempranas - Empleados con menos de 3 meses que se dieron de baja
     const bajasTempranas = plantilla.filter(emp => {
-      if (!emp.fecha_baja || emp.activo) return false;
+      if (!emp.fecha_baja) return false;
       const fechaIngreso = new Date(emp.fecha_ingreso);
       const fechaBaja = new Date(emp.fecha_baja);
       const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
@@ -311,7 +311,7 @@ export class KPICalculator {
     }).length;
 
     const prevBajasTempranas = prevPlantilla.filter(emp => {
-      if (!emp.fecha_baja || emp.activo) return false;
+      if (!emp.fecha_baja) return false;
       const fechaIngreso = new Date(emp.fecha_ingreso);
       const fechaBaja = new Date(emp.fecha_baja);
       const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
@@ -321,28 +321,28 @@ export class KPICalculator {
     // 5.1. Rotación por Temporalidad - TODAS las bajas por tiempo trabajado (sin filtro)
     const bajasPorTemporalidad = {
       menor3meses: plantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
+        if (!emp.fecha_baja) return false;
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = new Date(emp.fecha_baja);
         const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
         return mesesTrabajados < 3;
       }).length,
       entre3y6meses: plantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
+        if (!emp.fecha_baja) return false;
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = new Date(emp.fecha_baja);
         const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
         return mesesTrabajados >= 3 && mesesTrabajados < 6;
       }).length,
       entre6y12meses: plantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
+        if (!emp.fecha_baja) return false;
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = new Date(emp.fecha_baja);
         const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
         return mesesTrabajados >= 6 && mesesTrabajados < 12;
       }).length,
       mas12meses: plantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
+        if (!emp.fecha_baja) return false;
         const fechaIngreso = new Date(emp.fecha_ingreso);
         const fechaBaja = new Date(emp.fecha_baja);
         const mesesTrabajados = (fechaBaja.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 30);
@@ -700,7 +700,7 @@ export class KPICalculator {
 
       // Count terminations in the 12-month period
       const bajasEn12Meses = plantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
+        if (!emp.fecha_baja) return false;
         const fechaBaja = new Date(emp.fecha_baja);
         return fechaBaja >= startDate12m && fechaBaja <= endDate;
       }).length;
@@ -736,7 +736,7 @@ export class KPICalculator {
       const startOfYear = new Date(endDate.getFullYear(), 0, 1);
 
       const bajasYTD = plantilla.filter(emp => {
-        if (!emp.fecha_baja || emp.activo) return false;
+        if (!emp.fecha_baja) return false;
         const fechaBaja = new Date(emp.fecha_baja);
         return fechaBaja >= startOfYear && fechaBaja <= endDate;
       }).length;

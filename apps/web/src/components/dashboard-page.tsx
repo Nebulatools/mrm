@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +29,7 @@ import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filter
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord, type IncidenciaCSVRecord } from "@/lib/supabase";
 import { createBrowserClient } from "@/lib/supabase-client";
-import { format } from "date-fns";
+import { format, endOfMonth } from "date-fns";
 import { es } from 'date-fns/locale';
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
@@ -45,6 +45,7 @@ import {
 import { VisualizationContainer } from "./visualization-container";
 import { countActiveFilters, getDetailedFilterLines, getFilterSummary } from "@/lib/filters/summary";
 import { VisualizationExportProvider } from "@/context/visualization-export-context";
+import { Separator } from "@/components/ui/separator";
 //
 
 interface DashboardData {
@@ -101,7 +102,7 @@ export function DashboardPage() {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
-  const [timePeriod] = useState<TimePeriod>('alltime');
+  const [timePeriod] = useState<TimePeriod>('monthly');
   const [bajasPorMotivoData, setBajasPorMotivoData] = useState<BajasPorMotivoData[]>([]);
   const [bajasData, setBajasData] = useState<any[]>([]);
   const [incidenciasData, setIncidenciasData] = useState<IncidenciaCSVRecord[]>([]);
@@ -163,6 +164,14 @@ export function DashboardPage() {
     return dates;
   }, [data.lastUpdated, data.plantilla]);
 
+  const earliestDatasetDate = useMemo(() => {
+    if (datasetDates.length === 0) {
+      return null;
+    }
+    const minTimestamp = Math.min(...datasetDates.map((date) => date.getTime()));
+    return new Date(minTimestamp);
+  }, [datasetDates]);
+
   const fallbackReferenceDate = useMemo(() => {
     if (datasetDates.length === 0) {
       return new Date();
@@ -171,12 +180,36 @@ export function DashboardPage() {
     return new Date(maxTimestamp);
   }, [datasetDates]);
 
-  const computedSelectedPeriod = useMemo(() => {
-    const fallbackMonth = new Date(
-      fallbackReferenceDate.getFullYear(),
-      fallbackReferenceDate.getMonth(),
+  const latestCompleteMonthStart = useMemo(() => {
+    const reference = fallbackReferenceDate;
+    const monthStart = new Date(reference.getFullYear(), reference.getMonth(), 1);
+    const monthEnd = endOfMonth(monthStart);
+    const monthIsComplete = reference.getTime() >= monthEnd.getTime();
+
+    if (monthIsComplete) {
+      return monthStart;
+    }
+
+    if (!earliestDatasetDate) {
+      return monthStart;
+    }
+
+    const earliestMonthStart = new Date(
+      earliestDatasetDate.getFullYear(),
+      earliestDatasetDate.getMonth(),
       1
     );
+    const previousMonthStart = new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1);
+
+    if (previousMonthStart.getTime() < earliestMonthStart.getTime()) {
+      return monthStart;
+    }
+
+    return previousMonthStart;
+  }, [earliestDatasetDate, fallbackReferenceDate]);
+
+  const computedSelectedPeriod = useMemo(() => {
+    const fallbackMonth = latestCompleteMonthStart;
 
     const rawYears = Array.isArray(retentionFilters.years)
       ? retentionFilters.years.filter((year) => Number.isFinite(year))
@@ -211,7 +244,39 @@ export function DashboardPage() {
     }
 
     return fallbackMonth;
-  }, [fallbackReferenceDate, retentionFilters]);
+  }, [fallbackReferenceDate, latestCompleteMonthStart, retentionFilters]);
+
+  const hasAppliedDefaultPeriod = useRef(false);
+
+  useEffect(() => {
+    if (data.loading || datasetDates.length === 0) {
+      return;
+    }
+
+    if (hasAppliedDefaultPeriod.current) {
+      return;
+    }
+
+    setRetentionFilters((prev) => {
+      const hasYearSelection = Array.isArray(prev.years) && prev.years.length > 0;
+      const hasMonthSelection = Array.isArray(prev.months) && prev.months.length > 0;
+
+      if (hasYearSelection && hasMonthSelection) {
+        hasAppliedDefaultPeriod.current = true;
+        return prev;
+      }
+
+      hasAppliedDefaultPeriod.current = true;
+      const defaultYear = latestCompleteMonthStart.getFullYear();
+      const defaultMonth = latestCompleteMonthStart.getMonth() + 1;
+
+      return {
+        ...prev,
+        years: hasYearSelection ? prev.years : [defaultYear],
+        months: hasMonthSelection ? prev.months : [defaultMonth],
+      };
+    });
+  }, [data.loading, datasetDates.length, latestCompleteMonthStart]);
 
   useEffect(() => {
     if (!computedSelectedPeriod) {
@@ -405,6 +470,23 @@ export function DashboardPage() {
     console.log('📊 Plantilla (sin mes) para tendencia de incidencias:', scoped.length);
     return scoped;
   }, [data.plantilla, retentionFilters]);
+
+  const plantillaDismissalDetail = useMemo(() => {
+    if (!plantillaFilteredYearScope || plantillaFilteredYearScope.length === 0) {
+      return [];
+    }
+    const targetYear = selectedPeriod.getFullYear();
+    const targetMonth = selectedPeriod.getMonth() + 1;
+    const targetKey = `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+
+    return plantillaFilteredYearScope.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const fecha = typeof emp.fecha_baja === 'string'
+        ? emp.fecha_baja.slice(0, 7)
+        : new Date(emp.fecha_baja).toISOString().slice(0, 7);
+      return fecha === targetKey;
+    });
+  }, [plantillaFilteredYearScope, selectedPeriod]);
 
   const plantillaFilteredGeneral = useMemo(() => {
     if (!data.plantilla || data.plantilla.length === 0) return [];
@@ -667,10 +749,20 @@ export function DashboardPage() {
     console.log('🎯 Calculando KPIs de retención con filtros ESPECÍFICOS...');
 
     const filteredPlantilla = filterPlantilla(data.plantilla);
+
+    // Para cálculos del mes actual usamos datos filtrados por año
     const longTermPlantilla =
       plantillaFilteredYearScope.length > 0
         ? plantillaFilteredYearScope
         : filteredPlantilla;
+
+    // Para comparativos año anterior necesitamos plantilla SIN filtro de año
+    // pero CON filtros de departamento, puesto, área, empresa, etc.
+    const plantillaForComparison = applyFiltersWithScope(data.plantilla, {
+      ...retentionFilters,
+      years: [], // NO filtrar por año para permitir comparativos históricos
+      includeInactive: true,
+    }, 'general');
 
     const currentMonth = selectedPeriod.getMonth();
     const currentYear = selectedPeriod.getFullYear();
@@ -693,10 +785,11 @@ export function DashboardPage() {
     const rotacionMensualPrevio = calcularRotacionConDesglose(longTermPlantilla, inicioMesAnterior, finMesAnterior);
 
     // Rotación acumulada y YTD con sus comparativos
-    const rotacionAcumuladaActual = calcularRotacionAcumulada12mConDesglose(longTermPlantilla, selectedPeriod);
-    const rotacionAcumuladaPrevio = calcularRotacionAcumulada12mConDesglose(longTermPlantilla, previousYearReference);
-    const rotacionYTDActual = calcularRotacionYTDConDesglose(longTermPlantilla, selectedPeriod);
-    const rotacionYTDPrevio = calcularRotacionYTDConDesglose(longTermPlantilla, previousYearReference);
+    // Usar plantillaForComparison para permitir comparativos con años anteriores
+    const rotacionAcumuladaActual = calcularRotacionAcumulada12mConDesglose(plantillaForComparison, selectedPeriod);
+    const rotacionAcumuladaPrevio = calcularRotacionAcumulada12mConDesglose(plantillaForComparison, previousYearReference);
+    const rotacionYTDActual = calcularRotacionYTDConDesglose(plantillaForComparison, selectedPeriod);
+    const rotacionYTDPrevio = calcularRotacionYTDConDesglose(plantillaForComparison, previousYearReference);
 
     const rotMensualInv = Number(rotacionMensualActual.involuntaria.toFixed(1));
     const rotMensualTotal = Number(rotacionMensualActual.total.toFixed(1));
@@ -1520,7 +1613,7 @@ export function DashboardPage() {
                     : "font-heading text-xs uppercase tracking-[0.12em] text-brand-ink/80")
                 )}
               >
-                Filtrar visualizaciones por:
+                Filtrar gráficas de rotación:
               </span>
               <div className="flex gap-2">
                 <Button
@@ -1571,14 +1664,12 @@ export function DashboardPage() {
             <BajasPorMotivoHeatmap
               data={bajasPorMotivoData}
               year={currentYear}
-              motivoFilter={motivoFilterType}
             />
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
             <DismissalReasonsTable
-              plantilla={plantillaFiltered}
+              plantilla={plantillaDismissalDetail.length > 0 ? plantillaDismissalDetail : plantillaFiltered}
               refreshEnabled={refreshEnabled}
-              motivoFilter={motivoFilterType}
             />
           </TabsContent>
 
