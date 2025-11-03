@@ -141,6 +141,7 @@ El modelo opera a nivel individual: cada horizonte genera una puntuación de rie
 3. **Segmentación por clasificación:**  
    - Se normaliza `clasificacion` → `Confianza`, `Sindicalizados`, `Desconocido`.  
    - Se calculan series históricas (`actual_series`) mapeando motivos de baja al segmento correspondiente.  
+   - Las series se reindexan para rellenar con 0 los meses sin bajas; esto evita huecos y permite que el forecast arranque justo después del último mes con datos reales.  
 4. **Respuesta API `/models/rotation/trends`:**  
    ```json
    {
@@ -173,7 +174,7 @@ El modelo opera a nivel individual: cada horizonte genera una puntuación de rie
    - Generar un snapshot adicional marcado con campo `data_coverage` (% de días con información real).  
    - Recalcular incidencias `neg_*` y `permisos_*` considerando solo los días observados.  
    - Señalar en el dashboard qué meses muestran datos reales vs. estimados.  
-3. **Contribuciones futuras:** el backend sigue distribuyendo `predicted_30/60/90` en un horizonte de hasta 3 meses utilizando las diferencias entre horizontes (ej. 90d - 60d). Con las probabilidades reales la proyección es más estable que el escalamiento histórico.
+3. **Contribuciones futuras:** el backend sigue distribuyendo `predicted_30/60/90` en un horizonte de hasta 3 meses utilizando las diferencias entre horizontes (ej. 90d - 60d). Con las probabilidades reales la proyección es más estable que el escalamiento histórico. El mes base de forecast se determina por la última baja observada (o el último snapshot disponible); la proyección siempre comienza al mes siguiente para alinear la línea naranja con la azul.  
 
 ---
 

@@ -48,6 +48,17 @@ export async function GET(request: NextRequest, context: { params: { modelId: st
       return NextResponse.json({ success: false, error: message }, { status: response.status });
     }
 
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        const monthly = Array.isArray((data as Record<string, any>)?.monthly)
+          ? (data as Record<string, any>).monthly.map((item: Record<string, any>) => item?.month)
+          : [];
+        console.log('[ml-trends]', context.params.modelId, 'months:', monthly);
+      } catch {
+        // ignore logging errors
+      }
+    }
+
     return NextResponse.json(data, { status: 200 });
   } catch (error) {
     console.error('Error fetching model trends:', error);

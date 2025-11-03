@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -359,6 +359,7 @@ async def _prepare_rotation_prediction_frame(
     Dict[str, Any],
     pd.Series,
     Dict[str, pd.Series],
+    Optional[pd.Timestamp],
 ]:
     summary = rotation_trainer.latest_summary()
     current_year = datetime.now().year
@@ -442,6 +443,8 @@ async def _prepare_rotation_prediction_frame(
     motivos_df = await rotation_trainer.database.fetch_dataframe('SELECT numero_empleado, fecha_baja FROM motivos_baja')
     actual_series = pd.Series(dtype=float)
     segment_actual_series: Dict[str, pd.Series] = {}
+    latest_baja_month: Optional[pd.Timestamp] = None
+
     if not motivos_df.empty:
         motivos_df = motivos_df.copy()
         motivos_df['fecha_baja'] = pd.to_datetime(motivos_df['fecha_baja'], errors='coerce')
@@ -454,6 +457,7 @@ async def _prepare_rotation_prediction_frame(
                     .dt.to_period('M')
                     .dt.to_timestamp()
                 )
+                latest_baja_month = filtered['month'].max()
 
                 # Map clasificación por empleado usando el snapshot más reciente disponible
                 classification_map = (
@@ -508,6 +512,18 @@ async def _prepare_rotation_prediction_frame(
                     .sort_index()
                 )
 
+                if latest_baja_month is not None and not actual_series.empty:
+                    tz = actual_series.index.tz
+                    full_index = pd.date_range(
+                        start=actual_series.index.min(),
+                        end=latest_baja_month,
+                        freq='MS',
+                        tz=tz,
+                    )
+                    actual_series = (
+                        actual_series.reindex(full_index, fill_value=0.0).astype(float).sort_index()
+                    )
+
                 for segment, group in filtered.groupby('clasificacion_segment'):
                     segment_series = (
                         group.groupby('month')
@@ -515,6 +531,17 @@ async def _prepare_rotation_prediction_frame(
                         .astype(float)
                         .sort_index()
                     )
+                    if latest_baja_month is not None and not segment_series.empty:
+                        tz_segment = segment_series.index.tz
+                        full_segment_index = pd.date_range(
+                            start=segment_series.index.min(),
+                            end=latest_baja_month,
+                            freq='MS',
+                            tz=tz_segment,
+                        )
+                        segment_series = (
+                            segment_series.reindex(full_segment_index, fill_value=0.0).astype(float).sort_index()
+                        )
                     segment_actual_series[_normalize_clasificacion(segment)] = segment_series
 
     X, _, _, _ = rotation_trainer.prepare_features(frame, include_target=False)
@@ -570,13 +597,14 @@ async def _prepare_rotation_prediction_frame(
         )
     )
 
-    return frame, summary, actual_series, segment_actual_series
+    return frame, summary, actual_series, segment_actual_series, latest_baja_month
 
 
 def _build_monthly_payload(
     frame: pd.DataFrame,
     actual_series: pd.Series,
     margin: float,
+    latest_observed_month: Optional[pd.Timestamp] = None,
 ) -> Dict[str, Any]:
     monthly: List[Dict[str, Any]] = []
 
@@ -594,6 +622,12 @@ def _build_monthly_payload(
     predicted_totals = {'30': 0.0, '60': 0.0, '90': 0.0}
     weights = {'30': 30 / 90, '60': 60 / 90, '90': 1.0}
     forecast_entries: List[Dict[str, Any]] = []
+
+    latest_snapshot_month = frame['snapshot_month'].max() if not frame.empty else None
+
+    observed_month = latest_observed_month
+    if observed_month is None and not actual_series.empty:
+        observed_month = actual_series.index.max()
 
     if not frame.empty and {'prediction_30d', 'prediction_60d', 'prediction_90d'}.issubset(frame.columns):
         latest_snapshot_month = frame['snapshot_month'].max()
@@ -626,36 +660,65 @@ def _build_monthly_payload(
         }
 
         if any(value > 0 for values in contributions.values() for value in values):
-            if actual_series.empty:
-                forecast_start = latest_snapshot_month + relativedelta(months=1)
-            else:
-                forecast_start = max(actual_series.index.max(), latest_snapshot_month) + relativedelta(months=1)
+            base_candidates = [month for month in [observed_month, latest_snapshot_month] if month is not None]
+            if base_candidates:
+                base_month_local = max(base_candidates)
+                forecast_start = base_month_local + relativedelta(months=1)
 
-            for index in range(3):
-                forecast_month = forecast_start + relativedelta(months=index)
-                predicted_values = {str(h): contributions[str(h)][index] for h in HORIZONS}
+                for index in range(3):
+                    forecast_month = forecast_start + relativedelta(months=index)
+                    predicted_values = {str(h): contributions[str(h)][index] for h in HORIZONS}
 
-                if all(value == 0 for value in predicted_values.values()):
-                    continue
+                    if observed_month is not None and forecast_month <= observed_month:
+                        continue
 
-                forecast_entries.append({
-                    'month': forecast_month.strftime('%Y-%m-%d'),
-                    'actual': {str(h): None for h in HORIZONS},
-                    'predicted': predicted_values,
-                    'predicted_lower': {
-                        str(h): predicted_values[str(h)] * (1 - margin) for h in HORIZONS
-                    },
-                    'predicted_upper': {
-                        str(h): predicted_values[str(h)] * (1 + margin) for h in HORIZONS
-                    },
-                })
+                    if all(value == 0 for value in predicted_values.values()):
+                        continue
+
+                    forecast_entries.append({
+                        'month': forecast_month.strftime('%Y-%m-%d'),
+                        'actual': {str(h): None for h in HORIZONS},
+                        'predicted': predicted_values,
+                        'predicted_lower': {
+                            str(h): predicted_values[str(h)] * (1 - margin) for h in HORIZONS
+                        },
+                        'predicted_upper': {
+                            str(h): predicted_values[str(h)] * (1 + margin) for h in HORIZONS
+                        },
+                    })
 
     if forecast_entries:
-        monthly.extend(forecast_entries)
-        monthly.sort(key=lambda item: item['month'])
+        combined_entries = monthly + forecast_entries
+        monthly_map: Dict[str, Dict[str, Any]] = {}
+
+        def _has_actual(entry: Dict[str, Any]) -> bool:
+            actual_values = entry.get('actual', {})
+            return any(value is not None for value in actual_values.values())
+
+        for entry in combined_entries:
+            month_key = entry['month']
+            existing = monthly_map.get(month_key)
+
+            if existing is None:
+                monthly_map[month_key] = entry
+                continue
+
+            existing_has_actual = _has_actual(existing)
+            entry_has_actual = _has_actual(entry)
+
+            if entry_has_actual and not existing_has_actual:
+                monthly_map[month_key] = entry
+            elif not existing_has_actual and not entry_has_actual:
+                monthly_map[month_key] = entry
+
+        monthly = sorted(monthly_map.values(), key=lambda item: item['month'])
 
     actual_total = float(actual_series.sum()) if not actual_series.empty else 0.0
     actual_totals = {str(h): actual_total for h in HORIZONS}
+
+    base_month_candidates = [month for month in [observed_month, latest_snapshot_month] if month is not None]
+    base_month = max(base_month_candidates) if base_month_candidates else None
+    base_month_str = base_month.isoformat() if base_month is not None else None
 
     return {
         'monthly': monthly,
@@ -664,6 +727,7 @@ def _build_monthly_payload(
         'months_available': int(len(monthly)),
         'records': int(len(frame)),
         'weights': weights,
+        'base_month': base_month_str,
     }
 
 
@@ -671,15 +735,15 @@ async def _build_rotation_trends_response(
     trainer: RotationAttritionTrainer,
     margin: float = 0.15,
 ) -> Dict[str, Any]:
-    frame, summary, actual_series, segment_actual_series = await _prepare_rotation_prediction_frame(trainer)
+    frame, summary, actual_series, segment_actual_series, latest_actual_month = await _prepare_rotation_prediction_frame(trainer)
 
-    overall_payload = _build_monthly_payload(frame, actual_series, margin)
+    overall_payload = _build_monthly_payload(frame, actual_series, margin, latest_actual_month)
 
     segmented_payload: Dict[str, Dict[str, Any]] = {}
     for segment in sorted(frame['clasificacion_segment'].dropna().unique()):
         segment_frame = frame[frame['clasificacion_segment'] == segment]
         segment_actual = segment_actual_series.get(segment, pd.Series(dtype=float))
-        segmented_payload[segment] = _build_monthly_payload(segment_frame, segment_actual, margin)
+        segmented_payload[segment] = _build_monthly_payload(segment_frame, segment_actual, margin, latest_actual_month)
 
     segments_metadata = {
         segment: {
@@ -688,6 +752,7 @@ async def _build_rotation_trends_response(
             'weights': payload.get('weights', {}),
             'records': payload['records'],
             'months_available': payload['months_available'],
+            'base_month': payload.get('base_month'),
         }
         for segment, payload in segmented_payload.items()
     }
@@ -702,6 +767,7 @@ async def _build_rotation_trends_response(
         'weights': overall_payload.get('weights', {}),
         'records': int(len(frame)),
         'months_available': overall_payload['months_available'],
+        'base_month': overall_payload.get('base_month'),
         'actual_total_ytd': float(actual_series.sum()) if not actual_series.empty else 0.0,
         'per_horizon_metrics': metrics_summary.get('per_horizon', {}),
         'metrics': metrics_summary,
@@ -738,11 +804,11 @@ async def _build_segment_risk_trends_response(
     trainer: SegmentRiskTrainer,
     margin: float = 0.15,
 ) -> Dict[str, Any]:
-    frame, rotation_summary, actual_series, segment_actual_series = await _prepare_rotation_prediction_frame(
+    frame, rotation_summary, actual_series, segment_actual_series, latest_actual_month = await _prepare_rotation_prediction_frame(
         trainer.rotation_trainer
     )
 
-    rotation_payload = _build_monthly_payload(frame, actual_series, margin)
+    rotation_payload = _build_monthly_payload(frame, actual_series, margin, latest_actual_month)
     rotation_last_trained_at = rotation_summary.get('trained_at') if rotation_summary else None
     overall_weights = rotation_payload.get('weights', {'30': 30 / 90, '60': 60 / 90, '90': 1.0})
 
@@ -780,9 +846,19 @@ async def _build_segment_risk_trends_response(
     latest_snapshot_df = frame[frame['snapshot_month'] == latest_snapshot_month]
 
     forecast_entries: List[Dict[str, Any]] = []
-    pred_30_total = 0.0
-    pred_60_total = 0.0
-    pred_90_total = 0.0
+    forecast_segments: List[Dict[str, Any]] = []
+    overall_predicted_totals = {
+        '30': float(rotation_payload['predicted_totals'].get('30', 0.0)),
+        '60': float(rotation_payload['predicted_totals'].get('60', 0.0)),
+        '90': float(rotation_payload['predicted_totals'].get('90', 0.0)),
+    }
+    delta_60 = max(overall_predicted_totals['60'] - overall_predicted_totals['30'], 0.0)
+    delta_90 = max(overall_predicted_totals['90'] - overall_predicted_totals['60'], 0.0)
+    contributions = {
+        '30': [overall_predicted_totals['30'], 0.0, 0.0],
+        '60': [overall_predicted_totals['30'], delta_60, 0.0],
+        '90': [overall_predicted_totals['30'], delta_60, delta_90],
+    }
     if not latest_snapshot_df.empty:
         aggregated = (
             latest_snapshot_df.groupby(['empresa', 'area', 'departamento'], dropna=False)
@@ -810,67 +886,48 @@ async def _build_segment_risk_trends_response(
             )
         )
 
-        if not aggregated.empty:
-            features = aggregated[feature_cols]
-            clusters = segment_pipeline.predict(features)
-            aggregated['cluster'] = clusters
+        filtered_segments = aggregated[aggregated['headcount'] >= trainer.min_segment_size].copy()
+        if filtered_segments.empty:
+            filtered_segments = aggregated.copy()
 
-            cluster_scores = aggregated.groupby('cluster')['riesgo_promedio'].mean()
+        if not filtered_segments.empty:
+            features = filtered_segments[feature_cols]
+            clusters = segment_pipeline.predict(features)
+            filtered_segments['cluster'] = clusters
+            aggregated = aggregated.merge(
+                filtered_segments[['empresa', 'area', 'departamento', 'cluster']],
+                on=['empresa', 'area', 'departamento'],
+                how='left',
+            )
+
+            cluster_scores = filtered_segments.groupby('cluster')['riesgo_promedio'].mean()
             if not cluster_scores.empty:
                 high_cluster = cluster_scores.idxmax()
-                high_segments_df = aggregated[aggregated['cluster'] == high_cluster]
+                high_segments_df = filtered_segments[filtered_segments['cluster'] == high_cluster]
                 high_keys = set(high_segments_df['segment_key'])
 
                 high_df = latest_snapshot_df[latest_snapshot_df['segment_key'].isin(high_keys)]
+                high_segments_sample = [
+                    {
+                        'empresa': row['empresa'],
+                        'area': row['area'],
+                        'departamento': row['departamento'],
+                        'headcount': int(row['headcount']),
+                        'riesgo_promedio': float(row['riesgo_promedio']),
+                        'riesgo_p75': float(row['riesgo_p75']),
+                    }
+                    for _, row in high_segments_df.sort_values('riesgo_promedio', ascending=False).head(5).iterrows()
+                ]
 
-                pred_30_total = float(high_df['predicted_30'].sum())
-                pred_60_total = float(high_df['predicted_60'].sum())
-                pred_90_total = float(high_df['predicted_90'].sum())
+                if high_segments_sample:
+                    forecast_segments = high_segments_sample
 
-                delta_60 = max(pred_60_total - pred_30_total, 0.0)
-                delta_90 = max(pred_90_total - pred_60_total, 0.0)
-
-                contributions = {
-                    '30': [pred_30_total, 0.0, 0.0],
-                    '60': [pred_30_total, delta_60, 0.0],
-                    '90': [pred_30_total, delta_60, delta_90],
-                }
-
-                if any(value > 0 for values in contributions.values() for value in values):
-                    if actual_series.empty:
-                        forecast_start = latest_snapshot_month + relativedelta(months=1)
-                    else:
-                        forecast_start = max(actual_series.index.max(), latest_snapshot_month) + relativedelta(months=1)
-
-                    for index in range(3):
-                        forecast_month = forecast_start + relativedelta(months=index)
-                        predicted_values = {str(h): contributions[str(h)][index] for h in [30, 60, 90]}
-
-                        if all(value == 0 for value in predicted_values.values()):
-                            continue
-
-                        forecast_entries.append({
-                            'month': forecast_month.strftime('%Y-%m-%d'),
-                            'actual': {str(h): None for h in HORIZONS},
-                            'predicted': predicted_values,
-                            'predicted_lower': {
-                                str(h): predicted_values[str(h)] * (1 - margin) for h in HORIZONS
-                            },
-                            'predicted_upper': {
-                                str(h): predicted_values[str(h)] * (1 + margin) for h in HORIZONS
-                            },
-                            'segments': [
-                                {
-                                    'empresa': row['empresa'],
-                                    'area': row['area'],
-                                    'departamento': row['departamento'],
-                                    'headcount': int(row['headcount']),
-                                    'riesgo_promedio': float(row['riesgo_promedio']),
-                                    'riesgo_p75': float(row['riesgo_p75']),
-                                }
-                                for _, row in high_segments_df.sort_values('riesgo_promedio', ascending=False).head(5).iterrows()
-                            ],
-                        })
+                high_risk_segments_accum.setdefault('__meta__', {
+                    'headcount': 0,
+                    'predicted_90': 0.0,
+                })
+                high_risk_segments_accum['__meta__']['headcount'] += int(high_segments_df['headcount'].sum())
+                high_risk_segments_accum['__meta__']['predicted_90'] += float(high_df['predicted_90'].sum())
 
                 for _, row in high_segments_df.iterrows():
                     key = '|'.join([
@@ -888,6 +945,34 @@ async def _build_segment_risk_trends_response(
                     stored['headcount'] += int(row['headcount'])
                     stored['riesgo_promedio'].append(float(row['riesgo_promedio']))
 
+    base_month_raw = rotation_payload.get('base_month')
+    base_month = pd.to_datetime(base_month_raw) if base_month_raw else None
+    if base_month is None:
+        candidate_months = [month for month in [latest_actual_month, latest_snapshot_month] if month is not None]
+        base_month = max(candidate_months) if candidate_months else None
+
+    if base_month is not None and any(value > 0 for values in contributions.values() for value in values):
+        forecast_start = base_month + relativedelta(months=1)
+
+        for index in range(3):
+            forecast_month = forecast_start + relativedelta(months=index)
+            predicted_values = {str(h): contributions[str(h)][index] for h in HORIZONS}
+            if all(value == 0 for value in predicted_values.values()):
+                continue
+            entry = {
+                'month': forecast_month.strftime('%Y-%m-%d'),
+                'actual': {str(h): None for h in HORIZONS},
+                'predicted': predicted_values,
+                'predicted_lower': {
+                    str(h): predicted_values[str(h)] * (1 - margin) for h in HORIZONS
+                },
+                'predicted_upper': {
+                    str(h): predicted_values[str(h)] * (1 + margin) for h in HORIZONS
+                },
+                'segments': forecast_segments,
+            }
+            forecast_entries.append(entry)
+
     metadata = {
         'rotation_last_trained_at': rotation_last_trained_at,
         'overall_actual_totals': rotation_payload['actual_totals'],
@@ -898,26 +983,34 @@ async def _build_segment_risk_trends_response(
         'actual_totals_ytd': {
             str(h): float(actual_series.sum()) if not actual_series.empty else 0.0 for h in HORIZONS
         },
-        'high_risk_predicted_totals': {
-            '30': pred_30_total,
-            '60': pred_60_total,
-            '90': pred_90_total,
-        },
+        'forecast_totals': overall_predicted_totals,
+        'base_month': rotation_payload.get('base_month'),
+        'high_risk_coverage': None,
         'segments_high_risk': sorted(
             [
                 {
-                    'empresa': value['empresa'],
-                    'area': value['area'],
-                    'departamento': value['departamento'],
-                    'headcount': value['headcount'],
-                    'riesgo_promedio': float(np.mean(value['riesgo_promedio'])) if value['riesgo_promedio'] else 0.0,
+                    'empresa': value.get('empresa'),
+                    'area': value.get('area'),
+                    'departamento': value.get('departamento'),
+                    'headcount': value.get('headcount', 0),
+                    'riesgo_promedio': float(np.mean(value.get('riesgo_promedio', []))) if value.get('riesgo_promedio') else 0.0,
                 }
                 for value in high_risk_segments_accum.values()
+                if isinstance(value, dict) and {'empresa', 'area', 'departamento'}.issubset(value.keys())
             ],
             key=lambda item: item['riesgo_promedio'],
             reverse=True,
         )[:10],
     }
+
+    meta_accum = high_risk_segments_accum.pop('__meta__', None)
+    if meta_accum:
+        total_headcount = float(aggregated['headcount'].sum()) if not aggregated.empty else 0.0
+        metadata['high_risk_coverage'] = {
+            'headcount': meta_accum['headcount'],
+            'headcount_ratio': (meta_accum['headcount'] / total_headcount) if total_headcount else None,
+            'predicted_90': meta_accum['predicted_90'],
+        }
 
     if forecast_entries:
         monthly_entries.extend(forecast_entries)

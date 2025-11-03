@@ -100,7 +100,10 @@ const dateFormatter = new Intl.DateTimeFormat("es-MX", {
 
 function formatMonthLabel(value: string): string {
   try {
-    return format(new Date(value), "MMM yyyy", { locale: es });
+    // Parse as YYYY-MM-DD and create date at noon UTC to avoid timezone issues
+    const [year, month] = value.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, 15, 12, 0, 0));
+    return format(date, "MMM yyyy", { locale: es });
   } catch {
     return value;
   }
@@ -267,40 +270,89 @@ function ModelTrendPanel({ modelLabel, state, onReload }: ModelTrendPanelProps) 
       "90": 3,
     };
 
-    let remainingForecast = forecastLimitByHorizon[selectedHorizon];
-    let lastActualIndex = -1;
-    const processed: Array<{ month: string; rawMonth: string; actual: number | null; predicted: number | null; upper: number | null; lower: number | null; }> = [];
+    const maxForecastMonths = forecastLimitByHorizon[selectedHorizon];
+    type ChartPoint = {
+      month: string;
+      rawMonth: string;
+      actual: number | null;
+      predicted: number | null;
+      upper: number | null;
+      lower: number | null;
+    };
 
+    const allPoints: ChartPoint[] = [];
+    let lastHistoricalValue: number | null = null;
+    let lastHistoricalMonth: string | null = null;
+
+    // First pass: process all entries and find last historical point
     currentBundle.monthly.forEach((entry) => {
       const actualValue = toNullableNumber(entry.actual?.[selectedHorizon]);
       const predictedValue = toNullableNumber(entry.predicted?.[selectedHorizon]);
-      const isForecast = actualValue === null;
 
-      if (isForecast) {
-        if (remainingForecast <= 0) {
-          return;
-        }
-        remainingForecast -= 1;
-      } else {
-        lastActualIndex = processed.length;
-      }
-
-      processed.push({
+      const point: ChartPoint = {
         month: formatMonthLabel(entry.month),
         rawMonth: entry.month,
         actual: actualValue,
-        predicted: predictedValue,
-        upper: toNullableNumber(entry.predicted_upper?.[selectedHorizon]),
-        lower: toNullableNumber(entry.predicted_lower?.[selectedHorizon]),
-      });
+        predicted: null, // Will fill in second pass
+        upper: null,
+        lower: null,
+      };
+
+      allPoints.push(point);
+
+      if (actualValue !== null) {
+        lastHistoricalValue = actualValue;
+        lastHistoricalMonth = entry.month;
+      }
     });
 
-    const hasForecast = processed.some((entry) => entry.predicted !== null && entry.actual === null);
-    if (hasForecast && lastActualIndex >= 0) {
-      processed[lastActualIndex].predicted = processed[lastActualIndex].actual;
+    // Second pass: add forecast data (limited by horizon)
+    let forecastCount = 0;
+    let connectionPointAdded = false;
+
+    for (let i = 0; i < allPoints.length; i++) {
+      const point = allPoints[i];
+      const entry = currentBundle.monthly[i];
+      const predictedValue = toNullableNumber(entry.predicted?.[selectedHorizon]);
+
+      // If this is a forecast month (no actual data)
+      if (point.actual === null && predictedValue !== null) {
+        // Add connection point at last historical month (only once)
+        if (!connectionPointAdded && lastHistoricalMonth && lastHistoricalValue !== null) {
+          const connectionIdx = allPoints.findIndex(p => p.rawMonth === lastHistoricalMonth);
+          if (connectionIdx >= 0) {
+            allPoints[connectionIdx] = {
+              ...allPoints[connectionIdx],
+              predicted: lastHistoricalValue, // Connect the lines
+            };
+            connectionPointAdded = true;
+          }
+        }
+
+        // Add forecast data (limited by maxForecastMonths)
+        if (forecastCount < maxForecastMonths) {
+          point.predicted = predictedValue;
+          point.upper = toNullableNumber(entry.predicted_upper?.[selectedHorizon]);
+          point.lower = toNullableNumber(entry.predicted_lower?.[selectedHorizon]);
+          forecastCount++;
+        } else {
+          // Remove this point entirely if beyond forecast limit
+          allPoints.splice(i, 1);
+          i--; // Adjust index after removal
+        }
+      }
     }
 
-    return processed;
+    console.log('[chartData] Result:', {
+      totalPoints: allPoints.length,
+      historicalPoints: allPoints.filter(p => p.actual !== null).length,
+      forecastPoints: allPoints.filter(p => p.predicted !== null && p.actual === null).length,
+      connectionPoint: allPoints.find(p => p.actual !== null && p.predicted !== null),
+      firstPoint: allPoints[0],
+      lastPoint: allPoints[allPoints.length - 1],
+    });
+
+    return allPoints;
   }, [currentBundle, selectedHorizon]);
 
   const latestActual = useMemo(() => {
@@ -480,6 +532,7 @@ function ModelTrendPanel({ modelLabel, state, onReload }: ModelTrendPanelProps) 
                   strokeWidth={2}
                   dot={{ r: 3, fill: "#2563eb" }}
                   activeDot={{ r: 5 }}
+                  connectNulls
                 />
                 <Line
                   type="monotone"
@@ -490,6 +543,7 @@ function ModelTrendPanel({ modelLabel, state, onReload }: ModelTrendPanelProps) 
                   strokeDasharray="4 0"
                   dot={{ r: 3, fill: "#f97316" }}
                   activeDot={{ r: 5 }}
+                  connectNulls
                 />
                 <Line
                   type="monotone"

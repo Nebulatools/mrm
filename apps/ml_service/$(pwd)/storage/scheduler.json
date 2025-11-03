@@ -1,0 +1,38 @@
+{
+  "absence_forecast": {
+    "cron": "30 2 * * 0",
+    "next_run": null
+  },
+  "absenteeism_risk": {
+    "cron": "0 2 * * 1",
+    "next_run": null
+  },
+  "attrition_causes": {
+    "cron": "30 3 1 * *",
+    "next_run": null
+  },
+  "employee_lifecycle": {
+    "cron": "0 5 1 1,4,7,10 *",
+    "next_run": null
+  },
+  "labor_patterns": {
+    "cron": "0 3 1 * *",
+    "next_run": null
+  },
+  "preventive_interventions": {
+    "cron": "30 4 1 * *",
+    "next_run": null
+  },
+  "productivity_impact": {
+    "cron": "0 4 1 * *",
+    "next_run": null
+  },
+  "rotation": {
+    "cron": "0 2 * * 0",
+    "next_run": null
+  },
+  "segment_risk": {
+    "cron": "15 2 * * 0",
+    "next_run": null
+  }
+}

@@ -29,6 +29,8 @@ class SegmentRiskTrainer(BaseModelTrainer):
         super().__init__(settings, database)
         self.rotation_trainer = RotationAttritionTrainer(settings, database)
         self.n_clusters = 4
+        # Evitamos clusters dominados por segmentos con headcount muy pequeño (<5 personas)
+        self.min_segment_size = 5
 
     async def load_training_frame(self, **kwargs: Any) -> pd.DataFrame:
         df = await self.database.fetch_dataframe(ROTATION_FEATURES_SQL)
@@ -78,7 +80,11 @@ class SegmentRiskTrainer(BaseModelTrainer):
             'ratio_permiso',
         ]
 
-        features = aggregated[feature_cols]
+        filtered = aggregated[aggregated['headcount'] >= self.min_segment_size].copy()
+        if filtered.empty:
+            filtered = aggregated.copy()
+
+        features = filtered[feature_cols]
 
         pipeline = Pipeline(
             steps=[
@@ -91,11 +97,21 @@ class SegmentRiskTrainer(BaseModelTrainer):
         pipeline.fit(features)
 
         labels = pipeline.named_steps['cluster'].labels_
-        aggregated['cluster'] = labels
+        filtered = filtered.assign(cluster=labels)
+
+        # Re incorporamos etiqueta de cluster únicamente a los segmentos utilizados
+        aggregated = aggregated.merge(
+            filtered[['empresa', 'area', 'departamento', 'cluster']],
+            on=['empresa', 'area', 'departamento'],
+            how='left',
+        )
 
         metrics: Dict[str, Any] = {
-            'segments': int(aggregated['cluster'].nunique()),
+            'segments_total': int(aggregated.shape[0]),
+            'segments_used': int(filtered.shape[0]),
             'headcount_total': int(aggregated['headcount'].sum()),
+            'headcount_used': int(filtered['headcount'].sum()),
+            'min_segment_size': self.min_segment_size,
         }
 
         # Compute silhouette only if feasible
@@ -109,7 +125,7 @@ class SegmentRiskTrainer(BaseModelTrainer):
             metrics['silhouette_score'] = None
 
         top_segments = (
-            aggregated.sort_values('riesgo_promedio', ascending=False)
+            filtered.sort_values('riesgo_promedio', ascending=False)
             .head(10)
             .to_dict(orient='records')
         )
