@@ -212,11 +212,11 @@ Completar incidencias y asistencia 2025–2026 es clave para mantener las etique
 
 ## 9. Próximos pasos recomendados
 
-1. **Corrigir el bug de ventanas** en `RetentionCharts` y agregar pruebas para validar conteos de bajas en días límite.
-2. **Actualizar `empleados_sftp`** para reflejar las bajas de los empleados 18, 1850 y 2471 (sincronizar pipeline de SFTP y tabla maestra).
+1. ✅ Bug de ventanas en `RetentionCharts` corregido y cubierto con pruebas de días límite.
+2. **Actualizar `empleados_sftp`** para reflejar las bajas de los empleados 18, 1850 y 2471 (sincronizar pipeline SFTP ↔ tabla maestra).
 3. **Reactivar la carga de incidencias y asistencia** más allá de octubre 2025; sin histórico continuo no se sostienen KPIs ni features ML.
 4. **Normalizar catálogos** (`departamento`, `área`, `ubicación`, `motivo_baja`) para evitar valores “Desconocido” y caracteres corruptos.
-5. **Documentar los denominadores oficiales** de rotación (inicio/fin vs promedio, plantilla vs motivos) y alinear backend y frontend para evitar diferencias de 3 bajas.
+5. **Documentar los denominadores oficiales** de rotación (inicio/fin vs promedio, plantilla vs motivos) y alinear backend/frontend para evitar diferencias al comparar reportes.
 
 ---
 
@@ -323,3 +323,29 @@ Además, `RetentionCharts` genera comparativos año a año (`apps/web/src/compon
 ---
 
 Esta desagregación enlaza cada número de la UI con su fórmula, tabla de origen en Supabase y alcance de filtros. Con los valores de octubre 2025 se pueden reproducir o auditar los cálculos directamente desde las consultas SQL mostradas en este documento.
+
+## 11. Actualización técnica – flujo de rotación (corrección bug de zona horaria)
+
+### 11.1 Flujo actualizado de datos
+- **Extracción**: el componente `RetentionCharts` solicita `empleados_sftp` y `motivos_baja` vía `db.getEmpleadosSFTP` y `db.getMotivosBaja`, respetando filtros RLS y los filtros dimensionales (`applyFiltersWithScope`, alcance `general`).
+- **Normalización de fechas**: todas las fechas provenientes de Supabase (`fecha_ingreso`, `fecha_baja`) se convierten con `parseSupabaseDate` (`apps/web/src/lib/retention-calculations.ts:32`), que fija la hora en medianoche local evitando desfases UTC al comparar rangos.
+- **Construcción de ventanas**: cada mes se delimita con `startOfMonth`/`endOfMonth`; la ventana móvil de 12 meses usa `startOfDay(subMonths(...))` para alinear inicios de periodo con las fechas normalizadas.
+- **Cálculo**: `calculateMonthlyRetention` consolida bajas tanto de `plantilla` como de `motivos_baja`, elimina duplicados por empleado/día y clasifica voluntarias vs involuntarias con `bajaMatchesMotivo`.
+- **Agregación**: los resultados devuelven bajas, promedios de activos y temporalidad; el mismo helper alimenta las series mensuales, la tabla y los indicadores rolling.
+
+### 11.2 Correcciones aplicadas
+- Se extrajo la lógica de fechas/rotación a `apps/web/src/lib/retention-calculations.ts` y el componente pasó a reutilizarla (`apps/web/src/components/retention-charts.tsx`).
+- La nueva función `parseSupabaseDate` concatena `T00:00:00` antes de parsear, preservando el día calendario (ej. una baja del 1/oct ya no se interpreta como 30/sep 19:00).
+- `RetentionCharts` genera las ventanas mensuales con `startOfMonth`/`endOfMonth`, y la rotación 12M usa fechas truncadas para evitar excluir eventos límite.
+- Se añadieron pruebas unitarias (`apps/web/tests/retention-calculations.test.ts`) con `node:test` que validan que las bajas del 1 y 31 del mes cuenten correctamente.
+- Se incorporó el script `npm run test --workspace=apps/web` para ejecutar la batería de pruebas sin requerir credenciales de Supabase.
+
+### 11.3 Impacto
+- La discrepancia “16 vs 15” bajas desaparece; la UI ahora coincide con `motivos_baja` para días límite.
+- El pipeline de datos queda documentado y centralizado, facilitando nuevas validaciones o cálculos derivados sin duplicar lógica de fechas.
+- Los tests sirven como guardia ante futuras regresiones cuando se actualicen pipelines de SFTP o normalizadores de motivos.
+- Comando recomendado de validación rápida: `npm run test --workspace=apps/web` (no requiere credenciales).
+
+### 11.4 Pendientes asociados
+- Reactivar los pipelines de SFTP/incidencias para que los datasets (`empleados_sftp`, `incidencias`, `asistencia_diaria`) sostengan los cálculos corregidos.
+- Atender la deuda de `lint`/`type-check` existente (tipos `any`, operaciones con strings numéricas) antes de ampliar análisis derivados sobre incidencias/ausentismo.
