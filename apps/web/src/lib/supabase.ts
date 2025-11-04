@@ -171,17 +171,33 @@ export const db = {
       motivosEmpleado.sort((a: any, b: any) => new Date(b.fecha_baja).getTime() - new Date(a.fecha_baja).getTime());
       const ultimoMotivo = motivosEmpleado.length > 0 ? motivosEmpleado[0] : null;
       
+      const activo = emp.activo === true || emp.activo === 'true' || emp.activo === 1;
+      const fechaBajaSupabase = emp.fecha_baja || null;
+      const motivoNormalizado = normalizeMotivo(emp.motivo_baja || ultimoMotivo?.descripcion || ultimoMotivo?.motivo || 'No especificado');
+
+      const fechaBajaFinal = fechaBajaSupabase
+        ? fechaBajaSupabase
+        : !activo
+          ? ultimoMotivo?.fecha_baja || null
+          : null;
+
+      const motivoFinal = fechaBajaSupabase
+        ? motivoNormalizado
+        : !activo
+          ? normalizeMotivo(ultimoMotivo?.descripcion || ultimoMotivo?.motivo || 'No especificado')
+          : null;
+
       return {
         id: emp.id,
         emp_id: String(emp.numero_empleado),
         numero_empleado: emp.numero_empleado, // Agregar campo numero_empleado
         nombre: emp.nombre_completo || `${emp.nombres || ''} ${emp.apellidos || ''}`.trim() || 'Sin Nombre',
         departamento: normalizeDepartamento(emp.departamento) || 'Sin Departamento',
-        activo: emp.activo === true || emp.activo === 'true' || emp.activo === 1,
+        activo,
         fecha_ingreso: emp.fecha_ingreso || emp.fecha_antiguedad || emp.fecha_creacion || new Date().toISOString(),
-        fecha_baja: emp.fecha_baja || ultimoMotivo?.fecha_baja || null,
+        fecha_baja: fechaBajaFinal,
         puesto: emp.puesto || 'Sin Puesto',
-        motivo_baja: normalizeMotivo(emp.motivo_baja || ultimoMotivo?.descripcion || ultimoMotivo?.motivo || 'No especificado'),
+        motivo_baja: motivoFinal,
         area: normalizeArea(emp.area) || 'Sin Área',
         clasificacion: emp.clasificacion || 'Sin Clasificación',
         ubicacion: (emp as any).ubicacion || null,

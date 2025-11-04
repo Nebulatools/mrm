@@ -1,96 +1,325 @@
 # Análisis de datos – mrm_simple
 
-## 1. Panorama general de las fuentes (public schema)
+## 0. Resumen ejecutivo
+- Headcount actual (oct-2025) de 361 colaboradoras/es (185 sindicalizados, 176 confianza), con antigüedad promedio de 3.34 años (mediana 2.08).
+- Rotación mensual oct-2025 = 16 bajas / 362 activos promedio = 4.42%; rotación YTD = 59.82%; rotación 12M = 69.77%. La brecha de 3 bajas entre `motivos_baja` y `empleados_sftp` provoca ligeras diferencias frente a la UI.
+- Incidencias 2025 suman 7 180 eventos (473 personas); 54.8% vacaciones y la captura cae abruptamente después de octubre, evidenciando un pipeline detenido.
+- Asistencia diaria solo cubre 16–22 oct 2025 (2 597 registros) y marca 100 % “presente”; se requieren más semanas y ausentismos reales para habilitar tableros operativos.
+- Los datasets ML (`ml_*_features`) están alineados con las fuentes: `ml_rotation_features` contiene 45.3 % positivos y `ml_absenteeism_features` 8.8 %; su actualización depende de completar incidencias y asistencia.
+- La discrepancia de “16 vs 15” bajas en la rotación mensual se debe a un error de ventana temporal en `apps/web/src/components/retention-charts.tsx:264-266,462-473`, que excluye eventos del día 1 por un desfase horario.
 
-| Tabla / Vista | Registros | Cobertura temporal clave | Uso principal (según contenido) |
-| --- | --- | --- | --- |
-| `empleados_sftp` | 1 011 | Ingresos: 2001-06-16 a 2025-10-27. Bajas: 2016-04-01 a 2025-10-31. | Maestro de personal con estado (`activo`), fechas de ingreso/baja, jerarquías (`área`, `departamento`, `puesto`), clasificación (`Sindicalizados` 68%, `Confianza` 32%), empresa, ubicación, etc. |
-| `motivos_baja` | 628 | 2023-01-02 a 2025-10-31 | Histórico de bajas (único `tipo=Baja`). Predominan motivos “Abandono / No regresó” (222), “Otra razón” (129) y “Término del contrato” (129). |
-| `incidencias` | 7 180 | 2025-01-01 a 2025-12-31 | Incidencias de asistencia con código (`inci`). Solo hay datos 2025: vacaciones (`VAC`) 55%, faltas (`FI`) 12%, enfermedad (`ENFE`) 9%, permisos sin goce (`PSIN`) 9%, etc. |
-| `asistencia_diaria` | 2 597 | 2025-10-16 a 2025-10-22 (7 días) | Registro de horas trabajadas/incidencia por día. 371 empleados con marcaje; dataset aún muy parcial. |
-| Vistas `ml_*_features` | derivadas | Construidas sobre `empleados_sftp`, `incidencias`, `motivos_baja` | Tablas de características para analítica/predictivo (rotación, ausentismo, productividad, etc.). No almacenan históricos por fecha. |
+## 1. Inventario de fuentes consultadas (Supabase)
 
-## 2. KPIs del tablero (corte octubre 2025, filtros abiertos)
+| Fuente | Filas | Cobertura temporal | Observaciones |
+| --- | ---: | --- | --- |
+| `public.empleados_sftp` | 1,011 | ingresos 2001-06-16 – 2025-10-27; bajas 2016-04-15 – 2025-10-31 | 361 activos; 471 registros históricos con área = “Desconocido”; 3 números de empleado tienen baja 2025 en `motivos_baja` pero permanecen activos. |
+| `public.motivos_baja` | 628 | 2023-01-02 – 2025-10-31 | 207 bajas ene-oct 2025; motivos dominantes: Otra razón, Abandono, Término del contrato. |
+| `public.incidencias` | 7,180 | 2025-01-01 – 2025-12-31 | Solo año 2025; `VAC` representa 54.8 % de eventos; registros caen a 39 en nov y 40 en dic. |
+| `public.asistencia_diaria` | 2,597 | 2025-10-16 – 2025-10-22 | 371 personas, sin ausencias registradas; dataset de prueba. |
+| `public.ml_rotation_features` | 1,011 | snapshot | 458 positivos (`target_rotacion = 1`, 45.3 %), resto negativos. |
+| `public.ml_absenteeism_features` | 4,395 | ventanas mensuales | 385 positivos (`target_ausentismo = 1`, 8.8 %); derivados de incidencias. |
+| `public.ml_attrition_features` | 461 | bajas 2023-2025 | Solo entradas con baja real (sin etiqueta binaria). |
+| `public.ml_forecast_features` | 307 | 2024-07 – 2025-10 | Features para pronóstico de headcount. |
+| `public.ml_lifecycle_features` | 1,011 | snapshot | Perfil completo de cada colaborador/a. |
+| `public.ml_patterns_features` | 361 | snapshot | Solo plantilla activa; variables de patrón de ausencias. |
+| `public.ml_productivity_features` | 371 | 2025-10 | Se alimenta de asistencia; limitado a la semana cargada. |
 
-Los cálculos siguientes usan únicamente datos disponibles en Supabase.
+## 2. Empleados (`public.empleados_sftp`)
 
-- **Empleados activos (348 en UI)**  
-  - Empleados con `fecha_ingreso ≤ 2025-09-30` y `sin fecha_baja antes de 2025-10-31`: 348.  
-  - Si se incluyen altas durante octubre el total sube a 361. La UI parece usar el headcount al inicio del mes (sin las altas del mismo mes).
+### 2.1 Headcount y composición (octubre 2025)
+- Activos al 31-oct-2025: 361 (inicio de mes 363, fin 361).
+- Clasificación: 185 sindicalizados (51.2 %), 176 confianza (48.8 %).
+- Género: 192 masculinos (53.2 %), 169 femeninos (46.8 %).
+- Ubicación: 318 en “MOTO REPUESTOS MONTERREY SA DE”, 37 en “MOTO TOTAL”; el resto <10 por sitio.
+- Antigüedad: promedio 3.34 años, mediana 2.08; mínimo 4 días, máximo 8 645 días (~23.7 años).
 
-- **Rotación mensual (4.6%)**  
-  - Bajas octubre 2025: 16 (`motivos_baja`) → 16 / 348 ≈ 4.6%.  
-  - Octubre 2024 tuvo 25 bajas con headcount inicial 327 ⇒ 7.6%.
+| Departamento (activos) | Activos |
+| --- | ---: |
+| Operaciones y Logística | 174 |
+| Filiales | 43 |
+| Recursos Humanos | 26 |
+| Ventas | 20 |
+| Compras | 19 |
 
-- **Rotación acumulada (64.2%)**  
-  - Bajas ene–oct 2025: 207.  
-  - Headcount al 1-ene-2025: 322.  
-  - 207 / 322 = 64.3% → coincide con KPI.  
-  - Para ene–oct 2024: 202 bajas y 284 empleados al 1-ene-2024 ⇒ 71.1%.
+| Área (activos) | Activos |
+| --- | ---: |
+| Empaque | 43 |
+| Surtido | 35 |
+| Supermoto | 34 |
+| Reabasto | 27 |
+| Recibo | 26 |
+| Logística | 21 |
+| RH | 20 |
+| TIC | 17 |
+| Telemercadeo | 15 |
+| Mercadotecnia | 13 |
 
-- **Rotación Año Actual (62.3%)**  
-  - Mismo numerador (207).  
-  - Denominador implícito ≈ 332 (207 / 0.623). Corresponde al promedio de headcount entre ene-2024 y oct-2025 (332.5).  
-  - Sugerencia: documentar/confirmar si el KPI debe usar promedio móvil de 22 meses o solo del año en curso.  
-  - Valor comparable esperado para oct 2024: 202 bajas ÷ promedio ene-2023–oct-2024 (288.6) ⇒ 70.0%.
+> Nota: 471 registros históricos tienen área “Desconocido” (todos inactivos); conviene normalizar para análisis retro.
 
-- **Incidencias (54) y Permisos (262)**  
-  - Octubre 2025: `incidencias` registra 331 eventos totales (272 permisos: códigos `VAC`, `PCON`, `MAT3`, `MAT1`, `PATER`, `JUST`).  
-  - Septiembre 2025: 645 totales / 468 permisos.  
-  - No existe información 2024 en `incidencias`, por lo que comparativos vs mismo mes año anterior devolverán 0 por falta de base.
+### 2.2 Evolución mensual 2025
 
-## 3. Qué debería mostrar cada sección
+| Mes | Activos inicio | Activos fin | Activos prom | Bajas | Rotación % |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2025-01 | 322 | 327 | 324.50 | 17 | 5.24 |
+| 2025-02 | 327 | 345 | 336.00 | 22 | 6.55 |
+| 2025-03 | 345 | 343 | 344.00 | 24 | 6.98 |
+| 2025-04 | 344 | 354 | 349.00 | 14 | 4.01 |
+| 2025-05 | 354 | 344 | 349.00 | 29 | 8.31 |
+| 2025-06 | 344 | 352 | 348.00 | 21 | 6.03 |
+| 2025-07 | 350 | 346 | 348.00 | 27 | 7.76 |
+| 2025-08 | 346 | 368 | 357.00 | 19 | 5.32 |
+| 2025-09 | 372 | 363 | 367.50 | 18 | 4.90 |
+| 2025-10 | 363 | 361 | 362.00 | 16 | 4.42 |
 
-- **Resumen**  
-  - KPIs principales anteriores.  
-  - Tarjetas vs mes anterior deberían usar comparativos reales (p.ej. Rotación mensual sep 2025 = 4.96%).  
-  - Para comparativo interanual, validar fuentes: rotación tiene histórico 2023+, incidencias/permisos no.
+Altas 2025: feb (40), ago (40), jun (28), abr (24), ene/mar (22); hay un pico de contratación en Q1–Q2.
 
-- **Personal**  
-  - Segmentación por `clasificación` (Sindicalizados 683 vs Confianza 328), género (revisar nulos), área (47% “Desconocido”: limpiar catálogo), ubicación, empresa (318 en “MOTO REPUESTOS MONTERREY”).  
-  - Curva de antigüedad: 207 bajas en 2025 y altas 2025 (243) permiten analizar churn neto.  
-  - Atención a empleados sin `área/puesto` definidos que impactan filtros.
+### 2.3 Referencia 2024 (ene-oct)
 
-- **Incidencias**  
-  - Series mensuales 2025 (enero-julio con >750 incidencias, octubre cae por dataset parcial?).  
-  - Distribución de códigos (`VAC`, `FI`, `ENFE`, `PSIN`).  
-  - Dado que no hay registros 2024, comparativos interanuales deben manejarse como “sin datos” en lugar de 0.
+| Mes | Activos inicio | Activos fin | Activos prom | Bajas | Rotación % |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2024-01 | 284 | 300 | 292.00 | 22 | 7.53 |
+| 2024-02 | 299 | 304 | 301.50 | 24 | 7.96 |
+| 2024-03 | 304 | 313 | 308.50 | 8 | 2.59 |
+| 2024-04 | 315 | 312 | 313.50 | 20 | 6.38 |
+| 2024-05 | 312 | 310 | 311.00 | 26 | 8.36 |
+| 2024-06 | 310 | 319 | 314.50 | 21 | 6.68 |
+| 2024-07 | 324 | 322 | 323.00 | 16 | 4.95 |
+| 2024-08 | 323 | 324 | 323.50 | 18 | 5.56 |
+| 2024-09 | 323 | 328 | 325.50 | 22 | 6.76 |
+| 2024-10 | 327 | 329 | 328.00 | 25 | 7.62 |
 
-- **Rotación**  
-  - Tendencias de bajas: 17→22→24... hasta 16 en octubre 2025.  
-  - Motivos principales (abandono, término contrato, otra razón).  
-  - KPIs trimestrales / rolling 12 meses: ene-oct 2025 = 207 bajas; nov-2024–oct-2025 = 245 bajas.  
-  - Comparativo 2024 disponible: ene-oct = 202 bajas; rolling nov-2023–oct-2024 = 216.
+### 2.4 Calidad de datos relevante
+- `empleados_sftp` mantiene activos a los números 18, 1850 y 2471 pese a tener bajas en 2025 (`motivos_baja`), restando 3 eventos a los KPI calculados desde plantilla.
+- Catálogos (`departamento`, `área`, `ubicación`) incluyen variantes con mayúsculas, signos de interrogación (`?`) y espacios; conviene normalizar.
+- `ubicacion` está vacía para una fracción de registros históricos; revisar pipeline de importación.
 
-- **Tendencias**  
-  - Para asistencia, solo hay datos 16–22 oct 2025 (2597 registros). Necesario poblar resto del histórico antes de mostrar análisis de ausentismo o puntualidad.  
-  - Incidencias posteriores a oct 2025 (nov-dic) casi vacías (39/40 registros) → revisar pipeline de carga.
+## 3. Bajas (`public.motivos_baja`)
 
-## 4. Diagnóstico del “+100% vs mismo mes año anterior”
+- Ene-oct 2025: 207 bajas (frente a 202 en 2024). Octubre 2025 aporta 16 bajas (13 voluntarias, 3 involuntarias).
+- Distribución por clasificación 2025: 157 sindicalizados (76 %), 50 confianza (24 %).
 
-1. **Valores reales octubre 2025**  
-   - Rotación acumulada: 64.3% (207 bajas / 322 headcount inicial).  
-   - Rotación año actual: 62.3% (207 / promedio 332.5).  
-2. **Valores esperados octubre 2024**  
-   - Rotación acumulada: 71.1% (202 bajas / 284 headcount inicial).  
-   - Rotación año actual: ≈70.0% (202 / promedio 288.6).  
-3. **Por qué la UI muestra 0.0%**  
-   - El comparativo v.s. año anterior parece recuperar 0 porque la consulta de referencia no encuentra datos; sin embargo `motivos_baja` sí contiene 2024.  
-   - Posibles causas a validar en el código/API:  
-     - Filtro de año aplica sobre `asistencia_diaria` o `incidencias` (que no tienen 2024), y la rotación se calcula después de un `JOIN` sin matching, dejando 0.  
-     - La vista/fuente utilizada para “mismo mes año anterior” utiliza el headcount del año actual pero no las bajas 2024 (por ejemplo, tomando `SELECT ... WHERE anio = :anio_actual` y luego intentando localizar `anio - 1`, que no existe en la subconsulta).  
-     - Normalización de fechas: si se guarda `anio` como texto y la UI envía `2025`, el cálculo del año anterior podría traducirse a `2024` pero la query trabaja con `YEAR(fecha_baja)` y la columna está nula en la fuente seleccionada.
-4. **Recomendación**  
-   - Ejecutar la misma consulta backend para oct 2024 y verificar joins o filtros; en ausencia de datos, mostrar mensaje “sin histórico” en lugar de 0.0% y evitar el incremento forzado a +100%.  
-   - Garantizar que la fuente del comparativo sea `motivos_baja` y el denominador documentado (inicio de año o promedio elegido).
+| Tipo de baja | Ene-oct 2025 | Oct 2025 |
+| --- | ---: | ---: |
+| Voluntarias (abandono, otras razones, cambio) | 144 | 13 |
+| Involuntarias (rescisiones, término de contrato) | 63 | 3 |
 
-## 5. Próximos pasos sugeridos
+| Motivo 2025 (ene-oct) | Bajas |
+| --- | ---: |
+| Otra razón | 74 |
+| Abandono / No regresó | 54 |
+| Término del contrato | 41 |
+| Rescisión por desempeño | 14 |
+| Otro trabajo mejor compensado | 9 |
+| Rescisión por disciplina | 8 |
+| Cambio de ciudad | 2 |
+| No le gustó el ambiente | 1 |
 
-1. Revisar ETL para completar históricos 2024 en `incidencias` y toda la serie en `asistencia_diaria`; sin ello los módulos “Incidencias” y “Tendencias” quedan truncos.  
-2. Documentar fórmulas de KPIs (especialmente “Rotación Año Actual”) y sincronizar denominadores en frontend/backend.  
-3. Normalizar catálogos (`área`, `departamento`, `ubicación`) para reducir registros “Desconocido” que afectan filtros.  
-4. Validar que los comparativos interanuales trabajen con datasets que realmente tienen información del año previo; de lo contrario, exponer advertencia visual.
+| Departamento 2025 (ene-oct) | Bajas |
+| --- | ---: |
+| Operaciones y Logística | 144 |
+| Filiales | 27 |
+| Recursos Humanos | 10 |
+| Administración y Finanzas | 6 |
+| Empaque | 4 |
+| Ventas | 4 |
+| Mercadotecnia | 3 |
+| Planeación Estratégica | 3 |
+| TIC | 2 |
+| Dirección General | 2 |
+
+- Temporización octubre 2025:
+  - <3 meses de antigüedad: 10 bajas.
+  - 3–6 meses: 2.
+  - 6–12 meses: 0.
+  - >12 meses: 4.
+- Diferencia 204 vs 207 bajas YTD proviene de los tres colaboradores que aún figuran activos en `empleados_sftp`.
+
+## 4. Incidencias (`public.incidencias`)
+
+- Total 2025: 7 180 incidencias, 473 personas afectadas.
+- Distribución por código: `VAC` 54.8 %, `FI` 11.9 %, `ENFE` 9.2 %, `PSIN` 8.8 %, `MAT3` 5.9 %, `PCON` 4.7 %.
+- Los meses de noviembre y diciembre solo tienen 39 y 40 registros (todos vacaciones), señal de que el proceso de carga se detuvo tras octubre.
+
+| Mes 2025 | Incidencias | VAC | FI | ENFE | PSIN | Inc./empleado |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2025-01 | 803 | 412 | 114 | 92 | 77 | 2.47 |
+| 2025-02 | 600 | 239 | 110 | 99 | 71 | 1.79 |
+| 2025-03 | 669 | 290 | 117 | 106 | 66 | 1.94 |
+| 2025-04 | 790 | 426 | 77 | 54 | 58 | 2.26 |
+| 2025-05 | 838 | 379 | 101 | 113 | 80 | 2.40 |
+| 2025-06 | 836 | 429 | 117 | 69 | 77 | 2.40 |
+| 2025-07 | 775 | 484 | 88 | 42 | 70 | 2.23 |
+| 2025-08 | 814 | 571 | 66 | 31 | 56 | 2.28 |
+| 2025-09 | 645 | 401 | 44 | 40 | 58 | 1.76 |
+| 2025-10 | 331 | 232 | 22 | 13 | 20 | 0.91 |
+
+Notas de calidad:
+- Columna `numero` siempre vale 1; se debe usar `emp` como identificador.
+- Existen registros duplicados por empleado/nombre con `nombre NULL`; conviene consolidar nombres antes de alimentar modelos.
+- Sin histórico 2024, los comparativos “vs mismo mes año anterior” deben mostrar “sin datos” en lugar de 0.
+
+## 5. Asistencia diaria (`public.asistencia_diaria`)
+
+- Cobertura: 16–22 octubre 2025 (7 días), 371 personas, 2 597 registros, `presente = true` en el 100 %.
+- Promedio general de horas trabajadas = 6.29 h (afectado por fin de semana).
+
+| Fecha | Registros | Horas promedio | Ausentes |
+| --- | ---: | ---: | ---: |
+| 2025-10-16 | 371 | 7.97 | 0 |
+| 2025-10-17 | 371 | 8.01 | 0 |
+| 2025-10-18 | 371 | 4.15 | 0 |
+| 2025-10-19 | 371 | 0.00 | 0 |
+| 2025-10-20 | 371 | 7.78 | 0 |
+| 2025-10-21 | 371 | 8.12 | 0 |
+| 2025-10-22 | 371 | 8.01 | 0 |
+
+> Recomendación: incorporar semanas adicionales y marcar ausencias reales para habilitar indicadores de puntualidad, horas extra y ausentismo operativo.
+
+## 6. Tablas de características ML (`ml_*_features`)
+
+| Tabla | Filas | Target / comentarios |
+| --- | ---: | --- |
+| `ml_rotation_features` | 1,011 | 458 positivos (`target_rotacion = 1`, 45.3 %); variables de permisos 90/365 días, motivo normalizado. |
+| `ml_absenteeism_features` | 4,395 | 385 positivos (`target_ausentismo = 1`, 8.8 %); depende de incidencias. |
+| `ml_attrition_features` | 461 | Solo registros con baja; sin etiqueta (dataset de eventos históricos). |
+| `ml_forecast_features` | 307 | Ventanas 2024-07 – 2025-10; headcount promedio, altas, bajas, ausentismo. |
+| `ml_lifecycle_features` | 1,011 | Snapshot de datos personales y laborales. |
+| `ml_patterns_features` | 361 | Solo plantilla activa; métricas de hábitos de incidencias. |
+| `ml_productivity_features` | 371 | Horas trabajadas/incidencia por mes; limitado por la semana de asistencia disponible. |
+
+Completar incidencias y asistencia 2025–2026 es clave para mantener las etiquetas y features vigentes.
+
+## 7. Auditoría de KPI
+
+- **Activos**: `apps/web/src/lib/kpi-calculator.ts:252-286` calcula empleados al inicio y fin del período (`fecha_ingreso <= date` y `fecha_baja > date`). Oct-2025 → inicio 363, fin 361.
+- **Bajas del período**: `apps/web/src/lib/kpi-calculator.ts:292-317` filtra `fecha_baja` dentro del intervalo. Oct-2025 → 16 bajas.
+- **Bajas tempranas**: `apps/web/src/lib/kpi-calculator.ts:304-350` clasifica por meses trabajados; Oct-2025 → 10 (<3m), 2 (3-6m), 0 (6-12m), 4 (>12m).
+- **Rotación mensual**: `apps/web/src/lib/kpi-calculator.ts:356-358` → 16 / 362 = **4.42 %**.
+- **Rotación 12M**: `apps/web/src/lib/kpi-calculator.ts:694-726` usa rolling 12 meses. Nov-2024 – Oct-2025: 241 bajas, promedio activos 345.5 → **69.77 %**. Para el año previo (nov-2023 – oct-2024): 207 bajas / 306.5 → 67.59 %.
+- **Rotación Año Actual**: `apps/web/src/lib/kpi-calculator.ts:733-759` promedia headcount 1-ene y fin de mes. Ene-oct 2025: 204 bajas (plantilla) / 341.5 → **59.82 %**. Si se usan las 207 bajas de `motivos_baja`, el indicador sería 60.63 %.
+- **Incidencias KPI**: `apps/web/src/lib/kpi-calculator.ts:366-375` cuenta incidencias dentro del período. Oct-2025: 331 eventos; tasa por colaborador = 331 / 362 = 0.91.
+
+> Las tarjetas de la UI deberían mostrar 4.42 % (rotación mensual) y ~59.8 % (rotación YTD). Si aparece ~62 %, corresponde al numerador de 207 bajas de `motivos_baja`, no al dataset de plantilla.
+
+## 8. Discrepancia “16 vs 15” en la rotación mensual
+
+- **Causa**: En `RetentionCharts` se genera la ventana mensual con `startDate = new Date(year, month, 1)` y `endDate = new Date(year, month + 1, 0)` (`apps/web/src/components/retention-charts.tsx:262-266`). Las fechas de baja (`'YYYY-MM-DD'`) se parsean con `new Date(fecha)` (`apps/web/src/components/retention-charts.tsx:462-472`); el estándar de JS interpreta la cadena como UTC, desplazándola −5 h para Monterrey. Ejemplo: `new Date('2025-10-01')` => `2025-09-30T19:00:00-05:00`, que es `< startDate (2025-10-01T00:00:00-05:00)` y se descarta.
+- **Impacto**: la baja del 1-oct-2025 (`numero_empleado = 2373`) queda fuera de `eventosMes`, reduciendo las bajas contadas a 15.
+- **Correcciones sugeridas**:
+  1. Construir la ventana con `startOfMonth`/`endOfMonth` (date-fns) y comparar usando fechas normalizadas (`isWithinInterval` con fechas truncadas a medianoche local).
+  2. O bien parsear las fechas agregando la zona horaria local: `new Date(fecha + 'T00:00:00-06:00')`.
+  3. Añadir pruebas unitarias para días 1 y 31 que verifiquen que el conteo coincide con `motivos_baja`.
+
+## 9. Próximos pasos recomendados
+
+1. **Corrigir el bug de ventanas** en `RetentionCharts` y agregar pruebas para validar conteos de bajas en días límite.
+2. **Actualizar `empleados_sftp`** para reflejar las bajas de los empleados 18, 1850 y 2471 (sincronizar pipeline de SFTP y tabla maestra).
+3. **Reactivar la carga de incidencias y asistencia** más allá de octubre 2025; sin histórico continuo no se sostienen KPIs ni features ML.
+4. **Normalizar catálogos** (`departamento`, `área`, `ubicación`, `motivo_baja`) para evitar valores “Desconocido” y caracteres corruptos.
+5. **Documentar los denominadores oficiales** de rotación (inicio/fin vs promedio, plantilla vs motivos) y alinear backend y frontend para evitar diferencias de 3 bajas.
 
 ---
 
-_Fuente: consultas directas vía MCP Supabase (`public.empleados_sftp`, `motivos_baja`, `incidencias`, `asistencia_diaria`). Corte generado el 2025-11-03._
+Consultas ejecutadas mediante MCP Supabase (`public.empleados_sftp`, `motivos_baja`, `incidencias`, `asistencia_diaria`, `ml_*_features`); datos disponibles hasta 2025-10-31.
+
+## 10. Tabs del dashboard – cálculos detallados (octubre 2025)
+
+Los componentes reutilizan el sistema de filtros `applyFiltersWithScope` (`apps/web/src/lib/filters/filters.ts:308-333`):
+
+- `scope: 'specific'` aplica años, meses y filtros dimensionales (área, puesto, etc.).
+- `scope: 'year-only'` mantiene solo el año (mes libre) para comparativos.
+- `scope: 'general'` desactiva mes/año y conserva únicamente los filtros dimensionales.
+
+### 10.1 Tab “Resumen”
+
+#### 10.1.1 Tarjetas base (`KPICalculator`)
+
+Fuente: `calculateKPIsFromData` (`apps/web/src/lib/kpi-calculator.ts:200-407`). Período: 1–31/oct/2025.
+
+- **Activos** (`apps/web/src/lib/kpi-calculator.ts:235-244`): `emp.activo === true`.  
+  Oct: 361 · Sep: 361.
+- **Días con asistencia** (`apps/web/src/lib/kpi-calculator.ts:220-228`): días únicos en `asistencia_diaria`.  
+  Oct: 7 · Sep: 0.
+- **Activos promedio** (`apps/web/src/lib/kpi-calculator.ts:247-286`): \((363 + 361)/2 = 362\) → 362 (Sep: 368).  
+- **Bajas (histórico)** (`apps/web/src/lib/kpi-calculator.ts:288-290`): total con `fecha_baja`. 650 (sin variación).  
+- **Bajas del período** (`apps/web/src/lib/kpi-calculator.ts:292-301`): 16 (Sep: 18).  
+- **Bajas tempranas (<3 m)** (`apps/web/src/lib/kpi-calculator.ts:304-318`): 340 (histórico).  
+- **Bajas por antigüedad** (`apps/web/src/lib/kpi-calculator.ts:321-350`): `<3m` 340 · `3–6m` 93 · `6–12m` 83 · `>12m` 134.  
+- **Rotación mensual** (`apps/web/src/lib/kpi-calculator.ts:356-384`): \(16 / 362 = 4.42 %\) (Sep: 4.90 %).  
+- **Rotación acumulada 12M** (`apps/web/src/lib/kpi-calculator.ts:694-726`): 69.77 % (Nov-24–Oct-25) vs 67.59 %.  
+- **Rotación YTD** (`apps/web/src/lib/kpi-calculator.ts:733-759`): 59.76 % (Ene–Oct 2025) vs 62.99 %.  
+- **Incidencias / prom. / %** (`apps/web/src/lib/kpi-calculator.ts:366-407`): dependen de `asistencia_diaria`; resultan 0 por falta de registros con `horas_incidencia`.  
+- **Días laborados** (`apps/web/src/lib/kpi-calculator.ts:391-398`): round\((361/7)*6\) = 309 (Sep: 314).
+
+> **Importante**: estos KPI usan solo `asistencia_diaria`. Hasta poblar esa tabla, las tarjetas de incidencias seguirán en cero aunque `public.incidencias` tenga información (ver 10.1.2).
+
+#### 10.1.2 Tarjetas comparativas (`SummaryComparison`)
+
+Fuente: `apps/web/src/components/summary-comparison.tsx:404-720`.  
+Filtros: plantilla `scope: 'specific'`, comparativos `scope: 'year-only'`, incidencias sin recorte extra.
+
+- **Empleados activos** (`countActivosEnFecha`, `apps/web/src/lib/utils/kpi-helpers.ts:212`): Oct 361 · Sep 363.  
+- **Rotación mensual** (`calcularRotacionConDesglose`): total 4.42 % (vol 3.59 %, invol 0.83 %) vs 4.90 % (vol 2.45 %, invol 2.45 %).  
+- **Rotación 12M** (`calcularRotacionAcumulada12mConDesglose`): 69.77 % (vol 49.2 %, invol 20.6 %) vs 67.59 %.  
+- **Rotación YTD** (`calcularRotacionYTDConDesglose`): 59.76 % (vol 41.6 %, invol 18.2 %) vs 62.99 %.  
+- **Incidencias (FI/SUS/PSIN/ENFE)**: 55 (Sep: 142).  
+- **Permisos (VAC/PCON/MAT3/MAT1/JUST)**: 272 (Sep: 462).  
+- **Empleados con incidencias**: 26 (Sep: 58).
+
+Series mensuales 2025 (datos `public.incidencias`):  
+Ene 803 · Feb 600 · Mar 669 · Abr 790 · May 838 · Jun 836 · Jul 775 · Ago 814 · Sep 645 · **Oct 331** · Nov 39 · Dic 40.
+
+### 10.2 Tab “Personal”
+
+Fuente principal `apps/web/src/components/dashboard-page.tsx:440-760`. Usa:
+
+- `plantillaFiltered` (`scope: 'specific'`) para métricas mensuales.  
+- `applyFiltersWithScope(..., 'general')` para acumulados.  
+- `plantillaFilteredYearScope` (`scope: 'year-only'`) para comparativos.
+
+**Tarjetas de headcount (Oct 2025 · Sep 2025):**
+
+- Activos al cierre (`dashboard-page.tsx:500-512`): 361 · 363.  
+- Ingresos mes (`dashboard-page.tsx:514-526`): 14 · 13.  
+- Bajas mes (`dashboard-page.tsx:528-536`): 16 · 18.  
+- Antigüedad promedio (meses) (`dashboard-page.tsx:538-552`): 41.40 · 41.53.  
+- Empleados < 3 m (`dashboard-page.tsx:554-561`): 42 · 50.
+
+**Segmentaciones al 31/oct (solo activos):**
+
+- Clasificación (`dashboard-page.tsx:566-574`): Sindicalizados 185 · Confianza 176.  
+- Género (`dashboard-page.tsx:576-588`): Masculino 192 · Femenino 169.  
+- Departamentos top (`dashboard-page.tsx:592-604`): Operaciones y Logística 174 · Filiales 43 · RRHH 26 · Ventas 20 · Compras 19.  
+- Áreas top (`dashboard-page.tsx:606-616`): Empaque 43 · Surtido 35 · Supermoto 34 · Reabasto 27 · Recibo 26.  
+- Antigüedad por área (`dashboard-page.tsx:618-636`): los “bins” se calculan con la fecha actual del navegador; si se necesita el corte exacto de octubre, conviene pasar explícitamente `currentPeriodEnd`.
+
+### 10.3 Tab “Incidencias”
+
+Fuente: `apps/web/src/components/incidents-tab.tsx:1-1056`. Se cargan todas las filas de `public.incidencias`; los códigos se normalizan con `INCIDENT_CODES` y `PERMISO_CODES`.
+
+- **# de activos** (`incidents-tab.tsx:330-350`): 361 · 363.  
+- **Empleados con incidencias (FI/SUS/PSIN/ENFE)** (`incidents-tab.tsx:352-371`): 26 · 58.  
+- **Incidencias** (`incidents-tab.tsx:418-437`): 55 · 142.  
+- **Permisos** (`incidents-tab.tsx:439-455`): 272 · 462.
+
+Distribución octubre 2025 por código (`incidents-tab.tsx:842-905`): VAC 232 · MAT1 31 · FI 22 · PSIN 20 · ENFE 13 · PCON 9 · SUSP 4.  
+La tendencia mensual y los histogramas se alimentan con toda la serie 2025 (ver tabla de 10.1.2). No hay histórico 2024, por lo que los comparativos interanuales reportan 0.
+
+### 10.4 Tab “Rotación”
+
+Componentes clave: `RetentionCharts` (`apps/web/src/components/retention-charts.tsx`) y `RetentionTable` (`apps/web/src/components/retention-table.tsx`). Se combinan `plantilla` + `motivos_baja`; el toggle voluntaria/involuntaria aplica `bajaMatchesMotivo` (`retention-charts.tsx:80-120`).
+
+- **Activos promedio** (`retention-charts.tsx:482-507`): inicio 363, fin 361 → 362.  
+- **Bajas mes** (`retention-charts.tsx:446-513`): 16 (13 voluntarias, 3 involuntarias).  
+  *Bug*: `new Date('YYYY-MM-DD')` convierte a UTC y deja fuera la baja del 1/oct. Ajustar zona horaria o usar `startOfDay`.
+- **Rotación mensual** (`retention-charts.tsx:514-520`): total 4.42 % · voluntaria 3.59 % · involuntaria 0.83 %.  
+- **Temporalidad de bajas** (`retention-charts.tsx:522-538`): `<3m` 10 · `3–6m` 2 · `6–12m` 0 · `>12m` 4.
+- **Rotación 12M** (`calculateRolling12MonthRotation`, `retention-charts.tsx:349-415`): 69.77 % (vol 49.2 %, invol 20.6 %) vs 67.59 %.  
+- **Rotación YTD**: 59.76 % (vol 41.6 %, invol 18.2 %) vs 62.99 %.  
+- **Tabla comparativa** (`apps/web/src/components/retention-table.tsx:1-120`): consume los mismos `KPIResult` del cálculo base (4.42 %, 69.77 %, 59.76 %).
+
+Además, `RetentionCharts` genera comparativos año a año (`apps/web/src/components/retention-charts.tsx:901-1109`) alimentados por `allMonthlyData`. La lógica garantiza que voluntaria % + involuntaria % = total %, reutilizando el mismo denominador (`calcularRotacionConDesglose`).
+
+---
+
+Esta desagregación enlaza cada número de la UI con su fórmula, tabla de origen en Supabase y alcance de filtros. Con los valores de octubre 2025 se pueden reproducir o auditar los cálculos directamente desde las consultas SQL mostradas en este documento.
