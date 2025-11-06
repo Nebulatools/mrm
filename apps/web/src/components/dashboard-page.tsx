@@ -29,7 +29,7 @@ import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filter
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord, type IncidenciaCSVRecord } from "@/lib/supabase";
 import { createBrowserClient } from "@/lib/supabase-client";
-import { format, endOfMonth } from "date-fns";
+import { format, endOfMonth, startOfDay } from "date-fns";
 import { es } from 'date-fns/locale';
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
@@ -108,7 +108,7 @@ export function DashboardPage() {
   const [incidenciasData, setIncidenciasData] = useState<IncidenciaCSVRecord[]>([]);
 
   // Toggle para filtrar visualizaciones por rotación involuntaria vs voluntaria
-  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('involuntaria');
+  const [motivoFilterType, setMotivoFilterType] = useState<'all' | 'involuntaria' | 'voluntaria'>('all');
   const [incidentsKpiSnapshot, setIncidentsKpiSnapshot] = useState<{
     incidencias: number;
     incidenciasAnterior: number;
@@ -512,10 +512,10 @@ export function DashboardPage() {
 
   const headcountComparisonBase = plantillaFilteredGeneral.length > 0 ? plantillaFilteredGeneral : plantillaFiltered;
 
-  const currentPeriodStart = new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1);
-  const currentPeriodEnd = new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0);
-  const previousPeriodEnd = new Date(currentPeriodStart.getFullYear(), currentPeriodStart.getMonth(), 0);
-  const previousPeriodStart = new Date(previousPeriodEnd.getFullYear(), previousPeriodEnd.getMonth(), 1);
+  const currentPeriodStart = startOfDay(new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1));
+  const currentPeriodEnd = endOfMonth(currentPeriodStart);
+  const previousPeriodStart = startOfDay(new Date(currentPeriodStart.getFullYear(), currentPeriodStart.getMonth() - 1, 1));
+  const previousPeriodEnd = endOfMonth(previousPeriodStart);
 
   const isActiveOnDate = (employee: PlantillaRecord, reference: Date) => {
     const ingreso = employee.fecha_ingreso ? new Date(employee.fecha_ingreso) : null;
@@ -544,15 +544,6 @@ export function DashboardPage() {
     return !!fi && !Number.isNaN(fi.getTime()) && fi >= previousPeriodStart && fi <= previousPeriodEnd;
   }).length;
 
-  const bajasMes = headcountComparisonBase.filter(emp => {
-    const fb = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-    return !!fb && !Number.isNaN(fb.getTime()) && fb >= currentPeriodStart && fb <= currentPeriodEnd;
-  }).length;
-  const bajasMesPrev = headcountComparisonBase.filter(emp => {
-    const fb = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-    return !!fb && !Number.isNaN(fb.getTime()) && fb >= previousPeriodStart && fb <= previousPeriodEnd;
-  }).length;
-
   const antigPromMesesActual = activeEmployeesCurrent.length > 0
     ? activeEmployeesCurrent.reduce((acc, emp) => acc + monthsBetween(emp.fecha_antiguedad || emp.fecha_ingreso, currentPeriodEnd), 0) / activeEmployeesCurrent.length
     : 0;
@@ -563,70 +554,7 @@ export function DashboardPage() {
   const menores3mActual = activeEmployeesCurrent.filter(emp => monthsBetween(emp.fecha_antiguedad || emp.fecha_ingreso, currentPeriodEnd) < 3).length;
   const menores3mPrev = activeEmployeesPrevious.filter(emp => monthsBetween(emp.fecha_antiguedad || emp.fecha_ingreso, previousPeriodEnd) < 3).length;
 
-  const formatISODate = (date: Date) => date.toISOString().split('T')[0];
-
-  const headcountKpiCards: { icon: ReactNode; kpi: KPIResult }[] = [
-    {
-      icon: <Users className="h-6 w-6" />,
-      kpi: {
-        name: 'Activos al cierre',
-        category: 'headcount',
-        value: activosFinMes,
-        previous_value: activosFinMesPrev,
-        variance_percentage: calculateVariancePercentage(activosFinMes, activosFinMesPrev),
-        period_start: formatISODate(currentPeriodStart),
-        period_end: formatISODate(currentPeriodEnd)
-      }
-    },
-    {
-      icon: <TrendingUp className="h-6 w-6" />,
-      kpi: {
-        name: 'Ingresos (Mes)',
-        category: 'headcount',
-        value: ingresosMes,
-        previous_value: ingresosMesPrev,
-        variance_percentage: calculateVariancePercentage(ingresosMes, ingresosMesPrev),
-        period_start: formatISODate(currentPeriodStart),
-        period_end: formatISODate(currentPeriodEnd)
-      }
-    },
-    {
-      icon: <UserMinus className="h-6 w-6" />,
-      kpi: {
-        name: 'Bajas (Mes)',
-        category: 'retention',
-        value: bajasMes,
-        previous_value: bajasMesPrev,
-        variance_percentage: calculateVariancePercentage(bajasMes, bajasMesPrev),
-        period_start: formatISODate(currentPeriodStart),
-        period_end: formatISODate(currentPeriodEnd)
-      }
-    },
-    {
-      icon: <Calendar className="h-6 w-6" />,
-      kpi: {
-        name: 'Antigüedad Promedio (meses)',
-        category: 'headcount',
-        value: antigPromMesesActual,
-        previous_value: antigPromMesesPrev,
-        variance_percentage: calculateVariancePercentage(antigPromMesesActual, antigPromMesesPrev),
-        period_start: formatISODate(currentPeriodStart),
-        period_end: formatISODate(currentPeriodEnd)
-      }
-    },
-    {
-      icon: <Calendar className="h-6 w-6" />,
-      kpi: {
-        name: 'Empl. < 3 meses',
-        category: 'headcount',
-        value: menores3mActual,
-        previous_value: menores3mPrev,
-        variance_percentage: calculateVariancePercentage(menores3mActual, menores3mPrev),
-        period_start: formatISODate(currentPeriodStart),
-        period_end: formatISODate(currentPeriodEnd)
-      }
-    }
-  ];
+  const formatISODate = (date: Date) => format(date, 'yyyy-MM-dd');
 
   // Clasificación: horizontal bar
   const classCounts = (() => {
@@ -792,18 +720,24 @@ export function DashboardPage() {
     const rotacionYTDPrevio = calcularRotacionYTDConDesglose(plantillaForComparison, previousYearReference);
 
     const rotMensualInv = Number(rotacionMensualActual.involuntaria.toFixed(1));
+    const rotMensualVol = Number(rotacionMensualActual.voluntaria.toFixed(1));
     const rotMensualTotal = Number(rotacionMensualActual.total.toFixed(1));
     const rotMensualInvPrev = Number(rotacionMensualPrevio.involuntaria.toFixed(1));
+    const rotMensualVolPrev = Number(rotacionMensualPrevio.voluntaria.toFixed(1));
     const rotMensualTotalPrev = Number(rotacionMensualPrevio.total.toFixed(1));
 
     const rotAcumuladaInv = Number(rotacionAcumuladaActual.involuntaria.toFixed(1));
+    const rotAcumuladaVol = Number(rotacionAcumuladaActual.voluntaria.toFixed(1));
     const rotAcumuladaTotal = Number(rotacionAcumuladaActual.total.toFixed(1));
     const rotAcumuladaInvPrev = Number(rotacionAcumuladaPrevio.involuntaria.toFixed(1));
+    const rotAcumuladaVolPrev = Number(rotacionAcumuladaPrevio.voluntaria.toFixed(1));
     const rotAcumuladaTotalPrev = Number(rotacionAcumuladaPrevio.total.toFixed(1));
 
     const rotYTDInv = Number(rotacionYTDActual.involuntaria.toFixed(1));
+    const rotYTDVol = Number(rotacionYTDActual.voluntaria.toFixed(1));
     const rotYTDTotal = Number(rotacionYTDActual.total.toFixed(1));
     const rotYTDInvPrev = Number(rotacionYTDPrevio.involuntaria.toFixed(1));
+    const rotYTDVolPrev = Number(rotacionYTDPrevio.voluntaria.toFixed(1));
     const rotYTDTotalPrev = Number(rotacionYTDPrevio.total.toFixed(1));
 
     const bajasVoluntariasMes = rotacionMensualActual.bajasVoluntarias;
@@ -835,22 +769,107 @@ export function DashboardPage() {
       rotacionMensualClaves: rotMensualInv,
       rotacionMensualClavesAnterior: rotMensualInvPrev,
       rotacionMensualClavesVariacion: calculateVariancePercentage(rotMensualInv, rotMensualInvPrev),
+      rotacionMensualVoluntaria: rotMensualVol,
+      rotacionMensualVoluntariaAnterior: rotMensualVolPrev,
+      rotacionMensualVoluntariaVariacion: calculateVariancePercentage(rotMensualVol, rotMensualVolPrev),
       rotacionAcumulada: rotAcumuladaTotal,
       rotacionAcumuladaAnterior: rotAcumuladaTotalPrev,
       rotacionAcumuladaVariacion: calculateVariancePercentage(rotAcumuladaTotal, rotAcumuladaTotalPrev),
       rotacionAcumuladaClaves: rotAcumuladaInv,
       rotacionAcumuladaClavesAnterior: rotAcumuladaInvPrev,
       rotacionAcumuladaClavesVariacion: calculateVariancePercentage(rotAcumuladaInv, rotAcumuladaInvPrev),
+      rotacionAcumuladaVoluntaria: rotAcumuladaVol,
+      rotacionAcumuladaVoluntariaAnterior: rotAcumuladaVolPrev,
+      rotacionAcumuladaVoluntariaVariacion: calculateVariancePercentage(rotAcumuladaVol, rotAcumuladaVolPrev),
       rotacionAnioActual: rotYTDTotal,
       rotacionAnioActualAnterior: rotYTDTotalPrev,
       rotacionAnioActualVariacion: calculateVariancePercentage(rotYTDTotal, rotYTDTotalPrev),
       rotacionAnioActualClaves: rotYTDInv,
       rotacionAnioActualClavesAnterior: rotYTDInvPrev,
       rotacionAnioActualClavesVariacion: calculateVariancePercentage(rotYTDInv, rotYTDInvPrev),
+      rotacionAnioActualVoluntaria: rotYTDVol,
+      rotacionAnioActualVoluntariaAnterior: rotYTDVolPrev,
+      rotacionAnioActualVoluntariaVariacion: calculateVariancePercentage(rotYTDVol, rotYTDVolPrev),
     } as any;
   };
 
   const filteredRetentionKPIs = getFilteredRetentionKPIs();
+  const bajasTotalesMes =
+    (filteredRetentionKPIs?.bajasVoluntarias ?? 0) +
+    (filteredRetentionKPIs?.bajasInvoluntarias ?? 0);
+  const bajasTotalesMesAnterior =
+    (filteredRetentionKPIs?.bajasVoluntariasAnterior ?? 0) +
+    (filteredRetentionKPIs?.bajasInvoluntariasAnterior ?? 0);
+  const headcountKpiCards: {
+    icon: ReactNode;
+    kpi: KPIResult;
+    secondaryRows?: { label: string; value: number; isPercent?: boolean; noWrap?: boolean; showColon?: boolean }[];
+  }[] = [
+    {
+      icon: <Users className="h-6 w-6" />,
+      kpi: {
+        name: 'Activos al cierre',
+        category: 'headcount',
+        value: activosFinMes,
+        previous_value: activosFinMesPrev,
+        variance_percentage: calculateVariancePercentage(activosFinMes, activosFinMesPrev),
+        period_start: formatISODate(currentPeriodStart),
+        period_end: formatISODate(currentPeriodEnd)
+      }
+    },
+    {
+      icon: <TrendingUp className="h-6 w-6" />,
+      kpi: {
+        name: 'Ingresos (Mes)',
+        category: 'headcount',
+        value: ingresosMes,
+        previous_value: ingresosMesPrev,
+        variance_percentage: calculateVariancePercentage(ingresosMes, ingresosMesPrev),
+        period_start: formatISODate(currentPeriodStart),
+        period_end: formatISODate(currentPeriodEnd)
+      }
+    },
+    {
+      icon: <UserMinus className="h-6 w-6" />,
+      kpi: {
+        name: 'Bajas (Mes)',
+        category: 'retention',
+        value: bajasTotalesMes,
+        previous_value: bajasTotalesMesAnterior,
+        variance_percentage: calculateVariancePercentage(bajasTotalesMes, bajasTotalesMesAnterior),
+        period_start: formatISODate(currentPeriodStart),
+        period_end: formatISODate(currentPeriodEnd)
+      },
+      secondaryRows: [
+        { label: 'Voluntarias', value: filteredRetentionKPIs?.bajasVoluntarias ?? 0 },
+        { label: 'Involuntarias', value: filteredRetentionKPIs?.bajasInvoluntarias ?? 0 }
+      ]
+    },
+    {
+      icon: <Calendar className="h-6 w-6" />,
+      kpi: {
+        name: 'Antigüedad Promedio (meses)',
+        category: 'headcount',
+        value: antigPromMesesActual,
+        previous_value: antigPromMesesPrev,
+        variance_percentage: calculateVariancePercentage(antigPromMesesActual, antigPromMesesPrev),
+        period_start: formatISODate(currentPeriodStart),
+        period_end: formatISODate(currentPeriodEnd)
+      }
+    },
+    {
+      icon: <Calendar className="h-6 w-6" />,
+      kpi: {
+        name: 'Empl. < 3 meses',
+        category: 'headcount',
+        value: menores3mActual,
+        previous_value: menores3mPrev,
+        variance_percentage: calculateVariancePercentage(menores3mActual, menores3mPrev),
+        period_start: formatISODate(currentPeriodStart),
+        period_end: formatISODate(currentPeriodEnd)
+      }
+    }
+  ];
   const periodLabel = format(selectedPeriod, "MMMM yyyy", { locale: es });
   const lastUpdatedDisplay = !data.loading
     ? format(data.lastUpdated, "dd/MM/yyyy HH:mm")
@@ -1100,12 +1119,13 @@ export function DashboardPage() {
                   <KPICardSkeleton key={`headcount-skeleton-${index}`} refreshEnabled />
                 ))
               ) : (
-                headcountKpiCards.map(({ kpi, icon }, index) => (
+                headcountKpiCards.map(({ kpi, icon, secondaryRows }, index) => (
                   <KPICard
                     key={`headcount-kpi-${index}`}
                     refreshEnabled={refreshEnabled}
                     kpi={kpi}
                     icon={icon}
+                    secondaryRows={secondaryRows}
                   />
                 ))
               )}
@@ -1548,9 +1568,20 @@ export function DashboardPage() {
                         .split('T')[0]
                     }}
                     icon={<TrendingUp className="h-6 w-6" />}
-                    secondaryLabel="Rotación Involuntaria"
-                    secondaryValue={filteredRetentionKPIs.rotacionMensualClaves}
-                    secondaryIsPercent
+                    secondaryRows={[
+                      {
+                        label: 'Rot. Involuntaria',
+                        value: filteredRetentionKPIs.rotacionMensualClaves,
+                        isPercent: true,
+                        noWrap: true
+                      },
+                      {
+                        label: 'Rot. Voluntaria',
+                        value: filteredRetentionKPIs.rotacionMensualVoluntaria,
+                        isPercent: true,
+                        noWrap: true
+                      }
+                    ]}
                   />
 
                   <KPICard
@@ -1569,9 +1600,20 @@ export function DashboardPage() {
                         .split('T')[0]
                     }}
                     icon={<TrendingDown className="h-6 w-6" />}
-                    secondaryLabel="Rotación Involuntaria"
-                    secondaryValue={filteredRetentionKPIs.rotacionAcumuladaClaves}
-                    secondaryIsPercent
+                    secondaryRows={[
+                      {
+                        label: 'Rot. Involuntaria',
+                        value: filteredRetentionKPIs.rotacionAcumuladaClaves,
+                        isPercent: true,
+                        noWrap: true
+                      },
+                      {
+                        label: 'Rot. Voluntaria',
+                        value: filteredRetentionKPIs.rotacionAcumuladaVoluntaria,
+                        isPercent: true,
+                        noWrap: true
+                      }
+                    ]}
                   />
 
                   <KPICard
@@ -1588,9 +1630,20 @@ export function DashboardPage() {
                         .split('T')[0]
                     }}
                     icon={<TrendingDown className="h-6 w-6" />}
-                    secondaryLabel="Rotación Involuntaria"
-                    secondaryValue={filteredRetentionKPIs.rotacionAnioActualClaves}
-                    secondaryIsPercent
+                    secondaryRows={[
+                      {
+                        label: 'Rot. Involuntaria',
+                        value: filteredRetentionKPIs.rotacionAnioActualClaves,
+                        isPercent: true,
+                        noWrap: true
+                      },
+                      {
+                        label: 'Rot. Voluntaria',
+                        value: filteredRetentionKPIs.rotacionAnioActualVoluntaria,
+                        isPercent: true,
+                        noWrap: true
+                      }
+                    ]}
                   />
                 </>
               )}
@@ -1616,30 +1669,25 @@ export function DashboardPage() {
                 Filtrar gráficas de rotación:
               </span>
               <div className="flex gap-2">
-                <Button
-                  variant={motivoFilterType === 'involuntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
-                  size="sm"
-                  onClick={() => setMotivoFilterType('involuntaria')}
-                  className={cn(
-                    "transition-all",
-                    refreshEnabled && "rounded-full font-semibold",
-                    motivoFilterType === 'involuntaria' && refreshEnabled && "shadow-brand"
-                  )}
-                >
-                  Rotación Involuntaria
-                </Button>
-                <Button
-                  variant={motivoFilterType === 'voluntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
-                  size="sm"
-                  onClick={() => setMotivoFilterType('voluntaria')}
-                  className={cn(
-                    "transition-all",
-                    refreshEnabled && "rounded-full font-semibold",
-                    motivoFilterType === 'voluntaria' && refreshEnabled && "shadow-brand"
-                  )}
-                >
-                  Rotación Voluntaria
-                </Button>
+                {([
+                  { key: 'all', label: 'Rotación Total' },
+                  { key: 'involuntaria', label: 'Rotación Involuntaria' },
+                  { key: 'voluntaria', label: 'Rotación Voluntaria' }
+                ] as const).map(option => (
+                  <Button
+                    key={option.key}
+                    variant={motivoFilterType === option.key ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+                    size="sm"
+                    onClick={() => setMotivoFilterType(option.key)}
+                    className={cn(
+                      "transition-all",
+                      refreshEnabled && "rounded-full font-semibold",
+                      motivoFilterType === option.key && refreshEnabled && "shadow-brand"
+                    )}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
               </div>
             </div>
 

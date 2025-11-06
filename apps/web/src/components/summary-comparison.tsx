@@ -692,9 +692,15 @@ export function SummaryComparison({
       {
         key: 'rotacion-acumulada',
         icon: <TrendingDown className="h-6 w-6" />,
-        secondaryLabel: 'vs mismo mes año anterior',
-        secondaryValue: kpisPrevYear.rotacionAcumulada,
         hidePreviousValue: true,
+        secondaryRows: [
+          {
+            label: 'vs mes año ant.',
+            value: kpisPrevYear.rotacionAcumulada,
+            isPercent: true,
+            showColon: false
+          }
+        ],
         kpi: {
           name: 'Rotación Acumulada',
           category: 'retention',
@@ -709,9 +715,15 @@ export function SummaryComparison({
       {
         key: 'rotacion-anio-actual',
         icon: <TrendingDown className="h-6 w-6" />,
-        secondaryLabel: 'vs mismo mes año anterior',
-        secondaryValue: kpisPrevYear.rotacionAnioActual,
         hidePreviousValue: true,
+        secondaryRows: [
+          {
+            label: 'vs mes año ant.',
+            value: kpisPrevYear.rotacionAnioActual,
+            isPercent: true,
+            showColon: false
+          }
+        ],
         kpi: {
           name: 'Rotación Año Actual',
           category: 'retention',
@@ -896,7 +908,7 @@ export function SummaryComparison({
               : "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
           )}
         >
-          {summaryCardItems.map(({ key, kpi, icon, secondaryLabel, secondaryValue, secondaryIsPercent, hidePreviousValue }) => (
+          {summaryCardItems.map(({ key, kpi, icon, secondaryLabel, secondaryValue, secondaryIsPercent, secondaryRows, hidePreviousValue }) => (
             <KPICard
               key={key}
               refreshEnabled={refreshEnabled}
@@ -905,6 +917,7 @@ export function SummaryComparison({
               secondaryLabel={secondaryLabel}
               secondaryValue={secondaryValue}
               secondaryIsPercent={secondaryIsPercent}
+              secondaryRows={secondaryRows}
               hidePreviousValue={hidePreviousValue}
             />
           ))}

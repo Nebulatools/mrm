@@ -5,6 +5,14 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 import { KPIResult } from "@/lib/kpi-calculator";
 import { cn } from "@/lib/utils";
 
+type KPISecondaryRow = {
+  label: string;
+  value: number;
+  isPercent?: boolean;
+  noWrap?: boolean;
+  showColon?: boolean;
+};
+
 interface KPICardProps {
   kpi: KPIResult;
   icon?: React.ReactNode;
@@ -13,6 +21,7 @@ interface KPICardProps {
   secondaryValue?: number;
   secondaryLabel?: string;
   secondaryIsPercent?: boolean;
+  secondaryRows?: KPISecondaryRow[];
   hidePreviousValue?: boolean;
 }
 
@@ -23,6 +32,7 @@ export function KPICard({
   secondaryValue,
   secondaryLabel,
   secondaryIsPercent,
+  secondaryRows,
   hidePreviousValue = false,
 }: KPICardProps) {
   const formatValue = (value: number, category: string): string => {
@@ -39,6 +49,7 @@ export function KPICard({
   };
 
   const normalizedName = kpi.name.toLowerCase();
+  const normalizedNameAscii = normalizedName.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const variancePercentage = typeof kpi.variance_percentage === 'number' ? kpi.variance_percentage : null;
   const rawDifference = kpi.previous_value !== undefined ? kpi.value - kpi.previous_value : null;
   const showAbsoluteVariance =
@@ -52,16 +63,16 @@ export function KPICard({
       : changeValue > 0
         ? 'up'
         : 'down';
-  const isIncidenciasOPermisos = /incidenc|permiso/.test(normalizedName);
+  const isInverseVarianceKpi = /incidenc|permiso|rotacion|baja/.test(normalizedNameAscii);
   const resolveColorState = () => {
     if (!significantVariance || changeValue === null || changeValue === 0) {
       return 'neutral' as const;
     }
     const positive = changeValue > 0;
     if (positive) {
-      return (isIncidenciasOPermisos ? 'negative' : 'positive') as const;
+      return (isInverseVarianceKpi ? 'negative' : 'positive') as const;
     }
-    return (isIncidenciasOPermisos ? 'positive' : 'negative') as const;
+    return (isInverseVarianceKpi ? 'positive' : 'negative') as const;
   };
   const changeColorState = resolveColorState();
   const trendColor =
@@ -89,6 +100,15 @@ export function KPICard({
     });
     return value > 0 ? `+${formatted}` : formatted;
   };
+
+  const resolvedSecondaryRows: KPISecondaryRow[] = Array.isArray(secondaryRows) && secondaryRows.length > 0
+    ? secondaryRows
+    : secondaryValue !== undefined && secondaryLabel
+      ? [{ label: secondaryLabel, value: secondaryValue, isPercent: secondaryIsPercent, showColon: true }]
+      : [];
+
+  const formatSecondaryValue = (value: number, isPercent?: boolean) =>
+    isPercent ? `${value.toFixed(1)}%` : value.toLocaleString("es-MX");
 
   return (
     <Card
@@ -144,19 +164,38 @@ export function KPICard({
             </span>
           )}
         </div>
-        {secondaryValue !== undefined && secondaryLabel && (
+        {resolvedSecondaryRows.length > 0 && (
           <div
             className={cn(
               "mt-1 text-xs text-gray-600 dark:text-gray-400",
-              refreshEnabled && "text-sm text-brand-ink/70"
+              refreshEnabled && "text-sm text-brand-ink/70",
+              resolvedSecondaryRows.length > 1 && "space-y-1"
             )}
           >
-            <span className="font-semibold text-gray-700 dark:text-gray-200">
-              {secondaryLabel}:
-            </span>{' '}
-            {secondaryIsPercent
-              ? `${secondaryValue.toFixed(1)}%`
-              : secondaryValue.toLocaleString("es-MX")}
+            {resolvedSecondaryRows.map((row, index) => (
+              <div
+                key={`${row.label}-${index}`}
+                className="grid grid-cols-[1fr_auto] items-baseline gap-x-2 gap-y-0.5"
+              >
+                <span
+                  className={cn(
+                    "font-semibold text-gray-700 dark:text-gray-200 leading-tight",
+                    row.noWrap && "whitespace-nowrap"
+                  )}
+                >
+                  {row.label}
+                  {row.showColon === false ? '' : ':'}
+                </span>
+                <span
+                  className={cn(
+                    "text-right leading-tight",
+                    row.noWrap && "whitespace-nowrap"
+                  )}
+                >
+                  {formatSecondaryValue(row.value, row.isPercent)}
+                </span>
+              </div>
+            ))}
           </div>
         )}
 

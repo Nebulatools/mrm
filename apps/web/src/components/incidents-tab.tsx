@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode, CSSProperties } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { calculateVariancePercentage, countActivosEnFecha } from "@/lib/utils/kp
 import { KPICard, KPICardSkeleton } from "./kpi-card";
 import { Users, AlertCircle, Activity, ClipboardCheck } from "lucide-react";
 import { getModernColor, withOpacity } from "@/lib/chart-colors";
+import { useTheme } from "@/components/theme-provider";
 
 type Props = {
   plantilla?: PlantillaRecord[];
@@ -57,9 +58,6 @@ const WEEKDAY_LABELS: Record<number, string> = {
   6: 'Sábado'
 };
 const PIE_LEGEND_STYLE: CSSProperties = { paddingTop: 8 };
-const pieLegendFormatter = (value: string) => (
-  <span className="text-[11px] font-medium text-slate-600">{value}</span>
-);
 const PIE_TOOLTIP_STYLE: CSSProperties = {
   borderRadius: 12,
   borderColor: "#E2E8F0",
@@ -189,6 +187,19 @@ const formatToDDMMYYYY = (value?: string | null) => {
 };
 
 export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedMonths, initialIncidencias, onKPIsUpdate }: Props) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const axisSecondaryColor = isDark ? "#CBD5F5" : "#64748b";
+  const axisMutedColor = isDark ? "#CBD5F5" : "#475569";
+  const gridStrokeColor = isDark ? "rgba(148, 163, 184, 0.25)" : "#E2E8F0";
+  const legendFormatter = useCallback(
+    (value: string) => (
+      <span className={`text-[11px] font-medium ${isDark ? 'text-slate-200' : 'text-slate-600'}`}>
+        {value}
+      </span>
+    ),
+    [isDark]
+  );
   const [incidencias, setIncidencias] = useState<IncidenciaCSVRecord[]>(initialIncidencias ?? []);
   const [showTable, setShowTable] = useState(false); // false = mostrar 10, true = mostrar todo
   const [loadingIncidencias, setLoadingIncidencias] = useState(!(initialIncidencias && initialIncidencias.length > 0));
@@ -772,7 +783,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                             return [`${safeValue.toLocaleString('es-MX')} registros`, name];
                           }}
                         />
-                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={pieLegendFormatter} />
+                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                         <Line
                           type="monotone"
                           dataKey="incidencias"
@@ -908,7 +919,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                             ];
                           }}
                         />
-                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={pieLegendFormatter} />
+                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                         <Pie
                           data={pieData}
                           dataKey="value"
@@ -938,7 +949,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Ausentismos vs Permisos por día</CardTitle>
-            <p className="text-sm text-gray-600">Comparativo del periodo seleccionado, lunes a domingo</p>
+            <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-gray-600'}`}>Comparativo del periodo seleccionado, lunes a domingo</p>
           </CardHeader>
           <CardContent className="flex-1">
             {loadingIncidencias ? (
@@ -954,16 +965,16 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                   <div style={{ height: fullscreen ? 420 : 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={incidenciasPorDia} margin={{ left: 16, right: 24, top: 16, bottom: 32 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="dia" tick={{ fontSize: 12 }} />
-                        <YAxis tick={{ fontSize: 12 }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
+                        <XAxis dataKey="dia" tick={{ fontSize: 12, fill: axisSecondaryColor }} />
+                        <YAxis tick={{ fontSize: 12, fill: axisMutedColor }} />
                         <Tooltip
                           wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                           contentStyle={LINE_TOOLTIP_STYLE}
                           labelStyle={LINE_TOOLTIP_LABEL_STYLE}
                           formatter={(value: number, name: string) => [`${Number(value || 0).toLocaleString('es-MX')} registros`, name]}
                         />
-                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={pieLegendFormatter} />
+                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                         <Bar dataKey="ausentismos" name="Ausentismos" fill={AUSENTISMO_COLOR} radius={[4, 4, 0, 0]} />
                         <Bar dataKey="permisos" name="Permisos" fill={PERMISO_COLOR} radius={[4, 4, 0, 0]} />
                       </BarChart>
@@ -982,7 +993,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Ausentismos vs Permisos por área</CardTitle>
-            <p className="text-sm text-gray-600">Top áreas con mayor número de registros</p>
+            <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-gray-600'}`}>Top áreas con mayor número de registros</p>
           </CardHeader>
           <CardContent className="flex-1">
             {loadingIncidencias ? (
@@ -1003,13 +1014,13 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                         margin={{ left: 32, right: 24, top: 16, bottom: 16 }}
                         barCategoryGap="16%"
                       >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" tick={{ fontSize: 12 }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
+                        <XAxis type="number" tick={{ fontSize: 12, fill: axisSecondaryColor }} />
                         <YAxis
                           dataKey="area"
                           type="category"
                           width={fullscreen ? 140 : 120}
-                          tick={{ fontSize: 12 }}
+                          tick={{ fontSize: 12, fill: axisMutedColor }}
                         />
                         <Tooltip
                           wrapperStyle={TOOLTIP_WRAPPER_STYLE}
@@ -1017,7 +1028,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           labelStyle={LINE_TOOLTIP_LABEL_STYLE}
                           formatter={(value: number, name: string) => [`${Number(value || 0).toLocaleString('es-MX')} registros`, name]}
                         />
-                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={pieLegendFormatter} />
+                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                         <Bar dataKey="ausentismos" name="Ausentismos" fill={AUSENTISMO_COLOR} radius={[0, 4, 4, 0]} />
                         <Bar dataKey="permisos" name="Permisos" fill={PERMISO_COLOR} radius={[0, 4, 4, 0]} />
                       </BarChart>

@@ -663,23 +663,23 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     const targetYear = currentYear || new Date().getFullYear();
                     return d.year === targetYear && fecha <= new Date();
                   })}>
-                    <CartesianGrid strokeDasharray="4 8" stroke="#E2E8F0" />
+                    <CartesianGrid strokeDasharray="4 8" stroke={gridStrokeColor} />
                     <XAxis
                       dataKey="mes"
-                      tick={{ fontSize: 11, fill: '#475569' }}
+                      tick={{ fontSize: 11, fill: axisSecondaryColor }}
                       angle={-45}
                       textAnchor="end"
                       height={60}
                     />
                     <YAxis
-                      tick={{ fontSize: 11, fill: '#475569' }}
+                      tick={{ fontSize: 11, fill: axisMutedColor }}
                       width={90}
                       label={{
                         value: 'Número de Bajas',
                         angle: -90,
                         position: 'outside',
                         offset: -5,
-                        style: { textAnchor: 'middle', fontSize: 11, fill: '#334155' }
+                        style: { textAnchor: 'middle', fontSize: 11, fill: axisPrimaryColor }
                       }}
                     />
                     <Tooltip cursor={{ fill: withOpacity(getModernColor(2), 0.12) }} content={<CustomTooltip />} wrapperStyle={TOOLTIP_WRAPPER_STYLE} />
