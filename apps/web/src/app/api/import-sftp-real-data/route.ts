@@ -61,6 +61,19 @@ export async function POST(request: NextRequest) {
     sftpClient.clearCache();
   }
 
+  const sftpBaseUrl = buildSftpBaseUrl(request);
+  sftpClient.setBaseUrl(sftpBaseUrl);
+  const cronSecret = process.env.CRON_SYNC_SECRET;
+  const cookieHeader = request.headers.get('cookie') ?? undefined;
+  if (cronSecret) {
+    sftpClient.setDefaultFetchOptions({ headers: { 'x-cron-secret': cronSecret } });
+  } else if (cookieHeader) {
+    sftpClient.setDefaultFetchOptions({ headers: { cookie: cookieHeader } });
+  } else {
+    sftpClient.setDefaultFetchOptions(undefined);
+  }
+  console.log('🔗 SFTP base URL usada en importación:', sftpClient.getBaseUrl());
+
   if (isServiceRun) {
     const { data: scheduleRow, error: scheduleError } = await supabaseAdmin
       .from('sync_settings')
@@ -190,29 +203,14 @@ export async function POST(request: NextRequest) {
           console.log(`🔄 Empleados transformados: ${empleadosTransformados.length}`);
           console.log('Sample empleado:', empleadosTransformados[0]);
           
-          // Reemplazar registros existentes de los mismos empleados
-          const employeeNumbers = Array.from(new Set(
-            empleadosTransformados
-              .map((emp) => emp.numero_empleado)
-              .filter((num) => Number.isFinite(num))
-          ));
-
-          if (employeeNumbers.length > 0) {
-            console.log(`🧹 Eliminando ${employeeNumbers.length} registros previos de empleados_sftp`);
-            await supabaseAdmin
-              .from('empleados_sftp')
-              .delete()
-              .in('numero_empleado', employeeNumbers);
-          }
-          
-          // Insertar en lotes de 50
+          // Insertar en lotes de 50 usando upsert para no eliminar historial previo
           const batchSize = 50;
           for (let i = 0; i < empleadosTransformados.length; i += batchSize) {
             const batch = empleadosTransformados.slice(i, i + batchSize);
             
             const { error } = await supabaseAdmin
               .from('empleados_sftp')
-              .insert(batch);
+              .upsert(batch, { onConflict: 'numero_empleado' });
               
             if (error) {
               console.error(`Error insertando lote ${Math.floor(i / batchSize) + 1}:`, error);
@@ -357,12 +355,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Importación de datos SFTP completada',
       results,
       schedule: scheduleMeta,
     });
+    return response;
 
   } catch (error) {
     console.error('❌ Error en importación SFTP:', error);
@@ -370,6 +369,8 @@ export async function POST(request: NextRequest) {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
+  } finally {
+    sftpClient.setDefaultFetchOptions(undefined);
   }
 }
 
@@ -407,4 +408,30 @@ function parseDate(dateValue: unknown): string | null {
   }
 
   return null;
+}
+
+function buildSftpBaseUrl(request: NextRequest): string {
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const originHeader = request.headers.get('origin');
+
+  let origin = '';
+  if (forwardedHost) {
+    const proto = forwardedProto || 'https';
+    origin = `${proto}://${forwardedHost}`;
+  } else if (originHeader) {
+    origin = originHeader;
+  } else if (request.nextUrl && request.nextUrl.origin) {
+    origin = request.nextUrl.origin;
+  }
+
+  const envFallback =
+    process.env.INTERNAL_SFTP_API_URL ||
+    process.env.INTERNAL_SITE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+
+  const fallbackOrigin = envFallback || `http://localhost:${process.env.PORT ?? '3000'}`;
+  return origin || fallbackOrigin;
 }

@@ -13,11 +13,78 @@ interface CacheEntry<T = unknown> {
   ttl: number;
 }
 
+const IS_SERVER = typeof window === 'undefined';
+const DEFAULT_BASE_URL = resolveInitialBaseUrl();
+
+function normalizeBaseUrl(url?: string | null): string | null {
+  if (!url) return null;
+  let normalized = url.trim();
+  if (!normalized) return null;
+
+  const hasProtocol = /^https?:\/\//i.test(normalized);
+  const isRelative = normalized.startsWith('/');
+
+  if (!hasProtocol && !isRelative) {
+    normalized = `https://${normalized}`;
+  }
+
+  if (hasProtocol) {
+    normalized = normalized.replace(/\/$/, '');
+    if (normalized.endsWith('/api/sftp')) {
+      return normalized;
+    }
+    return `${normalized}/api/sftp`;
+  }
+
+  if (normalized.endsWith('/api/sftp')) {
+    return normalized;
+  }
+
+  return `${normalized.replace(/\/$/, '')}`;
+}
+
+function resolveInitialBaseUrl(): string {
+  if (!IS_SERVER) {
+    return '/api/sftp';
+  }
+
+  const envBase =
+    process.env.INTERNAL_SFTP_API_URL ||
+    process.env.INTERNAL_SITE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+
+  const fallbackBase = envBase && envBase.length > 0 ? envBase : `http://localhost:${process.env.PORT ?? '3000'}`;
+  return normalizeBaseUrl(fallbackBase) || 'http://localhost:3000/api/sftp';
+}
+
 export class SFTPClient {
-  private baseUrl = '/api/sftp';
+  private baseUrl: string;
   private cache = new Map<string, CacheEntry>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
   private ongoingRequests = new Map<string, Promise<unknown>>();
+  private defaultFetchOptions?: RequestInit;
+
+  constructor(initialBaseUrl?: string) {
+    const normalized = normalizeBaseUrl(initialBaseUrl);
+    this.baseUrl = normalized || DEFAULT_BASE_URL;
+  }
+
+  public setBaseUrl(url?: string | null): void {
+    const normalized = normalizeBaseUrl(url);
+    if (normalized) {
+      this.baseUrl = normalized;
+    }
+  }
+
+  public getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  public setDefaultFetchOptions(options?: RequestInit | null): void {
+    this.defaultFetchOptions = options || undefined;
+  }
 
   // Cache management
   private getCacheKey(method: string, ...params: unknown[]): string {
@@ -58,7 +125,7 @@ export class SFTPClient {
     try {
       console.log('Testing SFTP connection via API');
       
-      const response = await fetch(`${this.baseUrl}?action=test`);
+      const response = await fetch(`${this.baseUrl}?action=test`, this.buildRequestInit());
       const result = await response.json();
       
       return result.success || false;
@@ -101,7 +168,7 @@ export class SFTPClient {
     try {
       console.log('Listing SFTP files via API');
       
-      const response = await fetch(`${this.baseUrl}?action=list`);
+      const response = await fetch(`${this.baseUrl}?action=list`, this.buildRequestInit());
       const result = await response.json();
       
       if (result.files && result.files.length > 0) {
@@ -113,14 +180,12 @@ export class SFTPClient {
         }));
       }
       
-      // Return mock files as fallback
-      return this.getMockFiles();
+      throw new Error('SFTP list returned no files');
 
     } catch (error) {
       console.error('Error listing SFTP files:', error);
-      
-      // Return mock files as fallback
-      return this.getMockFiles();
+
+      throw error;
     }
   }
 
@@ -157,21 +222,19 @@ export class SFTPClient {
     try {
       console.log('Downloading file via API:', filename);
       
-      const response = await fetch(`${this.baseUrl}?action=download&filename=${encodeURIComponent(filename)}`);
+      const response = await fetch(`${this.baseUrl}?action=download&filename=${encodeURIComponent(filename)}`, this.buildRequestInit());
       const result = await response.json();
       
       if (result.data && result.data.length > 0) {
         return result.data;
       }
       
-      // Return mock data as fallback
-      return this.getMockDataByFilename(filename);
+      throw new Error(`SFTP download returned no data for ${filename}`);
 
     } catch (error) {
       console.error('Error downloading SFTP file:', error);
-      
-      // Return mock data as fallback
-      return this.getMockDataByFilename(filename);
+
+      throw error;
     }
   }
 
@@ -222,138 +285,69 @@ export class SFTPClient {
     incidencias: Record<string, unknown>[];
     act: Record<string, unknown>[];
   }> {
-    try {
-      const files = await this.listFiles();
-      
-      const results = {
-        plantilla: [] as Record<string, unknown>[],
-        incidencias: [] as Record<string, unknown>[],
-        act: [] as Record<string, unknown>[]
-      };
-
-      // Process files in parallel for better performance
-      const downloadPromises = files.map(async (file) => {
-        const data = await this.downloadFile(file.name);
-        return { type: file.type, data };
-      });
-
-      const downloadResults = await Promise.all(downloadPromises);
-      
-      downloadResults.forEach(({ type, data }) => {
-        results[type] = data;
-      });
-
-      return results;
-    } catch (error) {
-      console.error('Error syncing SFTP data:', error);
-      return {
-        plantilla: this.getMockPlantillaData(),
-        incidencias: this.getMockIncidenciasData(),
-        act: this.getMockActData()
-      };
-    }
-  }
-
-  // Helper methods for mock data
-  private getMockFiles(): SFTPFile[] {
-    return [
-      {
-        name: 'plantilla_2024_12.csv',
-        type: 'plantilla',
-        lastModified: new Date('2024-12-01'),
-        size: 15600
-      },
-      {
-        name: 'incidencias_2024_12.csv',
-        type: 'incidencias', 
-        lastModified: new Date('2024-12-01'),
-        size: 8900
-      },
-      {
-        name: 'act_2024_12.csv',
-        type: 'act',
-        lastModified: new Date('2024-12-01'),
-        size: 1200
-      }
-    ];
-  }
-
-  private getMockDataByFilename(filename: string): Record<string, unknown>[] {
-    if (filename.includes('plantilla')) {
-      return this.getMockPlantillaData();
-    } else if (filename.includes('incidencias')) {
-      return this.getMockIncidenciasData();
-    } else if (filename.includes('act')) {
-      return this.getMockActData();
-    }
-    return [];
-  }
-
-  private getMockPlantillaData(): Record<string, unknown>[] {
-    return [
-      {
-        empleado_id: 'EMP001',
-        first_name: 'Juan',
-        last_name: 'Pérez',
-        active_status: 'Activo'
-      },
-      {
-        empleado_id: 'EMP002',
-        first_name: 'María',
-        last_name: 'García',
-        active_status: 'Activo'
-      },
-      {
-        empleado_id: 'EMP003',
-        first_name: 'Carlos',
-        last_name: 'López',
-        active_status: 'Baja'
-      }
-    ];
-  }
-
-  private getMockIncidenciasData(): Record<string, unknown>[] {
-    return [
-      {
-        incident_id: 'INC001',
-        employee_id: 'EMP001',
-        incident_type: 'Ausencia',
-        incident_date: '2024-12-15'
-      },
-      {
-        incident_id: 'INC002', 
-        employee_id: 'EMP002',
-        incident_type: 'Retraso',
-        incident_date: '2024-12-20'
-      }
-    ];
-  }
-
-  private getMockActData(): Record<string, unknown>[] {
-    const currentDate = new Date();
-    const data = [];
+    const files = await this.listFiles();
     
-    // Generate realistic ACT data for last 12 months with seasonal trends
-    const baseEmployees = 25;
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-      
-      // Add seasonal variation (higher in fall/winter, lower in summer)
-      const seasonalFactor = Math.sin((date.getMonth() * Math.PI) / 6) * 0.15;
-      const growthTrend = i * 0.8; // Slight growth over time (going backwards)
-      const randomVariation = (Math.random() - 0.5) * 4;
-      
-      const employeeCount = Math.round(baseEmployees + seasonalFactor * baseEmployees + growthTrend + randomVariation);
-      
-      data.push({
-        snapshot_date: lastDay.toISOString().split('T')[0],
-        active_employee_count: Math.max(15, employeeCount)
-      });
-    }
+    const results = {
+      plantilla: [] as Record<string, unknown>[],
+      incidencias: [] as Record<string, unknown>[],
+      act: [] as Record<string, unknown>[]
+    };
+
+    // Process files in parallel for better performance
+    const downloadPromises = files.map(async (file) => {
+      const data = await this.downloadFile(file.name);
+      return { type: file.type, data };
+    });
+
+    const downloadResults = await Promise.all(downloadPromises);
     
-    return data.reverse(); // Reverse to show chronological order
+    downloadResults.forEach(({ type, data }) => {
+      results[type] = data;
+    });
+
+    return results;
   }
+
+  private buildRequestInit(overrides?: RequestInit): RequestInit | undefined {
+    if (!this.defaultFetchOptions && !overrides) {
+      return undefined;
+    }
+
+    if (!this.defaultFetchOptions) {
+      return overrides;
+    }
+
+    if (!overrides) {
+      return this.defaultFetchOptions;
+    }
+
+    const merged: RequestInit = { ...this.defaultFetchOptions, ...overrides };
+    const defaultHeaders = headersToObject(this.defaultFetchOptions.headers);
+    const overrideHeaders = headersToObject(overrides.headers);
+    const headers = { ...defaultHeaders, ...overrideHeaders };
+    if (Object.keys(headers).length > 0) {
+      merged.headers = headers;
+    }
+    return merged;
+  }
+}
+
+function headersToObject(headers?: HeadersInit): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) {
+    const entries = Array.from(headers.entries());
+    return entries.reduce<Record<string, string>>((acc, [key, value]) => {
+      acc[key] = value;
+      return acc;
+    }, {});
+  }
+  if (Array.isArray(headers)) {
+    return headers.reduce<Record<string, string>>((acc, [key, value]) => {
+      acc[key] = value;
+      return acc;
+    }, {});
+  }
+  return { ...headers };
 }
 
 export const sftpClient = new SFTPClient();
