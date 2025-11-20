@@ -377,7 +377,7 @@ export function RetentionFilterPanel({
                   : "border-gray-200 bg-white text-slate-700 hover:bg-slate-50"
             )}
           >
-            <span className="truncate">
+            <span className="min-w-0 flex-1 truncate text-left">
               {previewLabel}
             </span>
             {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -420,7 +420,7 @@ export function RetentionFilterPanel({
                   </Button>
                 )}
               </div>
-              <div className="max-h-60 overflow-y-auto p-2">
+              <div className="max-h-80 overflow-y-auto p-2 lg:max-h-none">
                 {filteredOptions.length === 0 ? (
                   <p className="px-2 py-4 text-center text-xs text-muted-foreground">
                     {searchTerm ? `Sin resultados para ${searchTerm}` : 'Sin resultados'}
