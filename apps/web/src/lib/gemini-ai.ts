@@ -519,30 +519,6 @@ Responde con una lista de 3 recomendaciones específicas y accionables.
 export async function summarizeAbandonos(descriptions: string[]): Promise<string[]> {
   if (!descriptions.length) return ['No hay descripciones para resumir en este mes.'];
 
-  const fallback = () => {
-    const bag = new Map<string, number>();
-    descriptions.forEach((d) => {
-      d
-        .toLowerCase()
-        .replace(/[^a-záéíóúñü0-9\s]/gi, " ")
-        .split(/\s+/)
-        .filter((w) => w.length >= 5)
-        .forEach((w) => bag.set(w, (bag.get(w) || 0) + 1));
-    });
-    const top = Array.from(bag.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 9)
-      .map(([word]) => word);
-
-    const group = (slice: string[]) => (slice.length ? slice.join(", ") : "sin datos");
-
-    return [
-      `Patrones frecuentes: ${group(top.slice(0, 3))}.`,
-      `Términos adicionales: ${group(top.slice(3, 6))}.`,
-      `Resto de menciones: ${group(top.slice(6, 9))}.`,
-    ];
-  };
-
   const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   const prompt = `
 Eres analista de RRHH. Lee las descripciones de bajas con motivos "otro/abandono/sin información".
@@ -555,11 +531,12 @@ ${descriptions.map((d, i) => `${i + 1}. ${d}`).join("\n")}
 
   try {
     if (!apiKey || apiKey === "demo-key" || apiKey === "your_gemini_api_key_here") {
-      return fallback();
+      return ['Configura NEXT_PUBLIC_GEMINI_API_KEY para generar el resumen con LLM.'];
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Preferir la ruta completa para evitar 404 en v1beta
+    const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash-latest" });
     const response = await model.generateContent(prompt);
     const text = response.response?.text() || "";
     const lines = text
@@ -567,10 +544,10 @@ ${descriptions.map((d, i) => `${i + 1}. ${d}`).join("\n")}
       .map((l) => l.replace(/^[\-\*\d\.\)\s]+/, "").trim())
       .filter((l) => l.length > 0)
       .slice(0, 3);
-    return lines.length ? lines : fallback();
+    return lines.length ? lines : ['Sin respuesta del modelo.'];
   } catch (err) {
     console.error("Error en summarizeAbandonos:", err);
-    return fallback();
+    return ['Error al generar el resumen con LLM.'];
   }
 }
 

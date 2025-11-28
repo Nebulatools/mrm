@@ -720,13 +720,13 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       </div>
 
       {/* Tablas comparativas lado a lado */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="max-w-screen-2xl mx-auto grid grid-cols-1 2xl:grid-cols-2 gap-8 auto-rows-max items-start">
         {/* Tabla comparativa de Rotación Acumulada */}
-        <Card>
-          <CardHeader>
+        <Card className="h-full w-full min-w-0 overflow-hidden">
+          <CardHeader className="pb-3">
             <CardTitle className="text-lg">Tabla Comparativa - Rotación Acumulada 12 Meses Móviles</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <VisualizationContainer
               title="Tabla comparativa - Rotación acumulada"
               type="table"
@@ -734,8 +734,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               filename="tabla-rotacion-acumulada"
             >
               {() => (
-            <div className="relative w-full overflow-x-auto min-w-[780px]">
-              <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm">
+            <div className="relative w-full overflow-visible rounded-xl border border-slate-200/70 shadow-sm dark:border-slate-700/60">
+              <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm whitespace-normal">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-800/60">
                     <th className="px-3 py-2 text-left text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm" rowSpan={2}>Mes</th>
@@ -772,7 +772,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     return (
                       <tr
                         key={row.mes}
-                        className={index % 2 === 0 ? 'bg-gray-50 dark:bg-slate-800/40' : ''}
+                        className={index % 2 === 0 ? 'bg-gray-50/60 dark:bg-slate-800/40' : 'bg-white dark:bg-slate-900'}
                       >
                         <td className="px-3 py-2 text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">{row.mes}</td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
@@ -808,11 +808,11 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         </Card>
 
         {/* Tabla comparativa de Rotación Mensual */}
-        <Card>
-          <CardHeader>
+        <Card className="h-full w-full min-w-0 overflow-hidden">
+          <CardHeader className="pb-3">
             <CardTitle className="text-lg">Tabla Comparativa - Rotación Mensual</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <VisualizationContainer
               title="Tabla comparativa - Rotación mensual"
               type="table"
@@ -820,8 +820,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               filename="tabla-rotacion-mensual"
             >
               {() => (
-            <div className="relative w-full overflow-x-auto min-w-[780px]">
-              <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm">
+            <div className="relative w-full overflow-visible rounded-xl border border-slate-200/70 shadow-sm dark:border-slate-700/60">
+              <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm whitespace-normal">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-800/60">
                     <th className="px-3 py-2 text-left text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm" rowSpan={2}>Mes</th>
@@ -854,7 +854,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     return (
                       <tr
                         key={monthName}
-                        className={index % 2 === 0 ? 'bg-gray-50 dark:bg-slate-800/40' : ''}
+                        className={index % 2 === 0 ? 'bg-gray-50/60 dark:bg-slate-800/40' : 'bg-white dark:bg-slate-900'}
                       >
                         <td className="px-3 py-2 text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">{monthName}</td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
