@@ -6,6 +6,37 @@ import * as XLSX from 'xlsx';
 import { requireAdmin } from '@/lib/server-auth';
 import { computeNextRun, normalizeDayOfWeek, normalizeFrequency, normalizeRunTime } from '@/lib/utils/sync-schedule';
 
+const normalizeKey = (key: unknown): string =>
+  typeof key === 'string'
+    ? key
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+    : '';
+
+function pickField(
+  record: Record<string, unknown>,
+  explicitKeys: string[],
+  token: string
+): string {
+  for (const key of explicitKeys) {
+    const value = record[key];
+    const str = value === null || value === undefined ? '' : String(value).trim();
+    if (str && str.toLowerCase() !== 'null') return str;
+  }
+
+  const tokenNorm = normalizeKey(token);
+  for (const [rawKey, value] of Object.entries(record)) {
+    const normKey = normalizeKey(rawKey);
+    if (!normKey || !normKey.includes(tokenNorm)) continue;
+    const str = value === null || value === undefined ? '' : String(value).trim();
+    if (str && str.toLowerCase() !== 'null') return str;
+  }
+
+  return '';
+}
+
 // Helper function to safely parse dates
 function parseDate(dateValue: unknown): string | null {
   if (!dateValue) return null;
@@ -269,10 +300,10 @@ export async function POST(request: NextRequest) {
         codigo_cc: emp['Código de CC'] || emp['C?digo de CC'] || '',
         cc: emp['CC'] || '',
         subcuenta_cc: emp['Subcuenta CC'] || '',
-        clasificacion: emp['Clasificación'] || emp['Clasificaci?n'] || 'No especificado',
+        clasificacion: pickField(emp, ['Clasificación', 'Clasificaci?n', 'Clasificacion'], 'clasif'),
         codigo_area: emp['Codigo Area'] || '',
         area: emp['Area'] || emp['Área'] || 'No especificada',
-        ubicacion: emp['Ubicación'] || emp['Ubicaci?n'] || 'No especificada',
+        ubicacion: pickField(emp, ['Ubicación', 'Ubicaci?n', 'Ubicacion'], 'ubica'),
         tipo_nomina: emp['Tipo de Nómina'] || emp['Tipo de N?mina'] || '',
         turno: emp['Turno'] || '',
         prestacion_ley: emp['Prestación de Ley'] || emp['Prestaci?n de Ley'] || '',

@@ -29,6 +29,7 @@ interface ImportResults {
   bajas: number;
   asistencia: number;
   incidencias?: number;
+  permisos?: number;
   errors: string[];
 }
 
@@ -792,6 +793,18 @@ export function SFTPImportAdmin() {
                   </div>
                   <div className="text-2xl font-bold text-purple-600">
                     {importResults.incidencias.toLocaleString()}
+                  </div>
+                </div>
+              )}
+
+              {typeof importResults.permisos === 'number' && (
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="h-5 w-5 text-amber-600" />
+                    <span className="font-medium">Permisos Importados</span>
+                  </div>
+                  <div className="text-2xl font-bold text-amber-600">
+                    {importResults.permisos.toLocaleString()}
                   </div>
                 </div>
               )}

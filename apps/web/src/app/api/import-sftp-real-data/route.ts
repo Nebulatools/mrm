@@ -4,6 +4,37 @@ import { sftpClient } from '@/lib/sftp-client';
 import { requireAdmin } from '@/lib/server-auth';
 import { computeNextRun, normalizeDayOfWeek, normalizeFrequency, normalizeRunTime } from '@/lib/utils/sync-schedule';
 
+const normalizeKey = (key: unknown): string =>
+  typeof key === 'string'
+    ? key
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+    : '';
+
+function pickField(
+  record: Record<string, unknown>,
+  explicitKeys: string[],
+  token: string
+): string {
+  for (const key of explicitKeys) {
+    const value = record[key];
+    const str = value === null || value === undefined ? '' : String(value).trim();
+    if (str && str.toLowerCase() !== 'null') return str;
+  }
+
+  const tokenNorm = normalizeKey(token);
+  for (const [rawKey, value] of Object.entries(record)) {
+    const normKey = normalizeKey(rawKey);
+    if (!normKey || !normKey.includes(tokenNorm)) continue;
+    const str = value === null || value === undefined ? '' : String(value).trim();
+    if (str && str.toLowerCase() !== 'null') return str;
+  }
+
+  return '';
+}
+
 interface EmpleadoSFTP {
   numero_empleado: number;
   apellidos: string;
@@ -45,6 +76,24 @@ interface MotivoBaja {
   descripcion?: string;
   observaciones?: string;
 }
+
+interface IncidenciaSFTP {
+  emp: number;
+  nombre: string | null;
+  fecha: string;
+  turno: number | null;
+  horario: string | null;
+  incidencia: string | null;
+  entra: string | null;
+  sale: string | null;
+  ordinarias: number | null;
+  numero: number | null;
+  inci: string | null;
+  status: number | null;
+}
+
+const INCIDENT_CODES = new Set(['FI', 'SUS', 'PSIN', 'ENFE']);
+const PERMISO_CODES = new Set(['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST']);
 
 export async function POST(request: NextRequest) {
   const auth = await requireAdmin(request);
@@ -134,6 +183,8 @@ export async function POST(request: NextRequest) {
       empleados: 0,
       bajas: 0,
       asistencia: 0,
+      incidencias: null as number | null,
+      permisos: null as number | null,
       errors: [] as string[]
     };
 
@@ -187,10 +238,10 @@ export async function POST(request: NextRequest) {
               codigo_cc: String(record['Código de CC'] || ''),
               cc: String(record['CC'] || ''),
               subcuenta_cc: String(record['Subcuenta CC'] || ''),
-              clasificacion: String(record['Clasificación'] || ''),
+              clasificacion: pickField(record as Record<string, unknown>, ['Clasificación', 'Clasificaci?n', 'Clasificacion'], 'clasif'),
               codigo_area: String(record['Codigo Area'] || ''),
               area: String(record['Area'] || 'Sin Area'),
-              ubicacion: String(record['Ubicación'] || ''),
+              ubicacion: pickField(record as Record<string, unknown>, ['Ubicación', 'Ubicaci?n', 'Ubicacion'], 'ubica'),
               tipo_nomina: String(record['Tipo de Nómina'] || ''),
               turno: String(record['Turno'] || ''),
               prestacion_ley: String(record['Prestación de Ley'] || ''),
@@ -314,8 +365,75 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 4. Procesar archivo de incidencias (Incidencias.csv)
+    const incidenciasFile = files.find(f => f.name.toLowerCase().includes('incidencia') && f.name.toLowerCase().endsWith('.csv'));
+
+    if (incidenciasFile) {
+      console.log(`📥 Procesando archivo de incidencias: ${incidenciasFile.name}`);
+
+      try {
+        const incidenciasData = await sftpClient.downloadFile(incidenciasFile.name);
+        console.log(`📊 Registros de incidencias encontrados: ${incidenciasData.length}`);
+
+        if (incidenciasData.length > 0) {
+          const incidenciasTransformadas = incidenciasData
+            .map((record: Record<string, unknown>, index: number) => transformIncidenciaRecord(record, index))
+            .filter((record): record is IncidenciaSFTP => record !== null);
+
+          if (incidenciasTransformadas.length > 0) {
+            console.log(`🔄 Incidencias transformadas: ${incidenciasTransformadas.length}`);
+            console.log('Sample incidencia:', incidenciasTransformadas[0]);
+
+            const fechas = incidenciasTransformadas
+              .map((inc) => new Date(inc.fecha))
+              .filter((date) => !Number.isNaN(date.getTime()))
+              .sort((a, b) => a.getTime() - b.getTime());
+
+            if (fechas.length > 0) {
+              const periodStart = fechas[0].toISOString().split('T')[0];
+              const periodEnd = fechas[fechas.length - 1].toISOString().split('T')[0];
+              console.log(`🧹 Eliminando incidencias existentes en rango ${periodStart} -> ${periodEnd}`);
+
+              await supabaseAdmin
+                .from('incidencias')
+                .delete()
+                .gte('fecha', periodStart)
+                .lte('fecha', periodEnd);
+            }
+
+            const batchSize = 200;
+            for (let i = 0; i < incidenciasTransformadas.length; i += batchSize) {
+              const batch = incidenciasTransformadas.slice(i, i + batchSize);
+              const { error } = await supabaseAdmin
+                .from('incidencias')
+                .insert(batch);
+
+              if (error) {
+                console.error(`Error insertando incidencias lote ${Math.floor(i / batchSize) + 1}:`, error);
+                results.errors.push(`Error lote incidencias ${Math.floor(i / batchSize) + 1}: ${error.message}`);
+              } else {
+                console.log(`✅ Lote incidencias ${Math.floor(i / batchSize) + 1} insertado correctamente`);
+              }
+            }
+
+            const totalIncidencias = incidenciasTransformadas.filter((inc) => inc.inci && INCIDENT_CODES.has(inc.inci)).length;
+            const totalPermisos = incidenciasTransformadas.filter((inc) => inc.inci && PERMISO_CODES.has(inc.inci)).length;
+
+            console.log(`📈 Totales incidencias/permisos - Incidencias: ${totalIncidencias}, Permisos: ${totalPermisos}`);
+
+            results.incidencias = totalIncidencias;
+            results.permisos = totalPermisos;
+          }
+        }
+
+      } catch (error) {
+        console.error('Error procesando incidencias:', error);
+        results.errors.push(`Error incidencias: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
     console.log('✅ Importación de datos SFTP completada!');
-    console.log(`📊 Resultados finales - Empleados: ${results.empleados}, Bajas: ${results.bajas}`);
+    console.log(`📊 Resultados finales - Empleados: ${results.empleados}, Bajas: ${results.bajas}, Incidencias: ${results.incidencias}`);
 
     let scheduleMeta: { last_run?: string | null; next_run?: string | null } = {};
     const { data: scheduleRow, error: scheduleError } = await supabaseAdmin
@@ -408,6 +526,73 @@ function parseDate(dateValue: unknown): string | null {
   }
 
   return null;
+}
+
+function parseIncidenciaDate(value: unknown): string | null {
+  if (!value) return null;
+  const str = String(value).trim();
+  if (!str) return null;
+  const parsed = new Date(str);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString().split('T')[0];
+}
+
+function parseOptionalInt(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const num = parseInt(String(value).trim(), 10);
+  return Number.isFinite(num) ? num : null;
+}
+
+function parseOptionalFloat(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const num = parseFloat(String(value).trim());
+  return Number.isFinite(num) ? num : null;
+}
+
+function sanitizeString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const str = String(value).trim();
+  return str.length > 0 ? str : null;
+}
+
+function normalizeInciCode(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = value.trim().toUpperCase();
+  return cleaned || null;
+}
+
+function transformIncidenciaRecord(record: Record<string, unknown>, index: number): IncidenciaSFTP | null {
+  const fecha = parseIncidenciaDate(record['Fecha']);
+  if (!fecha) {
+    return null;
+  }
+
+  const turno = parseOptionalInt(record['Turno']);
+  const horario = sanitizeString(record['Horario']);
+  const incidencia = sanitizeString(record['Incidencia']);
+  const entra = sanitizeString(record['Entra']);
+  const sale = sanitizeString(record['Sale']);
+  const ordinarias = parseOptionalFloat(record['Ordinarias']);
+  const numero = parseOptionalInt(record['#']);
+  const inci = normalizeInciCode(record['INCI']);
+  const status = parseOptionalInt(record['Status']);
+
+  return {
+    emp: -1 * (index + 1),
+    nombre: null,
+    fecha,
+    turno,
+    horario,
+    incidencia,
+    entra,
+    sale,
+    ordinarias,
+    numero,
+    inci,
+    status,
+  };
 }
 
 function buildSftpBaseUrl(request: NextRequest): string {

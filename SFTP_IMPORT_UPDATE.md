@@ -13,7 +13,8 @@ This document summarizes the fixes applied to ensure the manual **Actualizar inf
    - Employee records are now written via batched `upsert` on `numero_empleado` (no deletions), and bajas only replace matching `numero_empleado|fecha_baja|motivo` rows before inserting new data.
 
 3. **Verification**
-   - Manual run log shows real SFTP files (`Prenomina Horizontal.csv`, `Validacion Alta de empleados.xls`, `MotivosBaja.csv`, `Incidencias.csv`), processing 1,021 empleados and 211 bajas without touching attendance.
+- Manual run log shows real SFTP files (`Prenomina Horizontal.csv`, `Validacion Alta de empleados.xls`, `MotivosBaja.csv`, `Incidencias.csv`), processing 1,021 empleados and 211 bajas without touching attendance.
+- Added a new ingestion step for `Incidencias.csv`. The file is parsed via Papaparse (to honor quoted commas) and rows are stored in `public.incidencias`. Because the CSV no longer includes números de empleado, each row gets a synthetic negative `emp` identifier; this keeps totals accurate while we wait for richer source data. Existing incidencias within the same date range are replaced so the dashboard reflects the latest SFTP export.
    - Supabase project `ufdlwhdrrvktthcxwpzt` now reports 1,021 employees (latest ingreso `2025‑11‑19`) and 834 motivos (`max fecha_baja 2025‑11‑16`), proving new data was added instead of mocked.
 
 ## Operational Notes
@@ -31,3 +32,5 @@ This document summarizes the fixes applied to ensure the manual **Actualizar inf
 1. **Server Awareness** – `sftpClient` now builds an absolute URL (`http(s)://host/api/sftp`) when running on the server and accepts headers via `setDefaultFetchOptions`. The import route populates those headers with either `x-cron-secret` or the user’s cookies, so `/api/sftp` sees an authenticated request.
 2. **No Mock Fallback** – All mock responses were removed; if `/api/sftp` fails we log/return the real error, making sync issues visible instead of silently returning fake CSVs.
 3. **Upsert Strategy** – Employee batches call `upsert(..., onConflict: 'numero_empleado')`, eliminating the pre-delete step. Bajas only delete the precise IDs that match the incoming `(numero_empleado, fecha_baja, motivo)` combination before inserting, so historical rows remain untouched.
+
+

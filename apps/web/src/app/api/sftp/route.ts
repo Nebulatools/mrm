@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/server-auth';
 export const runtime = 'nodejs';
 import SftpClient from 'ssh2-sftp-client';
 import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 
 interface SFTPConfig {
   host: string;
@@ -192,29 +193,38 @@ class SFTPService {
       let data: Record<string, unknown>[] = [];
 
       if (filename.toLowerCase().endsWith('.csv')) {
-        // Procesar CSV
+        // Procesar CSV usando Papaparse para respetar comillas y comas embebidas
         const csvText = fileContent.toString('utf8');
-        const lines = csvText.split('\n').filter(line => line.trim());
+        try {
+          const parsed = Papa.parse<Record<string, unknown>>(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            dynamicTyping: false,
+          });
 
-        if (lines.length === 0) {
-          console.log('CSV file is empty');
-          return [];
-        }
-
-        // Parse CSV manually
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-
-        const maxRows = limit ? Math.min(limit + 1, lines.length) : lines.length; // +1 porque línea 0 son headers
-
-        for (let i = 1; i < maxRows; i++) {
-          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-          if (values.length === headers.length) {
-            const row: Record<string, unknown> = {};
-            headers.forEach((header, index) => {
-              row[header] = values[index];
-            });
-            data.push(row);
+          if (parsed.errors?.length) {
+            console.warn('⚠️ CSV parse warnings:', parsed.errors.map((err) => err.message).slice(0, 3));
           }
+
+          const rows = Array.isArray(parsed.data) ? parsed.data : [];
+          const normalizedRows = rows.slice(0, limit ? Math.min(limit, rows.length) : rows.length).map((row) => {
+            const normalized: Record<string, unknown> = {};
+            Object.entries(row).forEach(([key, value]) => {
+              const cleanKey = key?.trim() || key;
+              if (!cleanKey) return;
+              if (typeof value === 'string') {
+                normalized[cleanKey] = value.trim();
+              } else {
+                normalized[cleanKey] = value;
+              }
+            });
+            return normalized;
+          });
+
+          return normalizedRows;
+        } catch (csvError) {
+          console.error('Error procesando CSV con Papaparse:', csvError);
+          data = [];
         }
       } else if (filename.toLowerCase().endsWith('.xlsx') || filename.toLowerCase().endsWith('.xls')) {
         // Procesar Excel
