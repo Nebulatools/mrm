@@ -22,6 +22,7 @@ import { RetentionCharts } from "./retention-charts";
 import IncidentsTab from "./incidents-tab";
 import { RetentionFilterPanel } from "./filter-panel";
 import { SummaryComparison } from "./summary-comparison";
+import { AbandonosOtrosSummary } from "./abandonos-otros-summary";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ModelTrendsTab } from "./model-trends-tab";
@@ -1671,8 +1672,8 @@ export function DashboardPage() {
               <div className="flex gap-2">
                 {([
                   { key: 'all', label: 'Rotación Total' },
-                  { key: 'involuntaria', label: 'Rotación Involuntaria' },
-                  { key: 'voluntaria', label: 'Rotación Voluntaria' }
+                  { key: 'voluntaria', label: 'Rotación Voluntaria' },
+                  { key: 'involuntaria', label: 'Rotación Involuntaria' }
                 ] as const).map(option => (
                   <Button
                     key={option.key}
@@ -1713,6 +1714,8 @@ export function DashboardPage() {
               data={bajasPorMotivoData}
               year={currentYear}
             />
+
+            <AbandonosOtrosSummary referenceDate={selectedPeriod} />
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
             <DismissalReasonsTable

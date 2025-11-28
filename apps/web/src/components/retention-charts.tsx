@@ -361,6 +361,28 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     }
   };
 
+  // Helper para tablas: usa monthlyData (filtrado/toggle) para recalcular bajas 12M, promedio de activos 12M y rotación coherente
+  const compute12mStats = (targetYear: number, targetMonth: number) => {
+    const windowEntries: MonthlyRetentionData[] = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(targetYear, targetMonth - 1 - i, 1);
+      const entry = monthlyData.find(
+        (m) => m.year === d.getFullYear() && m.month === d.getMonth() + 1
+      );
+      if (entry) windowEntries.push(entry);
+    }
+    const bajas12m = windowEntries.reduce((acc, m) => acc + (m.bajas || 0), 0);
+    const activosProm12m = windowEntries.length
+      ? windowEntries.reduce((acc, m) => acc + (m.activos || 0), 0) / windowEntries.length
+      : 0;
+    const rotacion12m = activosProm12m > 0 ? (bajas12m / activosProm12m) * 100 : null;
+    return {
+      bajas12m,
+      activosProm12m: activosProm12m > 0 ? Math.round(activosProm12m) : null,
+      rotacion12m,
+    };
+  };
+
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ color: string; name: string; value: number; dataKey: string }>; label?: string }) => {
     if (!active || !payload || payload.length === 0) {
       return null;
@@ -588,9 +610,9 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     <XAxis
                       dataKey="mes"
                       tick={{ fontSize: 11, fill: axisSecondaryColor }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={60}
+                      angle={0}
+                      tickMargin={10}
+                      height={38}
                     />
                     <YAxis
                       yAxisId="percentage"
@@ -667,9 +689,9 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     <XAxis
                       dataKey="mes"
                       tick={{ fontSize: 11, fill: axisSecondaryColor }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={60}
+                      angle={0}
+                      tickMargin={10}
+                      height={38}
                     />
                     <YAxis
                       tick={{ fontSize: 11, fill: axisMutedColor }}
@@ -712,7 +734,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               filename="tabla-rotacion-acumulada"
             >
               {() => (
-            <div className="relative w-full overflow-x-auto">
+            <div className="relative w-full overflow-x-auto min-w-[780px]">
               <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-800/60">
@@ -734,41 +756,19 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                   {yearlyComparison.map((row, index) => {
                     const year1 = availableYears[0];
                     const year2 = availableYears[availableYears.length - 1];
-                    
-                    // Buscar datos del mes para cada año en monthlyData
-                    const monthIndex = yearlyComparison.indexOf(row);
-                    const monthNumber = monthIndex + 1;
+                    const monthNumber = index + 1;
 
-                    const monthData1 = allMonthlyData.find(d => d.year === year1 && d.month === monthNumber);
-                    const monthData2 = allMonthlyData.find(d => d.year === year2 && d.month === monthNumber);
+                    const stats1 = compute12mStats(year1, monthNumber);
+                    const stats2 = compute12mStats(year2, monthNumber);
 
-                    // Calcular bajas acumuladas de 12 meses para cada año
-                    const getBajas12M = (targetYear: number, targetMonth: number) => {
-                      const startDate = new Date(targetYear, targetMonth - 13, 1);
+                    const rotacion1 = stats1.rotacion12m;
+                    const rotacion2 = stats2.rotacion12m;
 
-                      let totalBajas = 0;
-                      for (let i = 0; i < 12; i++) {
-                        const checkMonth = new Date(startDate);
-                        checkMonth.setMonth(startDate.getMonth() + i);
-                        const data = allMonthlyData.find(d =>
-                          d.year === checkMonth.getFullYear() &&
-                          d.month === checkMonth.getMonth() + 1
-                        );
-                        if (data) totalBajas += data.bajas;
-                      }
-                      return totalBajas;
-                    };
-                    
-                    const bajas12M_1 = getBajas12M(year1, monthNumber);
-                    const bajas12M_2 = getBajas12M(year2, monthNumber);
-                    
-                    const rotacion1 = typeof row[`rotacion${year1}`] === 'number' ? row[`rotacion${year1}`] as number : 0;
-                    const rotacion2 = typeof row[`rotacion${year2}`] === 'number' ? row[`rotacion${year2}`] as number : 0;
-                    
-                    const variationValue = rotacion1 > 0 && rotacion2 > 0
-                      ? Number(((rotacion2 - rotacion1) / rotacion1) * 100)
-                      : null;
-                      
+                    const variationValue =
+                      rotacion1 !== null && rotacion1 > 0 && rotacion2 !== null
+                        ? Number(((rotacion2 - rotacion1) / rotacion1) * 100)
+                        : null;
+
                     return (
                       <tr
                         key={row.mes}
@@ -776,22 +776,22 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       >
                         <td className="px-3 py-2 text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">{row.mes}</td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
-                          {rotacion1 ? `${rotacion1.toFixed(1)}%` : '-'}
+                          {rotacion1 !== null ? `${rotacion1.toFixed(1)}%` : '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
-                          {bajas12M_1 || '-'}
+                          {stats1.bajas12m || '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
-                          {monthData1?.activos ?? '-'}
+                          {stats1.activosProm12m ?? '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
-                          {rotacion2 ? `${rotacion2.toFixed(1)}%` : '-'}
+                          {rotacion2 !== null ? `${rotacion2.toFixed(1)}%` : '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
-                          {bajas12M_2 || '-'}
+                          {stats2.bajas12m || '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
-                          {monthData2?.activos ?? '-'}
+                          {stats2.activosProm12m ?? '-'}
                         </td>
                         <td className="px-4 py-2 text-center">
                           {renderVariationPill(variationValue)}
@@ -820,7 +820,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               filename="tabla-rotacion-mensual"
             >
               {() => (
-            <div className="relative w-full overflow-x-auto">
+            <div className="relative w-full overflow-x-auto min-w-[780px]">
               <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-800/60">
@@ -842,20 +842,9 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                   {monthNames.map((monthName, index) => {
                     const year1 = availableYears[0] || 2024;
                     const year2 = availableYears[availableYears.length - 1] || 2025;
-                    const monthYear1 = allMonthlyData.find(d => d.year === year1 && d.month === index + 1);
-                    const monthYear2 = allMonthlyData.find(d => d.year === year2 && d.month === index + 1);
+                    const monthYear1 = monthlyData.find(d => d.year === year1 && d.month === index + 1);
+                    const monthYear2 = monthlyData.find(d => d.year === year2 && d.month === index + 1);
 
-                    // 🐛 DEBUG: Log para octubre 2025 en tabla
-                    if (index === 9 && year2 === 2025) {
-                      console.log('🐛 DEBUG Tabla Octubre 2025:', {
-                        monthName,
-                        bajas: monthYear2?.bajas,
-                        activosProm: monthYear2?.activosProm,
-                        allMonthlyDataLength: allMonthlyData.length
-                      });
-                    }
-
-                    // Calculate variation percentage for monthly rotation
                     const rotation1 = monthYear1?.rotacionPorcentaje || 0;
                     const rotation2 = monthYear2?.rotacionPorcentaje || 0;
                     const variationValue = rotation1 > 0 && rotation2 > 0

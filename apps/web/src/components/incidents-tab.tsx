@@ -10,7 +10,7 @@ import { normalizeIncidenciaCode, labelForIncidencia, normalizePuesto, normalize
 import type { KPIResult } from "@/lib/kpi-calculator";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, LineChart, Line, LabelList } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
-import { format } from "date-fns";
+import { differenceInCalendarDays, format } from "date-fns";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { calculateVariancePercentage, countActivosEnFecha } from "@/lib/utils/kpi-helpers";
 import { KPICard, KPICardSkeleton } from "./kpi-card";
@@ -418,6 +418,77 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     countActivosEnFecha(plantillaBaseForActivos, previousReferenceDate),
   [plantillaBaseForActivos, previousReferenceDate]);
 
+  const calcularDiasActivo = useCallback((emp: PlantillaRecord, start: Date, end: Date) => {
+    const ingreso = new Date(emp.fecha_ingreso);
+    const baja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+    const effectiveStart = ingreso > start ? ingreso : start;
+    const effectiveEnd = baja && baja < end ? baja : end;
+    if (effectiveEnd < effectiveStart) return 0;
+    return differenceInCalendarDays(effectiveEnd, effectiveStart) + 1;
+  }, []);
+
+  const buildMonthStats = useCallback((refDate: Date) => {
+    const start = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
+    const end = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0);
+
+    const monthIncidencias = incidencias.filter((inc) => {
+      if (!inc.fecha) return false;
+      const d = new Date(inc.fecha);
+      return d >= start && d <= end;
+    });
+
+    const diasLaborables = plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, start, end), 0);
+    const activos = countActivosEnFecha(plantillaBaseForActivos, end);
+    const incidenciasCount = monthIncidencias.filter((i) => INCIDENT_CODES.has(normalizeIncidenciaCode(i.inci) || '')).length;
+    const permisosCount = monthIncidencias.filter((i) => PERMISO_CODES.has(normalizeIncidenciaCode(i.inci) || '')).length;
+    const empleadosSet = new Set<number>();
+    monthIncidencias.forEach((i) => {
+      const code = normalizeIncidenciaCode(i.inci);
+      if (code && EMPLOYEE_INCIDENT_CODES.has(code)) {
+        empleadosSet.add(i.emp);
+      }
+    });
+
+    return {
+      activos,
+      diasLaborables,
+      incidenciasCount,
+      permisosCount,
+      empleadosConIncidencias: empleadosSet.size,
+    };
+  }, [calcularDiasActivo, countActivosEnFecha, incidencias, plantillaBaseForActivos]);
+
+  const currentMonthStats = useMemo(() => buildMonthStats(currentReferenceDate), [buildMonthStats, currentReferenceDate]);
+  const prevMonthStats = useMemo(() => buildMonthStats(previousReferenceDate), [buildMonthStats, previousReferenceDate]);
+  const sameMonthLastYearStats = useMemo(() => {
+    const date = new Date(currentReferenceDate);
+    date.setFullYear(date.getFullYear() - 1);
+    return buildMonthStats(date);
+  }, [buildMonthStats, currentReferenceDate]);
+
+  const diasLaborablesActual = useMemo(() => {
+    const start = new Date(currentReferenceDate.getFullYear(), currentReferenceDate.getMonth(), 1);
+    return plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, start, currentReferenceDate), 0);
+  }, [plantillaBaseForActivos, calcularDiasActivo, currentReferenceDate]);
+
+  const diasLaborablesPrev = useMemo(() => {
+    const start = new Date(previousReferenceDate.getFullYear(), previousReferenceDate.getMonth(), 1);
+    return plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, start, previousReferenceDate), 0);
+  }, [plantillaBaseForActivos, calcularDiasActivo, previousReferenceDate]);
+
+  const diasLaborablesPorArea = useMemo(() => {
+    const start = new Date(currentReferenceDate.getFullYear(), currentReferenceDate.getMonth(), 1);
+    const map = new Map<string, number>();
+    plantillaBaseForActivos.forEach((emp) => {
+      const days = calcularDiasActivo(emp, start, currentReferenceDate);
+      if (days <= 0) return;
+      const rawArea = emp.area ? normalizeArea(emp.area) : '';
+      const area = rawArea && rawArea.trim().length > 0 ? rawArea : 'Sin área definida';
+      map.set(area, (map.get(area) || 0) + days);
+    });
+    return map;
+  }, [plantillaBaseForActivos, calcularDiasActivo, currentReferenceDate]);
+
   const empleadosConIncidencias = useMemo(() => {
     const set = new Set<number>();
     enrichedPeriodo.forEach(i => {
@@ -487,7 +558,28 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
   const toISODate = (date: Date) => format(date, 'yyyy-MM-dd');
 
-  const incidentsKpiCards: { icon: ReactNode; kpi: KPIResult }[] = [
+  const empleadosConIncidenciasPct = activosCount > 0 ? (empleadosConIncidencias / activosCount) * 100 : 0;
+  const empleadosConIncidenciasAnteriorPct = activosPrevios > 0 ? (empleadosConIncidenciasAnterior / activosPrevios) * 100 : 0;
+  const incidenciasPct = diasLaborablesActual > 0 ? (totalIncidencias / diasLaborablesActual) * 100 : 0;
+  const incidenciasPctAnterior = diasLaborablesPrev > 0 ? (totalIncidenciasAnterior / diasLaborablesPrev) * 100 : 0;
+  const permisosPct = diasLaborablesActual > 0 ? (totalPermisos / diasLaborablesActual) * 100 : 0;
+  const permisosPctAnterior = diasLaborablesPrev > 0 ? (totalPermisosAnteriores / diasLaborablesPrev) * 100 : 0;
+
+  const maMonth = {
+    empleadosPct: prevMonthStats.activos > 0 ? (prevMonthStats.empleadosConIncidencias / (prevMonthStats.activos || 1)) * 100 : 0,
+    incidenciasPct: prevMonthStats.diasLaborables > 0 ? (prevMonthStats.incidenciasCount / prevMonthStats.diasLaborables) * 100 : 0,
+    permisosPct: prevMonthStats.diasLaborables > 0 ? (prevMonthStats.permisosCount / prevMonthStats.diasLaborables) * 100 : 0,
+    activos: prevMonthStats.activos,
+  };
+
+  const mmaaMonth = {
+    empleadosPct: sameMonthLastYearStats.activos > 0 ? (sameMonthLastYearStats.empleadosConIncidencias / (sameMonthLastYearStats.activos || 1)) * 100 : 0,
+    incidenciasPct: sameMonthLastYearStats.diasLaborables > 0 ? (sameMonthLastYearStats.incidenciasCount / sameMonthLastYearStats.diasLaborables) * 100 : 0,
+    permisosPct: sameMonthLastYearStats.diasLaborables > 0 ? (sameMonthLastYearStats.permisosCount / sameMonthLastYearStats.diasLaborables) * 100 : 0,
+    activos: sameMonthLastYearStats.activos,
+  };
+
+  const incidentsKpiCards: { icon: ReactNode; kpi: KPIResult; secondaryRows?: any }[] = [
     {
       icon: <Users className="h-6 w-6" />,
       kpi: {
@@ -497,44 +589,57 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         previous_value: activosPrevios,
         variance_percentage: calculateVariancePercentage(activosCount, activosPrevios),
         period_start: toISODate(currentReferenceDate),
-        period_end: toISODate(currentReferenceDate),
+        period_end: toISODate(currentReferenceDate)
       },
+      secondaryRows: [
+        { label: 'MA', value: maMonth.activos, showColon: true },
+        { label: 'MMAA', value: mmaaMonth.activos, showColon: true }
+      ]
     },
     {
       icon: <AlertCircle className="h-6 w-6" />,
       kpi: {
-        name: 'Empleados con incidencias',
+        name: 'Empleados con incidencias (%)',
         category: 'incidents',
-        value: empleadosConIncidencias,
-        previous_value: empleadosConIncidenciasAnterior,
-        variance_percentage: calculateVariancePercentage(empleadosConIncidencias, empleadosConIncidenciasAnterior),
+        value: Number(empleadosConIncidenciasPct.toFixed(1)),
+        previous_value: Number(empleadosConIncidenciasAnteriorPct.toFixed(1)),
+        variance_percentage: calculateVariancePercentage(empleadosConIncidenciasPct, empleadosConIncidenciasAnteriorPct),
         period_start: toISODate(currentReferenceDate),
-        period_end: toISODate(currentReferenceDate),
+        period_end: toISODate(currentReferenceDate)
       },
+      secondaryRows: [
+        { label: 'Total', value: empleadosConIncidencias, showColon: true }
+      ]
     },
     {
       icon: <Activity className="h-6 w-6" />,
       kpi: {
-        name: 'Incidencias',
+        name: 'Incidencias (%)',
         category: 'incidents',
-        value: totalIncidencias,
-        previous_value: totalIncidenciasAnterior,
-        variance_percentage: calculateVariancePercentage(totalIncidencias, totalIncidenciasAnterior),
+        value: Number(incidenciasPct.toFixed(1)),
+        previous_value: Number(incidenciasPctAnterior.toFixed(1)),
+        variance_percentage: calculateVariancePercentage(incidenciasPct, incidenciasPctAnterior),
         period_start: toISODate(currentReferenceDate),
-        period_end: toISODate(currentReferenceDate),
+        period_end: toISODate(currentReferenceDate)
       },
+      secondaryRows: [
+        { label: 'Total', value: totalIncidencias, showColon: true }
+      ]
     },
     {
       icon: <ClipboardCheck className="h-6 w-6" />,
       kpi: {
-        name: 'Permisos',
+        name: 'Permisos (%)',
         category: 'headcount',
-        value: totalPermisos,
-        previous_value: totalPermisosAnteriores,
-        variance_percentage: calculateVariancePercentage(totalPermisos, totalPermisosAnteriores),
+        value: Number(permisosPct.toFixed(1)),
+        previous_value: Number(permisosPctAnterior.toFixed(1)),
+        variance_percentage: calculateVariancePercentage(permisosPct, permisosPctAnterior),
         period_start: toISODate(currentReferenceDate),
-        period_end: toISODate(currentReferenceDate),
+        period_end: toISODate(currentReferenceDate)
       },
+      secondaryRows: [
+        { label: 'Total', value: totalPermisos, showColon: true }
+      ]
     },
   ];
 
@@ -645,14 +750,19 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     });
 
     const entries = Array.from(map.entries())
-      .map(([area, counts]) => ({
-        area,
-        ausentismos: counts.ausentismos,
-        permisos: counts.permisos,
-        total: counts.ausentismos + counts.permisos,
-      }))
-      .filter(entry => entry.total > 0)
-      .sort((a, b) => b.total - a.total);
+      .map(([area, counts]) => {
+        const diasArea = diasLaborablesPorArea.get(area) || 0;
+        const ausentismosPct = diasArea > 0 ? (counts.ausentismos / diasArea) * 100 : 0;
+        const permisosPct = diasArea > 0 ? (counts.permisos / diasArea) * 100 : 0;
+        return {
+          area,
+          ausentismos: Number(ausentismosPct.toFixed(2)),
+          permisos: Number(permisosPct.toFixed(2)),
+          totalPct: ausentismosPct + permisosPct,
+        };
+      })
+      .filter(entry => entry.totalPct > 0)
+      .sort((a, b) => b.totalPct - a.totalPct);
 
     const TOP_LIMIT = 8;
     return entries.slice(0, TOP_LIMIT).map(({ area, ausentismos, permisos }) => ({
@@ -660,7 +770,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       ausentismos,
       permisos,
     }));
-  }, [enrichedPeriodo]);
+  }, [enrichedPeriodo, diasLaborablesPorArea]);
 
   const hasWeekdayData = useMemo(
     () => incidenciasPorDia.some(item => item.ausentismos > 0 || item.permisos > 0),
@@ -730,12 +840,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
           ? Array.from({ length: 4 }).map((_, index) => (
               <KPICardSkeleton key={`incidents-kpi-skeleton-${index}`} />
             ))
-          : incidentsKpiCards.map(({ kpi, icon }, index) => (
-              <KPICard key={`incidents-kpi-${index}`} kpi={kpi} icon={icon} />
+          : incidentsKpiCards.map(({ kpi, icon, secondaryRows }, index) => (
+              <KPICard key={`incidents-kpi-${index}`} kpi={kpi} icon={icon} secondaryRows={secondaryRows} />
             ))}
       </div>
       <p className="text-xs text-gray-500">
-        * Incidencias: FI, SUS, PSIN, ENFE · Permisos: PCON, VAC, MAT3, MAT1, JUST
+        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. Incidencias: FI, SUS, PSIN, ENFE · Permisos: PCON, VAC, MAT3, MAT1, JUST
       </p>
 
       {/* Gráfica de Tendencia Mensual - Incidencias y Permisos */}
@@ -1015,7 +1125,11 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                         barCategoryGap="16%"
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
-                        <XAxis type="number" tick={{ fontSize: 12, fill: axisSecondaryColor }} />
+                        <XAxis
+                          type="number"
+                          tick={{ fontSize: 12, fill: axisSecondaryColor }}
+                          tickFormatter={(v) => `${v}%`}
+                        />
                         <YAxis
                           dataKey="area"
                           type="category"
@@ -1026,11 +1140,11 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                           contentStyle={LINE_TOOLTIP_STYLE}
                           labelStyle={LINE_TOOLTIP_LABEL_STYLE}
-                          formatter={(value: number, name: string) => [`${Number(value || 0).toLocaleString('es-MX')} registros`, name]}
+                          formatter={(value: number, name: string) => [`${Number(value || 0).toFixed(2)}%`, name]}
                         />
                         <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                        <Bar dataKey="ausentismos" name="Ausentismos" fill={AUSENTISMO_COLOR} radius={[0, 4, 4, 0]} />
-                        <Bar dataKey="permisos" name="Permisos" fill={PERMISO_COLOR} radius={[0, 4, 4, 0]} />
+                        <Bar dataKey="ausentismos" name="Ausentismos (%)" fill={AUSENTISMO_COLOR} radius={[0, 4, 4, 0]} />
+                        <Bar dataKey="permisos" name="Permisos (%)" fill={PERMISO_COLOR} radius={[0, 4, 4, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
