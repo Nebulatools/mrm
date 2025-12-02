@@ -61,7 +61,8 @@ export function bajaMatchesMotivo(
     return false;
   }
 
-  const motivoEvaluado = overrideMotivo ?? (emp as any).motivo_baja ?? '';
+  const cached = (emp as any)._motivo_normalizado;
+  const motivoEvaluado = overrideMotivo ?? cached ?? (emp as any).motivo_baja ?? '';
   const motivoNormalizado = normalizeMotivo(String(motivoEvaluado));
   const esInvoluntaria = isMotivoClave(motivoNormalizado);
 
@@ -88,7 +89,7 @@ export const calculateMonthlyRetention = async (
     const rangeEnd = new Date(endDate.getTime());
 
     const plantillaFiltered = plantilla.filter(emp => {
-      const fechaIngreso = parseSupabaseDate(emp.fecha_ingreso);
+      const fechaIngreso = (emp as any)._fecha_ingreso ?? parseSupabaseDate(emp.fecha_ingreso);
       return fechaIngreso !== null && fechaIngreso <= rangeEnd;
     });
 
@@ -132,14 +133,14 @@ export const calculateMonthlyRetention = async (
       }
 
       plantillaFiltered.forEach(emp => {
-        if (!emp.fecha_baja) return;
-        const fechaBaja = parseSupabaseDate(emp.fecha_baja);
-        if (!fechaBaja) return;
-        if (fechaBaja < rangeStartInner || fechaBaja > rangeEndInner) return;
+        const fechaBajaParsed = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
+        if (!fechaBajaParsed) return;
+        if (fechaBajaParsed < rangeStartInner || fechaBajaParsed > rangeEndInner) return;
         if (!bajaMatchesMotivo(emp, motive)) return;
         const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
         if (!Number.isFinite(numero)) return;
-        addEvento(numero, fechaBaja, normalizeMotivo((emp as any).motivo_baja || ''), emp);
+        const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
+        addEvento(numero, fechaBajaParsed, motivoNormalizado, emp);
       });
 
       return Array.from(eventosMap.values());
@@ -148,20 +149,20 @@ export const calculateMonthlyRetention = async (
     const eventosMes = buildEventos(rangeStart, rangeEnd);
 
     const empleadosInicioMes = plantillaFiltered.filter(emp => {
-      const fechaIngreso = parseSupabaseDate(emp.fecha_ingreso);
+      const fechaIngreso = (emp as any)._fecha_ingreso ?? parseSupabaseDate(emp.fecha_ingreso);
       if (!fechaIngreso || fechaIngreso > rangeStart) {
         return false;
       }
-      const fechaBaja = parseSupabaseDate(emp.fecha_baja);
+      const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
       return !fechaBaja || fechaBaja > rangeStart;
     }).length;
 
     const empleadosFinMes = plantillaFiltered.filter(emp => {
-      const fechaIngreso = parseSupabaseDate(emp.fecha_ingreso);
+      const fechaIngreso = (emp as any)._fecha_ingreso ?? parseSupabaseDate(emp.fecha_ingreso);
       if (!fechaIngreso || fechaIngreso > rangeEnd) {
         return false;
       }
-      const fechaBaja = parseSupabaseDate(emp.fecha_baja);
+      const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
       return !fechaBaja || fechaBaja > rangeEnd;
     }).length;
 

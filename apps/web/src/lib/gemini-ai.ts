@@ -30,10 +30,10 @@ export class GeminiAIService {
   constructor() {
     // Use API key from environment variables
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || 'demo-key';
-    console.log('🤖 Inicializando IA (gemini-1.5-flash) con API key:', apiKey !== 'demo-key' ? '✅ API key configurada' : '⚠️ Usando modo demo');
+    console.log('🤖 Inicializando IA (gemini-2.5-flash) con API key:', apiKey !== 'demo-key' ? '✅ API key configurada' : '⚠️ Usando modo demo');
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
+      model: 'models/gemini-2.5-flash',
       generationConfig: {
         temperature: 0.7,
         topK: 40,
@@ -536,8 +536,18 @@ ${descriptions.map((d, i) => `${i + 1}. ${d}`).join("\n")}
 
     const genAI = new GoogleGenerativeAI(apiKey);
     // Preferir la ruta completa para evitar 404 en v1beta
-    const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash-latest" });
-    const response = await model.generateContent(prompt);
+    const model = genAI.getGenerativeModel({ model: "models/gemini-2.5-flash" });
+
+    // Timeout de cortesía para evitar que el UI quede colgado si la API tarda demasiado
+    const timeoutMs = 25000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout al generar el resumen con Gemini (${timeoutMs}ms)`)), timeoutMs)
+    );
+
+    const response = await Promise.race([
+      model.generateContent(prompt),
+      timeoutPromise
+    ]);
     const text = response.response?.text() || "";
     const lines = text
       .split("\n")

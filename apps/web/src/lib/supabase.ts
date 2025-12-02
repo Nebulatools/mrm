@@ -145,15 +145,16 @@ export const db = {
       }
     }
 
-    // Obtener motivos de baja (volumen < 1000 actualmente, una sola petición)
+    // Obtener motivos de baja deduplicados desde la vista (sin fallback, flujo único y consistente)
     const { data: motivos, error: motivosError } = await client
-      .from('motivos_baja')
-      .select('*')
+      .from('v_motivos_baja_unicos')
+      .select('*');
 
     if (motivosError) {
-      console.error('❌ Error fetching motivos_baja:', motivosError);
+      console.error('❌ Error fetching v_motivos_baja_unicos:', motivosError);
       throw motivosError;
     }
+    console.log('✅ motivos_baja data loaded desde vista v_motivos_baja_unicos:', motivos?.length, 'records');
     
     // Crear un mapa de motivos por número de empleado
     const motivosMap = new Map();
@@ -246,26 +247,26 @@ export const db = {
   },
 
   async getMotivosBaja(startDate?: string, endDate?: string, client = supabase) {
-    console.log('🗄️ Fetching motivos_baja data...', { startDate, endDate });
+    console.log('🗄️ Fetching motivos_baja data desde vista deduplicada...', { startDate, endDate });
     let query = client
-      .from('motivos_baja')
+      .from('v_motivos_baja_unicos')
       .select('*')
-      .order('fecha_baja', { ascending: false })
+      .order('fecha_baja', { ascending: false });
 
     if (startDate) {
-      query = query.gte('fecha_baja', startDate)
+      query = query.gte('fecha_baja', startDate);
     }
     if (endDate) {
-      query = query.lte('fecha_baja', endDate)
+      query = query.lte('fecha_baja', endDate);
     }
 
-    const { data, error } = await query
+    const { data, error } = await query;
     if (error) {
-      console.error('❌ Error fetching motivos_baja:', error);
+      console.error('❌ Error fetching v_motivos_baja_unicos:', error);
       throw error;
     }
-    console.log('✅ motivos_baja data loaded:', data?.length, 'records');
-    return (data || []) as MotivoBajaRecord[]
+    console.log('✅ motivos_baja data loaded desde vista v_motivos_baja_unicos:', data?.length, 'records');
+    return (data || []) as MotivoBajaRecord[];
   },
 
   async getAsistenciaDiaria(startDate?: string, endDate?: string, client = supabase) {
