@@ -28,8 +28,6 @@ export class GeminiAIService {
   private model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>;
   private cache = new Map<string, { data: AIAnalysis; timestamp: number }>();
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache
-  private narrativeCache = new Map<string, { text: string; timestamp: number }>();
-  private readonly NARRATIVE_CACHE_TTL = 10 * 60 * 1000;
   
   constructor() {
     // Use API key from environment variables
@@ -143,81 +141,24 @@ export class GeminiAIService {
       }
     })();
 
-    const cacheKey = `${section}-${userLevel}-${serializedContext}`;
-    const cached = this.narrativeCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < this.NARRATIVE_CACHE_TTL) {
-      return cached.text;
+    const response = await fetch('/api/narrative', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ contextData, userLevel, section, serializedContext }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(errorBody || 'Error al generar narrativa.');
     }
 
-    const openAIKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-    if (!openAIKey) {
-      throw new Error('OpenAI API key no configurada. Define NEXT_PUBLIC_OPENAI_API_KEY.');
+    const data = await response.json();
+    if (!data?.text) {
+      throw new Error('Respuesta vacía al generar narrativa.');
     }
-
-    const levelGuidance: Record<NarrativeLevel, string> = {
-      manager:
-        "Formato: 1 párrafo breve (≤80 palabras). Explica causas y equipos afectados, y da 1 acción concreta. Lenguaje directo, sin tecnicismos.",
-      executive:
-        "Formato: 2 frases claras (≤45 palabras). Titular + conclusión. Enfoque en impacto negocio/people. Evita porcentajes complejos; usa +/- y palabras como 'estable' o 'creciendo'. Emojis opcionales (máx 1).",
-      analyst:
-        "Formato: 3-5 bullets técnicos (≤120 palabras). Incluye variaciones %, anomalías y correlaciones. Sé específico en métricas y áreas. Sin adornos.",
-    };
-
-    const prompt = `
-Contexto (JSON filtrado actual): ${serializedContext}
-Sección: ${section}
-Audiencia objetivo: ${userLevel}
-
-Sigue SOLO las instrucciones de esta audiencia. No describas otros niveles ni añadas títulos de otros roles.
-${levelGuidance[userLevel]}
-
-Reglas generales:
-- Español de negocio (México). No menciones "JSON".
-- Solo menciona áreas/deptos/turnos si están presentes en los datos.
-- Si falta dato, dilo brevemente. No inventes métricas.
-`;
-
-    const url = 'https://api.openai.com/v1/chat/completions';
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${openAIKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: 'Eres un analista senior de RRHH.' },
-            { role: 'user', content: prompt }
-          ],
-          temperature: 0.7,
-          max_tokens: 320
-        })
-      });
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`OpenAI error ${response.status}: ${errorBody}`);
-      }
-
-      const data = await response.json();
-      const text = data?.choices?.[0]?.message?.content?.trim() ?? '';
-      if (!text) {
-        throw new Error('Respuesta vacía de OpenAI al generar narrativa.');
-      }
-      this.narrativeCache.set(cacheKey, { text, timestamp: Date.now() });
-      return text;
-    } catch (error) {
-      clearTimeout(timeout);
-      console.error('❌ Error generando narrativa con OpenAI:', error);
-      throw error;
-    }
+    return data.text as string;
   }
 
   private createAnalysisPrompt(kpis: KPIResult[], period: string): string {
