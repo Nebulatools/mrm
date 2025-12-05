@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { KPIResult } from './kpi-calculator';
 
+export type NarrativeLevel = 'executive' | 'manager' | 'analyst';
+
 export interface AIInsight {
   type: 'positive' | 'negative' | 'neutral' | 'warning';
   kpi: string;
@@ -26,11 +28,13 @@ export class GeminiAIService {
   private model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>;
   private cache = new Map<string, { data: AIAnalysis; timestamp: number }>();
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache
+  private narrativeCache = new Map<string, { text: string; timestamp: number }>();
+  private readonly NARRATIVE_CACHE_TTL = 10 * 60 * 1000;
   
   constructor() {
     // Use API key from environment variables
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || 'demo-key';
-    console.log('🤖 Inicializando IA (gemini-2.5-flash) con API key:', apiKey !== 'demo-key' ? '✅ API key configurada' : '⚠️ Usando modo demo');
+    console.log('🤖 Inicializando IA (gemini-2.5-flash para análisis estructurado) con API key:', apiKey !== 'demo-key' ? '✅ API key configurada' : '⚠️ Usando modo demo');
     this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = this.genAI.getGenerativeModel({ 
       model: 'models/gemini-2.5-flash',
@@ -123,6 +127,96 @@ export class GeminiAIService {
         ...this.generateMockAnalysis(kpis, period),
         summary: `🤖 Análisis alternativo generado (Error de API): ${this.generateMockAnalysis(kpis, period).summary}`
       };
+    }
+  }
+
+  async generateNarrative(
+    contextData: unknown,
+    userLevel: NarrativeLevel,
+    section: string
+  ): Promise<string> {
+    const serializedContext = (() => {
+      try {
+        return JSON.stringify(contextData);
+      } catch {
+        return '{}';
+      }
+    })();
+
+    const cacheKey = `${section}-${userLevel}-${serializedContext}`;
+    const cached = this.narrativeCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.NARRATIVE_CACHE_TTL) {
+      return cached.text;
+    }
+
+    const openAIKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    if (!openAIKey) {
+      throw new Error('OpenAI API key no configurada. Define NEXT_PUBLIC_OPENAI_API_KEY.');
+    }
+
+    const levelGuidance: Record<NarrativeLevel, string> = {
+      manager:
+        "Formato: 1 párrafo breve (≤80 palabras). Explica causas y equipos afectados, y da 1 acción concreta. Lenguaje directo, sin tecnicismos.",
+      executive:
+        "Formato: 2 frases claras (≤45 palabras). Titular + conclusión. Enfoque en impacto negocio/people. Evita porcentajes complejos; usa +/- y palabras como 'estable' o 'creciendo'. Emojis opcionales (máx 1).",
+      analyst:
+        "Formato: 3-5 bullets técnicos (≤120 palabras). Incluye variaciones %, anomalías y correlaciones. Sé específico en métricas y áreas. Sin adornos.",
+    };
+
+    const prompt = `
+Contexto (JSON filtrado actual): ${serializedContext}
+Sección: ${section}
+Audiencia objetivo: ${userLevel}
+
+Sigue SOLO las instrucciones de esta audiencia. No describas otros niveles ni añadas títulos de otros roles.
+${levelGuidance[userLevel]}
+
+Reglas generales:
+- Español de negocio (México). No menciones "JSON".
+- Solo menciona áreas/deptos/turnos si están presentes en los datos.
+- Si falta dato, dilo brevemente. No inventes métricas.
+`;
+
+    const url = 'https://api.openai.com/v1/chat/completions';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${openAIKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'Eres un analista senior de RRHH.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 320
+        })
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`OpenAI error ${response.status}: ${errorBody}`);
+      }
+
+      const data = await response.json();
+      const text = data?.choices?.[0]?.message?.content?.trim() ?? '';
+      if (!text) {
+        throw new Error('Respuesta vacía de OpenAI al generar narrativa.');
+      }
+      this.narrativeCache.set(cacheKey, { text, timestamp: Date.now() });
+      return text;
+    } catch (error) {
+      clearTimeout(timeout);
+      console.error('❌ Error generando narrativa con OpenAI:', error);
+      throw error;
     }
   }
 

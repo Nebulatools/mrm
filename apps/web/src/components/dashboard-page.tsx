@@ -25,6 +25,7 @@ import { SummaryComparison } from "./summary-comparison";
 import { AbandonosOtrosSummary } from "./abandonos-otros-summary";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SmartNarrative } from "./smart-narrative";
 import { ModelTrendsTab } from "./model-trends-tab";
 import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters/filters";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
@@ -903,6 +904,63 @@ export function DashboardPage() {
     ]
   );
 
+  const narrativePayload = useMemo(
+    () => ({
+      periodLabel,
+      filtersSummary,
+      filtersCount,
+      section: "retention",
+      kpis: {
+        ...filteredRetentionKPIs,
+        bajasTotalesMes,
+        bajasTotalesMesAnterior,
+      },
+      headcount: {
+        activosFinMes,
+        activosFinMesPrev,
+        ingresosMes,
+        ingresosMesPrev,
+        antigPromMesesActual,
+        antigPromMesesPrev,
+      },
+      dataSources: {
+        empleados_sftp: {
+          rows: data.plantilla.length,
+          fields: ["departamento", "area", "turno", "fecha_ingreso", "fecha_baja", "clasificacion"],
+          comment: "Maestro de empleados usado para headcount y cohortes",
+        },
+        motivos_baja: {
+          rows: bajasData.length,
+          fields: ["tipo", "motivo", "descripcion", "fecha_baja"],
+        },
+        incidencias: {
+          rows: incidenciasData.length,
+          fields: ["inci", "turno", "fecha", "horario", "status"],
+        },
+        asistencia_diaria: {
+          fields: ["horas_trabajadas", "horas_incidencia", "presente"],
+        },
+      },
+    }),
+    [
+      periodLabel,
+      filtersSummary,
+      filtersCount,
+      filteredRetentionKPIs,
+      bajasTotalesMes,
+      bajasTotalesMesAnterior,
+      activosFinMes,
+      activosFinMesPrev,
+      ingresosMes,
+      ingresosMesPrev,
+      antigPromMesesActual,
+      antigPromMesesPrev,
+      data.plantilla.length,
+      bajasData.length,
+      incidenciasData.length,
+    ]
+  );
+
   return (
     <div
       className={cn(
@@ -1506,6 +1564,13 @@ export function DashboardPage() {
             >
               <strong>Rotación involuntaria:</strong> Rescisión por desempeño, Rescisión por disciplina, Término del contrato
             </div>
+
+            <SmartNarrative
+              data={narrativePayload}
+              section="retention"
+              refreshEnabled={refreshEnabled}
+              className="shadow-md"
+            />
 
             {/* 5 KPIs Principales de Retención con filtros aplicados */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
