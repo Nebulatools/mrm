@@ -151,10 +151,6 @@ export function SmartNarrative({
             </div>
           </div>
         )}
-        <p className="text-[11px] text-slate-500">
-          La narrativa usa los KPIs filtrados y fuentes: plantilla (empleados_sftp), bajas (motivos_baja),
-          incidencias y asistencia. Se actualiza al cambiar filtros o el nivel.
-        </p>
       </CardContent>
     </Card>
   );
