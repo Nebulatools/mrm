@@ -18,14 +18,12 @@ interface SmartNarrativeProps {
 }
 
 const levelLabels: Record<NarrativeLevel, string> = {
-  manager: "Gerencial",
-  executive: "Ejecutivo",
-  analyst: "Analista",
+  manager: "Ejecutivo",
+  analyst: "Detalle",
 };
 
 const levelColors: Record<NarrativeLevel, string> = {
   manager: "bg-sky-100 text-sky-800",
-  executive: "bg-emerald-100 text-emerald-800",
   analyst: "bg-purple-100 text-purple-800",
 };
 
@@ -103,8 +101,8 @@ export function SmartNarrative({
           </Badge>
         </div>
         <Tabs value={level} onValueChange={(value) => setLevel(value as NarrativeLevel)}>
-          <TabsList className="grid grid-cols-3 gap-2 rounded-full bg-slate-100 p-1 dark:bg-slate-900/60">
-            {(["manager", "executive", "analyst"] as NarrativeLevel[]).map((option) => (
+          <TabsList className="grid grid-cols-2 gap-2 rounded-full bg-slate-100 p-1 dark:bg-slate-900/60">
+            {(["manager", "analyst"] as NarrativeLevel[]).map((option) => (
               <TabsTrigger
                 key={option}
                 value={option}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-type NarrativeLevel = "manager" | "executive" | "analyst";
+type NarrativeLevel = "manager" | "analyst";
 
 const cache = new Map<
   string,
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!["manager", "executive", "analyst"].includes(userLevel)) {
+    if (!["manager", "analyst"].includes(userLevel)) {
       return NextResponse.json(
         { error: "userLevel inválido" },
         { status: 400 }
@@ -51,9 +51,7 @@ export async function POST(req: Request) {
 
     const levelGuidance: Record<NarrativeLevel, string> = {
       manager:
-        "Formato: 1 párrafo breve (≤80 palabras). Explica causas y equipos afectados, y da 1 acción concreta. Lenguaje directo, sin tecnicismos.",
-      executive:
-        "Formato: 2 frases claras (≤45 palabras). Titular + conclusión. Enfoque en impacto negocio/people. Evita porcentajes complejos; usa +/- y palabras como 'estable' o 'creciendo'. Emojis opcionales (máx 1).",
+        "Formato: 2 frases claras (≤45 palabras). Titular + conclusión ejecutiva. Enfoque en impacto negocio/people. Evita porcentajes complejos; usa +/- y palabras como 'estable' o 'creciendo'. Emojis opcionales (máx 1).",
       analyst:
         "Formato: 3-5 bullets técnicos (≤120 palabras). Incluye variaciones %, anomalías y correlaciones. Sé específico en métricas y áreas. Sin adornos.",
     };

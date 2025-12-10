@@ -1148,6 +1148,13 @@ export function DashboardPage() {
 
           {/* Overview Tab - Nuevo Resumen Comparativo */}
           <TabsContent value="overview" className="space-y-6">
+            <SmartNarrative
+              data={narrativePayload}
+              section="overview"
+              refreshEnabled={refreshEnabled}
+              className="shadow-md"
+              title="Narrativa IA · Resumen"
+            />
             <SummaryComparison
               plantilla={plantillaFiltered}
               plantillaYearScope={plantillaFilteredYearScope}
@@ -1171,6 +1178,13 @@ export function DashboardPage() {
 
           {/* Headcount Tab */}
           <TabsContent value="headcount" className="space-y-6">
+            <SmartNarrative
+              data={narrativePayload}
+              section="headcount"
+              refreshEnabled={refreshEnabled}
+              className="shadow-md"
+              title="Narrativa IA · Personal"
+            />
             {/* 5 KPIs solicitados */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
               {refreshEnabled && data.loading ? (
@@ -1543,6 +1557,13 @@ export function DashboardPage() {
 
           {/* Incidents Tab */}
           <TabsContent value="incidents" className="space-y-6">
+            <SmartNarrative
+              data={narrativePayload}
+              section="incidents"
+              refreshEnabled={refreshEnabled}
+              className="shadow-md"
+              title="Narrativa IA · Incidencias"
+            />
             <IncidentsTab
               plantilla={plantillaFiltered}
               plantillaAnual={plantillaFilteredYearScope}

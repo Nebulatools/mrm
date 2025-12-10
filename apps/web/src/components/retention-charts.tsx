@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { CSSProperties } from "react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ComposedChart, Area } from 'recharts';
 import { db, type PlantillaRecord, type MotivoBajaRecord } from '@/lib/supabase';
 import { createBrowserClient } from '@/lib/supabase-client';
 import { endOfMonth, startOfDay, startOfMonth, subMonths } from 'date-fns';
@@ -45,9 +45,15 @@ interface RetentionChartsProps {
 }
 
 const LEGEND_WRAPPER_STYLE: CSSProperties = { paddingTop: 6 };
-const legendFormatter = (value: string) => (
-  <span className="text-[11px] font-medium text-muted-foreground">{value}</span>
-);
+const legendFormatter = (value: string) => {
+  const clean = value.replace(/\s*\(año anterior\)\s*/i, '').trim();
+  if (!clean) return null;
+  return (
+    <span className="text-[11px] font-medium text-muted-foreground">
+      {clean}
+    </span>
+  );
+};
 const TOOLTIP_WRAPPER_STYLE: CSSProperties = {
   backgroundColor: 'transparent',
   border: 'none',
@@ -559,6 +565,37 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
   }
 
   const rotationDomain: [number, number] = [lowerBound, upperBound];
+
+  const selectedYearForCharts = availableYears[availableYears.length - 1];
+  const previousYearForCharts = availableYears.length > 1 ? availableYears[0] : undefined;
+
+  const selectedYearForMonthly = currentYear || new Date().getFullYear();
+  const previousYearForMonthly = selectedYearForMonthly - 1;
+  const now = new Date();
+
+  const monthlyChartData = monthNames
+    .map((monthName, index) => {
+      const monthIndex = index + 1;
+      const currentEntry = monthlyData.find(d => {
+        const fecha = new Date(d.year, d.month - 1, 1);
+        return d.year === selectedYearForMonthly && d.month === monthIndex && fecha <= now;
+      });
+      const previousEntry = monthlyData.find(d => {
+        const fecha = new Date(d.year, d.month - 1, 1);
+        return d.year === previousYearForMonthly && d.month === monthIndex && fecha <= now;
+      });
+
+      if (!currentEntry && !previousEntry) {
+        return null;
+      }
+
+      return {
+        mes: currentEntry?.mes || previousEntry?.mes || monthName,
+        rotacionActual: currentEntry?.rotacionPorcentaje ?? null,
+        rotacionAnterior: previousEntry?.rotacionPorcentaje ?? null
+      };
+    })
+    .filter((row): row is { mes: string; rotacionActual: number | null; rotacionAnterior: number | null } => row !== null);
   
   return (
     <div className="space-y-6">
@@ -566,7 +603,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       <div className="relative rounded-2xl border-2 border-blue-500/20 bg-gradient-to-br from-blue-50/30 to-transparent p-4 dark:border-blue-400/20 dark:from-blue-950/20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Gráfico 1: Rotación Acumulada (12 meses móviles) con comparación anual */}
-        <div className="rounded-lg border bg-card p-4 shadow-sm dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
+        <div className="rounded-lg border bg-card p-4 shadow-sm h-full dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación Acumulada (12 meses móviles)</h3>
           <p className="mb-4 text-sm text-muted-foreground">
             {availableYears.length > 0 
@@ -582,7 +619,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             {(fullscreen) => (
               <div style={{ height: fullscreen ? 360 : 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={yearlyComparison}>
+                  <ComposedChart data={yearlyComparison}>
                     <CartesianGrid strokeDasharray="4 8" stroke={gridStrokeColor} />
                     <XAxis
                       dataKey="mes"
@@ -595,21 +632,29 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     />
                     <Tooltip cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(0), 0.35) }} content={<CustomTooltip />} wrapperStyle={TOOLTIP_WRAPPER_STYLE} />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {availableYears.map((year, index) => {
-                      const color = YEAR_LINE_COLORS[index % YEAR_LINE_COLORS.length];
-                      return (
-                        <Line
-                          key={year}
-                          type="monotone"
-                          dataKey={`rotacion${year}`}
-                          stroke={color}
-                          strokeWidth={2.5}
-                          name={year.toString()}
-                          dot={{ fill: color, strokeWidth: 2, r: 3.5 }}
-                        />
-                      );
-                    })}
-                  </LineChart>
+                    {previousYearForCharts && (
+                      <Area
+                        type="monotone"
+                        dataKey={`rotacion${previousYearForCharts}`}
+                        name={`${previousYearForCharts} (año anterior)`}
+                        stroke={withOpacity(getModernColor(1), 0.9)}
+                        fill={withOpacity(getModernColor(1), 0.18)}
+                        strokeWidth={1.5}
+                        dot={false}
+                        activeDot={{ r: 3 }}
+                        legendType="none"
+                      />
+                    )}
+                    {selectedYearForCharts && (
+                      <Bar
+                        dataKey={`rotacion${selectedYearForCharts}`}
+                        name={selectedYearForCharts.toString()}
+                        fill={getModernColor(0)}
+                        radius={[4, 4, 0, 0]}
+                        maxBarSize={18}
+                      />
+                    )}
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             )}
@@ -617,9 +662,9 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         </div>
 
         {/* Gráfico 2: Rotación Mensual (Múltiples Líneas) */}
-        <div className="rounded-lg border bg-card p-4 shadow-sm dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
+        <div className="rounded-lg border bg-card p-4 shadow-sm h-full dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación Mensual</h3>
-          <p className="mb-4 text-sm text-muted-foreground">Rotación mensual %, bajas y activos por mes</p>
+          <p className="mb-4 text-sm text-muted-foreground">Rotación mensual % con comparativo del año anterior</p>
           <VisualizationContainer
             title="Rotación mensual"
             type="chart"
@@ -629,13 +674,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             {(fullscreen) => (
               <div style={{ height: fullscreen ? 360 : 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={monthlyData.filter(d => {
-                      const fecha = new Date(d.year, d.month - 1, 1);
-                      const targetYear = currentYear || new Date().getFullYear();
-                      return d.year === targetYear && fecha <= new Date();
-                    })}
-                  >
+                  <ComposedChart data={monthlyChartData}>
                     <CartesianGrid strokeDasharray="4 8" stroke={gridStrokeColor} />
                     <XAxis
                       dataKey="mes"
@@ -645,7 +684,6 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       height={38}
                     />
                     <YAxis
-                      yAxisId="percentage"
                       orientation="left"
                       tick={{ fontSize: 11, fill: axisMutedColor }}
                       label={{ value: 'Rotación %', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisPrimaryColor } }}
@@ -653,44 +691,29 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       tickCount={6}
                       allowDecimals={false}
                     />
-                    <YAxis
-                      yAxisId="numbers"
-                      orientation="right"
-                      tick={{ fontSize: 11, fill: axisMutedColor }}
-                      label={{ value: 'Cantidad', angle: 90, position: 'insideRight', style: { fontSize: 11, fill: axisPrimaryColor } }}
-                      domain={[0, 'dataMax + 100']}
-                      allowDecimals={false}
-                    />
                     <Tooltip cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(1), 0.35) }} content={<CustomTooltip />} wrapperStyle={TOOLTIP_WRAPPER_STYLE} />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    <Line 
-                      yAxisId="percentage"
-                      type="monotone" 
-                      dataKey="rotacionPorcentaje" 
-                      stroke={MONTHLY_SERIES_COLORS.rotation} 
-                      strokeWidth={2.5}
-                      name="Rotación %"
-                      dot={{ fill: MONTHLY_SERIES_COLORS.rotation, strokeWidth: 2, r: 3 }}
+                    {previousYearForMonthly && (
+                      <Area
+                        type="monotone"
+                        dataKey="rotacionAnterior"
+                        name={`${previousYearForMonthly} (año anterior)`}
+                        stroke={withOpacity(getModernColor(2), 0.9)}
+                        fill={withOpacity(getModernColor(2), 0.16)}
+                        strokeWidth={1.5}
+                        dot={false}
+                        activeDot={{ r: 3 }}
+                        legendType="none"
+                      />
+                    )}
+                    <Bar
+                      dataKey="rotacionActual"
+                      name={selectedYearForMonthly.toString()}
+                      fill={MONTHLY_SERIES_COLORS.rotation}
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={22}
                     />
-                    <Line 
-                      yAxisId="numbers"
-                      type="monotone" 
-                      dataKey="bajas"
-                      stroke={MONTHLY_SERIES_COLORS.bajas} 
-                      strokeWidth={2.5}
-                      name="Bajas"
-                      dot={{ fill: MONTHLY_SERIES_COLORS.bajas, strokeWidth: 2, r: 3 }}
-                    />
-                    <Line 
-                      yAxisId="numbers"
-                      type="monotone" 
-                      dataKey="activos" 
-                      stroke={MONTHLY_SERIES_COLORS.activos}
-                      strokeWidth={2.5}
-                      name="Activos Prom"
-                      dot={{ fill: MONTHLY_SERIES_COLORS.activos, strokeWidth: 2, r: 3 }}
-                    />
-                  </LineChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             )}
@@ -698,7 +721,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         </div>
 
         {/* Gráfico 3: Rotación por Temporalidad (Barras Apiladas por Mes) */}
-        <div className="rounded-lg border bg-card p-4 shadow-sm dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
+        <div className="rounded-lg border bg-card p-4 shadow-sm h-full dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación por Temporalidad</h3>
           <p className="mb-4 text-sm text-muted-foreground">Bajas por tiempo trabajado por mes</p>
           <VisualizationContainer
@@ -735,13 +758,42 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       }}
                     />
                     <Tooltip cursor={{ fill: withOpacity(getModernColor(2), 0.12) }} content={<CustomTooltip />} wrapperStyle={TOOLTIP_WRAPPER_STYLE} />
-                    <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                     <Bar dataKey="bajasMenor3m" stackId="a" fill={TEMPORALITY_COLORS[0]} name="< 3 meses" />
                     <Bar dataKey="bajas3a6m" stackId="a" fill={TEMPORALITY_COLORS[1]} name="3-6 meses" />
                     <Bar dataKey="bajas6a12m" stackId="a" fill={TEMPORALITY_COLORS[2]} name="6-12 meses" />
                     <Bar dataKey="bajasMas12m" stackId="a" fill={TEMPORALITY_COLORS[3]} name="+12 meses" />
                   </BarChart>
                 </ResponsiveContainer>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-[11px] font-medium text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: TEMPORALITY_COLORS[0] }}
+                    />
+                    <span>{"< 3 meses"}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: TEMPORALITY_COLORS[1] }}
+                    />
+                    <span>3-6 meses</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: TEMPORALITY_COLORS[2] }}
+                    />
+                    <span>6-12 meses</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: TEMPORALITY_COLORS[3] }}
+                    />
+                    <span>+12 meses</span>
+                  </div>
+                </div>
               </div>
             )}
           </VisualizationContainer>

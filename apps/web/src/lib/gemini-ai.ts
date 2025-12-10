@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { KPIResult } from './kpi-calculator';
 
-export type NarrativeLevel = 'executive' | 'manager' | 'analyst';
+export type NarrativeLevel = 'manager' | 'analyst';
 
 export interface AIInsight {
   type: 'positive' | 'negative' | 'neutral' | 'warning';
