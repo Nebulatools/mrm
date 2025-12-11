@@ -10,10 +10,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Building2, Shield, Loader2 } from 'lucide-react';
+import { User, LogOut, Building2, Shield, Loader2, LayoutDashboard } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
 
 export function UserMenu() {
   const { profile, signOut, isAdmin, loading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
 
   console.log('🔍 UserMenu render:', { profile, loading, isAdmin });
 
@@ -73,6 +76,16 @@ export function UserMenu() {
             </>
           )}
         </DropdownMenuItem>
+
+        {isAdmin && pathname !== '/admin' && (
+          <DropdownMenuItem
+            onClick={() => router.push('/admin')}
+            className="cursor-pointer"
+          >
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            <span>Panel de administración</span>
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuSeparator />
 
