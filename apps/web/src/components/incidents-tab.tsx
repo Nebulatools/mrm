@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { db, type IncidenciaCSVRecord, type PlantillaRecord } from "@/lib/supabase";
 import { normalizeIncidenciaCode, labelForIncidencia, normalizePuesto, normalizeArea, normalizeDepartamento } from "@/lib/normalizers";
 import type { KPIResult } from "@/lib/kpi-calculator";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, LineChart, Line, LabelList } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, LineChart, Line, LabelList, ComposedChart, Area } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
 import { differenceInCalendarDays, format } from "date-fns";
 import { VisualizationContainer } from "@/components/visualization-container";
@@ -57,6 +57,7 @@ const WEEKDAY_LABELS: Record<number, string> = {
   5: 'Viernes',
   6: 'Sábado'
 };
+const MONTH_LABELS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 const PIE_LEGEND_STYLE: CSSProperties = { paddingTop: 8 };
 const PIE_TOOLTIP_STYLE: CSSProperties = {
   borderRadius: 12,
@@ -823,6 +824,47 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     });
   }, [enrichedAnual, currentYear]);
 
+  const monthlyAbsenteeismComparison = useMemo(() => {
+    const targetYear = typeof currentYear === 'number' ? currentYear : new Date().getFullYear();
+    const previousYear = targetYear - 1;
+    const now = new Date();
+
+    const data = MONTH_LABELS_SHORT.map((mes, index) => {
+      const currentRef = new Date(targetYear, index + 1, 0);
+      const previousRef = new Date(previousYear, index + 1, 0);
+
+      const statsCurrent = buildMonthStats(currentRef);
+      const statsPrevious = buildMonthStats(previousRef);
+
+      const currentPct = statsCurrent.diasLaborables > 0
+        ? (1 - ((statsCurrent.diasLaborables - statsCurrent.incidenciasCount) / statsCurrent.diasLaborables)) * 100
+        : null;
+      const previousPct = statsPrevious.diasLaborables > 0
+        ? (1 - ((statsPrevious.diasLaborables - statsPrevious.incidenciasCount) / statsPrevious.diasLaborables)) * 100
+        : null;
+
+      const isFutureMonth = targetYear === now.getFullYear() && currentRef > now;
+      if (isFutureMonth && currentPct === null && previousPct === null) {
+        return null;
+      }
+
+      return {
+        mes,
+        actual: currentPct,
+        anterior: previousPct,
+      };
+    }).filter((entry): entry is { mes: string; actual: number | null; anterior: number | null } => entry !== null);
+
+    const maxValue = data.reduce((acc, item) => {
+      const candidates = [item.actual ?? 0, item.anterior ?? 0];
+      return Math.max(acc, ...candidates);
+    }, 0);
+
+    const domainTop = maxValue > 0 ? Math.min(100, Math.ceil(maxValue + 2)) : 5;
+
+    return { data, targetYear, previousYear, domainTop };
+  }, [buildMonthStats, currentYear]);
+
   const ChartLoadingPlaceholder = ({ height = 320 }: { height?: number }) => (
     <div
       className="flex items-center justify-center text-sm text-gray-500"
@@ -1054,8 +1096,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         </Card>
       </div>
 
-      {/* Ausentismos vs permisos por día y por área */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Ausentismos vs permisos por día, por área y comparativo mensual */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Ausentismos vs Permisos por día</CardTitle>
@@ -1153,6 +1195,77 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-gray-500">
                 No hay registros por área en el periodo seleccionado.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="h-[420px] flex flex-col">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Ausentismo mensual vs año anterior</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1">
+            {loadingIncidencias ? (
+              <ChartLoadingPlaceholder height={320} />
+            ) : monthlyAbsenteeismComparison.data.length > 0 ? (
+              <VisualizationContainer
+                title="Ausentismo mensual vs año anterior"
+                type="chart"
+                className="h-full w-full"
+                filename="ausentismo-mensual-comparativo"
+              >
+                {(fullscreen) => {
+                  const hasPrevious = monthlyAbsenteeismComparison.data.some(item => item.anterior !== null);
+                  return (
+                    <div style={{ height: fullscreen ? 420 : 320 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={monthlyAbsenteeismComparison.data}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
+                          <XAxis dataKey="mes" tick={{ fontSize: 12, fill: axisSecondaryColor }} />
+                          <YAxis
+                            tick={{ fontSize: 12, fill: axisMutedColor }}
+                            tickFormatter={(value) => `${Number(value || 0).toFixed(1)}%`}
+                            domain={[0, monthlyAbsenteeismComparison.domainTop]}
+                          />
+                          <Tooltip
+                            wrapperStyle={TOOLTIP_WRAPPER_STYLE}
+                            contentStyle={LINE_TOOLTIP_STYLE}
+                            labelStyle={LINE_TOOLTIP_LABEL_STYLE}
+                            formatter={(value: number | string, name: string) => {
+                              const numeric = typeof value === 'number' ? value : Number(value || 0);
+                              return [`${numeric.toFixed(2)}%`, name];
+                            }}
+                          />
+                          <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
+                          {hasPrevious && (
+                            <Area
+                              type="monotone"
+                              dataKey="anterior"
+                              name={`${monthlyAbsenteeismComparison.previousYear}`}
+                              stroke={withOpacity(getModernColor(2), 0.9)}
+                              fill={withOpacity(getModernColor(2), 0.16)}
+                              strokeWidth={1.5}
+                              dot={false}
+                              activeDot={{ r: 3 }}
+                              legendType="none"
+                            />
+                          )}
+                          <Bar
+                            dataKey="actual"
+                            name={monthlyAbsenteeismComparison.targetYear.toString()}
+                            fill={getModernColor(0)}
+                            radius={[4, 4, 0, 0]}
+                            maxBarSize={22}
+                          />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  );
+                }}
+              </VisualizationContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                No hay datos de ausentismo para graficar.
               </div>
             )}
           </CardContent>

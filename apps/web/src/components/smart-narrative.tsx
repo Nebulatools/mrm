@@ -90,13 +90,9 @@ export function SmartNarrative({
     >
       <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xl">✨</span>
           <CardTitle className={cn("text-lg", refreshEnabled && "font-heading text-brand-ink")}>
             {title}
           </CardTitle>
-          <Badge variant="outline" className="ml-2 text-xs">
-            IA bajo demanda
-          </Badge>
         </div>
         <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
           <Tabs value={level} onValueChange={(value) => setLevel(value as NarrativeLevel)}>
@@ -129,7 +125,7 @@ export function SmartNarrative({
             )}
           >
             <Sparkles className={cn("h-4 w-4", loading && "animate-spin")} />
-            {loading ? "Generando..." : "IA bajo demanda"}
+            {loading ? "Generando..." : "Generar"}
           </button>
         </div>
       </CardHeader>
@@ -145,7 +141,7 @@ export function SmartNarrative({
             <AlertTriangle className="h-4 w-4" />
             {error}
           </div>
-        ) : (
+        ) : narrative ? (
           <div className="space-y-2 rounded-xl border border-slate-100/80 bg-white/80 p-4 text-sm leading-relaxed shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
               <Sparkles className="h-4 w-4 text-amber-500" />
@@ -157,12 +153,10 @@ export function SmartNarrative({
                 levelColors[level]
               )}
             >
-              <span className="font-medium text-slate-900 dark:text-white">
-                {narrative || "Ajusta los filtros para ver la narrativa de este período."}
-              </span>
+              <span className="font-medium text-slate-900 dark:text-white">{narrative}</span>
             </div>
           </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

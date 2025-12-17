@@ -233,7 +233,7 @@ export async function DELETE(request: NextRequest) {
     return auth.error;
   }
 
-  let payload: any;
+  let payload: unknown;
   try {
     payload = await request.json();
   } catch (error) {
@@ -243,7 +243,10 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  const userId: string | undefined = payload?.userId;
+  const userId: string | undefined =
+    payload && typeof payload === "object" && "userId" in payload
+      ? (payload as { userId?: string }).userId
+      : undefined;
 
   if (!userId) {
     return NextResponse.json(
@@ -252,12 +255,22 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
+  // Eliminar usuario de Auth
+  const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(
+    userId
+  );
+  if (deleteAuthError) {
+    return NextResponse.json(
+      { success: false, error: deleteAuthError.message },
+      { status: 500 }
+    );
+  }
+
   // Limpiar accesos de empresa
   const { error: deleteAccessError } = await supabaseAdmin
     .from("user_empresa_access")
     .delete()
     .eq("user_id", userId);
-
   if (deleteAccessError) {
     return NextResponse.json(
       { success: false, error: deleteAccessError.message },
@@ -265,15 +278,14 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  // Desasignar empresa principal en perfil, pero mantener rol
-  const { error: updateProfileError } = await supabaseAdmin
+  // Borrar perfil
+  const { error: deleteProfileError } = await supabaseAdmin
     .from("user_profiles")
-    .update({ empresa: null })
+    .delete()
     .eq("id", userId);
-
-  if (updateProfileError) {
+  if (deleteProfileError) {
     return NextResponse.json(
-      { success: false, error: updateProfileError.message },
+      { success: false, error: deleteProfileError.message },
       { status: 500 }
     );
   }
