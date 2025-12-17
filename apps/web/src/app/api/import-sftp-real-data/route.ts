@@ -90,6 +90,7 @@ interface IncidenciaSFTP {
   numero: number | null;
   inci: string | null;
   status: number | null;
+  ubicacion2: string | null;
 }
 
 const INCIDENT_CODES = new Set(['FI', 'SUS', 'PSIN', 'ENFE']);
@@ -575,12 +576,25 @@ function transformIncidenciaRecord(record: Record<string, unknown>, index: numbe
   const entra = sanitizeString(record['Entra']);
   const sale = sanitizeString(record['Sale']);
   const ordinarias = parseOptionalFloat(record['Ordinarias']);
-  const numero = parseOptionalInt(record['#']);
+  const numero =
+    parseOptionalInt(record['#']) ??
+    parseOptionalInt(record['Número']) ??
+    parseOptionalInt(record['N?mero']) ??
+    null;
   const inci = normalizeInciCode(record['INCI']);
   const status = parseOptionalInt(record['Status']);
+  const ubicacion2 = sanitizeString(
+    pickField(record, ['Ubicacion2', 'Ubicación2', 'Ubicacion 2', 'Ubicacion'], 'ubicacion2')
+  );
+  const empParsed =
+    parseOptionalInt(record['Número']) ??
+    parseOptionalInt(record['N?mero']) ??
+    parseOptionalInt(record['Gafete']) ??
+    numero;
+  const emp = empParsed !== null && empParsed !== undefined ? empParsed : -1 * (index + 1);
 
   return {
-    emp: -1 * (index + 1),
+    emp,
     nombre: null,
     fecha,
     turno,
@@ -592,6 +606,7 @@ function transformIncidenciaRecord(record: Record<string, unknown>, index: numbe
     numero,
     inci,
     status,
+    ubicacion2,
   };
 }
 

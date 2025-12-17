@@ -13,6 +13,7 @@ CREATE TABLE incidencias (
     numero INTEGER,
     inci VARCHAR(10), -- Código de tipo de incidencia (VAC, INC, FJ, FI, etc.)
     status SMALLINT, -- Status numérico de la incidencia
+    ubicacion2 TEXT, -- Ubicación normalizada desde el CSV de incidencias
     fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -30,3 +31,4 @@ COMMENT ON COLUMN incidencias.horario IS 'Horario asignado (formato: 0830_1700)'
 COMMENT ON COLUMN incidencias.incidencia IS 'Descripción de la incidencia';
 COMMENT ON COLUMN incidencias.inci IS 'Código de tipo de incidencia (VAC, INC, FJ, FI, etc.)';
 COMMENT ON COLUMN incidencias.status IS 'Status numérico de la incidencia';
+COMMENT ON COLUMN incidencias.ubicacion2 IS 'Ubicación proveniente del archivo Incidencias.csv';

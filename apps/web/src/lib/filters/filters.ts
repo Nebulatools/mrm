@@ -25,6 +25,7 @@ interface NormalizedFilterSets {
   puestos: Set<string>;
   clasificaciones: Set<string>;
   ubicaciones: Set<string>;
+  ubicacionesIncidencias: Set<string>;
 }
 
 interface DatasetYearBounds {
@@ -192,7 +193,8 @@ function buildNormalizedFilters(filters: RetentionFilterOptions): NormalizedFilt
     departamentos: buildNormalizedSet(filters.departamentos),
     puestos: buildNormalizedSet(filters.puestos),
     clasificaciones: buildNormalizedSet(filters.clasificaciones),
-    ubicaciones: buildNormalizedSet(filters.ubicaciones)
+    ubicaciones: buildNormalizedSet(filters.ubicaciones),
+    ubicacionesIncidencias: buildNormalizedSet(filters.ubicacionesIncidencias)
   };
 }
 
@@ -209,6 +211,7 @@ export interface RetentionFilterOptions {
   puestos?: string[];
   clasificaciones?: string[];
   ubicaciones?: string[];
+  ubicacionesIncidencias?: string[]; // ubicacion2 (incidencias)
   empresas?: string[];  // Negocio/Empresa filter
   areas?: string[];     // Área filter
 
@@ -317,6 +320,7 @@ export function applyFiltersWithScope(
     puestos: filters.puestos ? [...filters.puestos] : [],
     clasificaciones: filters.clasificaciones ? [...filters.clasificaciones] : [],
     ubicaciones: filters.ubicaciones ? [...filters.ubicaciones] : [],
+    ubicacionesIncidencias: filters.ubicacionesIncidencias ? [...filters.ubicacionesIncidencias] : [],
     empresas: filters.empresas ? [...filters.empresas] : [],
     areas: filters.areas ? [...filters.areas] : [],
     motivoFilter: filters.motivoFilter,

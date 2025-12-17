@@ -38,6 +38,7 @@ export function RetentionFilterPanel({
     puestos: [],
     clasificaciones: [],
     ubicaciones: [],
+    ubicacionesIncidencias: [],
     empresas: [],  // Negocio/Empresa
     areas: []      // Área
   });
@@ -60,6 +61,7 @@ export function RetentionFilterPanel({
       puestos: [],
       clasificaciones: [],
       ubicaciones: [],
+      ubicacionesIncidencias: [],
       empresas: [],
       areas: []
     };
@@ -75,6 +77,7 @@ export function RetentionFilterPanel({
     puestos: [] as string[],
     clasificaciones: [] as string[],
     ubicaciones: [] as string[],
+    ubicacionesIncidencias: [] as string[],
     empresas: [] as string[],  // Negocio/Empresa
     areas: [] as string[]      // Área
   });
@@ -95,10 +98,11 @@ export function RetentionFilterPanel({
       const allDates = [];
       const departamentosSet = new Set<string>();
       const puestosSet = new Set<string>();
-      const clasificacionesSet = new Set<string>();
-      const ubicacionesSet = new Set<string>();
-      const empresasSet = new Set<string>();
-      const areasSet = new Set<string>();
+    const clasificacionesSet = new Set<string>();
+    const ubicacionesSet = new Set<string>();
+    const ubicacionesIncSet = new Set<string>();
+    const empresasSet = new Set<string>();
+    const areasSet = new Set<string>();
       
       if (empleadosSFTP) {
         empleadosSFTP.forEach(emp => {
@@ -172,6 +176,19 @@ export function RetentionFilterPanel({
       const puestos = Array.from(puestosSet).sort();
       const clasificaciones = Array.from(clasificacionesSet).sort();
       const ubicaciones = Array.from(ubicacionesSet).sort();
+      // Distintos ubicacion2 desde incidencias
+      const { data: incidencias } = await supabase
+        .from('incidencias')
+        .select('ubicacion2')
+        .not('ubicacion2', 'is', null)
+        .limit(2000);
+      incidencias?.forEach((row: any) => {
+        const u = row?.ubicacion2;
+        if (u && typeof u === 'string' && u.trim()) {
+          ubicacionesIncSet.add(u.trim());
+        }
+      });
+      const ubicacionesIncidencias = Array.from(ubicacionesIncSet).sort();
       const empresas = Array.from(empresasSet).sort();
       const areas = Array.from(areasSet).sort();
       
@@ -215,6 +232,7 @@ export function RetentionFilterPanel({
         puestos: finalPuestos,
         clasificaciones: finalClasificaciones,
         ubicaciones: finalUbicaciones,
+        ubicacionesIncidencias,
         empresas: empresas.length > 0 ? empresas : ['MOTO REPUESTOS MONTERREY', 'MOTO TOTAL', 'REPUESTOS Y MOTOCICLETAS DEL NORTE'],
         areas: areas.length > 0 ? areas : []
       });
@@ -249,6 +267,8 @@ export function RetentionFilterPanel({
       newFilters.clasificaciones = selectedValues;
     } else if (filterType === 'ubicaciones') {
       newFilters.ubicaciones = selectedValues;
+    } else if (filterType === 'ubicacionesIncidencias') {
+      newFilters.ubicacionesIncidencias = selectedValues;
     } else if (filterType === 'empresas') {
       newFilters.empresas = selectedValues;
     } else if (filterType === 'areas') {
@@ -267,6 +287,7 @@ export function RetentionFilterPanel({
       puestos: [],
       clasificaciones: [],
       ubicaciones: [],
+      ubicacionesIncidencias: [],
       empresas: [],
       areas: []
     };
@@ -586,7 +607,7 @@ export function RetentionFilterPanel({
                 renderOption={(option) => monthNames[parseInt(option.toString()) - 1]}
               />
 
-              <MultiSelectDropdown
+             <MultiSelectDropdown
                 label="Negocio"
                 options={availableOptions.empresas}
                 selectedValues={filters.empresas || []}
@@ -627,10 +648,18 @@ export function RetentionFilterPanel({
               />
 
               <MultiSelectDropdown
-                label="Ubicación"
+                label="Centro de trabajo"
                 options={availableOptions.ubicaciones}
                 selectedValues={filters.ubicaciones || []}
                 onSelectionChange={(values) => handleMultiSelectChange("ubicaciones", values)}
+                renderOption={(option) => sanitizeFilterValue(option)}
+              />
+
+              <MultiSelectDropdown
+                label="Ubicación"
+                options={availableOptions.ubicacionesIncidencias}
+                selectedValues={filters.ubicacionesIncidencias || []}
+                onSelectionChange={(values) => handleMultiSelectChange("ubicacionesIncidencias", values)}
                 renderOption={(option) => sanitizeFilterValue(option)}
               />
             </div>

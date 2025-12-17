@@ -45,6 +45,7 @@ export function countActiveFilters(filters: RetentionFilterOptions): number {
     filters.puestos?.length ?? 0,
     filters.clasificaciones?.length ?? 0,
     filters.ubicaciones?.length ?? 0,
+    filters.ubicacionesIncidencias?.length ?? 0,
   ];
 
   return values.reduce((acc, value) => acc + value, 0);
@@ -93,8 +94,13 @@ export function getFilterSummary(filters: RetentionFilterOptions): string {
   if (filters.ubicaciones?.length) {
     const count = filters.ubicaciones.length;
     parts.push(
-      `${count} ubicación${count === 1 ? "" : "es"}`
+      `${count} centro${count === 1 ? "" : "s"} de trabajo`
     );
+  }
+
+  if (filters.ubicacionesIncidencias?.length) {
+    const count = filters.ubicacionesIncidencias.length;
+    parts.push(`${count} ubicación${count === 1 ? "" : "es"}`);
   }
 
   return parts.join(" · ");
@@ -165,6 +171,15 @@ export function getDetailedFilterLines(
 
   if (filters.ubicaciones?.length) {
     const values = filters.ubicaciones
+      .map((ubicacion) => sanitizeFilterValue(ubicacion))
+      .filter((value) => value !== "—");
+    if (values.length > 0) {
+      lines.push(`Centro de trabajo: ${values.join(", ")}`);
+    }
+  }
+
+  if (filters.ubicacionesIncidencias?.length) {
+    const values = filters.ubicacionesIncidencias
       .map((ubicacion) => sanitizeFilterValue(ubicacion))
       .filter((value) => value !== "—");
     if (values.length > 0) {

@@ -35,6 +35,7 @@ interface RetentionFilters {
   empresas?: string[];
   areas?: string[];
   ubicaciones?: string[];
+  ubicacionesIncidencias?: string[];
 }
 
 interface RetentionChartsProps {

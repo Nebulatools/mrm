@@ -108,6 +108,7 @@ export interface IncidenciaCSVRecord {
   numero?: number | null
   inci?: string | null
   status?: number | null
+  ubicacion2?: string | null
   fecha_creacion?: string
 }
 

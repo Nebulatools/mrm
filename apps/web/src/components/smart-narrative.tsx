@@ -38,6 +38,7 @@ export function SmartNarrative({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [narrative, setNarrative] = useState<string>("");
+  const [hasRequested, setHasRequested] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const dataSignature = useMemo(() => {
@@ -49,37 +50,34 @@ export function SmartNarrative({
   }, [data]);
 
   useEffect(() => {
+    // Si cambian los datos, pedimos clic manual otra vez y limpiamos la narrativa
+    setHasRequested(false);
+    setNarrative("");
+    setError(null);
+    setLoading(false);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+  }, [dataSignature]);
+
+  const handleGenerate = () => {
     if (!data) return;
-    let cancelled = false;
     if (timerRef.current) clearTimeout(timerRef.current);
+    setHasRequested(true);
     setLoading(true);
     setError(null);
 
     timerRef.current = setTimeout(() => {
       geminiAI
         .generateNarrative(data, level, section)
-        .then((text) => {
-          if (cancelled) return;
-          setNarrative(text);
-        })
+        .then((text) => setNarrative(text))
         .catch((err) => {
-          if (cancelled) return;
           const message = err instanceof Error ? err.message : "Error al generar narrativa";
           setError(message);
         })
-        .finally(() => {
-          if (cancelled) return;
-          setLoading(false);
-        });
-    }, 350);
-
-    return () => {
-      cancelled = true;
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, [data, dataSignature, level, section]);
+        .finally(() => setLoading(false));
+    }, 200);
+  };
 
   return (
     <Card
@@ -97,27 +95,43 @@ export function SmartNarrative({
             {title}
           </CardTitle>
           <Badge variant="outline" className="ml-2 text-xs">
-            IA en vivo
+            IA bajo demanda
           </Badge>
         </div>
-        <Tabs value={level} onValueChange={(value) => setLevel(value as NarrativeLevel)}>
-          <TabsList className="grid grid-cols-2 gap-2 rounded-full bg-slate-100 p-1 dark:bg-slate-900/60">
-            {(["manager", "analyst"] as NarrativeLevel[]).map((option) => (
-              <TabsTrigger
-                key={option}
-                value={option}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-semibold",
-                  "data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-800",
-                  "data-[state=active]:shadow-sm",
-                  !refreshEnabled && "border border-transparent"
-                )}
-              >
-                {levelLabels[option]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+          <Tabs value={level} onValueChange={(value) => setLevel(value as NarrativeLevel)}>
+            <TabsList className="grid grid-cols-2 gap-2 rounded-full bg-slate-100 p-1 dark:bg-slate-900/60">
+              {(["manager", "analyst"] as NarrativeLevel[]).map((option) => (
+                <TabsTrigger
+                  key={option}
+                  value={option}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-semibold",
+                    "data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:data-[state=active]:bg-slate-800",
+                    "data-[state=active]:shadow-sm",
+                    !refreshEnabled && "border border-transparent"
+                  )}
+                >
+                  {levelLabels[option]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={loading || !data}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-colors",
+              loading
+                ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                : "bg-slate-900 text-white hover:bg-slate-800"
+            )}
+          >
+            <Sparkles className={cn("h-4 w-4", loading && "animate-spin")} />
+            {loading ? "Generando..." : "IA bajo demanda"}
+          </button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {loading ? (

@@ -79,8 +79,8 @@ const DASHBOARD_UI_REFRESH_ENABLED =
   process.env.NEXT_PUBLIC_FEATURE_DASHBOARD_UI_REFRESH === "true";
 
 export function DashboardPage() {
-  // Create authenticated Supabase client for RLS filtering
-  const supabase = createBrowserClient();
+  // Create authenticated Supabase client for RLS filtering (memoized to avoid ref changes)
+  const supabase = useMemo(() => createBrowserClient(), []);
   const refreshEnabled = DASHBOARD_UI_REFRESH_ENABLED;
   const { isAdmin } = useAuth();
   const { theme } = useTheme();
@@ -124,7 +124,8 @@ export function DashboardPage() {
     departamentos: [],
     puestos: [],
     clasificaciones: [],
-    ubicaciones: []
+    ubicaciones: [],
+    ubicacionesIncidencias: []
   });
   const filtersSummary = useMemo(
     () => getFilterSummary(retentionFilters),
@@ -428,7 +429,8 @@ export function DashboardPage() {
       console.error('❌ Error in loadDashboardData:', error);
       setData(prev => ({ ...prev, plantilla: [], loading: false }));
     }
-  }, [timePeriod, selectedPeriod, retentionFilters, supabase]); // Added supabase to dependencies
+    // Nota: no incluimos retentionFilters para evitar recargas completas al mover filtros (solo se vuelven a calcular en cliente).
+  }, [timePeriod, selectedPeriod, supabase]); // Added supabase to dependencies
 
   // REMOVED: Duplicated useEffect moved up
   // Use shared filter util
@@ -500,16 +502,38 @@ export function DashboardPage() {
     return scoped;
   }, [data.plantilla, retentionFilters]);
 
+  const normalizeText = (value?: string | null) => {
+    if (!value) return '';
+    return value
+      .toString()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  };
+
   // ✅ NUEVO: Filtrar bajas e incidencias basándose en empleados filtrados
   const empleadosFiltradosIds = new Set(plantillaFiltered.map(e => e.numero_empleado || Number(e.emp_id)));
   const bajasFiltered = bajasData.filter(b => empleadosFiltradosIds.has(b.numero_empleado));
   const incidenciasFiltered = incidenciasData
-    .filter((i) => empleadosFiltradosIds.has(i.emp))
+    .filter((i) => {
+      // Incluir incidencias con emp negativo (sintético) o sin match para no perder datos
+      if (i.emp === undefined || i.emp === null || i.emp < 0) return true;
+      return empleadosFiltradosIds.size === 0 || empleadosFiltradosIds.has(i.emp);
+    })
+    .filter((i) => {
+      if (!retentionFilters.ubicacionesIncidencias || retentionFilters.ubicacionesIncidencias.length === 0) {
+        return true;
+      }
+      const incUb = normalizeText((i as any).ubicacion2);
+      return retentionFilters.ubicacionesIncidencias.some((u) => normalizeText(u) === incUb);
+    })
     .map((i) => ({
       emp: i.emp,
       fecha: i.fecha,
       inci: i.inci ?? i.incidencia ?? '',
-      incidencia: i.incidencia ?? null
+      incidencia: i.incidencia ?? null,
+      ubicacion2: (i as any).ubicacion2 ?? null
     }));
 
   const headcountComparisonBase = plantillaFilteredGeneral.length > 0 ? plantillaFilteredGeneral : plantillaFiltered;
@@ -1569,7 +1593,7 @@ export function DashboardPage() {
               plantillaAnual={plantillaFilteredYearScope}
               currentYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}
               selectedMonths={retentionFilters.months}
-              initialIncidencias={incidenciasData}
+              initialIncidencias={incidenciasFiltered}
               onKPIsUpdate={setIncidentsKpiSnapshot}
             />
           </TabsContent>
