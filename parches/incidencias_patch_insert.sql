@@ -1,6 +1,5 @@
 -- Parche de incidencias (julio-diciembre 2025)
 BEGIN;
-DELETE FROM public.incidencias WHERE fecha >= '2025-07-01';
 
 INSERT INTO public.incidencias (emp, nombre, fecha, turno, horario, incidencia, entra, sale, ordinarias, numero, inci, status)
 VALUES
