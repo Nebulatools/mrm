@@ -829,10 +829,10 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                   <tr className="border-b border-slate-200 dark:border-slate-700/70">
                     <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-blue-50 dark:bg-blue-500/15">% Rot. 12M</th>
                     <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-blue-50 dark:bg-blue-500/15"># Bajas 12M</th>
-                    <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-blue-50 dark:bg-blue-500/15"># Activos</th>
+                    <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-blue-50 dark:bg-blue-500/15"># Activos prom 12M</th>
                     <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-red-50 dark:bg-red-500/15">% Rot. 12M</th>
                     <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-red-50 dark:bg-red-500/15"># Bajas 12M</th>
-                    <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-red-50 dark:bg-red-500/15"># Activos</th>
+                    <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-red-50 dark:bg-red-500/15"># Activos prom 12M</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -915,10 +915,10 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                   <tr className="border-b border-slate-200 dark:border-slate-700/70">
                     <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-blue-50 dark:bg-blue-500/15">% Rotación</th>
                     <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-blue-50 dark:bg-blue-500/15"># Bajas</th>
-                    <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-blue-50 dark:bg-blue-500/15"># Activos</th>
+                    <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-blue-50 dark:bg-blue-500/15"># Activos (fin de mes)</th>
                     <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-red-50 dark:bg-red-500/15">% Rotación</th>
                     <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-red-50 dark:bg-red-500/15"># Bajas</th>
-                    <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-red-50 dark:bg-red-500/15"># Activos</th>
+                    <th className="px-3 py-1.5 text-center text-[11px] font-semibold text-brand-ink dark:text-slate-100 md:text-xs bg-red-50 dark:bg-red-500/15"># Activos (fin de mes)</th>
                   </tr>
                 </thead>
                 <tbody>
