@@ -728,7 +728,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     return Array.from(new Set(enrichedPeriodo.map(i => normalizeIncidenciaCode(i.inci)).filter((c): c is string => !!c))).sort();
   }, [enrichedPeriodo]);
   const resumenPorTipo = useMemo(() => {
-    const out = [] as { tipo: string; dias: number; empleados: number }[];
+    const out = [] as { tipo: string; dias: number | string; empleados: number | string }[];
     const byTipo = new Map<string, IncidenciaCSVRecord[]>();
     enrichedPeriodo.forEach(i => {
       const t = normalizeIncidenciaCode(i.inci);
@@ -736,26 +736,41 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       if (!byTipo.has(t)) byTipo.set(t, []);
       byTipo.get(t)!.push(i);
     });
+
+    // Calculate totals for percentage mode
+    const totalDias = enrichedPeriodo.length;
+    const totalEmpleadosUnicos = new Set(enrichedPeriodo.map(i => i.emp)).size;
+
     // Solo tipos presentes en datos (no listar tipos inexistentes)
     tiposUnicos.forEach(t => {
       const arr = byTipo.get(t) || [];
       const empleadosTipo = new Set(arr.map(a => a.emp)).size;
-      const dias = arr.length; // sin dias_aplicados en CSV
-      out.push({ tipo: t, dias, empleados: empleadosTipo });
+      const diasCount = arr.length;
+
+      if (metricType === "percent") {
+        const diasPct = totalDias > 0 ? (diasCount / totalDias * 100).toFixed(1) + '%' : '0%';
+        const empleadosPct = totalEmpleadosUnicos > 0 ? (empleadosTipo / totalEmpleadosUnicos * 100).toFixed(1) + '%' : '0%';
+        out.push({ tipo: t, dias: diasPct, empleados: empleadosPct });
+      } else {
+        out.push({ tipo: t, dias: diasCount, empleados: empleadosTipo });
+      }
     });
+
     // Orden principal: mayor número de empleados, luego tipo de grupo
     const groupOf = (code: string) => (
       INCIDENT_CODES.has(code) ? 0 : PERMISO_CODES.has(code) ? 1 : 2
     );
     out.sort((a, b) => {
-      if (b.empleados !== a.empleados) return b.empleados - a.empleados;
+      const aEmp = typeof a.empleados === 'number' ? a.empleados : parseFloat(a.empleados);
+      const bEmp = typeof b.empleados === 'number' ? b.empleados : parseFloat(b.empleados);
+      if (bEmp !== aEmp) return bEmp - aEmp;
       const ga = groupOf(a.tipo);
       const gb = groupOf(b.tipo);
       if (ga !== gb) return ga - gb;
       return a.tipo.localeCompare(b.tipo);
     });
     return out;
-  }, [enrichedPeriodo, tiposUnicos]);
+  }, [enrichedPeriodo, tiposUnicos, metricType]);
 
   const pieData = useMemo(() => ([
     { name: 'Incidencias', value: totalIncidencias },
@@ -1024,7 +1039,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                 {(fullscreen) => (
                   <div style={{ height: fullscreen ? 420 : 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={monthlyTrendsData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
+                      <LineChart data={monthlyTrendsData} margin={{ left: 32, right: 16, top: 8, bottom: 40 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis
                           dataKey="mes"
@@ -1035,8 +1050,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           tick={{ fontSize: 11 }}
                         />
                         <YAxis
-                          label={{ value: metricType === "percent" ? 'Porcentaje (%)' : 'Cantidad', angle: -90, position: 'insideLeft' }}
+                          label={{
+                            value: metricType === "percent" ? 'Porcentaje (%)' : 'Cantidad',
+                            angle: -90,
+                            position: 'insideLeft',
+                            offset: 10
+                          }}
                           tick={{ fontSize: 12 }}
+                          domain={metricType === "percent" ? [0, 100] : undefined}
                         />
                         <Tooltip
                           contentStyle={LINE_TOOLTIP_STYLE}
@@ -1087,7 +1108,9 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Incidencias por empleado</CardTitle>
-            <p className="text-sm text-gray-600">X: # Incidencias • Y: # Empleados</p>
+            <p className="text-sm text-gray-600">
+              X: # Incidencias • Y: {metricType === "percent" ? "% Empleados" : "# Empleados"}
+            </p>
           </CardHeader>
           <CardContent className="flex-1">
             {loadingIncidencias ? (
@@ -1149,8 +1172,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                       <TableHeader className="sticky top-0 z-10 bg-white">
                         <TableRow>
                           <TableHead className="w-1/2">Tipo</TableHead>
-                          <TableHead className="w-1/4 text-center"># días</TableHead>
-                          <TableHead className="w-1/4 text-center"># emp</TableHead>
+                          <TableHead className="w-1/4 text-center">
+                            {metricType === "percent" ? "% días" : "# días"}
+                          </TableHead>
+                          <TableHead className="w-1/4 text-center">
+                            {metricType === "percent" ? "% emp" : "# emp"}
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
