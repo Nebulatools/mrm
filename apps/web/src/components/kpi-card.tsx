@@ -70,9 +70,9 @@ export function KPICard({
     }
     const positive = changeValue > 0;
     if (positive) {
-      return (isInverseVarianceKpi ? 'negative' : 'positive') as const;
+      return isInverseVarianceKpi ? 'negative' : 'positive';
     }
-    return (isInverseVarianceKpi ? 'positive' : 'negative') as const;
+    return isInverseVarianceKpi ? 'positive' : 'negative';
   };
   const changeColorState = resolveColorState();
   const trendColor =

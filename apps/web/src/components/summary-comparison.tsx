@@ -7,8 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, TrendingDown, AlertCircle, TrendingUp } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import type { TooltipProps, TooltipPayload } from 'recharts';
+import type { TooltipProps } from 'recharts';
 import { isMotivoClave, normalizeIncidenciaCode } from '@/lib/normalizers';
+
+// Define TooltipPayload type locally since it's not exported in this recharts version
+type TooltipPayload = {
+  name?: string;
+  value?: number;
+  color?: string;
+  dataKey?: string | number;
+  payload?: any;
+};
 import { cn } from '@/lib/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
 import {
@@ -65,7 +74,7 @@ interface SummaryComparisonProps {
 type IncidenciaWithDescription = IncidenciaRecord & { incidencia?: string | null };
 
 // ✅ Códigos de incidencias y permisos (igual que en incidents-tab.tsx)
-const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
+const INCIDENT_CODES = new Set(["FI", "SUSP", "PSIN", "ENFE"]);
 const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST"]);
 
 const formatMonthLabel = (date: Date) => {
@@ -234,7 +243,7 @@ export function SummaryComparison({
     return configs;
   }, [plantillaRotacion, plantilla]);
 
-  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('involuntaria');
+  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('voluntaria');
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const axisColor = isDark ? '#E2E8F0' : '#475569';
@@ -676,15 +685,15 @@ export function SummaryComparison({
       {
         key: 'rotacion-mensual',
         icon: <TrendingDown className="h-6 w-6" />,
-        secondaryLabel: 'vs mes anterior',
-        secondaryValue: kpisPrevMonth.rotacionMensual,
+        secondaryLabel: 'vs mismo mes año anterior',
+        secondaryValue: kpisPrevYear.rotacionMensual,
         hidePreviousValue: true,
         kpi: {
           name: 'Rotación Mensual',
           category: 'retention',
           value: kpisActuales.rotacionMensual,
-          previous_value: kpisPrevMonth.rotacionMensual,
-          variance_percentage: calculateVariancePercentage(kpisActuales.rotacionMensual, kpisPrevMonth.rotacionMensual),
+          previous_value: kpisPrevYear.rotacionMensual,
+          variance_percentage: calculateVariancePercentage(kpisActuales.rotacionMensual, kpisPrevYear.rotacionMensual),
           period_start: format(currentMonthStart, 'yyyy-MM-dd'),
           period_end: format(currentMonthEnd, 'yyyy-MM-dd')
         }

@@ -93,7 +93,7 @@ interface IncidenciaSFTP {
   ubicacion2: string | null;
 }
 
-const INCIDENT_CODES = new Set(['FI', 'SUS', 'PSIN', 'ENFE']);
+const INCIDENT_CODES = new Set(['FI', 'SUSP', 'PSIN', 'ENFE']);
 const PERMISO_CODES = new Set(['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST']);
 
 export async function POST(request: NextRequest) {

@@ -19,6 +19,11 @@ import { KPICard, KPICardSkeleton } from "./kpi-card";
 import { DismissalReasonsTable } from "./dismissal-reasons-table";
 import { BajasPorMotivoHeatmap } from "./bajas-por-motivo-heatmap";
 import { RetentionCharts } from "./retention-charts";
+import { AgeGenderTable } from "./tables/age-gender-table";
+import { SeniorityGenderTable } from "./tables/seniority-gender-table";
+import { RotationByMotiveAreaTable } from "./tables/rotation-by-motive-area-table";
+import { RotationByMotiveSeniorityTable } from "./tables/rotation-by-motive-seniority-table";
+import { RotationByMotiveMonthTable } from "./tables/rotation-by-motive-month-table";
 import IncidentsTab from "./incidents-tab";
 import { RetentionFilterPanel } from "./filter-panel";
 import { SummaryComparison } from "./summary-comparison";
@@ -529,6 +534,7 @@ export function DashboardPage() {
       return retentionFilters.ubicacionesIncidencias.some((u) => normalizeText(u) === incUb);
     })
     .map((i) => ({
+      id: i.id,
       emp: i.emp,
       fecha: i.fecha,
       inci: i.inci ?? i.incidencia ?? '',
@@ -1577,6 +1583,18 @@ export function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* New Demographic Analysis Tables */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <AgeGenderTable
+                plantilla={plantillaFiltered}
+                refreshEnabled={refreshEnabled}
+              />
+              <SeniorityGenderTable
+                plantilla={plantillaFiltered}
+                refreshEnabled={refreshEnabled}
+              />
+            </div>
           </TabsContent>
 
           {/* Incidents Tab */}
@@ -1826,6 +1844,25 @@ export function DashboardPage() {
             />
 
             <AbandonosOtrosSummary referenceDate={selectedPeriod} />
+
+            {/* New Rotation Analysis Tables */}
+            <div className="grid grid-cols-1 gap-6">
+              <RotationByMotiveAreaTable
+                plantilla={plantillaFiltered}
+                motivosBaja={bajasData}
+                refreshEnabled={refreshEnabled}
+              />
+              <RotationByMotiveSeniorityTable
+                plantilla={plantillaFiltered}
+                motivosBaja={bajasData}
+                refreshEnabled={refreshEnabled}
+              />
+              <RotationByMotiveMonthTable
+                motivosBaja={bajasData}
+                year={selectedPeriod.getFullYear()}
+                refreshEnabled={refreshEnabled}
+              />
+            </div>
 
             {/* Tabla de Bajas por Motivo y Listado Detallado */}
             <DismissalReasonsTable

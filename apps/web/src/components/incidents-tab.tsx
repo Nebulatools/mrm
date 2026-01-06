@@ -40,8 +40,8 @@ type EnrichedIncidencia = IncidenciaCSVRecord & {
   puesto?: string | null;
 };
 
-const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
-const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]); // Para card de empleados con incidencias
+const INCIDENT_CODES = new Set(["FI", "SUSP", "PSIN", "ENFE"]);
+const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUSP", "PSIN", "ENFE"]); // Para card de empleados con incidencias
 const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST"]);
 
 const PIE_COLORS = [getModernColor(0), getModernColor(2)];
@@ -93,21 +93,28 @@ const renderPieInnerLabel = ({
   percent = 0,
   payload,
 }: PieLabelRenderProps) => {
+  // Ensure all values are numbers
+  const cxNum = Number(cx);
+  const cyNum = Number(cy);
+  const midAngleNum = Number(midAngle);
+  const innerRadiusNum = Number(innerRadius);
+  const outerRadiusNum = Number(outerRadius);
+
   const safePercent = Number.isFinite(percent) ? percent * 100 : 0;
   const value = typeof payload?.value === "number" ? payload.value : 0;
   const label = typeof payload?.name === "string" ? payload.name : "";
   const displayValue = `${value.toLocaleString("es-MX")} · ${safePercent.toFixed(1)}%`;
   const isSmallSlice = safePercent < 12;
-  const outerPointRadius = outerRadius + 8;
-  const accentRadius = outerRadius + 28;
-  const angle = -midAngle * RADIAN;
-  const connectorStartX = cx + outerRadius * Math.cos(angle);
-  const connectorStartY = cy + outerRadius * Math.sin(angle);
-  const connectorMidX = cx + outerPointRadius * Math.cos(angle);
-  const connectorMidY = cy + outerPointRadius * Math.sin(angle);
-  const textX = cx + accentRadius * Math.cos(angle);
-  const textY = cy + accentRadius * Math.sin(angle);
-  const textAnchor = textX > cx ? "start" : "end";
+  const outerPointRadius = outerRadiusNum + 8;
+  const accentRadius = outerRadiusNum + 28;
+  const angle = -midAngleNum * RADIAN;
+  const connectorStartX = cxNum + outerRadiusNum * Math.cos(angle);
+  const connectorStartY = cyNum + outerRadiusNum * Math.sin(angle);
+  const connectorMidX = cxNum + outerPointRadius * Math.cos(angle);
+  const connectorMidY = cyNum + outerPointRadius * Math.sin(angle);
+  const textX = cxNum + accentRadius * Math.cos(angle);
+  const textY = cyNum + accentRadius * Math.sin(angle);
+  const textAnchor = textX > cxNum ? "start" : "end";
   const textOffset = textAnchor === "start" ? 10 : -10;
 
   if (isSmallSlice) {
@@ -144,9 +151,9 @@ const renderPieInnerLabel = ({
     );
   }
 
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.52;
-  const innerX = cx + radius * Math.cos(angle);
-  const innerY = cy + radius * Math.sin(angle);
+  const radius = innerRadiusNum + (outerRadiusNum - innerRadiusNum) * 0.52;
+  const innerX = cxNum + radius * Math.cos(angle);
+  const innerY = cyNum + radius * Math.sin(angle);
 
   return (
     <g>
@@ -547,6 +554,34 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     return total;
   }, [countByTypePrevious]);
 
+  // Segmentación por tipo de incidencia: Faltas y Salud
+  const FALTAS_CODES = new Set(["FI", "SUSP", "PSIN"]);
+  const SALUD_CODES = new Set(["ENFE"]);
+
+  const totalFaltas = useMemo(() => {
+    let total = 0;
+    countByType.forEach((v, k) => { if (FALTAS_CODES.has(k)) total += v; });
+    return total;
+  }, [countByType]);
+
+  const totalFaltasAnterior = useMemo(() => {
+    let total = 0;
+    countByTypePrevious.forEach((v, k) => { if (FALTAS_CODES.has(k)) total += v; });
+    return total;
+  }, [countByTypePrevious]);
+
+  const totalSalud = useMemo(() => {
+    let total = 0;
+    countByType.forEach((v, k) => { if (SALUD_CODES.has(k)) total += v; });
+    return total;
+  }, [countByType]);
+
+  const totalSaludAnterior = useMemo(() => {
+    let total = 0;
+    countByTypePrevious.forEach((v, k) => { if (SALUD_CODES.has(k)) total += v; });
+    return total;
+  }, [countByTypePrevious]);
+
   useEffect(() => {
     if (!onKPIsUpdate) return;
     onKPIsUpdate({
@@ -565,6 +600,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
   const incidenciasPctAnterior = diasLaborablesPrev > 0 ? (totalIncidenciasAnterior / diasLaborablesPrev) * 100 : 0;
   const permisosPct = diasLaborablesActual > 0 ? (totalPermisos / diasLaborablesActual) * 100 : 0;
   const permisosPctAnterior = diasLaborablesPrev > 0 ? (totalPermisosAnteriores / diasLaborablesPrev) * 100 : 0;
+
+  // Percentages segmentados por tipo
+  const faltasPct = diasLaborablesActual > 0 ? (totalFaltas / diasLaborablesActual) * 100 : 0;
+  const faltasPctAnterior = diasLaborablesPrev > 0 ? (totalFaltasAnterior / diasLaborablesPrev) * 100 : 0;
+  const saludPct = diasLaborablesActual > 0 ? (totalSalud / diasLaborablesActual) * 100 : 0;
+  const saludPctAnterior = diasLaborablesPrev > 0 ? (totalSaludAnterior / diasLaborablesPrev) * 100 : 0;
 
   const maMonth = {
     empleadosPct: prevMonthStats.activos > 0 ? (prevMonthStats.empleadosConIncidencias / (prevMonthStats.activos || 1)) * 100 : 0,
@@ -640,6 +681,36 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       },
       secondaryRows: [
         { label: 'Total', value: totalPermisos, showColon: true }
+      ]
+    },
+    {
+      icon: <AlertCircle className="h-6 w-6" />,
+      kpi: {
+        name: 'Faltas (%)',
+        category: 'incidents',
+        value: Number(faltasPct.toFixed(1)),
+        previous_value: Number(faltasPctAnterior.toFixed(1)),
+        variance_percentage: calculateVariancePercentage(faltasPct, faltasPctAnterior),
+        period_start: toISODate(currentReferenceDate),
+        period_end: toISODate(currentReferenceDate)
+      },
+      secondaryRows: [
+        { label: 'FI, SUSP, PSIN', value: totalFaltas, showColon: true }
+      ]
+    },
+    {
+      icon: <Activity className="h-6 w-6" />,
+      kpi: {
+        name: 'Salud (%)',
+        category: 'incidents',
+        value: Number(saludPct.toFixed(1)),
+        previous_value: Number(saludPctAnterior.toFixed(1)),
+        variance_percentage: calculateVariancePercentage(saludPct, saludPctAnterior),
+        period_start: toISODate(currentReferenceDate),
+        period_end: toISODate(currentReferenceDate)
+      },
+      secondaryRows: [
+        { label: 'ENFE', value: totalSalud, showColon: true }
       ]
     },
   ];
@@ -876,10 +947,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
   return (
     <div className="space-y-6">
-      {/* 4 Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* 6 Cards - Segmentado por tipo */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {loadingIncidencias
-          ? Array.from({ length: 4 }).map((_, index) => (
+          ? Array.from({ length: 6 }).map((_, index) => (
               <KPICardSkeleton key={`incidents-kpi-skeleton-${index}`} />
             ))
           : incidentsKpiCards.map(({ kpi, icon, secondaryRows }, index) => (
@@ -887,7 +958,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
             ))}
       </div>
       <p className="text-xs text-gray-500">
-        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. Incidencias: FI, SUS, PSIN, ENFE · Permisos: PCON, VAC, MAT3, MAT1, JUST
+        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. Incidencias: FI, SUSP, PSIN, ENFE · Permisos: PCON, VAC, MAT3, MAT1, JUST · Faltas: FI, SUSP, PSIN · Salud: ENFE
       </p>
 
       {/* Gráfica de Tendencia Mensual - Incidencias y Permisos */}
