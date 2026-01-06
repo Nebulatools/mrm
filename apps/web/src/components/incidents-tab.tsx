@@ -699,7 +699,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     ];
   }, [metricType, activosCount, activosPrevios, empleadosConIncidenciasPct, empleadosConIncidenciasAnteriorPct, empleadosConIncidencias, empleadosConIncidenciasAnterior, incidenciasPct, incidenciasPctAnterior, totalIncidencias, totalIncidenciasAnterior, permisosPct, permisosPctAnterior, totalPermisos, totalPermisosAnteriores, currentReferenceDate, maMonth.activos, mmaaMonth.activos]);
 
-  // Histograma: eje X = # Empleados, eje Y = # Incidencias
+  // Histograma: eje X = # Empleados (o %), eje Y = # Incidencias
   const histoData = useMemo(() => {
     const byEmp = new Map<number, number>();
     enrichedPeriodo.forEach(i => {
@@ -711,8 +711,16 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     byEmp.forEach((count) => {
       bins.set(count, (bins.get(count) || 0) + 1);
     });
-    return Array.from(bins.entries()).sort((a,b)=>a[0]-b[0]).map(([incidencias, empleados]) => ({ incidencias, empleados }));
-  }, [enrichedPeriodo]);
+
+    const totalEmpleadosConIncidencias = byEmp.size;
+
+    return Array.from(bins.entries()).sort((a,b)=>a[0]-b[0]).map(([incidencias, empleados]) => ({
+      incidencias,
+      empleados: metricType === "percent" && totalEmpleadosConIncidencias > 0
+        ? Number(((empleados / totalEmpleadosConIncidencias) * 100).toFixed(1))
+        : empleados
+    }));
+  }, [enrichedPeriodo, metricType]);
 
   // Resumen por tipo: #días (≈ registros) y #empleados únicos por tipo
   const tiposUnicos = useMemo(() => {
@@ -755,10 +763,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
   ]), [totalIncidencias, totalPermisos]);
 
   const incidenciasPorDia = useMemo(() => {
-    const base = WEEKDAY_ORDER.map(day => ({
+    const baseCounts = WEEKDAY_ORDER.map(day => ({
       dia: WEEKDAY_LABELS[day],
-      ausentismos: 0,
-      permisos: 0,
+      ausentismosCount: 0,
+      permisosCount: 0,
     }));
     const indexMap = new Map<number, number>();
     WEEKDAY_ORDER.forEach((day, idx) => indexMap.set(day, idx));
@@ -774,14 +782,28 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       const code = normalizeIncidenciaCode(inc.inci);
       if (!code) return;
       if (INCIDENT_CODES.has(code)) {
-        base[bucketIndex].ausentismos += 1;
+        baseCounts[bucketIndex].ausentismosCount += 1;
       } else if (PERMISO_CODES.has(code)) {
-        base[bucketIndex].permisos += 1;
+        baseCounts[bucketIndex].permisosCount += 1;
       }
     });
 
-    return base;
-  }, [enrichedPeriodo]);
+    // Convert to percentage if needed
+    if (metricType === "percent") {
+      // Calculate % based on total dias laborables in period
+      return baseCounts.map(day => ({
+        dia: day.dia,
+        ausentismos: diasLaborablesActual > 0 ? Number((day.ausentismosCount / diasLaborablesActual * 100).toFixed(1)) : 0,
+        permisos: diasLaborablesActual > 0 ? Number((day.permisosCount / diasLaborablesActual * 100).toFixed(1)) : 0,
+      }));
+    }
+
+    return baseCounts.map(day => ({
+      dia: day.dia,
+      ausentismos: day.ausentismosCount,
+      permisos: day.permisosCount,
+    }));
+  }, [enrichedPeriodo, metricType, diasLaborablesActual]);
 
   const incidenciasPorArea = useMemo(() => {
     const map = new Map<string, { ausentismos: number; permisos: number }>();
@@ -808,14 +830,24 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     const entries = Array.from(map.entries())
       .map(([area, counts]) => {
         const diasArea = diasLaborablesPorArea.get(area) || 0;
-        const ausentismosPct = diasArea > 0 ? (counts.ausentismos / diasArea) * 100 : 0;
-        const permisosPct = diasArea > 0 ? (counts.permisos / diasArea) * 100 : 0;
-        return {
-          area,
-          ausentismos: Number(ausentismosPct.toFixed(2)),
-          permisos: Number(permisosPct.toFixed(2)),
-          totalPct: ausentismosPct + permisosPct,
-        };
+
+        if (metricType === "percent") {
+          const ausentismosPct = diasArea > 0 ? (counts.ausentismos / diasArea) * 100 : 0;
+          const permisosPct = diasArea > 0 ? (counts.permisos / diasArea) * 100 : 0;
+          return {
+            area,
+            ausentismos: Number(ausentismosPct.toFixed(2)),
+            permisos: Number(permisosPct.toFixed(2)),
+            totalPct: ausentismosPct + permisosPct,
+          };
+        } else {
+          return {
+            area,
+            ausentismos: counts.ausentismos,
+            permisos: counts.permisos,
+            totalPct: counts.ausentismos + counts.permisos,
+          };
+        }
       })
       .filter(entry => entry.totalPct > 0)
       .sort((a, b) => b.totalPct - a.totalPct);
@@ -826,7 +858,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       ausentismos,
       permisos,
     }));
-  }, [enrichedPeriodo, diasLaborablesPorArea]);
+  }, [enrichedPeriodo, diasLaborablesPorArea, metricType]);
 
   const hasWeekdayData = useMemo(
     () => incidenciasPorDia.some(item => item.ausentismos > 0 || item.permisos > 0),
@@ -901,22 +933,30 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       const statsCurrent = buildMonthStats(currentRef);
       const statsPrevious = buildMonthStats(previousRef);
 
-      const currentPct = statsCurrent.diasLaborables > 0
-        ? (1 - ((statsCurrent.diasLaborables - statsCurrent.incidenciasCount) / statsCurrent.diasLaborables)) * 100
-        : null;
-      const previousPct = statsPrevious.diasLaborables > 0
-        ? (1 - ((statsPrevious.diasLaborables - statsPrevious.incidenciasCount) / statsPrevious.diasLaborables)) * 100
-        : null;
+      let currentValue: number | null;
+      let previousValue: number | null;
+
+      if (metricType === "percent") {
+        currentValue = statsCurrent.diasLaborables > 0
+          ? (1 - ((statsCurrent.diasLaborables - statsCurrent.incidenciasCount) / statsCurrent.diasLaborables)) * 100
+          : null;
+        previousValue = statsPrevious.diasLaborables > 0
+          ? (1 - ((statsPrevious.diasLaborables - statsPrevious.incidenciasCount) / statsPrevious.diasLaborables)) * 100
+          : null;
+      } else {
+        currentValue = statsCurrent.incidenciasCount > 0 ? statsCurrent.incidenciasCount : null;
+        previousValue = statsPrevious.incidenciasCount > 0 ? statsPrevious.incidenciasCount : null;
+      }
 
       const isFutureMonth = targetYear === now.getFullYear() && currentRef > now;
-      if (isFutureMonth && currentPct === null && previousPct === null) {
+      if (isFutureMonth && currentValue === null && previousValue === null) {
         return null;
       }
 
       return {
         mes,
-        actual: currentPct,
-        anterior: previousPct,
+        actual: currentValue,
+        anterior: previousValue,
       };
     }).filter((entry): entry is { mes: string; actual: number | null; anterior: number | null } => entry !== null);
 
@@ -925,10 +965,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       return Math.max(acc, ...candidates);
     }, 0);
 
-    const domainTop = maxValue > 0 ? Math.min(100, Math.ceil(maxValue + 2)) : 5;
+    const domainTop = metricType === "percent"
+      ? (maxValue > 0 ? Math.min(100, Math.ceil(maxValue + 2)) : 5)
+      : Math.ceil(maxValue * 1.1); // 10% padding for number mode
 
     return { data, targetYear, previousYear, domainTop };
-  }, [buildMonthStats, currentYear]);
+  }, [buildMonthStats, currentYear, metricType]);
 
   const ChartLoadingPlaceholder = ({ height = 320 }: { height?: number }) => (
     <div
@@ -1063,8 +1105,21 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                       <BarChart data={histoData} margin={{ left: 16, right: 16, top: 8, bottom: 24 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis type="number" dataKey="incidencias" label={{ value: '# Incidencias', position: 'insideBottom', offset: -10 }} />
-                        <YAxis type="number" dataKey="empleados" label={{ value: '# Empleados', angle: -90, position: 'insideLeft' }} />
-                        <Tooltip wrapperStyle={TOOLTIP_WRAPPER_STYLE} contentStyle={LINE_TOOLTIP_STYLE} labelStyle={LINE_TOOLTIP_LABEL_STYLE} />
+                        <YAxis
+                          type="number"
+                          dataKey="empleados"
+                          label={{
+                            value: metricType === "percent" ? '% Empleados' : '# Empleados',
+                            angle: -90,
+                            position: 'insideLeft'
+                          }}
+                        />
+                        <Tooltip
+                          wrapperStyle={TOOLTIP_WRAPPER_STYLE}
+                          contentStyle={LINE_TOOLTIP_STYLE}
+                          labelStyle={LINE_TOOLTIP_LABEL_STYLE}
+                          formatter={(value: number) => metricType === "percent" ? `${value}%` : value}
+                        />
                         <Bar dataKey="empleados" fill={getModernColor(0)} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -1140,6 +1195,9 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           formatter={(value: number, name: string) => {
                             const total = pieData.reduce((acc, item) => acc + item.value, 0);
                             const percentage = total > 0 ? (Number(value) / total) * 100 : 0;
+                            if (metricType === "percent") {
+                              return [`${percentage.toFixed(1)}%`, name];
+                            }
                             return [
                               `${Number(value).toLocaleString('es-MX')} (${percentage.toFixed(1)}%)`,
                               name
@@ -1194,12 +1252,24 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                       <BarChart data={incidenciasPorDia} margin={{ left: 16, right: 24, top: 16, bottom: 32 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
                         <XAxis dataKey="dia" tick={{ fontSize: 12, fill: axisSecondaryColor }} />
-                        <YAxis tick={{ fontSize: 12, fill: axisMutedColor }} />
+                        <YAxis
+                          tick={{ fontSize: 12, fill: axisMutedColor }}
+                          label={{
+                            value: metricType === "percent" ? 'Porcentaje (%)' : 'Cantidad',
+                            angle: -90,
+                            position: 'insideLeft'
+                          }}
+                        />
                         <Tooltip
                           wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                           contentStyle={LINE_TOOLTIP_STYLE}
                           labelStyle={LINE_TOOLTIP_LABEL_STYLE}
-                          formatter={(value: number, name: string) => [`${Number(value || 0).toLocaleString('es-MX')} registros`, name]}
+                          formatter={(value: number, name: string) => {
+                            const formatted = metricType === "percent"
+                              ? `${Number(value || 0).toFixed(1)}%`
+                              : `${Number(value || 0).toLocaleString('es-MX')} registros`;
+                            return [formatted, name];
+                          }}
                         />
                         <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                         <Bar dataKey="ausentismos" name="Ausentismos" fill={AUSENTISMO_COLOR} radius={[4, 4, 0, 0]} />
@@ -1245,7 +1315,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                         <XAxis
                           type="number"
                           tick={{ fontSize: 12, fill: axisSecondaryColor }}
-                          tickFormatter={(v) => `${v}%`}
+                          tickFormatter={(v) => metricType === "percent" ? `${v}%` : v}
+                          label={{
+                            value: metricType === "percent" ? 'Porcentaje (%)' : 'Cantidad',
+                            position: 'insideBottom',
+                            offset: -5
+                          }}
                         />
                         <YAxis
                           dataKey="area"
@@ -1257,11 +1332,26 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                           contentStyle={LINE_TOOLTIP_STYLE}
                           labelStyle={LINE_TOOLTIP_LABEL_STYLE}
-                          formatter={(value: number, name: string) => [`${Number(value || 0).toFixed(2)}%`, name]}
+                          formatter={(value: number, name: string) => {
+                            const formatted = metricType === "percent"
+                              ? `${Number(value || 0).toFixed(2)}%`
+                              : `${Number(value || 0).toLocaleString('es-MX')}`;
+                            return [formatted, name];
+                          }}
                         />
                         <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                        <Bar dataKey="ausentismos" name="Ausentismos (%)" fill={AUSENTISMO_COLOR} radius={[0, 4, 4, 0]} />
-                        <Bar dataKey="permisos" name="Permisos (%)" fill={PERMISO_COLOR} radius={[0, 4, 4, 0]} />
+                        <Bar
+                          dataKey="ausentismos"
+                          name={metricType === "percent" ? "Ausentismos (%)" : "Ausentismos (#)"}
+                          fill={AUSENTISMO_COLOR}
+                          radius={[0, 4, 4, 0]}
+                        />
+                        <Bar
+                          dataKey="permisos"
+                          name={metricType === "percent" ? "Permisos (%)" : "Permisos (#)"}
+                          fill={PERMISO_COLOR}
+                          radius={[0, 4, 4, 0]}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1299,8 +1389,13 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           <XAxis dataKey="mes" tick={{ fontSize: 12, fill: axisSecondaryColor }} />
                           <YAxis
                             tick={{ fontSize: 12, fill: axisMutedColor }}
-                            tickFormatter={(value) => `${Number(value || 0).toFixed(1)}%`}
+                            tickFormatter={(value) => metricType === "percent" ? `${Number(value || 0).toFixed(1)}%` : Number(value || 0).toString()}
                             domain={[0, monthlyAbsenteeismComparison.domainTop]}
+                            label={{
+                              value: metricType === "percent" ? 'Porcentaje (%)' : 'Cantidad',
+                              angle: -90,
+                              position: 'insideLeft'
+                            }}
                           />
                           <Tooltip
                             wrapperStyle={TOOLTIP_WRAPPER_STYLE}
@@ -1308,7 +1403,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                             labelStyle={LINE_TOOLTIP_LABEL_STYLE}
                             formatter={(value: number | string, name: string) => {
                               const numeric = typeof value === 'number' ? value : Number(value || 0);
-                              return [`${numeric.toFixed(2)}%`, name];
+                              const formatted = metricType === "percent"
+                                ? `${numeric.toFixed(2)}%`
+                                : `${numeric.toLocaleString('es-MX')}`;
+                              return [formatted, name];
                             }}
                           />
                           <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
