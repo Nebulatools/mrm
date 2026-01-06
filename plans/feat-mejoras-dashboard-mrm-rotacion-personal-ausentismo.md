@@ -381,3 +381,220 @@ apps/web/src/components/
 ⚠️ **NO ELIMINAR** ninguna gráfica o tabla existente - Solo agregar nuevas
 ⚠️ Mantener consistencia visual con componentes shadcn/ui existentes
 ⚠️ Verificar valores de `ubicacion` en la base de datos antes de implementar filtros
+
+---
+
+## 📊 Estado de Implementación - 2025-01-05
+
+### ✅ COMPLETADO HOY (Commit 717baaf)
+
+**PR #6:** https://github.com/Nebulatools/mrm/pull/6
+**Branch:** `feat/mejoras-dashboard-rotacion-personal-ausentismo`
+
+#### Mejoras Implementadas (8 de 13 totales - 60%):
+
+**✅ Phase 1 - Tab Resumen** (2/3)
+- [x] Default cambiado a "Rotación Voluntaria" (`summary-comparison.tsx:237`)
+- [x] KPI Rotación Mensual compara vs mismo mes año anterior (`summary-comparison.tsx:679-687`)
+- [ ] ❌ Filtros por Ubicación (BLOQUEADO - requiere ubicacion2)
+
+**✅ Phase 2 - Tab Personal** (3/3)
+- [x] Tabla Edad por Género creada (`tables/age-gender-table.tsx`)
+- [x] Tabla Antigüedad por Género creada (`tables/seniority-gender-table.tsx`)
+- [x] Integradas en dashboard-page.tsx (líneas 1585-1593)
+- [x] UI mejorado con rounded corners y alternating colors
+
+**✅ Phase 3 - Tab Incidencias** (3/3)
+- [x] Código corregido: 'SUS' → 'SUSP' en todos los archivos
+- [x] Nuevas tarjetas KPI: Faltas % y Salud % (`incidents-tab.tsx:679-708`)
+- [x] Grid actualizado: 4 → 6 tarjetas (3 columnas) (`incidents-tab.tsx:944`)
+
+**✅ Phase 4 - Tab Rotación** (3/7)
+- [x] Tabla Rotación por Motivo/Área (`tables/rotation-by-motive-area-table.tsx`)
+- [x] Tabla Rotación por Motivo/Antigüedad (`tables/rotation-by-motive-seniority-table.tsx`)
+- [x] Tabla Motivo de Baja por Mes (`tables/rotation-by-motive-month-table.tsx`)
+- [x] Integradas en dashboard-page.tsx (líneas 1849-1864)
+- [x] UI mejorado con rounded corners y alternating colors
+- [ ] ❌ Tabla Headcount por Ubicación/Mes (BLOQUEADO)
+- [ ] ❌ Tabla Bajas por Ubicación/Mes (BLOQUEADO)
+- [ ] ❌ Tabla % Rotación por Ubicación/Mes (BLOQUEADO)
+- [ ] ❌ Tabla Bajas por Tipo (Vol/Invol) × Ubicación/Mes (BLOQUEADO)
+
+#### Cambios Técnicos:
+- ✅ TypeScript validation passing
+- ✅ Fixed recharts type compatibility issues
+- ✅ Consistent styling with existing tables (rounded corners, alternating rows, hover effects)
+- ✅ 5 nuevos componentes en `/components/tables`
+- ✅ 6 archivos modificados
+
+---
+
+## 🚧 PENDIENTE PARA MAÑANA
+
+### **Paso 1: Resolver Campo ubicacion2** (Bloqueador Crítico)
+
+**Decisión requerida:** ¿Cómo obtener ubicación para empleados?
+
+#### **Opción A: Agregar columna a empleados_sftp** (RECOMENDADA)
+
+```sql
+-- Migration necesaria:
+ALTER TABLE empleados_sftp ADD COLUMN ubicacion2 VARCHAR(50);
+CREATE INDEX idx_empleados_ubicacion2 ON empleados_sftp(ubicacion2);
+
+-- Poblar con una de estas estrategias:
+-- 1) Si CSV trae la columna → import directo
+-- 2) Derivar desde campo `cc` → función de mapeo
+-- 3) Copiar desde tabla incidencias → JOIN por numero_empleado
+```
+
+**Ventajas:**
+- ✅ Cobertura 100% de empleados
+- ✅ Una fuente de verdad
+- ✅ No requiere JOINs complejos
+
+**Pasos de implementación:**
+1. Verificar si `Validacion Alta de empleados.xls` trae columna "Ubicacion2"
+2. Si NO trae → Crear función `getCategoriaUbicacion(cc: string)`
+3. Ejecutar migration en Supabase
+4. Actualizar importer SFTP para poblar ubicacion2
+5. Reimportar datos
+
+#### **Opción B: Mapeo desde campo `cc`** (Sin cambios DB)
+
+```typescript
+// En apps/web/src/lib/normalizers.ts
+export function getCategoriaUbicacion(cc: string | null): string {
+  if (!cc) return 'SIN UBICACIÓN';
+  const upper = cc.toUpperCase().trim();
+
+  if (upper === 'CAD') return 'CAD';
+  if (upper.includes('MRM') || upper.includes('DIRECCION')) return 'CORPORATIVO';
+  if (upper.startsWith('SM') || upper === 'DF') return 'FILIALES';
+
+  return 'OTROS';
+}
+```
+
+**Ventajas:**
+- ✅ No requiere migration
+- ✅ Implementable inmediatamente
+
+**Desventajas:**
+- ⚠️ Requiere validar mapeo con cliente
+- ⚠️ Necesita conocer todos los valores de `cc`
+
+**Pasos de implementación:**
+1. Query Supabase: `SELECT DISTINCT cc FROM empleados_sftp ORDER BY cc`
+2. Crear función de mapeo basada en valores reales
+3. Aplicar en filtros y agrupaciones
+4. Validar con cliente
+
+---
+
+### **Paso 2: Implementar Funcionalidades Bloqueadas** (4-6 horas)
+
+Una vez resuelto ubicacion2:
+
+#### **2.1 Actualizar Filtros (1-2 horas)**
+```typescript
+// En filter-panel.tsx
+- Agregar filtro "Ubicación" con opciones: CAD, CORPORATIVO, FILIALES
+- Reemplazar tabs Negocio/Área/Departamento en summary-comparison.tsx
+```
+
+#### **2.2 Crear Tablas por Ubicación (3-4 horas)**
+```typescript
+// Nuevos componentes:
+- rotation-headcount-table.tsx       // Headcount × Mes × Ubicación
+- rotation-bajas-voluntarias-table.tsx // Bajas Vol × Mes × Ubicación
+- rotation-bajas-involuntarias-table.tsx // Bajas Invol × Mes × Ubicación
+- rotation-percentage-table.tsx     // % Rotación × Mes × Ubicación
+```
+
+**Estructura de tablas:**
+```
+| UBICACIÓN      | ENE | FEB | MAR | ... | DIC | TOTAL |
+|----------------|-----|-----|-----|-----|-----|-------|
+| CAD            | 182 | 191 | 191 | ... | 187 | 2,245 |
+| CORPORATIVO    | 122 | 120 | 121 | ... | 122 | 1,450 |
+| FILIALES       | 44  | 42  | 42  | ... | 46  | 520   |
+| TOTAL          | 348 | 353 | 354 | ... | 355 | 4,215 |
+```
+
+#### **2.3 Integrar en Dashboard (30 min)**
+```typescript
+// En dashboard-page.tsx - Tab Rotación
+- Agregar imports de nuevas tablas
+- Insertar componentes antes de DismissalReasonsTable
+- Pasar ubicacion2 como prop
+```
+
+#### **2.4 Validación Final (30 min)**
+- Verificar cálculos con datos reales
+- Validar que totales cuadren
+- Type-check passing
+- Screenshot de todas las tablas
+
+---
+
+## 📋 Checklist para Mañana
+
+### Pre-implementación:
+- [ ] Decidir entre Opción A (migration) u Opción B (mapeo desde cc)
+- [ ] Si Opción A: Verificar CSV trae columna Ubicacion2
+- [ ] Si Opción B: Query valores de `cc` en Supabase
+- [ ] Validar mapeo de centros de costo con cliente
+
+### Implementación:
+- [ ] Resolver campo ubicacion2 en empleados_sftp
+- [ ] Crear/actualizar función de categorización
+- [ ] Actualizar filtro panel con Ubicación
+- [ ] Crear 4 tablas de rotación por ubicación
+- [ ] Integrar en Tab Rotación
+- [ ] Actualizar Tab Resumen con tabs de Ubicación
+
+### Testing:
+- [ ] Type-check passing
+- [ ] Validar cálculos de headcount por ubicación
+- [ ] Verificar totales cuadran en todas las tablas
+- [ ] Screenshot de cada tabla nueva
+- [ ] Validar responsiveness (mobile/tablet/desktop)
+
+### Deploy:
+- [ ] Commit cambios
+- [ ] Push y crear PR
+- [ ] Merge PR #6 (cambios de hoy)
+- [ ] Merge PR nuevo (cambios de mañana)
+
+---
+
+## 🎯 Objetivo Final
+
+**Meta:** Completar 100% del plan original (13/13 mejoras)
+**Tiempo estimado restante:** 4-6 horas
+**Bloqueador:** Campo ubicacion2 (decisión pendiente)
+
+**Al completar, el dashboard tendrá:**
+- ✅ Rotación voluntaria como default
+- ✅ Comparación año anterior
+- ✅ 2 tablas demográficas (Edad/Antigüedad × Género)
+- ✅ 2 KPIs segmentados (Faltas/Salud)
+- ✅ 3 tablas de análisis de rotación (Motivo × Área/Antigüedad/Mes)
+- 🔜 Filtros por Ubicación (CAD/CORPORATIVO/FILIALES)
+- 🔜 4 tablas de rotación por Ubicación × Mes
+
+---
+
+## 📞 Contacto y Próximos Pasos
+
+**Para continuar mañana:**
+1. Revisar y aprobar PR #6
+2. Decidir solución para ubicacion2
+3. Enviar valores reales de campo `cc` si se usa Opción B
+4. Programar sesión de implementación (4-6 horas)
+
+**Preguntas para el cliente:**
+- ¿El CSV de empleados trae columna "Ubicacion2"?
+- ¿Qué valores tiene el campo `cc` actualmente?
+- ¿Cómo se clasifican los centros de costo? (CAD/CORPORATIVO/FILIALES)

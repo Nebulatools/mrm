@@ -152,7 +152,12 @@ export function RotationByMotiveAreaTable({
                       "[&_th]:bg-brand-surface-accent [&_th]:font-heading [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-[0.14em] [&_th]:text-brand-ink"
                   )}
                 >
-                  <TableRow>
+                  <TableRow
+                    className={cn(
+                      refreshEnabled &&
+                        "border-none [&_th:first-child]:rounded-tl-2xl [&_th:last-child]:rounded-tr-2xl"
+                    )}
+                  >
                     <TableHead>Área</TableHead>
                     {topMotivos.map(motivo => (
                       <TableHead key={motivo} className="text-right whitespace-nowrap">
@@ -162,7 +167,12 @@ export function RotationByMotiveAreaTable({
                     <TableHead className="text-right font-bold">Total</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody
+                  className={cn(
+                    refreshEnabled &&
+                      "[&_tr]:border-none [&_tr]:odd:bg-card [&_tr]:even:bg-brand-surface/70 [&_tr]:hover:bg-brand-surface-accent/70"
+                  )}
+                >
                   {data.map((row) => (
                     <TableRow key={row.area}>
                       <TableCell className="font-medium">{row.area}</TableCell>
