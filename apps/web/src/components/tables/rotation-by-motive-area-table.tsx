@@ -170,7 +170,7 @@ export function RotationByMotiveAreaTable({
                 <TableBody
                   className={cn(
                     refreshEnabled &&
-                      "[&_tr]:border-none [&_tr]:odd:bg-card [&_tr]:even:bg-brand-surface/70 [&_tr]:hover:bg-brand-surface-accent/70"
+                      "[&_tr:last-child]:rounded-b-2xl [&_tr]:border-none [&_tr]:odd:bg-card [&_tr]:even:bg-brand-surface/70 [&_tr]:hover:bg-brand-surface-accent/70"
                   )}
                 >
                   {data.map((row) => (
