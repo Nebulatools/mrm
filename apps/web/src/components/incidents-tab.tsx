@@ -714,12 +714,19 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
     const totalEmpleadosConIncidencias = byEmp.size;
 
-    return Array.from(bins.entries()).sort((a,b)=>a[0]-b[0]).map(([incidencias, empleados]) => ({
+    const dataPoints = Array.from(bins.entries()).sort((a,b)=>a[0]-b[0]).map(([incidencias, empleados]) => ({
       incidencias,
       empleados: metricType === "percent" && totalEmpleadosConIncidencias > 0
         ? Number(((empleados / totalEmpleadosConIncidencias) * 100).toFixed(1))
         : empleados
     }));
+
+    const maxEmpleados = dataPoints.reduce((max, point) => Math.max(max, typeof point.empleados === 'number' ? point.empleados : 0), 0);
+    const domainMax = metricType === "percent"
+      ? Math.min(100, Math.max(10, Math.ceil(maxEmpleados * 1.2)))
+      : null;
+
+    return { data: dataPoints, domainMax };
   }, [enrichedPeriodo, metricType]);
 
   // Resumen por tipo: #días (≈ registros) y #empleados únicos por tipo
@@ -804,20 +811,28 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     });
 
     // Convert to percentage if needed
+    let dataPoints;
     if (metricType === "percent") {
       // Calculate % based on total dias laborables in period
-      return baseCounts.map(day => ({
+      dataPoints = baseCounts.map(day => ({
         dia: day.dia,
         ausentismos: diasLaborablesActual > 0 ? Number((day.ausentismosCount / diasLaborablesActual * 100).toFixed(1)) : 0,
         permisos: diasLaborablesActual > 0 ? Number((day.permisosCount / diasLaborablesActual * 100).toFixed(1)) : 0,
       }));
+    } else {
+      dataPoints = baseCounts.map(day => ({
+        dia: day.dia,
+        ausentismos: day.ausentismosCount,
+        permisos: day.permisosCount,
+      }));
     }
 
-    return baseCounts.map(day => ({
-      dia: day.dia,
-      ausentismos: day.ausentismosCount,
-      permisos: day.permisosCount,
-    }));
+    const maxValue = dataPoints.reduce((max, point) => Math.max(max, point.ausentismos, point.permisos), 0);
+    const domainMax = metricType === "percent"
+      ? Math.min(100, Math.max(5, Math.ceil(maxValue * 1.2)))
+      : null;
+
+    return { data: dataPoints, domainMax };
   }, [enrichedPeriodo, metricType, diasLaborablesActual]);
 
   const incidenciasPorArea = useMemo(() => {
@@ -868,19 +883,26 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       .sort((a, b) => b.totalPct - a.totalPct);
 
     const TOP_LIMIT = 8;
-    return entries.slice(0, TOP_LIMIT).map(({ area, ausentismos, permisos }) => ({
+    const dataPoints = entries.slice(0, TOP_LIMIT).map(({ area, ausentismos, permisos }) => ({
       area,
       ausentismos,
       permisos,
     }));
+
+    const maxValue = dataPoints.reduce((max, point) => Math.max(max, point.ausentismos, point.permisos), 0);
+    const domainMax = metricType === "percent"
+      ? Math.min(100, Math.max(5, Math.ceil(maxValue * 1.2)))
+      : null;
+
+    return { data: dataPoints, domainMax };
   }, [enrichedPeriodo, diasLaborablesPorArea, metricType]);
 
   const hasWeekdayData = useMemo(
-    () => incidenciasPorDia.some(item => item.ausentismos > 0 || item.permisos > 0),
+    () => incidenciasPorDia.data.some(item => item.ausentismos > 0 || item.permisos > 0),
     [incidenciasPorDia]
   );
   const hasAreaData = useMemo(
-    () => incidenciasPorArea.some(item => item.ausentismos > 0 || item.permisos > 0),
+    () => incidenciasPorArea.data.some(item => item.ausentismos > 0 || item.permisos > 0),
     [incidenciasPorArea]
   );
 
@@ -893,7 +915,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
 
-    return months.map((monthName, index) => {
+    const dataPoints = months.map((monthName, index) => {
       const monthData = enrichedAnual.filter(inc => {
         if (!inc.fecha) return false;
         const date = new Date(inc.fecha);
@@ -934,6 +956,17 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         permisos: metricType === "percent" ? Number(permisosPctMonth.toFixed(1)) : permisosCount
       };
     });
+
+    // Calculate dynamic domain for better visualization
+    const maxValue = dataPoints.reduce((max, point) => {
+      return Math.max(max, point.incidencias, point.permisos);
+    }, 0);
+
+    const domainMax = metricType === "percent"
+      ? Math.min(100, Math.max(10, Math.ceil(maxValue * 1.2))) // 20% padding, min 10, cap at 100
+      : null;
+
+    return { data: dataPoints, domainMax };
   }, [enrichedAnual, currentYear, metricType, buildMonthStats]);
 
   const monthlyAbsenteeismComparison = useMemo(() => {
@@ -1039,7 +1072,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                 {(fullscreen) => (
                   <div style={{ height: fullscreen ? 420 : 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={monthlyTrendsData} margin={{ left: 32, right: 16, top: 8, bottom: 40 }}>
+                      <LineChart data={monthlyTrendsData.data} margin={{ left: 32, right: 16, top: 8, bottom: 40 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis
                           dataKey="mes"
@@ -1057,7 +1090,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                             offset: 10
                           }}
                           tick={{ fontSize: 12 }}
-                          domain={metricType === "percent" ? [0, 100] : undefined}
+                          domain={monthlyTrendsData.domainMax !== null ? [0, monthlyTrendsData.domainMax] : undefined}
                         />
                         <Tooltip
                           contentStyle={LINE_TOOLTIP_STYLE}
@@ -1125,7 +1158,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                 {(fullscreen) => (
                   <div style={{ height: fullscreen ? 420 : 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={histoData} margin={{ left: 16, right: 16, top: 8, bottom: 24 }}>
+                      <BarChart data={histoData.data} margin={{ left: 16, right: 16, top: 8, bottom: 24 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis type="number" dataKey="incidencias" label={{ value: '# Incidencias', position: 'insideBottom', offset: -10 }} />
                         <YAxis
@@ -1136,6 +1169,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                             angle: -90,
                             position: 'insideLeft'
                           }}
+                          domain={histoData.domainMax !== null ? [0, histoData.domainMax] : undefined}
                         />
                         <Tooltip
                           wrapperStyle={TOOLTIP_WRAPPER_STYLE}
@@ -1276,7 +1310,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                 {(fullscreen) => (
                   <div style={{ height: fullscreen ? 420 : 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={incidenciasPorDia} margin={{ left: 16, right: 24, top: 16, bottom: 32 }}>
+                      <BarChart data={incidenciasPorDia.data} margin={{ left: 16, right: 24, top: 16, bottom: 32 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
                         <XAxis dataKey="dia" tick={{ fontSize: 12, fill: axisSecondaryColor }} />
                         <YAxis
@@ -1286,6 +1320,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                             angle: -90,
                             position: 'insideLeft'
                           }}
+                          domain={incidenciasPorDia.domainMax !== null ? [0, incidenciasPorDia.domainMax] : undefined}
                         />
                         <Tooltip
                           wrapperStyle={TOOLTIP_WRAPPER_STYLE}
@@ -1333,7 +1368,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                   <div style={{ height: fullscreen ? 420 : 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
-                        data={incidenciasPorArea}
+                        data={incidenciasPorArea.data}
                         layout="vertical"
                         margin={{ left: 32, right: 24, top: 16, bottom: 16 }}
                         barCategoryGap="16%"
@@ -1348,6 +1383,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                             position: 'insideBottom',
                             offset: -5
                           }}
+                          domain={incidenciasPorArea.domainMax !== null ? [0, incidenciasPorArea.domainMax] : undefined}
                         />
                         <YAxis
                           dataKey="area"
