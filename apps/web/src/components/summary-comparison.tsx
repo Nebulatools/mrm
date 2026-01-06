@@ -58,6 +58,7 @@ interface SummaryComparisonProps {
   retentionKPIsOverride?: {
     rotacionMensual: number;
     rotacionMensualAnterior: number;
+    rotacionMensualSameMonthPrevYear: number;
     rotacionAcumulada: number;
     rotacionAcumuladaAnterior: number;
     rotacionAnioActual: number;
@@ -651,6 +652,7 @@ export function SummaryComparison({
 
     if (retentionKPIsOverride) {
       kpisPrevMonth.rotacionMensual = retentionKPIsOverride.rotacionMensualAnterior;
+      kpisPrevYear.rotacionMensual = retentionKPIsOverride.rotacionMensualSameMonthPrevYear;
       kpisPrevYear.rotacionAcumulada = retentionKPIsOverride.rotacionAcumuladaAnterior;
       kpisPrevYear.rotacionAnioActual = retentionKPIsOverride.rotacionAnioActualAnterior;
     }

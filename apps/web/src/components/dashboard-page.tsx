@@ -744,6 +744,15 @@ export function DashboardPage() {
     const rotacionMensualActual = calcularRotacionConDesglose(longTermPlantilla, inicioMes, finMes);
     const rotacionMensualPrevio = calcularRotacionConDesglose(longTermPlantilla, inicioMesAnterior, finMesAnterior);
 
+    // Rotación del mismo mes año anterior (para comparación year-over-year)
+    const inicioMesSameMonthPrevYear = new Date(currentYear - 1, currentMonth, 1);
+    const finMesSameMonthPrevYear = new Date(currentYear - 1, currentMonth + 1, 0);
+    const rotacionMensualSameMonthPrevYear = calcularRotacionConDesglose(
+      plantillaForComparison, // Usar plantilla sin filtro de año
+      inicioMesSameMonthPrevYear,
+      finMesSameMonthPrevYear
+    );
+
     // Rotación acumulada y YTD con sus comparativos
     // Usar plantillaForComparison para permitir comparativos con años anteriores
     const rotacionAcumuladaActual = calcularRotacionAcumulada12mConDesglose(plantillaForComparison, selectedPeriod);
@@ -757,6 +766,7 @@ export function DashboardPage() {
     const rotMensualInvPrev = Number(rotacionMensualPrevio.involuntaria.toFixed(1));
     const rotMensualVolPrev = Number(rotacionMensualPrevio.voluntaria.toFixed(1));
     const rotMensualTotalPrev = Number(rotacionMensualPrevio.total.toFixed(1));
+    const rotMensualTotalSameMonthPrevYear = Number(rotacionMensualSameMonthPrevYear.total.toFixed(1));
 
     const rotAcumuladaInv = Number(rotacionAcumuladaActual.involuntaria.toFixed(1));
     const rotAcumuladaVol = Number(rotacionAcumuladaActual.voluntaria.toFixed(1));
@@ -797,6 +807,7 @@ export function DashboardPage() {
       bajasInvoluntariasVariacion: calculateVariancePercentage(bajasInvoluntariasMes, bajasInvoluntariasMesPrev),
       rotacionMensual: rotMensualTotal,
       rotacionMensualAnterior: rotMensualTotalPrev,
+      rotacionMensualSameMonthPrevYear: rotMensualTotalSameMonthPrevYear,
       rotacionMensualVariacion: calculateVariancePercentage(rotMensualTotal, rotMensualTotalPrev),
       rotacionMensualClaves: rotMensualInv,
       rotacionMensualClavesAnterior: rotMensualInvPrev,
@@ -1196,6 +1207,7 @@ export function DashboardPage() {
               retentionKPIsOverride={{
                 rotacionMensual: filteredRetentionKPIs.rotacionMensual,
                 rotacionMensualAnterior: filteredRetentionKPIs.rotacionMensualAnterior,
+                rotacionMensualSameMonthPrevYear: filteredRetentionKPIs.rotacionMensualSameMonthPrevYear,
                 rotacionAcumulada: filteredRetentionKPIs.rotacionAcumulada,
                 rotacionAcumuladaAnterior: filteredRetentionKPIs.rotacionAcumuladaAnterior,
                 rotacionAnioActual: filteredRetentionKPIs.rotacionAnioActual,
