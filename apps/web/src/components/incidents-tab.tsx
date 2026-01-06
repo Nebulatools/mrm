@@ -696,42 +696,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
           { label: 'Total', value: totalPermisos, showColon: true }
         ] : undefined
       },
-      {
-        icon: <AlertCircle className="h-6 w-6" />,
-        kpi: {
-          name: isPercent ? 'Faltas (%)' : 'Faltas (#)',
-          category: 'incidents' as const,
-          value: isPercent ? Number(faltasPct.toFixed(1)) : totalFaltas,
-          previous_value: isPercent ? Number(faltasPctAnterior.toFixed(1)) : totalFaltasAnterior,
-          variance_percentage: isPercent
-            ? calculateVariancePercentage(faltasPct, faltasPctAnterior)
-            : calculateVariancePercentage(totalFaltas, totalFaltasAnterior),
-          period_start: toISODate(currentReferenceDate),
-          period_end: toISODate(currentReferenceDate)
-        },
-        secondaryRows: isPercent ? [
-          { label: 'FI, SUSP, PSIN', value: totalFaltas, showColon: true }
-        ] : undefined
-      },
-      {
-        icon: <Activity className="h-6 w-6" />,
-        kpi: {
-          name: isPercent ? 'Salud (%)' : 'Salud (#)',
-          category: 'incidents' as const,
-          value: isPercent ? Number(saludPct.toFixed(1)) : totalSalud,
-          previous_value: isPercent ? Number(saludPctAnterior.toFixed(1)) : totalSaludAnterior,
-          variance_percentage: isPercent
-            ? calculateVariancePercentage(saludPct, saludPctAnterior)
-            : calculateVariancePercentage(totalSalud, totalSaludAnterior),
-          period_start: toISODate(currentReferenceDate),
-          period_end: toISODate(currentReferenceDate)
-        },
-        secondaryRows: isPercent ? [
-          { label: 'ENFE', value: totalSalud, showColon: true }
-        ] : undefined
-      },
     ];
-  }, [metricType, activosCount, activosPrevios, empleadosConIncidenciasPct, empleadosConIncidenciasAnteriorPct, empleadosConIncidencias, empleadosConIncidenciasAnterior, incidenciasPct, incidenciasPctAnterior, totalIncidencias, totalIncidenciasAnterior, permisosPct, permisosPctAnterior, totalPermisos, totalPermisosAnteriores, faltasPct, faltasPctAnterior, totalFaltas, totalFaltasAnterior, saludPct, saludPctAnterior, totalSalud, totalSaludAnterior, currentReferenceDate, maMonth.activos, mmaaMonth.activos]);
+  }, [metricType, activosCount, activosPrevios, empleadosConIncidenciasPct, empleadosConIncidenciasAnteriorPct, empleadosConIncidencias, empleadosConIncidenciasAnterior, incidenciasPct, incidenciasPctAnterior, totalIncidencias, totalIncidenciasAnterior, permisosPct, permisosPctAnterior, totalPermisos, totalPermisosAnteriores, currentReferenceDate, maMonth.activos, mmaaMonth.activos]);
 
   // Histograma: eje X = # Empleados, eje Y = # Incidencias
   const histoData = useMemo(() => {
@@ -980,10 +946,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         <MetricToggle value={metricType} onChange={setMetricType} size="md" />
       </div>
 
-      {/* 6 Cards - Segmentado por tipo */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* 4 Cards con toggle % / # */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {loadingIncidencias
-          ? Array.from({ length: 6 }).map((_, index) => (
+          ? Array.from({ length: 4 }).map((_, index) => (
               <KPICardSkeleton key={`incidents-kpi-skeleton-${index}`} />
             ))
           : incidentsKpiCards.map(({ kpi, icon, secondaryRows }, index) => (
@@ -991,7 +957,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
             ))}
       </div>
       <p className="text-xs text-gray-500">
-        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. Incidencias: FI, SUSP, PSIN, ENFE · Permisos: PCON, VAC, MAT3, MAT1, JUST · Faltas: FI, SUSP, PSIN · Salud: ENFE
+        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. Incidencias: FI, SUSP, PSIN, ENFE · Permisos: PCON, VAC, MAT3, MAT1, JUST
       </p>
 
       {/* Gráfica de Tendencia Mensual - Incidencias y Permisos */}
