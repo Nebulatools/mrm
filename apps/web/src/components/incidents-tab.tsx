@@ -5,6 +5,7 @@ import type { ReactNode, CSSProperties } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { MetricToggle } from "@/components/ui/metric-toggle";
 import { db, type IncidenciaCSVRecord, type PlantillaRecord } from "@/lib/supabase";
 import { normalizeIncidenciaCode, labelForIncidencia, normalizePuesto, normalizeArea, normalizeDepartamento } from "@/lib/normalizers";
 import type { KPIResult } from "@/lib/kpi-calculator";
@@ -197,6 +198,9 @@ const formatToDDMMYYYY = (value?: string | null) => {
 export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedMonths, initialIncidencias, onKPIsUpdate }: Props) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+
+  // Toggle para mostrar % o número en todo el tab
+  const [metricType, setMetricType] = useState<"percent" | "number">("percent");
   const axisSecondaryColor = isDark ? "#CBD5F5" : "#64748b";
   const axisMutedColor = isDark ? "#CBD5F5" : "#475569";
   const gridStrokeColor = isDark ? "rgba(148, 163, 184, 0.25)" : "#E2E8F0";
@@ -621,99 +625,113 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     activos: sameMonthLastYearStats.activos,
   };
 
-  const incidentsKpiCards: { icon: ReactNode; kpi: KPIResult; secondaryRows?: any }[] = [
-    {
-      icon: <Users className="h-6 w-6" />,
-      kpi: {
-        name: '# de activos',
-        category: 'headcount',
-        value: activosCount,
-        previous_value: activosPrevios,
-        variance_percentage: calculateVariancePercentage(activosCount, activosPrevios),
-        period_start: toISODate(currentReferenceDate),
-        period_end: toISODate(currentReferenceDate)
+  const incidentsKpiCards = useMemo(() => {
+    const isPercent = metricType === "percent";
+
+    return [
+      {
+        icon: <Users className="h-6 w-6" />,
+        kpi: {
+          name: '# de activos',
+          category: 'headcount' as const,
+          value: activosCount,
+          previous_value: activosPrevios,
+          variance_percentage: calculateVariancePercentage(activosCount, activosPrevios),
+          period_start: toISODate(currentReferenceDate),
+          period_end: toISODate(currentReferenceDate)
+        },
+        secondaryRows: [
+          { label: 'MA', value: maMonth.activos, showColon: true },
+          { label: 'MMAA', value: mmaaMonth.activos, showColon: true }
+        ]
       },
-      secondaryRows: [
-        { label: 'MA', value: maMonth.activos, showColon: true },
-        { label: 'MMAA', value: mmaaMonth.activos, showColon: true }
-      ]
-    },
-    {
-      icon: <AlertCircle className="h-6 w-6" />,
-      kpi: {
-        name: 'Empleados con incidencias (%)',
-        category: 'incidents',
-        value: Number(empleadosConIncidenciasPct.toFixed(1)),
-        previous_value: Number(empleadosConIncidenciasAnteriorPct.toFixed(1)),
-        variance_percentage: calculateVariancePercentage(empleadosConIncidenciasPct, empleadosConIncidenciasAnteriorPct),
-        period_start: toISODate(currentReferenceDate),
-        period_end: toISODate(currentReferenceDate)
+      {
+        icon: <AlertCircle className="h-6 w-6" />,
+        kpi: {
+          name: isPercent ? 'Empleados con incidencias (%)' : 'Empleados con incidencias (#)',
+          category: 'incidents' as const,
+          value: isPercent ? Number(empleadosConIncidenciasPct.toFixed(1)) : empleadosConIncidencias,
+          previous_value: isPercent ? Number(empleadosConIncidenciasAnteriorPct.toFixed(1)) : empleadosConIncidenciasAnterior,
+          variance_percentage: isPercent
+            ? calculateVariancePercentage(empleadosConIncidenciasPct, empleadosConIncidenciasAnteriorPct)
+            : calculateVariancePercentage(empleadosConIncidencias, empleadosConIncidenciasAnterior),
+          period_start: toISODate(currentReferenceDate),
+          period_end: toISODate(currentReferenceDate)
+        },
+        secondaryRows: isPercent ? [
+          { label: 'Total', value: empleadosConIncidencias, showColon: true }
+        ] : undefined
       },
-      secondaryRows: [
-        { label: 'Total', value: empleadosConIncidencias, showColon: true }
-      ]
-    },
-    {
-      icon: <Activity className="h-6 w-6" />,
-      kpi: {
-        name: 'Incidencias (%)',
-        category: 'incidents',
-        value: Number(incidenciasPct.toFixed(1)),
-        previous_value: Number(incidenciasPctAnterior.toFixed(1)),
-        variance_percentage: calculateVariancePercentage(incidenciasPct, incidenciasPctAnterior),
-        period_start: toISODate(currentReferenceDate),
-        period_end: toISODate(currentReferenceDate)
+      {
+        icon: <Activity className="h-6 w-6" />,
+        kpi: {
+          name: isPercent ? 'Incidencias (%)' : 'Incidencias (#)',
+          category: 'incidents' as const,
+          value: isPercent ? Number(incidenciasPct.toFixed(1)) : totalIncidencias,
+          previous_value: isPercent ? Number(incidenciasPctAnterior.toFixed(1)) : totalIncidenciasAnterior,
+          variance_percentage: isPercent
+            ? calculateVariancePercentage(incidenciasPct, incidenciasPctAnterior)
+            : calculateVariancePercentage(totalIncidencias, totalIncidenciasAnterior),
+          period_start: toISODate(currentReferenceDate),
+          period_end: toISODate(currentReferenceDate)
+        },
+        secondaryRows: isPercent ? [
+          { label: 'Total', value: totalIncidencias, showColon: true }
+        ] : undefined
       },
-      secondaryRows: [
-        { label: 'Total', value: totalIncidencias, showColon: true }
-      ]
-    },
-    {
-      icon: <ClipboardCheck className="h-6 w-6" />,
-      kpi: {
-        name: 'Permisos (%)',
-        category: 'headcount',
-        value: Number(permisosPct.toFixed(1)),
-        previous_value: Number(permisosPctAnterior.toFixed(1)),
-        variance_percentage: calculateVariancePercentage(permisosPct, permisosPctAnterior),
-        period_start: toISODate(currentReferenceDate),
-        period_end: toISODate(currentReferenceDate)
+      {
+        icon: <ClipboardCheck className="h-6 w-6" />,
+        kpi: {
+          name: isPercent ? 'Permisos (%)' : 'Permisos (#)',
+          category: 'headcount' as const,
+          value: isPercent ? Number(permisosPct.toFixed(1)) : totalPermisos,
+          previous_value: isPercent ? Number(permisosPctAnterior.toFixed(1)) : totalPermisosAnteriores,
+          variance_percentage: isPercent
+            ? calculateVariancePercentage(permisosPct, permisosPctAnterior)
+            : calculateVariancePercentage(totalPermisos, totalPermisosAnteriores),
+          period_start: toISODate(currentReferenceDate),
+          period_end: toISODate(currentReferenceDate)
+        },
+        secondaryRows: isPercent ? [
+          { label: 'Total', value: totalPermisos, showColon: true }
+        ] : undefined
       },
-      secondaryRows: [
-        { label: 'Total', value: totalPermisos, showColon: true }
-      ]
-    },
-    {
-      icon: <AlertCircle className="h-6 w-6" />,
-      kpi: {
-        name: 'Faltas (%)',
-        category: 'incidents',
-        value: Number(faltasPct.toFixed(1)),
-        previous_value: Number(faltasPctAnterior.toFixed(1)),
-        variance_percentage: calculateVariancePercentage(faltasPct, faltasPctAnterior),
-        period_start: toISODate(currentReferenceDate),
-        period_end: toISODate(currentReferenceDate)
+      {
+        icon: <AlertCircle className="h-6 w-6" />,
+        kpi: {
+          name: isPercent ? 'Faltas (%)' : 'Faltas (#)',
+          category: 'incidents' as const,
+          value: isPercent ? Number(faltasPct.toFixed(1)) : totalFaltas,
+          previous_value: isPercent ? Number(faltasPctAnterior.toFixed(1)) : totalFaltasAnterior,
+          variance_percentage: isPercent
+            ? calculateVariancePercentage(faltasPct, faltasPctAnterior)
+            : calculateVariancePercentage(totalFaltas, totalFaltasAnterior),
+          period_start: toISODate(currentReferenceDate),
+          period_end: toISODate(currentReferenceDate)
+        },
+        secondaryRows: isPercent ? [
+          { label: 'FI, SUSP, PSIN', value: totalFaltas, showColon: true }
+        ] : undefined
       },
-      secondaryRows: [
-        { label: 'FI, SUSP, PSIN', value: totalFaltas, showColon: true }
-      ]
-    },
-    {
-      icon: <Activity className="h-6 w-6" />,
-      kpi: {
-        name: 'Salud (%)',
-        category: 'incidents',
-        value: Number(saludPct.toFixed(1)),
-        previous_value: Number(saludPctAnterior.toFixed(1)),
-        variance_percentage: calculateVariancePercentage(saludPct, saludPctAnterior),
-        period_start: toISODate(currentReferenceDate),
-        period_end: toISODate(currentReferenceDate)
+      {
+        icon: <Activity className="h-6 w-6" />,
+        kpi: {
+          name: isPercent ? 'Salud (%)' : 'Salud (#)',
+          category: 'incidents' as const,
+          value: isPercent ? Number(saludPct.toFixed(1)) : totalSalud,
+          previous_value: isPercent ? Number(saludPctAnterior.toFixed(1)) : totalSaludAnterior,
+          variance_percentage: isPercent
+            ? calculateVariancePercentage(saludPct, saludPctAnterior)
+            : calculateVariancePercentage(totalSalud, totalSaludAnterior),
+          period_start: toISODate(currentReferenceDate),
+          period_end: toISODate(currentReferenceDate)
+        },
+        secondaryRows: isPercent ? [
+          { label: 'ENFE', value: totalSalud, showColon: true }
+        ] : undefined
       },
-      secondaryRows: [
-        { label: 'ENFE', value: totalSalud, showColon: true }
-      ]
-    },
-  ];
+    ];
+  }, [metricType, activosCount, activosPrevios, empleadosConIncidenciasPct, empleadosConIncidenciasAnteriorPct, empleadosConIncidencias, empleadosConIncidenciasAnterior, incidenciasPct, incidenciasPctAnterior, totalIncidencias, totalIncidenciasAnterior, permisosPct, permisosPctAnterior, totalPermisos, totalPermisosAnteriores, faltasPct, faltasPctAnterior, totalFaltas, totalFaltasAnterior, saludPct, saludPctAnterior, totalSalud, totalSaludAnterior, currentReferenceDate, maMonth.activos, mmaaMonth.activos]);
 
   // Histograma: eje X = # Empleados, eje Y = # Incidencias
   const histoData = useMemo(() => {
@@ -887,13 +905,23 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         }
       });
 
+      // Calculate dias laborables for this month
+      const year = selectedYear || new Date().getFullYear();
+      const monthDate = new Date(year, index, 15); // Mid-month
+      const monthStats = buildMonthStats(monthDate);
+      const diasLaborablesMonth = monthStats.diasLaborables;
+
+      // Calculate percentages
+      const incidenciasPctMonth = diasLaborablesMonth > 0 ? (incidenciasCount / diasLaborablesMonth) * 100 : 0;
+      const permisosPctMonth = diasLaborablesMonth > 0 ? (permisosCount / diasLaborablesMonth) * 100 : 0;
+
       return {
         mes: monthName,
-        incidencias: incidenciasCount,
-        permisos: permisosCount
+        incidencias: metricType === "percent" ? Number(incidenciasPctMonth.toFixed(1)) : incidenciasCount,
+        permisos: metricType === "percent" ? Number(permisosPctMonth.toFixed(1)) : permisosCount
       };
     });
-  }, [enrichedAnual, currentYear]);
+  }, [enrichedAnual, currentYear, metricType, buildMonthStats]);
 
   const monthlyAbsenteeismComparison = useMemo(() => {
     const targetYear = typeof currentYear === 'number' ? currentYear : new Date().getFullYear();
@@ -947,6 +975,11 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
   return (
     <div className="space-y-6">
+      {/* Toggle global para % o # */}
+      <div className="flex justify-end">
+        <MetricToggle value={metricType} onChange={setMetricType} size="md" />
+      </div>
+
       {/* 6 Cards - Segmentado por tipo */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {loadingIncidencias
@@ -964,9 +997,11 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       {/* Gráfica de Tendencia Mensual - Incidencias y Permisos */}
       <div className="mb-6">
         <Card className="h-[400px] flex flex-col">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Tendencia Mensual - Incidencias y Permisos {currentYear || new Date().getFullYear()}</CardTitle>
-            <p className="text-sm text-gray-600">Evolución de incidencias y permisos de enero a diciembre</p>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <div className="flex-1">
+              <CardTitle className="text-base">Tendencia Mensual - Incidencias y Permisos {currentYear || new Date().getFullYear()}</CardTitle>
+              <p className="text-sm text-gray-600">Evolución de incidencias y permisos {metricType === "percent" ? "(porcentaje)" : "(cantidad)"}</p>
+            </div>
           </CardHeader>
           <CardContent className="flex-1">
             {loadingIncidencias ? (
@@ -992,7 +1027,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           tick={{ fontSize: 11 }}
                         />
                         <YAxis
-                          label={{ value: 'Cantidad', angle: -90, position: 'insideLeft' }}
+                          label={{ value: metricType === "percent" ? 'Porcentaje (%)' : 'Cantidad', angle: -90, position: 'insideLeft' }}
                           tick={{ fontSize: 12 }}
                         />
                         <Tooltip
@@ -1003,7 +1038,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           formatter={(value: number | string, name: string) => {
                             const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
                             const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
-                            return [`${safeValue.toLocaleString('es-MX')} registros`, name];
+                            const formatted = metricType === "percent"
+                              ? `${safeValue.toFixed(1)}%`
+                              : `${safeValue.toLocaleString('es-MX')} registros`;
+                            return [formatted, name];
                           }}
                         />
                         <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
@@ -1014,7 +1052,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           strokeWidth={3}
                           dot={{ fill: getModernColor(0), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
-                          name="# Incidencias"
+                          name={metricType === "percent" ? "Incidencias (%)" : "# Incidencias"}
                         />
                         <Line
                           type="monotone"
@@ -1023,7 +1061,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           strokeWidth={3}
                           dot={{ fill: getModernColor(2), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
-                          name="# Permisos"
+                          name={metricType === "percent" ? "Permisos (%)" : "# Permisos"}
                         />
                       </LineChart>
                     </ResponsiveContainer>

@@ -134,7 +134,7 @@ export function RotationByMotiveMonthTable({
               refreshEnabled && "font-heading text-xl text-brand-ink dark:text-white"
             )}
           >
-            📅 Motivo de Baja por Mes ({currentYear})
+            Motivo de Baja por Mes ({currentYear})
           </CardTitle>
           <p
             className={cn(

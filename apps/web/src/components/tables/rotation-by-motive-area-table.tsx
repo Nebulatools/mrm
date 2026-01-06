@@ -118,7 +118,7 @@ export function RotationByMotiveAreaTable({
               refreshEnabled && "font-heading text-xl text-brand-ink dark:text-white"
             )}
           >
-            📊 Rotación por Motivo y Área
+            Rotación por Motivo y Área
           </CardTitle>
           <p
             className={cn(

@@ -133,7 +133,7 @@ export function RotationByMotiveSeniorityTable({
               refreshEnabled && "font-heading text-xl text-brand-ink dark:text-white"
             )}
           >
-            ⏱️ Rotación por Motivo y Antigüedad
+            Rotación por Motivo y Antigüedad
           </CardTitle>
           <p
             className={cn(

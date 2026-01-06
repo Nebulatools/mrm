@@ -122,7 +122,7 @@ export function AgeGenderTable({
               refreshEnabled && "font-heading text-xl text-brand-ink dark:text-white"
             )}
           >
-            👥 Distribución por Edad y Género
+            Distribución por Edad y Género
           </CardTitle>
           <p
             className={cn(

@@ -123,7 +123,7 @@ export function SeniorityGenderTable({
               refreshEnabled && "font-heading text-xl text-brand-ink dark:text-white"
             )}
           >
-            📅 Distribución por Antigüedad y Género
+            Distribución por Antigüedad y Género
           </CardTitle>
           <p
             className={cn(
