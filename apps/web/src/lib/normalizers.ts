@@ -425,4 +425,40 @@ export function categoriaIncidencia(raw?: string | null): 'incidencia' | 'permis
   return 'otro';
 }
 
+// ===================== UBICACIÓN (CENTRO DE COSTO → UBICACIÓN2) =====================
+
+/**
+ * Normaliza el campo cc (Centro de Costo) a ubicacion2
+ * Basado en análisis de 361 empleados activos:
+ * - CAD → CAD (168 empleados - 46.5%)
+ * - *MRM* o DIRE* → CORPORATIVO (159 empleados - 44.0%)
+ * - SM*, DF, TORREON, CHIHUAHUA, YAMAHA, TERRAPARK, MOTOSTAFF → FILIALES (26 empleados - 7.2%)
+ */
+export function normalizeCCToUbicacion(cc: string | null | undefined): string {
+  if (!cc) return 'SIN UBICACIÓN';
+
+  const upper = cc.toUpperCase().trim();
+
+  // CAD = Centro de Distribución (168 empleados)
+  if (upper === 'CAD') return 'CAD';
+
+  // Corporativo = *MRM*, DIRECCION, TESORERIA (159 empleados)
+  if (upper.includes('MRM') || upper.includes('DIRECCION') || upper.includes('DIRE') || upper.includes('TESORERIA'))
+    return 'CORPORATIVO';
+
+  // Filiales = SM*, DF, TORREON, CHIHUAHUA, YAMAHA, TERRAPARK, MOTOSTAFF (26 empleados)
+  if (
+    upper.startsWith('SM') ||
+    upper === 'DF' ||
+    upper.includes('TORREON') ||
+    upper.includes('CHIHUAHUA') ||
+    upper === 'YAMAHA' ||
+    upper.includes('TERRAPARK') ||
+    upper === 'MOTOSTAFF'
+  )
+    return 'FILIALES';
+
+  return 'OTROS';
+}
+
 // Funciones exportadas eliminadas - ya no son necesarias

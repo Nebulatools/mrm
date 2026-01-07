@@ -41,9 +41,9 @@ type EnrichedIncidencia = IncidenciaCSVRecord & {
   puesto?: string | null;
 };
 
-const INCIDENT_CODES = new Set(["FI", "SUSP", "PSIN", "ENFE"]);
-const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUSP", "PSIN", "ENFE"]); // Para card de empleados con incidencias
-const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST"]);
+const INCIDENT_CODES = new Set(["FI", "SUSP", "PSIN", "ENFE", "ACCI"]);
+const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUSP", "PSIN", "ENFE", "ACCI"]); // Para card de empleados con incidencias
+const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST", "PAT", "FEST"]);
 
 const PIE_COLORS = [getModernColor(0), getModernColor(2)];
 const AUSENTISMO_COLOR = '#EF4444';

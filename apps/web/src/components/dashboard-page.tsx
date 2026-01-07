@@ -24,6 +24,7 @@ import { SeniorityGenderTable } from "./tables/seniority-gender-table";
 import { RotationByMotiveAreaTable } from "./tables/rotation-by-motive-area-table";
 import { RotationByMotiveSeniorityTable } from "./tables/rotation-by-motive-seniority-table";
 import { RotationByMotiveMonthTable } from "./tables/rotation-by-motive-month-table";
+import { RotationCombinedTable } from "./tables/rotation-combined-table";
 import IncidentsTab from "./incidents-tab";
 import { RetentionFilterPanel } from "./filter-panel";
 import { SummaryComparison } from "./summary-comparison";
@@ -1870,6 +1871,16 @@ export function DashboardPage() {
                 refreshEnabled={refreshEnabled}
               />
               <RotationByMotiveMonthTable
+                motivosBaja={bajasData}
+                year={selectedPeriod.getFullYear()}
+                refreshEnabled={refreshEnabled}
+              />
+            </div>
+
+            {/* Location-Based Rotation Combined Table */}
+            <div className="mt-6">
+              <RotationCombinedTable
+                plantilla={plantillaFilteredYearScope}
                 motivosBaja={bajasData}
                 year={selectedPeriod.getFullYear()}
                 refreshEnabled={refreshEnabled}
