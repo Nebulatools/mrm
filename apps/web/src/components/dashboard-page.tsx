@@ -116,7 +116,7 @@ export function DashboardPage() {
   const [incidenciasData, setIncidenciasData] = useState<IncidenciaCSVRecord[]>([]);
 
   // Toggle para filtrar visualizaciones por rotación involuntaria vs voluntaria
-  const [motivoFilterType, setMotivoFilterType] = useState<'all' | 'involuntaria' | 'voluntaria'>('all');
+  const [motivoFilterType, setMotivoFilterType] = useState<'all' | 'involuntaria' | 'voluntaria'>('voluntaria');
   const [incidentsKpiSnapshot, setIncidentsKpiSnapshot] = useState<{
     incidencias: number;
     incidenciasAnterior: number;
@@ -1855,9 +1855,9 @@ export function DashboardPage() {
               </span>
               <div className="flex gap-2">
                 {([
-                  { key: 'all', label: 'Rotación Total' },
                   { key: 'voluntaria', label: 'Rotación Voluntaria' },
-                  { key: 'involuntaria', label: 'Rotación Involuntaria' }
+                  { key: 'involuntaria', label: 'Rotación Involuntaria' },
+                  { key: 'all', label: 'Rotación Total' }
                 ] as const).map(option => (
                   <Button
                     key={option.key}

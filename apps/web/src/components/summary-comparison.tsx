@@ -256,7 +256,7 @@ export function SummaryComparison({
     return filteredConfigs;
   }, [plantillaRotacion, plantilla]);
 
-  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('voluntaria');
+  const [motivoFilterType, setMotivoFilterType] = useState<'all' | 'involuntaria' | 'voluntaria'>('voluntaria');
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const axisColor = isDark ? '#E2E8F0' : '#475569';
@@ -911,7 +911,10 @@ export function SummaryComparison({
       };
     });
 
-    const rotationLabel = motivoFilterType === 'involuntaria' ? 'Rotación Involuntaria' : 'Rotación Voluntaria';
+    const rotationLabel =
+      motivoFilterType === 'involuntaria' ? 'Rotación Involuntaria' :
+      motivoFilterType === 'voluntaria' ? 'Rotación Voluntaria' :
+      'Rotación Total';
     const getRotationValue = (input?: { involuntaria?: number; voluntaria?: number; total?: number }) => {
       if (!input) return 0;
       if (motivoFilterType === 'involuntaria') {
@@ -1061,15 +1064,15 @@ export function SummaryComparison({
                   <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={datosActivos}
-                margin={{ top: 5, right: 20, left: 10, bottom: 65 }}
+                margin={{ top: 5, right: 20, left: 10, bottom: 40 }}
                 barSize={datosActivos.length > 5 ? undefined : 80}
               >
                 <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
                 <XAxis
                   dataKey="nombre"
-                  angle={-35}
-                  textAnchor="end"
-                  height={75}
+                  angle={0}
+                  textAnchor="middle"
+                  height={40}
                   interval={0}
                   tick={{ fontSize: 11, fill: axisColor }}
                 />
@@ -1151,6 +1154,18 @@ export function SummaryComparison({
               )}
             >
               Rotación Involuntaria
+            </Button>
+            <Button
+              variant={motivoFilterType === 'all' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+              size="sm"
+              onClick={() => setMotivoFilterType('all')}
+              className={cn(
+                "transition-all",
+                refreshEnabled && "rounded-full font-semibold",
+                motivoFilterType === 'all' && refreshEnabled && "shadow-brand"
+              )}
+            >
+              Rotación Total
             </Button>
           </div>
         </div>

@@ -1164,7 +1164,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
             ))}
       </div>
       <p className="text-xs text-gray-500">
-        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. Incidencias: FI, SUSP, PSIN, ENFE · Permisos: PCON, VAC, MAT3, MAT1, JUST
+        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Incidencias:</strong> Faltas (FI, SUSP), Salud (ENFE, MAT3, MAT1) · <strong>Permisos:</strong> PSIN, PCON, FEST, PATER, JUST · <strong>Vacaciones:</strong> VAC
       </p>
 
       {/* Gráfica de Tendencia Mensual - 4 Categorías */}
