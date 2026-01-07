@@ -285,7 +285,7 @@ export async function POST(request: NextRequest) {
         nombres: String(nombres).trim(),
         nombre_completo: `${nombres} ${apellidos}`.trim(),
         gafete: emp['Gafete'] || numero,
-        genero: emp['Género'] || emp['G?nero'] || 'No especificado',
+        genero: pickField(emp, ['Género', 'G?nero', 'Genero', 'GÉNERO', 'GENERO'], 'genero'),
         imss: emp['IMSS'] || '',
         fecha_nacimiento: parseDate(emp['Fecha de Nacimiento']),
         estado: emp['Estado'] || 'No especificado',

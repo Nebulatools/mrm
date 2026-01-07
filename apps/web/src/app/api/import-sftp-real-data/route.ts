@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
               nombres: String(record['Nombres'] || 'Nombre'),
               nombre_completo: String(record['Nombre Completo'] || `${record['Nombres']} ${record['Apellidos']}` || `Empleado ${index + 1}`),
               gafete: String(record['Gafete'] || ''),
-              genero: String(record['Género'] || record['Genero'] || ''),
+              genero: pickField(record as Record<string, unknown>, ['Género', 'G?nero', 'Genero', 'GÉNERO', 'GENERO'], 'genero'),
               imss: String(record['IMSS'] || ''),
               fecha_nacimiento: record['Fecha de Nacimiento'] ? parseDate(record['Fecha de Nacimiento']) : null,
               estado: String(record['Estado'] || ''),

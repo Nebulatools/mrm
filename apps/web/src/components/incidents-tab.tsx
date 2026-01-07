@@ -41,11 +41,18 @@ type EnrichedIncidencia = IncidenciaCSVRecord & {
   puesto?: string | null;
 };
 
-const INCIDENT_CODES = new Set(["FI", "SUSP", "PSIN", "ENFE", "ACCI"]);
-const EMPLOYEE_INCIDENT_CODES = new Set(["FI", "SUSP", "PSIN", "ENFE", "ACCI"]); // Para card de empleados con incidencias
-const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST", "PAT", "FEST"]);
+// ✅ NUEVA CATEGORIZACIÓN: 4 grupos (Faltas, Salud, Permisos, Vacaciones)
+const FALTAS_CODES = new Set(["FI", "SUSP"]);
+const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1"]);
+const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]);
+const VACACIONES_CODES = new Set(["VAC"]);
 
-const PIE_COLORS = [getModernColor(0), getModernColor(2)];
+// ✅ LEGACY: Mantener para compatibilidad con código existente
+const INCIDENT_CODES = new Set([...FALTAS_CODES, ...SALUD_CODES]); // Faltas + Salud
+const EMPLOYEE_INCIDENT_CODES = new Set([...FALTAS_CODES, ...SALUD_CODES]); // Para card de empleados
+const PERMISO_CODES = new Set([...PERMISOS_CODES, ...VACACIONES_CODES]); // Permisos + Vacaciones
+
+const PIE_COLORS = [getModernColor(0), getModernColor(1), getModernColor(2), getModernColor(3)];
 const AUSENTISMO_COLOR = '#EF4444';
 const PERMISO_COLOR = '#2563EB';
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
@@ -558,9 +565,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     return total;
   }, [countByTypePrevious]);
 
-  // Segmentación por tipo de incidencia: Faltas y Salud
-  const FALTAS_CODES = new Set(["FI", "SUSP", "PSIN"]);
-  const SALUD_CODES = new Set(["ENFE"]);
+  // ✅ NOTA: FALTAS_CODES, SALUD_CODES, PERMISOS_CODES, VACACIONES_CODES ya están definidos arriba
 
   const totalFaltas = useMemo(() => {
     let total = 0;
@@ -585,6 +590,18 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     countByTypePrevious.forEach((v, k) => { if (SALUD_CODES.has(k)) total += v; });
     return total;
   }, [countByTypePrevious]);
+
+  const totalPermisosOnly = useMemo(() => {
+    let total = 0;
+    countByType.forEach((v, k) => { if (PERMISOS_CODES.has(k)) total += v; });
+    return total;
+  }, [countByType]);
+
+  const totalVacaciones = useMemo(() => {
+    let total = 0;
+    countByType.forEach((v, k) => { if (VACACIONES_CODES.has(k)) total += v; });
+    return total;
+  }, [countByType]);
 
   useEffect(() => {
     if (!onKPIsUpdate) return;
@@ -699,12 +716,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     ];
   }, [metricType, activosCount, activosPrevios, empleadosConIncidenciasPct, empleadosConIncidenciasAnteriorPct, empleadosConIncidencias, empleadosConIncidenciasAnterior, incidenciasPct, incidenciasPctAnterior, totalIncidencias, totalIncidenciasAnterior, permisosPct, permisosPctAnterior, totalPermisos, totalPermisosAnteriores, currentReferenceDate, maMonth.activos, mmaaMonth.activos]);
 
-  // Histograma: eje X = # Empleados (o %), eje Y = # Incidencias
+  // Histograma: eje X = # Empleados (o %), eje Y = # Faltas (FI, SUSP)
   const histoData = useMemo(() => {
     const byEmp = new Map<number, number>();
     enrichedPeriodo.forEach(i => {
       const code = normalizeIncidenciaCode(i.inci);
-      if (!code || !INCIDENT_CODES.has(code)) return; // solo incidencias (no permisos)
+      if (!code || !FALTAS_CODES.has(code)) return; // ✅ SOLO FALTAS (FI, SUSP)
       byEmp.set(i.emp, (byEmp.get(i.emp) || 0) + 1);
     });
     const bins = new Map<number, number>();
@@ -780,9 +797,11 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
   }, [enrichedPeriodo, tiposUnicos, metricType]);
 
   const pieData = useMemo(() => ([
-    { name: 'Incidencias', value: totalIncidencias },
-    { name: 'Permisos', value: totalPermisos },
-  ]), [totalIncidencias, totalPermisos]);
+    { name: 'Faltas', value: totalFaltas },
+    { name: 'Salud', value: totalSalud },
+    { name: 'Permisos', value: totalPermisosOnly },
+    { name: 'Vacaciones', value: totalVacaciones },
+  ]), [totalFaltas, totalSalud, totalPermisosOnly, totalVacaciones]);
 
   const incidenciasPorDia = useMemo(() => {
     const baseCounts = WEEKDAY_ORDER.map(day => ({
@@ -926,17 +945,23 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         return date.getMonth() === index;
       });
 
-      let incidenciasCount = 0;
+      let faltasCount = 0;
+      let saludCount = 0;
       let permisosCount = 0;
+      let vacacionesCount = 0;
 
       monthData.forEach(inc => {
         const code = normalizeIncidenciaCode(inc.inci);
         if (!code) return;
 
-        if (INCIDENT_CODES.has(code)) {
-          incidenciasCount++;
-        } else if (PERMISO_CODES.has(code)) {
+        if (FALTAS_CODES.has(code)) {
+          faltasCount++;
+        } else if (SALUD_CODES.has(code)) {
+          saludCount++;
+        } else if (PERMISOS_CODES.has(code)) {
           permisosCount++;
+        } else if (VACACIONES_CODES.has(code)) {
+          vacacionesCount++;
         }
       });
 
@@ -947,19 +972,23 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       const diasLaborablesMonth = monthStats.diasLaborables;
 
       // Calculate percentages
-      const incidenciasPctMonth = diasLaborablesMonth > 0 ? (incidenciasCount / diasLaborablesMonth) * 100 : 0;
+      const faltasPctMonth = diasLaborablesMonth > 0 ? (faltasCount / diasLaborablesMonth) * 100 : 0;
+      const saludPctMonth = diasLaborablesMonth > 0 ? (saludCount / diasLaborablesMonth) * 100 : 0;
       const permisosPctMonth = diasLaborablesMonth > 0 ? (permisosCount / diasLaborablesMonth) * 100 : 0;
+      const vacacionesPctMonth = diasLaborablesMonth > 0 ? (vacacionesCount / diasLaborablesMonth) * 100 : 0;
 
       return {
         mes: monthName,
-        incidencias: metricType === "percent" ? Number(incidenciasPctMonth.toFixed(1)) : incidenciasCount,
-        permisos: metricType === "percent" ? Number(permisosPctMonth.toFixed(1)) : permisosCount
+        faltas: metricType === "percent" ? Number(faltasPctMonth.toFixed(1)) : faltasCount,
+        salud: metricType === "percent" ? Number(saludPctMonth.toFixed(1)) : saludCount,
+        permisos: metricType === "percent" ? Number(permisosPctMonth.toFixed(1)) : permisosCount,
+        vacaciones: metricType === "percent" ? Number(vacacionesPctMonth.toFixed(1)) : vacacionesCount
       };
     });
 
     // Calculate dynamic domain for better visualization
     const maxValue = dataPoints.reduce((max, point) => {
-      return Math.max(max, point.incidencias, point.permisos);
+      return Math.max(max, point.faltas, point.salud, point.permisos, point.vacaciones);
     }, 0);
 
     const domainMax = metricType === "percent"
@@ -969,34 +998,53 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     return { data: dataPoints, domainMax };
   }, [enrichedAnual, currentYear, metricType, buildMonthStats]);
 
+  // ✅ AUSENTISMO MENSUAL: TODOS los motivos (Faltas + Salud + Permisos + Vacaciones)
   const monthlyAbsenteeismComparison = useMemo(() => {
     const targetYear = typeof currentYear === 'number' ? currentYear : new Date().getFullYear();
     const previousYear = targetYear - 1;
     const now = new Date();
 
     const data = MONTH_LABELS_SHORT.map((mes, index) => {
-      const currentRef = new Date(targetYear, index + 1, 0);
-      const previousRef = new Date(previousYear, index + 1, 0);
+      const currentStart = new Date(targetYear, index, 1);
+      const currentEnd = new Date(targetYear, index + 1, 0);
+      const previousStart = new Date(previousYear, index, 1);
+      const previousEnd = new Date(previousYear, index + 1, 0);
 
-      const statsCurrent = buildMonthStats(currentRef);
-      const statsPrevious = buildMonthStats(previousRef);
+      // Count ALL ausentismo categories (Faltas, Salud, Permisos, Vacaciones) for current month
+      const ausentismosCurrent = incidencias.filter((inc) => {
+        if (!inc.fecha) return false;
+        const d = new Date(inc.fecha);
+        if (d < currentStart || d > currentEnd) return false;
+        const code = normalizeIncidenciaCode(inc.inci);
+        return code && (FALTAS_CODES.has(code) || SALUD_CODES.has(code) || PERMISOS_CODES.has(code) || VACACIONES_CODES.has(code));
+      }).length;
+
+      // Count ALL ausentismo categories for previous year same month
+      const ausentismosPrevious = incidencias.filter((inc) => {
+        if (!inc.fecha) return false;
+        const d = new Date(inc.fecha);
+        if (d < previousStart || d > previousEnd) return false;
+        const code = normalizeIncidenciaCode(inc.inci);
+        return code && (FALTAS_CODES.has(code) || SALUD_CODES.has(code) || PERMISOS_CODES.has(code) || VACACIONES_CODES.has(code));
+      }).length;
+
+      // Calculate días laborables (total work days) for each month
+      const diasLaborablesCurrent = plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, currentStart, currentEnd), 0);
+      const diasLaborablesPrevious = plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, previousStart, previousEnd), 0);
 
       let currentValue: number | null;
       let previousValue: number | null;
 
       if (metricType === "percent") {
-        currentValue = statsCurrent.diasLaborables > 0
-          ? (1 - ((statsCurrent.diasLaborables - statsCurrent.incidenciasCount) / statsCurrent.diasLaborables)) * 100
-          : null;
-        previousValue = statsPrevious.diasLaborables > 0
-          ? (1 - ((statsPrevious.diasLaborables - statsPrevious.incidenciasCount) / statsPrevious.diasLaborables)) * 100
-          : null;
+        // ✅ CORRECCIÓN: Percentage = (total ausentismos / días laborables) * 100
+        currentValue = diasLaborablesCurrent > 0 ? (ausentismosCurrent / diasLaborablesCurrent) * 100 : null;
+        previousValue = diasLaborablesPrevious > 0 ? (ausentismosPrevious / diasLaborablesPrevious) * 100 : null;
       } else {
-        currentValue = statsCurrent.incidenciasCount > 0 ? statsCurrent.incidenciasCount : null;
-        previousValue = statsPrevious.incidenciasCount > 0 ? statsPrevious.incidenciasCount : null;
+        currentValue = ausentismosCurrent > 0 ? ausentismosCurrent : null;
+        previousValue = ausentismosPrevious > 0 ? ausentismosPrevious : null;
       }
 
-      const isFutureMonth = targetYear === now.getFullYear() && currentRef > now;
+      const isFutureMonth = targetYear === now.getFullYear() && currentEnd > now;
       if (isFutureMonth && currentValue === null && previousValue === null) {
         return null;
       }
@@ -1014,11 +1062,80 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     }, 0);
 
     const domainTop = metricType === "percent"
-      ? (maxValue > 0 ? Math.min(100, Math.ceil(maxValue + 2)) : 5)
-      : Math.ceil(maxValue * 1.1); // 10% padding for number mode
+      ? (maxValue > 0 ? Math.min(100, Math.ceil(maxValue + 2)) : 10)
+      : Math.ceil(maxValue * 1.1);
 
     return { data, targetYear, previousYear, domainTop };
-  }, [buildMonthStats, currentYear, metricType]);
+  }, [incidencias, plantillaBaseForActivos, calcularDiasActivo, currentYear, metricType]);
+
+  // ✅ AUSENTISMO ACUMULADO 12 MESES MÓVILES: TODOS los motivos (Faltas + Salud + Permisos + Vacaciones)
+  const rollingAbsenteeismComparison = useMemo(() => {
+    const targetYear = typeof currentYear === 'number' ? currentYear : new Date().getFullYear();
+    const previousYear = targetYear - 1;
+    const now = new Date();
+
+    const data = MONTH_LABELS_SHORT.map((mes, index) => {
+      const currentEnd = new Date(targetYear, index + 1, 0);
+      const currentStart = new Date(targetYear, index - 11, 1); // 12 months back
+      const previousEnd = new Date(previousYear, index + 1, 0);
+      const previousStart = new Date(previousYear, index - 11, 1);
+
+      // Count ALL ausentismo categories in rolling 12 months
+      const ausentismosCurrent = incidencias.filter((inc) => {
+        if (!inc.fecha) return false;
+        const d = new Date(inc.fecha);
+        if (d < currentStart || d > currentEnd) return false;
+        const code = normalizeIncidenciaCode(inc.inci);
+        return code && (FALTAS_CODES.has(code) || SALUD_CODES.has(code) || PERMISOS_CODES.has(code) || VACACIONES_CODES.has(code));
+      }).length;
+
+      const ausentismosPrevious = incidencias.filter((inc) => {
+        if (!inc.fecha) return false;
+        const d = new Date(inc.fecha);
+        if (d < previousStart || d > previousEnd) return false;
+        const code = normalizeIncidenciaCode(inc.inci);
+        return code && (FALTAS_CODES.has(code) || SALUD_CODES.has(code) || PERMISOS_CODES.has(code) || VACACIONES_CODES.has(code));
+      }).length;
+
+      // Calculate días laborables for rolling 12 months
+      const diasLaborablesCurrent = plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, currentStart, currentEnd), 0);
+      const diasLaborablesPrevious = plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, previousStart, previousEnd), 0);
+
+      let currentValue: number | null;
+      let previousValue: number | null;
+
+      if (metricType === "percent") {
+        // ✅ CORRECCIÓN: Percentage = (total ausentismos in 12 months / días laborables) * 100
+        currentValue = diasLaborablesCurrent > 0 ? (ausentismosCurrent / diasLaborablesCurrent) * 100 : null;
+        previousValue = diasLaborablesPrevious > 0 ? (ausentismosPrevious / diasLaborablesPrevious) * 100 : null;
+      } else {
+        currentValue = ausentismosCurrent > 0 ? ausentismosCurrent : null;
+        previousValue = ausentismosPrevious > 0 ? ausentismosPrevious : null;
+      }
+
+      const isFutureMonth = targetYear === now.getFullYear() && currentEnd > now;
+      if (isFutureMonth && currentValue === null && previousValue === null) {
+        return null;
+      }
+
+      return {
+        mes,
+        actual: currentValue,
+        anterior: previousValue,
+      };
+    }).filter((entry): entry is { mes: string; actual: number | null; anterior: number | null } => entry !== null);
+
+    const maxValue = data.reduce((acc, item) => {
+      const candidates = [item.actual ?? 0, item.anterior ?? 0];
+      return Math.max(acc, ...candidates);
+    }, 0);
+
+    const domainTop = metricType === "percent"
+      ? (maxValue > 0 ? Math.min(100, Math.ceil(maxValue + 2)) : 10)
+      : Math.ceil(maxValue * 1.1);
+
+    return { data, targetYear, previousYear, domainTop };
+  }, [incidencias, plantillaBaseForActivos, calcularDiasActivo, currentYear, metricType]);
 
   const ChartLoadingPlaceholder = ({ height = 320 }: { height?: number }) => (
     <div
@@ -1050,13 +1167,13 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. Incidencias: FI, SUSP, PSIN, ENFE · Permisos: PCON, VAC, MAT3, MAT1, JUST
       </p>
 
-      {/* Gráfica de Tendencia Mensual - Incidencias y Permisos */}
+      {/* Gráfica de Tendencia Mensual - 4 Categorías */}
       <div className="mb-6">
         <Card className="h-[400px] flex flex-col">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div className="flex-1">
-              <CardTitle className="text-base">Tendencia Mensual - Incidencias y Permisos {currentYear || new Date().getFullYear()}</CardTitle>
-              <p className="text-sm text-gray-600">Evolución de incidencias y permisos {metricType === "percent" ? "(porcentaje)" : "(cantidad)"}</p>
+              <CardTitle className="text-base">Ausentismo por Motivo - {currentYear || new Date().getFullYear()}</CardTitle>
+              <p className="text-sm text-gray-600">Evolución de Faltas, Salud, Permisos y Vacaciones {metricType === "percent" ? "(porcentaje)" : "(cantidad)"}</p>
             </div>
           </CardHeader>
           <CardContent className="flex-1">
@@ -1064,10 +1181,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
               <ChartLoadingPlaceholder height={320} />
             ) : (
               <VisualizationContainer
-                title="Tendencia mensual: Incidencias vs Permisos"
+                title="Tendencia mensual: 4 Categorías"
                 type="chart"
                 className="h-[320px] w-full"
-                filename="tendencia-incidencias-permisos"
+                filename="tendencia-4-categorias"
               >
                 {(fullscreen) => (
                   <div style={{ height: fullscreen ? 420 : 320 }}>
@@ -1109,12 +1226,21 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                         <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
                         <Line
                           type="monotone"
-                          dataKey="incidencias"
+                          dataKey="faltas"
                           stroke={getModernColor(0)}
                           strokeWidth={3}
                           dot={{ fill: getModernColor(0), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
-                          name={metricType === "percent" ? "Incidencias (%)" : "# Incidencias"}
+                          name={metricType === "percent" ? "Faltas (%)" : "# Faltas"}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="salud"
+                          stroke={getModernColor(1)}
+                          strokeWidth={3}
+                          dot={{ fill: getModernColor(1), strokeWidth: 2, r: 5 }}
+                          activeDot={{ r: 8 }}
+                          name={metricType === "percent" ? "Salud (%)" : "# Salud"}
                         />
                         <Line
                           type="monotone"
@@ -1124,6 +1250,15 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           dot={{ fill: getModernColor(2), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name={metricType === "percent" ? "Permisos (%)" : "# Permisos"}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="vacaciones"
+                          stroke={getModernColor(3)}
+                          strokeWidth={3}
+                          dot={{ fill: getModernColor(3), strokeWidth: 2, r: 5 }}
+                          activeDot={{ r: 8 }}
+                          name={metricType === "percent" ? "Vacaciones (%)" : "# Vacaciones"}
                         />
                       </LineChart>
                     </ResponsiveContainer>
@@ -1137,12 +1272,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
       {/* Sección central: 3 tarjetas en la misma fila (responsive) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Histograma: Incidencias por empleado */}
+        {/* Histograma: Faltas por empleado */}
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Incidencias por empleado</CardTitle>
+            <CardTitle className="text-base">Faltas por empleado</CardTitle>
             <p className="text-sm text-gray-600">
-              X: # Incidencias • Y: {metricType === "percent" ? "% Empleados" : "# Empleados"}
+              X: # Faltas • Y: {metricType === "percent" ? "% Empleados" : "# Empleados"}
             </p>
           </CardHeader>
           <CardContent className="flex-1">
@@ -1160,7 +1295,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={histoData.data} margin={{ left: 16, right: 16, top: 8, bottom: 24 }}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" dataKey="incidencias" label={{ value: '# Incidencias', position: 'insideBottom', offset: -10 }} />
+                        <XAxis type="number" dataKey="incidencias" label={{ value: '# Faltas', position: 'insideBottom', offset: -10 }} />
                         <YAxis
                           type="number"
                           dataKey="empleados"
@@ -1187,9 +1322,9 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
           </CardContent>
         </Card>
 
-        {/* Resumen por tipo */}
+        {/* Resumen por tipo - Solo Faltas + Salud */}
         <Card className="h-[420px] flex flex-col">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Incidencias por tipo</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Incidencias por tipo (Faltas + Salud)</CardTitle></CardHeader>
           <CardContent className="flex-1 overflow-hidden pt-2 pb-4">
             <VisualizationContainer
               title="Tabla de incidencias por tipo"
@@ -1215,7 +1350,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {resumenPorTipo.map(r => (
+                        {resumenPorTipo.filter(r => FALTAS_CODES.has(r.tipo) || SALUD_CODES.has(r.tipo)).map(r => (
                           <TableRow key={r.tipo}>
                             <TableCell className="py-2 font-medium">{labelForIncidencia(r.tipo)}</TableCell>
                             <TableCell className="py-2 text-center">{r.dias.toLocaleString()}</TableCell>
@@ -1231,18 +1366,18 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
           </CardContent>
         </Card>
 
-        {/* Pie: Incidencias vs Permisos */}
+        {/* Pie: 4 Categorías (Faltas, Salud, Permisos, Vacaciones) */}
         <Card className="h-[420px] flex flex-col">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Distribución: Incidencias vs Permisos</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Distribución: 4 Categorías</CardTitle></CardHeader>
           <CardContent className="flex-1">
             {loadingIncidencias ? (
               <ChartLoadingPlaceholder height={320} />
             ) : (
               <VisualizationContainer
-                title="Distribución: Incidencias vs Permisos"
+                title="Distribución: 4 Categorías"
                 type="chart"
                 className="h-full w-full"
-                filename="distribucion-incidencias-permisos"
+                filename="distribucion-4-categorias"
               >
                 {(fullscreen) => (
                   <div style={{ height: fullscreen ? 420 : 320 }}>
@@ -1290,9 +1425,9 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         </Card>
       </div>
 
-      {/* Ausentismos vs permisos por día, por área y comparativo mensual */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="h-[420px] flex flex-col">
+      {/* Ausentismos vs permisos por día (full width) */}
+      <div className="grid grid-cols-1 gap-4">
+        <Card className="flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Ausentismos vs Permisos por día</CardTitle>
             <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-gray-600'}`}>Comparativo del periodo seleccionado, lunes a domingo</p>
@@ -1348,48 +1483,49 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
             )}
           </CardContent>
         </Card>
+      </div>
 
-        <Card className="h-[420px] flex flex-col">
+      {/* Nuevas Gráficas de Ausentismo - Barras Verticales (TODOS los motivos) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* 5.8: Ausentismo Mensual */}
+        <Card className="flex flex-col">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Ausentismos vs Permisos por área</CardTitle>
-            <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-gray-600'}`}>Top áreas con mayor número de registros</p>
+            <CardTitle className="text-base">Ausentismo Mensual</CardTitle>
+            <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-gray-600'}`}>
+              Todos los ausentismos por mes: Año actual vs año anterior
+            </p>
           </CardHeader>
           <CardContent className="flex-1">
             {loadingIncidencias ? (
-              <ChartLoadingPlaceholder height={320} />
-            ) : hasAreaData ? (
+              <ChartLoadingPlaceholder height={400} />
+            ) : monthlyAbsenteeismComparison.data.length > 0 ? (
               <VisualizationContainer
-                title="Ausentismos vs permisos por área"
+                title="Ausentismo mensual"
                 type="chart"
-                className="h-full w-full"
-                filename="incidencias-por-area"
+                className="h-[400px] w-full"
+                filename="ausentismo-mensual"
               >
                 {(fullscreen) => (
-                  <div style={{ height: fullscreen ? 420 : 320 }}>
+                  <div style={{ height: fullscreen ? 480 : 400 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={incidenciasPorArea.data}
-                        layout="vertical"
-                        margin={{ left: 32, right: 24, top: 16, bottom: 16 }}
-                        barCategoryGap="16%"
+                      <ComposedChart
+                        data={monthlyAbsenteeismComparison.data}
+                        margin={{ left: 16, right: 16, top: 32, bottom: 16 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
                         <XAxis
-                          type="number"
-                          tick={{ fontSize: 12, fill: axisSecondaryColor }}
+                          dataKey="mes"
+                          tick={{ fontSize: 11, fill: axisSecondaryColor }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12, fill: axisMutedColor }}
                           tickFormatter={(v) => metricType === "percent" ? `${v}%` : v}
                           label={{
                             value: metricType === "percent" ? 'Porcentaje (%)' : 'Cantidad',
-                            position: 'insideBottom',
-                            offset: -5
+                            angle: -90,
+                            position: 'insideLeft'
                           }}
-                          domain={incidenciasPorArea.domainMax !== null ? [0, incidenciasPorArea.domainMax] : undefined}
-                        />
-                        <YAxis
-                          dataKey="area"
-                          type="category"
-                          width={fullscreen ? 140 : 120}
-                          tick={{ fontSize: 12, fill: axisMutedColor }}
+                          domain={[0, monthlyAbsenteeismComparison.domainTop]}
                         />
                         <Tooltip
                           wrapperStyle={TOOLTIP_WRAPPER_STYLE}
@@ -1403,105 +1539,127 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                           }}
                         />
                         <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                        <Bar
-                          dataKey="ausentismos"
-                          name={metricType === "percent" ? "Ausentismos (%)" : "Ausentismos (#)"}
-                          fill={AUSENTISMO_COLOR}
-                          radius={[0, 4, 4, 0]}
+                        <Area
+                          type="monotone"
+                          dataKey="anterior"
+                          name={`${monthlyAbsenteeismComparison.previousYear}`}
+                          stroke={withOpacity('#94a3b8', 0.9)}
+                          fill={withOpacity('#94a3b8', 0.4)}
+                          strokeWidth={1.5}
+                          dot={false}
+                          activeDot={{ r: 3 }}
                         />
                         <Bar
-                          dataKey="permisos"
-                          name={metricType === "percent" ? "Permisos (%)" : "Permisos (#)"}
-                          fill={PERMISO_COLOR}
-                          radius={[0, 4, 4, 0]}
-                        />
-                      </BarChart>
+                          dataKey="actual"
+                          name={`${monthlyAbsenteeismComparison.targetYear}`}
+                          fill={getModernColor(0)}
+                          radius={[4, 4, 0, 0]}
+                          maxBarSize={32}
+                        >
+                          <LabelList
+                            dataKey="actual"
+                            position="top"
+                            formatter={(value: number) => value !== null && value > 0 ? `${Number(value).toFixed(0)}%` : ''}
+                            style={{ fontSize: 10, fill: axisSecondaryColor, fontWeight: 600 }}
+                          />
+                        </Bar>
+                      </ComposedChart>
                     </ResponsiveContainer>
                   </div>
                 )}
               </VisualizationContainer>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-gray-500">
-                No hay registros por área en el periodo seleccionado.
+                No hay datos de ausentismo para graficar.
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="h-[420px] flex flex-col">
+        {/* 5.9: Ausentismo Acumulado 12 Meses Móviles */}
+        <Card className="flex flex-col">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Ausentismo mensual vs año anterior</CardTitle>
+            <CardTitle className="text-base">Ausentismo Acumulado - Meses Móviles</CardTitle>
+            <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-gray-600'}`}>
+              Todos los ausentismos acumulados últimos 12 meses: Año actual vs año anterior
+            </p>
           </CardHeader>
           <CardContent className="flex-1">
             {loadingIncidencias ? (
-              <ChartLoadingPlaceholder height={320} />
-            ) : monthlyAbsenteeismComparison.data.length > 0 ? (
+              <ChartLoadingPlaceholder height={400} />
+            ) : rollingAbsenteeismComparison.data.length > 0 ? (
               <VisualizationContainer
-                title="Ausentismo mensual vs año anterior"
+                title="Ausentismo acumulado 12 meses móviles"
                 type="chart"
-                className="h-full w-full"
-                filename="ausentismo-mensual-comparativo"
+                className="h-[400px] w-full"
+                filename="ausentismo-acumulado-movil"
               >
-                {(fullscreen) => {
-                  const hasPrevious = monthlyAbsenteeismComparison.data.some(item => item.anterior !== null);
-                  return (
-                    <div style={{ height: fullscreen ? 420 : 320 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={monthlyAbsenteeismComparison.data}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
-                          <XAxis dataKey="mes" tick={{ fontSize: 12, fill: axisSecondaryColor }} />
-                          <YAxis
-                            tick={{ fontSize: 12, fill: axisMutedColor }}
-                            tickFormatter={(value) => metricType === "percent" ? `${Number(value || 0).toFixed(1)}%` : Number(value || 0).toString()}
-                            domain={[0, monthlyAbsenteeismComparison.domainTop]}
-                            label={{
-                              value: metricType === "percent" ? 'Porcentaje (%)' : 'Cantidad',
-                              angle: -90,
-                              position: 'insideLeft'
-                            }}
-                          />
-                          <Tooltip
-                            wrapperStyle={TOOLTIP_WRAPPER_STYLE}
-                            contentStyle={LINE_TOOLTIP_STYLE}
-                            labelStyle={LINE_TOOLTIP_LABEL_STYLE}
-                            formatter={(value: number | string, name: string) => {
-                              const numeric = typeof value === 'number' ? value : Number(value || 0);
-                              const formatted = metricType === "percent"
-                                ? `${numeric.toFixed(2)}%`
-                                : `${numeric.toLocaleString('es-MX')}`;
-                              return [formatted, name];
-                            }}
-                          />
-                          <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                          {hasPrevious && (
-                            <Area
-                              type="monotone"
-                              dataKey="anterior"
-                              name={`${monthlyAbsenteeismComparison.previousYear}`}
-                              stroke={withOpacity(getModernColor(2), 0.9)}
-                              fill={withOpacity(getModernColor(2), 0.16)}
-                              strokeWidth={1.5}
-                              dot={false}
-                              activeDot={{ r: 3 }}
-                              legendType="none"
-                            />
-                          )}
-                          <Bar
+                {(fullscreen) => (
+                  <div style={{ height: fullscreen ? 480 : 400 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart
+                        data={rollingAbsenteeismComparison.data}
+                        margin={{ left: 16, right: 16, top: 32, bottom: 16 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeColor} />
+                        <XAxis
+                          dataKey="mes"
+                          tick={{ fontSize: 11, fill: axisSecondaryColor }}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12, fill: axisMutedColor }}
+                          tickFormatter={(v) => metricType === "percent" ? `${v}%` : v}
+                          label={{
+                            value: metricType === "percent" ? 'Porcentaje (%)' : 'Cantidad',
+                            angle: -90,
+                            position: 'insideLeft'
+                          }}
+                          domain={[0, rollingAbsenteeismComparison.domainTop]}
+                        />
+                        <Tooltip
+                          wrapperStyle={TOOLTIP_WRAPPER_STYLE}
+                          contentStyle={LINE_TOOLTIP_STYLE}
+                          labelStyle={LINE_TOOLTIP_LABEL_STYLE}
+                          formatter={(value: number, name: string) => {
+                            const formatted = metricType === "percent"
+                              ? `${Number(value || 0).toFixed(2)}%`
+                              : `${Number(value || 0).toLocaleString('es-MX')}`;
+                            return [formatted, name];
+                          }}
+                        />
+                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
+                        <Area
+                          type="monotone"
+                          dataKey="anterior"
+                          name={`${rollingAbsenteeismComparison.previousYear}`}
+                          stroke={withOpacity('#94a3b8', 0.9)}
+                          fill={withOpacity('#94a3b8', 0.4)}
+                          strokeWidth={1.5}
+                          dot={false}
+                          activeDot={{ r: 3 }}
+                        />
+                        <Bar
+                          dataKey="actual"
+                          name={`${rollingAbsenteeismComparison.targetYear}`}
+                          fill={getModernColor(0)}
+                          radius={[4, 4, 0, 0]}
+                          maxBarSize={32}
+                        >
+                          <LabelList
                             dataKey="actual"
-                            name={monthlyAbsenteeismComparison.targetYear.toString()}
-                            fill={getModernColor(0)}
-                            radius={[4, 4, 0, 0]}
-                            maxBarSize={22}
+                            position="top"
+                            formatter={(value: number) => value !== null && value > 0 ? `${Number(value).toFixed(0)}%` : ''}
+                            style={{ fontSize: 10, fill: axisSecondaryColor, fontWeight: 600 }}
                           />
-                        </ComposedChart>
-                      </ResponsiveContainer>
-                    </div>
-                  );
-                }}
+                        </Bar>
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </VisualizationContainer>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-gray-500">
-                No hay datos de ausentismo para graficar.
+                No hay datos de ausentismo acumulado para graficar.
               </div>
             )}
           </CardContent>

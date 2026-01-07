@@ -1,5 +1,5 @@
 import { db, supabase, type PlantillaRecord, type AsistenciaDiariaRecord, type EmpleadoSFTPRecord } from './supabase';
-import { normalizeMotivo, prettyMotivo, normalizeArea } from './normalizers';
+import { normalizeMotivo, prettyMotivo, normalizeArea, isMotivoClave } from './normalizers';
 import { sftpClient } from './sftp-client';
 import { startOfMonth, endOfMonth, format, differenceInDays, isWithinInterval, subMonths, subYears } from 'date-fns';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -288,17 +288,25 @@ export class KPICalculator {
     const bajas = plantilla.filter(p => p.fecha_baja !== null && p.fecha_baja !== undefined).length;
     const prevBajas = prevPlantilla.filter(p => p.fecha_baja !== null && p.fecha_baja !== undefined).length;
     
-    // 4.1. Bajas del período = Only departures within the specific period
+    // 4.1. Bajas del período = SOLO ROTACIÓN VOLUNTARIA (excluye: rescisión desempeño, disciplina, término contrato)
     const bajasPeriodo = plantilla.filter(p => {
       if (!p.fecha_baja) return false;
       const fechaBaja = new Date(p.fecha_baja);
-      return isWithinInterval(fechaBaja, { start: startDate, end: endDate });
+      const enPeriodo = isWithinInterval(fechaBaja, { start: startDate, end: endDate });
+
+      // Excluir motivos involuntarios (rescisión por desempeño, disciplina, término del contrato)
+      const esInvoluntaria = isMotivoClave(p.motivo_baja);
+      return enPeriodo && !esInvoluntaria;
     }).length;
-    
+
     const prevBajasPeriodo = plantilla.filter(p => {
       if (!p.fecha_baja) return false;
       const fechaBaja = new Date(p.fecha_baja);
-      return isWithinInterval(fechaBaja, { start: subMonths(startDate, 1), end: subMonths(endDate, 1) });
+      const enPeriodo = isWithinInterval(fechaBaja, { start: subMonths(startDate, 1), end: subMonths(endDate, 1) });
+
+      // Excluir motivos involuntarios
+      const esInvoluntaria = isMotivoClave(p.motivo_baja);
+      return enPeriodo && !esInvoluntaria;
     }).length;
 
     // 5. Bajas Tempranas - Empleados con menos de 3 meses que se dieron de baja
@@ -698,11 +706,15 @@ export class KPICalculator {
       startDate12m.setMonth(startDate12m.getMonth() - 11);
       startDate12m.setDate(1);
 
-      // Count terminations in the 12-month period
+      // Count terminations in the 12-month period (SOLO VOLUNTARIAS)
       const bajasEn12Meses = plantilla.filter(emp => {
         if (!emp.fecha_baja) return false;
         const fechaBaja = new Date(emp.fecha_baja);
-        return fechaBaja >= startDate12m && fechaBaja <= endDate;
+        const enPeriodo = fechaBaja >= startDate12m && fechaBaja <= endDate;
+
+        // Excluir motivos involuntarios
+        const esInvoluntaria = isMotivoClave(emp.motivo_baja);
+        return enPeriodo && !esInvoluntaria;
       }).length;
 
       // Calculate average headcount for the period
@@ -738,7 +750,11 @@ export class KPICalculator {
       const bajasYTD = plantilla.filter(emp => {
         if (!emp.fecha_baja) return false;
         const fechaBaja = new Date(emp.fecha_baja);
-        return fechaBaja >= startOfYear && fechaBaja <= endDate;
+        const enPeriodo = fechaBaja >= startOfYear && fechaBaja <= endDate;
+
+        // Excluir motivos involuntarios (SOLO ROTACIÓN VOLUNTARIA)
+        const esInvoluntaria = isMotivoClave(emp.motivo_baja);
+        return enPeriodo && !esInvoluntaria;
       }).length;
 
       const activosInicio = plantilla.filter(emp => {

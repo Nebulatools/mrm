@@ -33,6 +33,16 @@ import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { KPICard } from '@/components/kpi-card';
 import { useTheme } from '@/components/theme-provider';
 
+// ✅ CATEGORIZACIÓN DE INCIDENCIAS: 4 grupos
+const FALTAS_CODES = new Set(["FI", "SUSP"]);
+const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1"]);
+const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]);
+const VACACIONES_CODES = new Set(["VAC"]);
+
+// ✅ LEGACY: Mantener para compatibilidad
+const INCIDENT_CODES = new Set([...FALTAS_CODES, ...SALUD_CODES]);
+const PERMISO_CODES = new Set([...PERMISOS_CODES, ...VACACIONES_CODES]);
+
 interface BajaRecord {
   numero_empleado: number;
   fecha_baja: string;
@@ -73,10 +83,6 @@ interface SummaryComparisonProps {
 }
 
 type IncidenciaWithDescription = IncidenciaRecord & { incidencia?: string | null };
-
-// ✅ Códigos de incidencias y permisos (sincronizado con normalizers.ts)
-const INCIDENT_CODES = new Set(["FI", "SUSP", "PSIN", "ENFE", "ACCI"]);
-const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST", "PAT", "FEST"]);
 
 const formatMonthLabel = (date: Date) => {
   const monthLabel = date.toLocaleDateString('es-MX', { month: 'short' });
@@ -346,7 +352,7 @@ export function SummaryComparison({
         mes: string;
         month: number;
         year: number;
-        negocios: Record<string, { incidencias: number; permisos: number }>;
+        negocios: Record<string, { incidencias: number; permisos: number; incidenciasPct: number; permisosPct: number }>;
       }>;
     }
 
@@ -355,7 +361,7 @@ export function SummaryComparison({
       mes: string;
       month: number;
       year: number;
-      negocios: Record<string, { incidencias: number; permisos: number }>;
+      negocios: Record<string, { incidencias: number; permisos: number; incidenciasPct: number; permisosPct: number }>;
     }> = [];
 
     for (let offset = 11; offset >= 0; offset--) {
@@ -363,9 +369,38 @@ export function SummaryComparison({
       const startDate = new Date(current.getFullYear(), current.getMonth(), 1);
       const endDate = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59, 999);
 
-      const ubicacionesCounts: Record<string, { incidencias: number; permisos: number }> = {};
+      const ubicacionesCounts: Record<string, { incidencias: number; permisos: number; incidenciasPct: number; permisosPct: number }> = {};
       ubicacionSeriesConfig.forEach(({ key }) => {
-        ubicacionesCounts[key] = { incidencias: 0, permisos: 0 };
+        ubicacionesCounts[key] = { incidencias: 0, permisos: 0, incidenciasPct: 0, permisosPct: 0 };
+      });
+
+      // Count active employees per ubicacion for this month
+      const activosPerUbicacion: Record<string, number> = {};
+      ubicacionSeriesConfig.forEach(({ key }) => {
+        activosPerUbicacion[key] = 0;
+      });
+
+      plantilla.forEach((emp) => {
+        const empleadoId = emp.numero_empleado;
+        if (!empleadoId) return;
+        const ubicacionKey = empleadoUbicacionMap.get(empleadoId);
+        if (!ubicacionKey) return;
+
+        const fechaIngreso = emp.fecha_ingreso ? new Date(emp.fecha_ingreso) : null;
+        if (!fechaIngreso || fechaIngreso > endDate) return;
+
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        if (fechaBaja && fechaBaja < startDate) return;
+
+        activosPerUbicacion[ubicacionKey]++;
+      });
+
+      // Track unique employees with incidents/permisos per ubicacion
+      const empleadosConIncidencias: Record<string, Set<number>> = {};
+      const empleadosConPermisos: Record<string, Set<number>> = {};
+      ubicacionSeriesConfig.forEach(({ key }) => {
+        empleadosConIncidencias[key] = new Set();
+        empleadosConPermisos[key] = new Set();
       });
 
       incidencias.forEach((inc) => {
@@ -380,9 +415,18 @@ export function SummaryComparison({
         const code = normalizeIncidenciaCode(inc.inci);
         if (code && INCIDENT_CODES.has(code)) {
           ubicacionesCounts[ubicacionKey].incidencias += 1;
+          empleadosConIncidencias[ubicacionKey].add(empleadoId);
         } else if (code && PERMISO_CODES.has(code)) {
           ubicacionesCounts[ubicacionKey].permisos += 1;
+          empleadosConPermisos[ubicacionKey].add(empleadoId);
         }
+      });
+
+      // Calculate percentages: (unique employees with incidents / total active employees) * 100
+      ubicacionSeriesConfig.forEach(({ key }) => {
+        const activos = activosPerUbicacion[key] || 1; // Avoid division by zero
+        ubicacionesCounts[key].incidenciasPct = (empleadosConIncidencias[key].size / activos) * 100;
+        ubicacionesCounts[key].permisosPct = (empleadosConPermisos[key].size / activos) * 100;
       });
 
       series.push({
@@ -394,7 +438,7 @@ export function SummaryComparison({
     }
 
     return series;
-  }, [incidencias, empleadoUbicacionMap, ubicacionSeriesConfig, referenceDate]);
+  }, [incidencias, plantilla, empleadoUbicacionMap, ubicacionSeriesConfig, referenceDate]);
 
   // ✅ ACTUALIZADO: Calcular antigüedad en meses y categorizar según nuevas especificaciones
   const getAntiguedadMeses = (fechaIngreso: string): number => {
@@ -519,30 +563,38 @@ export function SummaryComparison({
     return result;
   };
 
-  // ✅ CORREGIDO: Calcular ausentismo usando los códigos correctos
+  // ✅ CORREGIDO: Calcular ausentismo desglosado en 4 categorías
   const calcularAusentismo = (grupo: PlantillaRecord[]) => {
     const empleadosIds = grupo.map(e => e.numero_empleado || Number(e.emp_id));
     const incidenciasGrupo = incidencias.filter(i => empleadosIds.includes(i.emp));
 
-    // Usar los códigos correctos y normalizeIncidenciaCode
-    let permisos = 0;
     let faltas = 0;
+    let salud = 0;
+    let permisos = 0;
+    let vacaciones = 0;
 
     incidenciasGrupo.forEach(inc => {
       const code = normalizeIncidenciaCode(inc.inci);
+      if (!code) return;
 
-      if (code && PERMISO_CODES.has(code)) {
-        permisos += 1;
-      } else if (code && INCIDENT_CODES.has(code)) {
+      if (FALTAS_CODES.has(code)) {
         faltas += 1;
+      } else if (SALUD_CODES.has(code)) {
+        salud += 1;
+      } else if (PERMISOS_CODES.has(code)) {
+        permisos += 1;
+      } else if (VACACIONES_CODES.has(code)) {
+        vacaciones += 1;
       }
     });
 
     return {
       total: incidenciasGrupo.length,
-      permisos,
       faltas,
-      otros: incidenciasGrupo.length - permisos - faltas
+      salud,
+      permisos,
+      vacaciones,
+      otros: incidenciasGrupo.length - faltas - salud - permisos - vacaciones
     };
   };
 
@@ -914,8 +966,8 @@ export function SummaryComparison({
     const incidenciasChartData = incidenciasPermisosSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.mes };
       ubicacionSeriesConfig.forEach(({ key }) => {
-        const value = point.negocios[key]?.incidencias ?? 0;
-        row[key] = value;
+        const value = point.negocios[key]?.incidenciasPct ?? 0;
+        row[key] = Number(value.toFixed(2));
       });
       return row;
     });
@@ -923,8 +975,8 @@ export function SummaryComparison({
     const permisosChartData = incidenciasPermisosSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.mes };
       ubicacionSeriesConfig.forEach(({ key }) => {
-        const value = point.negocios[key]?.permisos ?? 0;
-        row[key] = value;
+        const value = point.negocios[key]?.permisosPct ?? 0;
+        row[key] = Number(value.toFixed(2));
       });
       return row;
     });
@@ -948,12 +1000,12 @@ export function SummaryComparison({
       isDark
     );
     const incidenciasTooltipContent = createSummaryTooltip(
-      (entry) => `${Number(entry.value ?? 0).toLocaleString('es-MX')} registros`,
+      (entry) => `${Number(entry.value ?? 0).toFixed(2)}%`,
       (entry) => `${entry.name} · Incidencias`,
       isDark
     );
     const permisosTooltipContent = createSummaryTooltip(
-      (entry) => `${Number(entry.value ?? 0).toLocaleString('es-MX')} registros`,
+      (entry) => `${Number(entry.value ?? 0).toFixed(2)}%`,
       (entry) => `${entry.name} · Permisos`,
       isDark
     );
@@ -1039,7 +1091,7 @@ export function SummaryComparison({
                     return label;
                   }}
                 />
-                <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
+                <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} layout="horizontal" />
                 <Bar dataKey="0-3 meses" stackId="a" fill={TENURE_COLORS[0]} />
                 <Bar dataKey="3-6 meses" stackId="a" fill={TENURE_COLORS[1]} />
                 <Bar dataKey="6-12 meses" stackId="a" fill={TENURE_COLORS[2]} />
@@ -1077,18 +1129,6 @@ export function SummaryComparison({
           </span>
           <div className="flex flex-wrap gap-2">
             <Button
-              variant={motivoFilterType === 'involuntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
-              size="sm"
-              onClick={() => setMotivoFilterType('involuntaria')}
-              className={cn(
-                "transition-all",
-                refreshEnabled && "rounded-full font-semibold",
-                motivoFilterType === 'involuntaria' && refreshEnabled && "shadow-brand"
-              )}
-            >
-              Rotación Involuntaria
-            </Button>
-            <Button
               variant={motivoFilterType === 'voluntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
               size="sm"
               onClick={() => setMotivoFilterType('voluntaria')}
@@ -1099,6 +1139,18 @@ export function SummaryComparison({
               )}
             >
               Rotación Voluntaria
+            </Button>
+            <Button
+              variant={motivoFilterType === 'involuntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+              size="sm"
+              onClick={() => setMotivoFilterType('involuntaria')}
+              className={cn(
+                "transition-all",
+                refreshEnabled && "rounded-full font-semibold",
+                motivoFilterType === 'involuntaria' && refreshEnabled && "shadow-brand"
+              )}
+            >
+              Rotación Involuntaria
             </Button>
           </div>
         </div>
@@ -1184,7 +1236,7 @@ export function SummaryComparison({
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
-                12 Meses Móviles
+                Rotación - 12 Meses Móviles
               </CardTitle>
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
@@ -1250,7 +1302,7 @@ export function SummaryComparison({
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
-                Lo que va del Año
+                Rotación - Lo que va del Año
               </CardTitle>
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
@@ -1343,7 +1395,8 @@ export function SummaryComparison({
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: axisColor }} />
                     <YAxis
                       tick={{ fontSize: 11, fill: axisColor }}
-                      label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      label={{ value: 'Porcentaje (%)', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      tickFormatter={(value) => `${Number(value ?? 0).toFixed(1)}%`}
                     />
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(3), 0.35) }}
@@ -1408,7 +1461,8 @@ export function SummaryComparison({
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: axisColor }} />
                     <YAxis
                       tick={{ fontSize: 11, fill: axisColor }}
-                      label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      label={{ value: 'Porcentaje (%)', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      tickFormatter={(value) => `${Number(value ?? 0).toFixed(1)}%`}
                     />
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(4), 0.35) }}
@@ -1470,10 +1524,16 @@ export function SummaryComparison({
                       Total
                     </th>
                     <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                      Faltas
+                    </th>
+                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                      Salud
+                    </th>
+                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
                       Permisos
                     </th>
                     <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
-                      Faltas
+                      Vacaciones
                     </th>
                   </tr>
                 </thead>
@@ -1489,14 +1549,20 @@ export function SummaryComparison({
                       <td className={cn("py-3 font-medium", refreshEnabled && "font-heading")}>
                         {d.nombre}
                       </td>
-                      <td className="py-3 text-right">
+                      <td className="py-3 text-right font-semibold">
                         {d.ausentismo.total}
+                      </td>
+                      <td className="py-3 text-right text-orange-600 dark:text-orange-400">
+                        {d.ausentismo.faltas}
+                      </td>
+                      <td className="py-3 text-right text-purple-600 dark:text-purple-400">
+                        {d.ausentismo.salud}
                       </td>
                       <td className="py-3 text-right text-blue-600 dark:text-blue-300">
                         {d.ausentismo.permisos}
                       </td>
-                      <td className="py-3 text-right text-red-600 dark:text-red-400">
-                        {d.ausentismo.faltas}
+                      <td className="py-3 text-right text-yellow-600 dark:text-yellow-400">
+                        {d.ausentismo.vacaciones}
                       </td>
                     </tr>
                   ))}

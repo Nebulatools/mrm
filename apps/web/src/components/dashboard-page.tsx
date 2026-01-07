@@ -666,6 +666,25 @@ export function DashboardPage() {
     return Array.from(map.entries()).map(([area, counts]) => ({ area, ...counts }));
   })();
 
+  // Antigüedad por Departamento (barras horizontales apiladas por bins)
+  const seniorityByDept = (() => {
+    const bins = (months: number) => {
+      if (months < 3) return '<3m';
+      if (months < 6) return '3-6m';
+      if (months < 12) return '6-12m';
+      return '12m+';
+    };
+    const map = new Map<string, { ['<3m']: number; ['3-6m']: number; ['6-12m']: number; ['12m+']: number }>();
+    activeEmployeesCurrent.forEach(e => {
+      const dept = e.departamento || 'Sin Departamento';
+      const m = monthsBetween(e.fecha_antiguedad || e.fecha_ingreso);
+      const b = bins(m);
+      if (!map.has(dept)) map.set(dept, { '<3m': 0, '3-6m': 0, '6-12m': 0, '12m+': 0 });
+      map.get(dept)![b as '<3m' | '3-6m' | '6-12m' | '12m+']++;
+    });
+    return Array.from(map.entries()).map(([departamento, counts]) => ({ departamento, ...counts }));
+  })();
+
   // ============================================================================
   // 🆕 FUNCIÓN REFACTORIZADA: Calcular KPIs filtrados para retención
   // Usa funciones helper centralizadas para eliminar duplicación
@@ -1469,86 +1488,8 @@ export function DashboardPage() {
               </Card>
             </div>
 
-            {/* Gráficas inferiores: HC por Depto, HC por Área, Antigüedad por Área */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <Card className={cn(elevatedCardClass)}>
-                <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
-                  <CardTitle className={cn("text-base", elevatedTitleClass)}>
-                    HC por Departamento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <VisualizationContainer
-                    title="Headcount por departamento"
-                    type="chart"
-                    className="h-[320px] w-full"
-                    filename="hc-por-departamento"
-                  >
-                    {(fullscreen) => (
-                      <div style={{ width: '100%', height: fullscreen ? 360 : 300 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={hcDeptData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                        <XAxis dataKey="departamento" tick={false} height={20} />
-                        <YAxis allowDecimals={false} tick={{ fill: chartAxisColor, fontSize: 12 }} />
-                        <Tooltip
-                          cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.16)" : "rgba(148, 163, 184, 0.08)" }}
-                          contentStyle={{
-                            borderRadius: 12,
-                            borderColor: chartTooltipBorder,
-                            backgroundColor: chartTooltipBg,
-                            boxShadow: chartTooltipShadow
-                          }}
-                          labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
-                          formatter={(value: number) => value.toLocaleString("es-MX")}
-                        />
-                        <Bar dataKey="count" fill="#6366f1" />
-                      </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </VisualizationContainer>
-                </CardContent>
-              </Card>
-
-              <Card className={cn(elevatedCardClass)}>
-                <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
-                  <CardTitle className={cn("text-base", elevatedTitleClass)}>HC por Área</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <VisualizationContainer
-                    title="Headcount por área"
-                    type="chart"
-                    className="h-[320px] w-full"
-                    filename="hc-por-area"
-                  >
-                    {(fullscreen) => (
-                      <div style={{ width: '100%', height: fullscreen ? 360 : 300 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={hcAreaData} margin={{ left: 16, right: 16, top: 8, bottom: 40 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                        <XAxis dataKey="area" tick={false} height={20} />
-                        <YAxis allowDecimals={false} tick={{ fill: chartAxisColor, fontSize: 12 }} />
-                        <Tooltip
-                          cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.16)" : "rgba(148, 163, 184, 0.08)" }}
-                          contentStyle={{
-                            borderRadius: 12,
-                            borderColor: chartTooltipBorder,
-                            backgroundColor: chartTooltipBg,
-                            boxShadow: chartTooltipShadow
-                          }}
-                          labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
-                          formatter={(value: number) => value.toLocaleString("es-MX")}
-                        />
-                        <Bar dataKey="count" fill="#f59e0b" />
-                      </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </VisualizationContainer>
-                </CardContent>
-              </Card>
-
+            {/* Gráfica: Antigüedad por Área (full width) */}
+            <div className="grid grid-cols-1 gap-4">
               <Card className={cn(elevatedCardClass)}>
                 <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
                   <CardTitle className={cn("text-base", elevatedTitleClass)}>
@@ -1571,7 +1512,7 @@ export function DashboardPage() {
                       <BarChart data={seniorityByArea} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                         <XAxis type="number" allowDecimals={false} tick={{ fill: chartAxisColor, fontSize: 12 }} />
-                        <YAxis dataKey="area" type="category" width={120} tick={{ fill: chartAxisColor, fontSize: 12 }} />
+                        <YAxis dataKey="area" type="category" width={140} tick={{ fill: chartAxisColor, fontSize: 11 }} interval={0} />
                         <Legend wrapperStyle={{ color: chartAxisColor }} />
                         <Tooltip
                           cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.12)" : "rgba(148, 163, 184, 0.06)" }}
@@ -1583,6 +1524,108 @@ export function DashboardPage() {
                           }}
                           labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
                           formatter={(value: number) => value.toLocaleString("es-MX")}
+                          content={(props) => {
+                            if (!props.active || !props.payload || props.payload.length === 0) return null;
+                            const data = props.payload[0].payload;
+                            const total = (data['<3m'] || 0) + (data['3-6m'] || 0) + (data['6-12m'] || 0) + (data['12m+'] || 0);
+                            return (
+                              <div style={{
+                                borderRadius: 12,
+                                border: `1px solid ${chartTooltipBorder}`,
+                                backgroundColor: chartTooltipBg,
+                                boxShadow: chartTooltipShadow,
+                                padding: '12px'
+                              }}>
+                                <p style={{ fontWeight: 600, color: chartTooltipLabelColor, marginBottom: '8px' }}>
+                                  {data.area}
+                                </p>
+                                {props.payload.map((entry: any, index: number) => (
+                                  <p key={index} style={{ color: entry.color, margin: '4px 0' }}>
+                                    {entry.name}: {entry.value.toLocaleString("es-MX")}
+                                  </p>
+                                ))}
+                                <p style={{ fontWeight: 600, color: chartTooltipLabelColor, marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${chartTooltipBorder}` }}>
+                                  Total: {total.toLocaleString("es-MX")}
+                                </p>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Bar dataKey="<3m" stackId="a" fill="#22c55e" />
+                        <Bar dataKey="3-6m" stackId="a" fill="#3b82f6" />
+                        <Bar dataKey="6-12m" stackId="a" fill="#a855f7" />
+                        <Bar dataKey="12m+" stackId="a" fill="#ef4444" />
+                      </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </VisualizationContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Gráfica: Antigüedad por Departamento (full width) */}
+            <div className="grid grid-cols-1 gap-4">
+              <Card className={cn(elevatedCardClass)}>
+                <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
+                  <CardTitle className={cn("text-base", elevatedTitleClass)}>
+                    Antigüedad por Departamento
+                  </CardTitle>
+                  <p className={cn("text-sm text-muted-foreground", elevatedSubtleTextClass)}>
+                    Barras horizontales por grupos
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <VisualizationContainer
+                    title="Antigüedad por departamento"
+                    type="chart"
+                    className="h-[320px] w-full"
+                    filename="antiguedad-por-departamento"
+                  >
+                    {(fullscreen) => (
+                      <div style={{ width: '100%', height: fullscreen ? 360 : 300 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={seniorityByDept} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
+                        <XAxis type="number" allowDecimals={false} tick={{ fill: chartAxisColor, fontSize: 12 }} />
+                        <YAxis dataKey="departamento" type="category" width={140} tick={{ fill: chartAxisColor, fontSize: 11 }} interval={0} />
+                        <Legend wrapperStyle={{ color: chartAxisColor }} />
+                        <Tooltip
+                          cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.12)" : "rgba(148, 163, 184, 0.06)" }}
+                          contentStyle={{
+                            borderRadius: 12,
+                            borderColor: chartTooltipBorder,
+                            backgroundColor: chartTooltipBg,
+                            boxShadow: chartTooltipShadow
+                          }}
+                          labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
+                          formatter={(value: number) => value.toLocaleString("es-MX")}
+                          content={(props) => {
+                            if (!props.active || !props.payload || props.payload.length === 0) return null;
+                            const data = props.payload[0].payload;
+                            const total = (data['<3m'] || 0) + (data['3-6m'] || 0) + (data['6-12m'] || 0) + (data['12m+'] || 0);
+                            return (
+                              <div style={{
+                                borderRadius: 12,
+                                border: `1px solid ${chartTooltipBorder}`,
+                                backgroundColor: chartTooltipBg,
+                                boxShadow: chartTooltipShadow,
+                                padding: '12px'
+                              }}>
+                                <p style={{ fontWeight: 600, color: chartTooltipLabelColor, marginBottom: '8px' }}>
+                                  {data.departamento}
+                                </p>
+                                {props.payload.map((entry: any, index: number) => (
+                                  <p key={index} style={{ color: entry.color, margin: '4px 0' }}>
+                                    {entry.name}: {entry.value.toLocaleString("es-MX")}
+                                  </p>
+                                ))}
+                                <p style={{ fontWeight: 600, color: chartTooltipLabelColor, marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${chartTooltipBorder}` }}>
+                                  Total: {total.toLocaleString("es-MX")}
+                                </p>
+                              </div>
+                            );
+                          }}
                         />
                         <Bar dataKey="<3m" stackId="a" fill="#22c55e" />
                         <Bar dataKey="3-6m" stackId="a" fill="#3b82f6" />
