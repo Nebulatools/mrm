@@ -203,20 +203,8 @@ export async function POST(request: NextRequest) {
           // Mapear datos del SFTP a estructura de BD
           const empleadosTransformados: EmpleadoSFTP[] = empleadosData.map((record: Record<string, unknown>, index: number) => {
             
-            // Parsear fecha de ingreso
-            let fechaIngreso = '2024-01-01'; // Default
-            if (record['Fecha Ingreso']) {
-              try {
-                const fechaStr = String(record['Fecha Ingreso']);
-                if (fechaStr.includes('/')) {
-                  const [day, month, year] = fechaStr.split('/');
-                  const fullYear = year.length === 2 ? `20${year}` : year;
-                  fechaIngreso = `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-                }
-              } catch (e) {
-                console.warn(`Error parseando fecha para empleado ${index + 1}:`, e);
-              }
-            }
+            // Parsear fecha de ingreso usando parseDate (maneja strings Y seriales Excel)
+            const fechaIngreso = parseDate(record['Fecha Ingreso']) || '2024-01-01';
             
             return {
               numero_empleado: parseInt(String(record['Número'] || record['Gafete'] || (index + 1))),
@@ -516,7 +504,10 @@ function parseDate(dateValue: unknown): string | null {
     const parts = str.split('/');
     if (parts.length === 3) {
       const [day, month, year] = parts;
-      const fullYear = year.length === 2 ? `20${year}` : year;
+      // Regla simple: año >= 50 → 1900s, año < 50 → 2000s
+      const fullYear = year.length === 2
+        ? (parseInt(year) >= 50 ? `19${year}` : `20${year}`)
+        : year;
       return `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
   }

@@ -71,7 +71,8 @@ export function AgeGenderTable({
         e.gender.includes('masculino')
       ).length;
 
-      const total = femenino + masculino;
+      // Total incluye todos (femenino + masculino + desconocido)
+      const total = inRange.length;
 
       return {
         range: range.label,
