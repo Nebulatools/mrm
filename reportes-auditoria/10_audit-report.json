@@ -1,0 +1,144 @@
+{
+  "sftpFiles": [
+    {
+      "name": "Prenomina Horizontal.csv",
+      "size": 104580,
+      "lastModified": "2026-01-08T09:00:38.000Z",
+      "extension": ".csv"
+    },
+    {
+      "name": "Validacion Alta de empleados.xls",
+      "size": 456739,
+      "lastModified": "2026-01-08T09:00:35.000Z",
+      "extension": ".xls"
+    },
+    {
+      "name": "MotivosBaja.csv",
+      "size": 156,
+      "lastModified": "2026-01-08T09:00:38.000Z",
+      "extension": ".csv"
+    },
+    {
+      "name": "Incidencias.csv",
+      "size": 9716,
+      "lastModified": "2026-01-08T09:00:35.000Z",
+      "extension": ".csv"
+    }
+  ],
+  "supabaseTables": [
+    {
+      "name": "empleados_sftp",
+      "rows": 1041,
+      "columns": [
+        "id",
+        "numero_empleado",
+        "apellidos",
+        "nombres",
+        "nombre_completo",
+        "gafete",
+        "genero",
+        "imss",
+        "fecha_nacimiento",
+        "estado",
+        "fecha_ingreso",
+        "fecha_antiguedad",
+        "empresa",
+        "registro_patronal",
+        "codigo_puesto",
+        "puesto",
+        "codigo_depto",
+        "departamento",
+        "codigo_cc",
+        "cc",
+        "subcuenta_cc",
+        "clasificacion",
+        "codigo_area",
+        "area",
+        "ubicacion",
+        "tipo_nomina",
+        "turno",
+        "prestacion_ley",
+        "paquete_prestaciones",
+        "fecha_baja",
+        "activo",
+        "fecha_creacion",
+        "fecha_actualizacion"
+      ]
+    },
+    {
+      "name": "motivos_baja",
+      "rows": 1108,
+      "columns": [
+        "id",
+        "numero_empleado",
+        "fecha_baja",
+        "tipo",
+        "motivo",
+        "descripcion",
+        "observaciones",
+        "fecha_creacion"
+      ]
+    },
+    {
+      "name": "asistencia_diaria",
+      "rows": 2632,
+      "columns": [
+        "id",
+        "numero_empleado",
+        "fecha",
+        "dia_semana",
+        "horas_trabajadas",
+        "horas_incidencia",
+        "presente",
+        "fecha_creacion"
+      ]
+    },
+    {
+      "name": "incidencias",
+      "rows": 2959,
+      "columns": [
+        "id",
+        "emp",
+        "nombre",
+        "fecha",
+        "turno",
+        "horario",
+        "incidencia",
+        "entra",
+        "sale",
+        "ordinarias",
+        "numero",
+        "inci",
+        "status",
+        "fecha_creacion",
+        "ubicacion2"
+      ]
+    }
+  ],
+  "mapping": [
+    {
+      "sftpFile": "Prenomina Horizontal.csv",
+      "supabaseTable": "NUEVA_TABLA_REQUERIDA",
+      "status": "missing",
+      "notes": "Nueva tabla de prénomina que debe ser agregada a Supabase"
+    },
+    {
+      "sftpFile": "Validacion Alta de empleados.xls",
+      "supabaseTable": "empleados_sftp",
+      "status": "matched",
+      "notes": "Archivo maestro de empleados activos"
+    },
+    {
+      "sftpFile": "MotivosBaja.csv",
+      "supabaseTable": "motivos_baja",
+      "status": "matched",
+      "notes": "Registro de bajas y terminaciones"
+    },
+    {
+      "sftpFile": "Incidencias.csv",
+      "supabaseTable": "incidencias",
+      "status": "matched",
+      "notes": "Registro detallado de incidencias de asistencia"
+    }
+  ]
+}
