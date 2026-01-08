@@ -295,25 +295,9 @@ export function RotationCombinedTable({
         >
           {() => (
             <div className="overflow-x-auto">
-              <Table
-                className={cn(
-                  "text-sm",
-                  refreshEnabled &&
-                    "text-brand-ink [&_td]:px-2 [&_td]:py-2 [&_th]:px-2 [&_th]:py-2"
-                )}
-              >
-                <TableHeader
-                  className={cn(
-                    refreshEnabled &&
-                      "[&_th]:bg-brand-surface-accent [&_th]:font-heading [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-[0.14em] [&_th]:text-brand-ink"
-                  )}
-                >
-                  <TableRow
-                    className={cn(
-                      refreshEnabled &&
-                        "border-none [&_th:first-child]:rounded-tl-2xl [&_th:last-child]:rounded-tr-2xl"
-                    )}
-                  >
+              <Table className="table-corporate text-sm">
+                <TableHeader>
+                  <TableRow>
                     <TableHead className="whitespace-nowrap">MÉTRICA</TableHead>
                     <TableHead className="whitespace-nowrap">UBICACIÓN</TableHead>
                     {MONTHS.map(month => (
@@ -324,12 +308,7 @@ export function RotationCombinedTable({
                     <TableHead className="text-right font-bold">PROMEDIO</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody
-                  className={cn(
-                    refreshEnabled &&
-                      "[&_tr:last-child]:rounded-b-2xl [&_tr]:border-none [&_tr]:odd:bg-card [&_tr]:even:bg-brand-surface/70 [&_tr]:hover:bg-brand-surface-accent/70"
-                  )}
-                >
+                <TableBody>
                   {METRICAS.map((metrica) => (
                     <>
                       {data
@@ -345,10 +324,7 @@ export function RotationCombinedTable({
                               {isFirstLocation && (
                                 <TableCell
                                   rowSpan={4}
-                                  className={cn(
-                                    "font-bold text-xs align-middle bg-muted/30",
-                                    isPercentageRow && "bg-brand-surface-accent/50"
-                                  )}
+                                  className="font-bold text-xs align-middle bg-gray-100"
                                 >
                                   {row.metrica}
                                 </TableCell>
@@ -367,10 +343,7 @@ export function RotationCombinedTable({
                                   {row.months[month.key] || ''}
                                 </TableCell>
                               ))}
-                              <TableCell className={cn(
-                                "text-right font-semibold",
-                                isPercentageRow && "bg-muted/50"
-                              )}>
+                              <TableCell className="text-right font-semibold">
                                 {row.avg}
                               </TableCell>
                             </TableRow>
@@ -380,15 +353,15 @@ export function RotationCombinedTable({
                       {/* Total row for this metric */}
                       <TableRow
                         key={`total-${metrica.key}`}
-                        className="bg-muted/70 font-bold border-b-2 border-muted-foreground"
+                        className="bg-gray-200 font-bold border-t-2 border-b-2 border-corporate-red/60"
                       >
                         <TableCell className="font-bold text-xs">TOTAL</TableCell>
                         {MONTHS.map(month => (
-                          <TableCell key={month.key} className="text-right">
+                          <TableCell key={month.key} className="text-right font-bold">
                             {monthlyTotals[metrica.key][month.key] || ''}
                           </TableCell>
                         ))}
-                        <TableCell className="text-right">
+                        <TableCell className="text-right font-bold">
                           {monthlyTotals[metrica.key].avg}
                         </TableCell>
                       </TableRow>

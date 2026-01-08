@@ -155,25 +155,9 @@ export function RotationByMotiveMonthTable({
         >
           {() => (
             <div className="overflow-x-auto">
-              <Table
-                className={cn(
-                  "text-sm",
-                  refreshEnabled &&
-                    "text-brand-ink [&_td]:px-2 [&_td]:py-2 [&_th]:px-2 [&_th]:py-2"
-                )}
-              >
-                <TableHeader
-                  className={cn(
-                    refreshEnabled &&
-                      "[&_th]:bg-brand-surface-accent [&_th]:font-heading [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-[0.14em] [&_th]:text-brand-ink"
-                  )}
-                >
-                  <TableRow
-                    className={cn(
-                      refreshEnabled &&
-                        "border-none [&_th:first-child]:rounded-tl-2xl [&_th:last-child]:rounded-tr-2xl"
-                    )}
-                  >
+              <Table className="table-corporate text-sm">
+                <TableHeader>
+                  <TableRow>
                     <TableHead className="whitespace-nowrap">Motivo</TableHead>
                     {MONTHS.map(month => (
                       <TableHead key={month.key} className="text-right text-xs">
@@ -183,12 +167,7 @@ export function RotationByMotiveMonthTable({
                     <TableHead className="text-right font-bold">Total</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody
-                  className={cn(
-                    refreshEnabled &&
-                      "[&_tr:last-child]:rounded-b-2xl [&_tr]:border-none [&_tr]:odd:bg-card [&_tr]:even:bg-brand-surface/70 [&_tr]:hover:bg-brand-surface-accent/70"
-                  )}
-                >
+                <TableBody>
                   {data.map((row) => (
                     <TableRow key={row.motivo}>
                       <TableCell className="font-medium whitespace-nowrap text-xs">
@@ -203,14 +182,14 @@ export function RotationByMotiveMonthTable({
                     </TableRow>
                   ))}
                   {/* Totals row */}
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell>Total general</TableCell>
+                  <TableRow className="bg-gray-200 font-bold border-t-2 border-corporate-red/60">
+                    <TableCell className="font-bold">Total general</TableCell>
                     {MONTHS.map(month => (
-                      <TableCell key={month.key} className="text-right">
+                      <TableCell key={month.key} className="text-right font-bold">
                         {monthlyTotals[month.key] || ''}
                       </TableCell>
                     ))}
-                    <TableCell className="text-right">{grandTotal}</TableCell>
+                    <TableCell className="text-right font-bold">{grandTotal}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

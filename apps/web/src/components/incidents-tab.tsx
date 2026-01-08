@@ -18,6 +18,7 @@ import { KPICard, KPICardSkeleton } from "./kpi-card";
 import { Users, AlertCircle, Activity, ClipboardCheck } from "lucide-react";
 import { getModernColor, withOpacity } from "@/lib/chart-colors";
 import { useTheme } from "@/components/theme-provider";
+import { AbsenteeismTable } from "@/components/absenteeism-table";
 
 type Props = {
   plantilla?: PlantillaRecord[];
@@ -47,10 +48,13 @@ const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1"]);
 const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]);
 const VACACIONES_CODES = new Set(["VAC"]);
 
-// ✅ LEGACY: Mantener para compatibilidad con código existente
-const INCIDENT_CODES = new Set([...FALTAS_CODES, ...SALUD_CODES]); // Faltas + Salud
+// ✅ DEFINICIÓN CORRECTA para gráficas de comparación:
+// - AUSENTISMOS = TODO (Faltas + Salud + Permisos + Vacaciones)
+// - PERMISOS = Solo permisos (SIN Vacaciones)
+const INCIDENT_CODES = new Set([...FALTAS_CODES, ...SALUD_CODES]); // Faltas + Salud (para cards antiguos)
 const EMPLOYEE_INCIDENT_CODES = new Set([...FALTAS_CODES, ...SALUD_CODES]); // Para card de empleados
-const PERMISO_CODES = new Set([...PERMISOS_CODES, ...VACACIONES_CODES]); // Permisos + Vacaciones
+const PERMISO_CODES_LEGACY = new Set([...PERMISOS_CODES, ...VACACIONES_CODES]); // Legacy: Permisos + Vacaciones
+const ALL_AUSENTISMO_CODES = new Set([...FALTAS_CODES, ...SALUD_CODES, ...PERMISOS_CODES, ...VACACIONES_CODES]); // TOTAL ausentismos
 
 const PIE_COLORS = [getModernColor(0), getModernColor(1), getModernColor(2), getModernColor(3)];
 const AUSENTISMO_COLOR = '#EF4444';
@@ -459,7 +463,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     const diasLaborables = plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, start, end), 0);
     const activos = countActivosEnFecha(plantillaBaseForActivos, end);
     const incidenciasCount = monthIncidencias.filter((i) => INCIDENT_CODES.has(normalizeIncidenciaCode(i.inci) || '')).length;
-    const permisosCount = monthIncidencias.filter((i) => PERMISO_CODES.has(normalizeIncidenciaCode(i.inci) || '')).length;
+    const permisosCount = monthIncidencias.filter((i) => PERMISOS_CODES.has(normalizeIncidenciaCode(i.inci) || '')).length; // ✅ Solo permisos (sin VAC)
     const empleadosSet = new Set<number>();
     monthIncidencias.forEach((i) => {
       const code = normalizeIncidenciaCode(i.inci);
@@ -556,12 +560,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
   const totalPermisos = useMemo(() => {
     let total = 0;
-    countByType.forEach((v, k) => { if (PERMISO_CODES.has(k)) total += v; });
+    countByType.forEach((v, k) => { if (PERMISOS_CODES.has(k)) total += v; }); // ✅ Solo permisos (sin VAC)
     return total;
   }, [countByType]);
   const totalPermisosAnteriores = useMemo(() => {
     let total = 0;
-    countByTypePrevious.forEach((v, k) => { if (PERMISO_CODES.has(k)) total += v; });
+    countByTypePrevious.forEach((v, k) => { if (PERMISOS_CODES.has(k)) total += v; }); // ✅ Solo permisos (sin VAC)
     return total;
   }, [countByTypePrevious]);
 
@@ -782,7 +786,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
     // Orden principal: mayor número de empleados, luego tipo de grupo
     const groupOf = (code: string) => (
-      INCIDENT_CODES.has(code) ? 0 : PERMISO_CODES.has(code) ? 1 : 2
+      INCIDENT_CODES.has(code) ? 0 : PERMISOS_CODES.has(code) ? 1 : VACACIONES_CODES.has(code) ? 2 : 3
     );
     out.sort((a, b) => {
       const aEmp = typeof a.empleados === 'number' ? a.empleados : parseFloat(a.empleados);
@@ -822,9 +826,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
       const code = normalizeIncidenciaCode(inc.inci);
       if (!code) return;
-      if (INCIDENT_CODES.has(code)) {
+
+      // ✅ AUSENTISMOS = TODOS los códigos (Faltas + Salud + Permisos + Vacaciones)
+      if (ALL_AUSENTISMO_CODES.has(code)) {
         baseCounts[bucketIndex].ausentismosCount += 1;
-      } else if (PERMISO_CODES.has(code)) {
+      }
+
+      // ✅ PERMISOS = Solo PERMISOS_CODES (sin VAC)
+      if (PERMISOS_CODES.has(code)) {
         baseCounts[bucketIndex].permisosCount += 1;
       }
     });
@@ -860,7 +869,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
     enrichedPeriodo.forEach(inc => {
       const code = normalizeIncidenciaCode(inc.inci);
       if (!code) return;
-      if (!INCIDENT_CODES.has(code) && !PERMISO_CODES.has(code)) return;
+      if (!ALL_AUSENTISMO_CODES.has(code)) return; // Solo códigos válidos de ausentismo
 
       const rawArea = (inc.area || '').trim();
       const area = rawArea.length > 0 ? rawArea : 'Sin área definida';
@@ -869,9 +878,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         map.set(area, { ausentismos: 0, permisos: 0 });
       }
       const bucket = map.get(area)!;
-      if (INCIDENT_CODES.has(code)) {
-        bucket.ausentismos += 1;
-      } else if (PERMISO_CODES.has(code)) {
+
+      // ✅ AUSENTISMOS = TODO
+      bucket.ausentismos += 1;
+
+      // ✅ PERMISOS = Solo PERMISOS_CODES (sin VAC)
+      if (PERMISOS_CODES.has(code)) {
         bucket.permisos += 1;
       }
     });
@@ -929,12 +941,19 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
   // Calcular tendencias mensuales para el año actual
   const monthlyTrendsData = useMemo(() => {
     const selectedYear = typeof currentYear === "number" ? currentYear : null;
+    const now = new Date();
     const months = [
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
 
     const dataPoints = months.map((monthName, index) => {
+      const year = selectedYear || now.getFullYear();
+      const monthEnd = new Date(year, index + 1, 0);
+
+      // ✅ Filtrar meses futuros
+      const isFutureMonth = year === now.getFullYear() && monthEnd > now;
+
       const monthData = enrichedAnual.filter(inc => {
         if (!inc.fecha) return false;
         const date = new Date(inc.fecha);
@@ -966,7 +985,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       });
 
       // Calculate dias laborables for this month
-      const year = selectedYear || new Date().getFullYear();
       const monthDate = new Date(year, index, 15); // Mid-month
       const monthStats = buildMonthStats(monthDate);
       const diasLaborablesMonth = monthStats.diasLaborables;
@@ -976,6 +994,17 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
       const saludPctMonth = diasLaborablesMonth > 0 ? (saludCount / diasLaborablesMonth) * 100 : 0;
       const permisosPctMonth = diasLaborablesMonth > 0 ? (permisosCount / diasLaborablesMonth) * 100 : 0;
       const vacacionesPctMonth = diasLaborablesMonth > 0 ? (vacacionesCount / diasLaborablesMonth) * 100 : 0;
+
+      // ✅ Si es mes futuro, retornar 0 en todos los valores
+      if (isFutureMonth) {
+        return {
+          mes: monthName,
+          faltas: 0,
+          salud: 0,
+          permisos: 0,
+          vacaciones: 0
+        };
+      }
 
       return {
         mes: monthName,
@@ -1044,8 +1073,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         previousValue = ausentismosPrevious > 0 ? ausentismosPrevious : null;
       }
 
+      // ✅ CORRECCIÓN: No mostrar meses futuros del año actual
       const isFutureMonth = targetYear === now.getFullYear() && currentEnd > now;
-      if (isFutureMonth && currentValue === null && previousValue === null) {
+      if (isFutureMonth) {
+        currentValue = null; // Forzar a null para meses futuros
+      }
+
+      // Solo retornar si hay al menos un valor (actual o anterior)
+      if (currentValue === null && previousValue === null) {
         return null;
       }
 
@@ -1113,8 +1148,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         previousValue = ausentismosPrevious > 0 ? ausentismosPrevious : null;
       }
 
+      // ✅ CORRECCIÓN: No mostrar meses futuros del año actual
       const isFutureMonth = targetYear === now.getFullYear() && currentEnd > now;
-      if (isFutureMonth && currentValue === null && previousValue === null) {
+      if (isFutureMonth) {
+        currentValue = null; // Forzar a null para meses futuros
+      }
+
+      // Solo retornar si hay al menos un valor (actual o anterior)
+      if (currentValue === null && previousValue === null) {
         return null;
       }
 
@@ -1164,7 +1205,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
             ))}
       </div>
       <p className="text-xs text-gray-500">
-        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Incidencias:</strong> Faltas (FI, SUSP), Salud (ENFE, MAT3, MAT1) · <strong>Permisos:</strong> PSIN, PCON, FEST, PATER, JUST · <strong>Vacaciones:</strong> VAC
+        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones) · <strong>Permisos (subgrupo):</strong> PSIN, PCON, FEST, PATER, JUST (sin VAC)
       </p>
 
       {/* Gráfica de Tendencia Mensual - 4 Categorías */}
@@ -1337,8 +1378,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                   <ChartLoadingPlaceholder height={280} />
                 ) : (
                   <div className="h-full overflow-y-auto overflow-x-hidden pr-2">
-                    <Table>
-                      <TableHeader className="sticky top-0 z-10 bg-white">
+                    <Table className="table-corporate">
+                      <TableHeader className="sticky top-0 z-10 bg-gray-100">
                         <TableRow>
                           <TableHead className="w-1/2">Tipo</TableHead>
                           <TableHead className="w-1/4 text-center">
@@ -1368,13 +1409,18 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
 
         {/* Pie: 4 Categorías (Faltas, Salud, Permisos, Vacaciones) */}
         <Card className="h-[420px] flex flex-col">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Distribución: 4 Categorías</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Distribución de Ausentismos</CardTitle>
+            <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-gray-600'}`}>
+              Faltas, Salud, Permisos y Vacaciones
+            </p>
+          </CardHeader>
           <CardContent className="flex-1">
             {loadingIncidencias ? (
               <ChartLoadingPlaceholder height={320} />
             ) : (
               <VisualizationContainer
-                title="Distribución: 4 Categorías"
+                title="Distribución de Ausentismos"
                 type="chart"
                 className="h-full w-full"
                 filename="distribucion-4-categorias"
@@ -1400,7 +1446,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                             ];
                           }}
                         />
-                        <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
+                        <Legend
+                          wrapperStyle={{ ...PIE_LEGEND_STYLE, fontSize: '13px' }}
+                          iconType="circle"
+                          iconSize={12}
+                          formatter={legendFormatter}
+                          layout="horizontal"
+                          align="center"
+                        />
                         <Pie
                           data={pieData}
                           dataKey="value"
@@ -1666,6 +1719,13 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         </Card>
       </div>
 
+      {/* Tabla de Ausentismo por Mes */}
+      <AbsenteeismTable
+        incidencias={incidencias}
+        plantilla={empleadosPeriodo}
+        currentYear={currentYear}
+      />
+
       {/* Tabla completa (mostrar 10 por defecto; botón para ver todo) */}
       <Card>
         <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -1686,7 +1746,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
                 <ChartLoadingPlaceholder height={360} />
               ) : (
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-corporate">
                     <TableHeader>
                       <TableRow>
                         <TableHead>ID</TableHead>

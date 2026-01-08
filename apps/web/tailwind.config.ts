@@ -49,6 +49,13 @@ const config: Config = {
 				muted: 'hsl(var(--brand-muted))',
 				ink: 'hsl(var(--brand-ink))'
 			},
+			// Colores corporativos MRM
+			corporate: {
+				red: '#E30513',      // Rojo corporativo (Pantone 485C)
+				black: '#000000',    // Negro para texto
+				gray: '#979898',     // Gris para encabezados (Pantone Cool Gray 7C)
+				white: '#ffffff',    // Blanco para fondos
+			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

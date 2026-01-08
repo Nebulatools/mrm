@@ -139,25 +139,9 @@ export function RotationByMotiveAreaTable({
         >
           {() => (
             <div className="overflow-x-auto">
-              <Table
-                className={cn(
-                  "text-sm",
-                  refreshEnabled &&
-                    "text-brand-ink [&_td]:px-4 [&_td]:py-3 [&_th]:px-4 [&_th]:py-3"
-                )}
-              >
-                <TableHeader
-                  className={cn(
-                    refreshEnabled &&
-                      "[&_th]:bg-brand-surface-accent [&_th]:font-heading [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-[0.14em] [&_th]:text-brand-ink"
-                  )}
-                >
-                  <TableRow
-                    className={cn(
-                      refreshEnabled &&
-                        "border-none [&_th:first-child]:rounded-tl-2xl [&_th:last-child]:rounded-tr-2xl"
-                    )}
-                  >
+              <Table className="table-corporate text-sm">
+                <TableHeader>
+                  <TableRow>
                     <TableHead>Área</TableHead>
                     {topMotivos.map(motivo => (
                       <TableHead key={motivo} className="text-right whitespace-nowrap">
@@ -167,12 +151,7 @@ export function RotationByMotiveAreaTable({
                     <TableHead className="text-right font-bold">Total</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody
-                  className={cn(
-                    refreshEnabled &&
-                      "[&_tr:last-child]:rounded-b-2xl [&_tr]:border-none [&_tr]:odd:bg-card [&_tr]:even:bg-brand-surface/70 [&_tr]:hover:bg-brand-surface-accent/70"
-                  )}
-                >
+                <TableBody>
                   {data.map((row) => (
                     <TableRow key={row.area}>
                       <TableCell className="font-medium">{row.area}</TableCell>
@@ -185,18 +164,18 @@ export function RotationByMotiveAreaTable({
                     </TableRow>
                   ))}
                   {/* Totals row */}
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell>TOTAL</TableCell>
+                  <TableRow className="bg-gray-200 font-bold border-t-2 border-corporate-red/60">
+                    <TableCell className="font-bold">TOTAL</TableCell>
                     {topMotivos.map(motivo => (
-                      <TableCell key={motivo} className="text-right">
+                      <TableCell key={motivo} className="text-right font-bold">
                         {motivoTotals[motivo] || 0}
                       </TableCell>
                     ))}
-                    <TableCell className="text-right">{grandTotal}</TableCell>
+                    <TableCell className="text-right font-bold">{grandTotal}</TableCell>
                   </TableRow>
                   {/* Percentage row */}
-                  <TableRow className="bg-muted/30 font-semibold text-xs">
-                    <TableCell>%</TableCell>
+                  <TableRow className="bg-gray-100 font-semibold text-xs">
+                    <TableCell className="font-bold">%</TableCell>
                     {topMotivos.map(motivo => {
                       const pct = grandTotal > 0 ? ((motivoTotals[motivo] || 0) / grandTotal * 100) : 0;
                       return (

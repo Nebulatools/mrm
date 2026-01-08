@@ -1524,44 +1524,33 @@ export function SummaryComparison({
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className={cn("w-full text-sm text-foreground", refreshEnabled && "text-brand-ink dark:text-slate-100")}>
+              <table className="table-corporate w-full text-sm">
                 <thead>
-                  <tr
-                    className={cn(
-                      "border-b border-slate-200 dark:border-slate-700/70",
-                      refreshEnabled && "border-brand-border/60 dark:border-brand-border/40"
-                    )}
-                  >
-                    <th className={cn("pb-3 text-left font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                  <tr>
+                    <th className="pb-3 text-left font-medium">
                       Nombre
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                    <th className="pb-3 text-right font-medium">
                       Total
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                    <th className="pb-3 text-right font-medium">
                       Faltas
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                    <th className="pb-3 text-right font-medium">
                       Salud
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                    <th className="pb-3 text-right font-medium">
                       Permisos
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                    <th className="pb-3 text-right font-medium">
                       Vacaciones
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {datos.map((d, idx) => (
-                    <tr
-                      key={idx}
-                      className={cn(
-                        "border-b last:border-0",
-                        refreshEnabled && "border-brand-border/60 dark:border-brand-border/40"
-                      )}
-                    >
-                      <td className={cn("py-3 font-medium", refreshEnabled && "font-heading")}>
+                    <tr key={idx}>
+                      <td className="py-3 font-medium">
                         {d.nombre}
                       </td>
                       <td className="py-3 text-right font-semibold">

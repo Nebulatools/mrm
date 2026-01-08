@@ -154,25 +154,9 @@ export function RotationByMotiveSeniorityTable({
         >
           {() => (
             <div className="overflow-x-auto">
-              <Table
-                className={cn(
-                  "text-sm",
-                  refreshEnabled &&
-                    "text-brand-ink [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2"
-                )}
-              >
-                <TableHeader
-                  className={cn(
-                    refreshEnabled &&
-                      "[&_th]:bg-brand-surface-accent [&_th]:font-heading [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-[0.14em] [&_th]:text-brand-ink"
-                  )}
-                >
-                  <TableRow
-                    className={cn(
-                      refreshEnabled &&
-                        "border-none [&_th:first-child]:rounded-tl-2xl [&_th:last-child]:rounded-tr-2xl"
-                    )}
-                  >
+              <Table className="table-corporate text-sm">
+                <TableHeader>
+                  <TableRow>
                     <TableHead>Motivo</TableHead>
                     {SENIORITY_BUCKETS.map(bucket => (
                       <TableHead key={bucket.key} className="text-right whitespace-nowrap text-xs">
@@ -182,12 +166,7 @@ export function RotationByMotiveSeniorityTable({
                     <TableHead className="text-right font-bold">Total</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody
-                  className={cn(
-                    refreshEnabled &&
-                      "[&_tr:last-child]:rounded-b-2xl [&_tr]:border-none [&_tr]:odd:bg-card [&_tr]:even:bg-brand-surface/70 [&_tr]:hover:bg-brand-surface-accent/70"
-                  )}
-                >
+                <TableBody>
                   {data.map((row) => (
                     <TableRow key={row.motivo}>
                       <TableCell className="font-medium whitespace-nowrap">
@@ -202,18 +181,18 @@ export function RotationByMotiveSeniorityTable({
                     </TableRow>
                   ))}
                   {/* Totals row */}
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell>Total</TableCell>
+                  <TableRow className="bg-gray-200 font-bold border-t-2 border-corporate-red/60">
+                    <TableCell className="font-bold">Total</TableCell>
                     {SENIORITY_BUCKETS.map(bucket => (
-                      <TableCell key={bucket.key} className="text-right">
+                      <TableCell key={bucket.key} className="text-right font-bold">
                         {columnTotals[bucket.key] || 0}
                       </TableCell>
                     ))}
-                    <TableCell className="text-right">{grandTotal}</TableCell>
+                    <TableCell className="text-right font-bold">{grandTotal}</TableCell>
                   </TableRow>
                   {/* Percentage row */}
-                  <TableRow className="bg-muted/30 font-semibold text-xs">
-                    <TableCell>%</TableCell>
+                  <TableRow className="bg-gray-100 font-semibold text-xs">
+                    <TableCell className="font-bold">%</TableCell>
                     {SENIORITY_BUCKETS.map(bucket => {
                       const pct = grandTotal > 0 ? ((columnTotals[bucket.key] || 0) / grandTotal * 100) : 0;
                       return (

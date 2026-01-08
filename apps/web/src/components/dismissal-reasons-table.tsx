@@ -183,24 +183,9 @@ export function DismissalReasonsTable({
           >
             {() => (
               <div className="overflow-x-auto">
-                <Table
-                  className={cn(
-                    refreshEnabled &&
-                      "text-sm text-brand-ink [&_td]:px-4 [&_td]:py-3 [&_th]:px-4 [&_th]:py-3"
-                  )}
-                >
-                  <TableHeader
-                    className={cn(
-                      refreshEnabled &&
-                        "[&_th]:bg-brand-surface-accent [&_th]:font-heading [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-[0.14em] [&_th]:text-brand-ink"
-                    )}
-                  >
-                    <TableRow
-                      className={cn(
-                        refreshEnabled &&
-                          "border-none [&_th:first-child]:rounded-tl-2xl [&_th:last-child]:rounded-tr-2xl"
-                      )}
-                    >
+                <Table className="table-corporate">
+                  <TableHeader>
+                    <TableRow>
                       <TableHead className="w-20">ID</TableHead>
                       <TableHead>Departamento</TableHead>
                       <TableHead>Ubicación</TableHead>
@@ -210,15 +195,10 @@ export function DismissalReasonsTable({
                       <TableHead>Motivo</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody
-                    className={cn(
-                      refreshEnabled &&
-                        "[&_tr:last-child]:rounded-b-2xl [&_tr]:border-none [&_tr]:odd:bg-card [&_tr]:even:bg-brand-surface/70 [&_tr]:hover:bg-brand-surface-accent/70"
-                    )}
-                  >
+                  <TableBody>
                     {empleadosDetalle.map((empleado, index) => (
                       <TableRow key={index}>
-                        <TableCell className="font-mono text-xs text-muted-foreground dark:text-brand-ink/70">
+                        <TableCell className="font-mono text-xs">
                           {empleado.id}
                         </TableCell>
                         <TableCell>{empleado.departamento || "Sin Depto"}</TableCell>

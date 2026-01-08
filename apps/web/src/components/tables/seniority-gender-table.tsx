@@ -145,24 +145,9 @@ export function SeniorityGenderTable({
         >
           {() => (
             <div className="overflow-x-auto">
-              <Table
-                className={cn(
-                  refreshEnabled &&
-                    "text-sm text-brand-ink [&_td]:px-4 [&_td]:py-3 [&_th]:px-4 [&_th]:py-3"
-                )}
-              >
-                <TableHeader
-                  className={cn(
-                    refreshEnabled &&
-                      "[&_th]:bg-brand-surface-accent [&_th]:font-heading [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-[0.14em] [&_th]:text-brand-ink"
-                  )}
-                >
-                  <TableRow
-                    className={cn(
-                      refreshEnabled &&
-                        "border-none [&_th:first-child]:rounded-tl-2xl [&_th:last-child]:rounded-tr-2xl"
-                    )}
-                  >
+              <Table className="table-corporate">
+                <TableHeader>
+                  <TableRow>
                     <TableHead>Antigüedad</TableHead>
                     <TableHead className="text-right">Femenino</TableHead>
                     <TableHead className="text-right">Masculino</TableHead>
@@ -170,12 +155,7 @@ export function SeniorityGenderTable({
                     <TableHead className="text-right">%</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody
-                  className={cn(
-                    refreshEnabled &&
-                      "[&_tr:last-child]:rounded-b-2xl [&_tr]:border-none [&_tr]:odd:bg-card [&_tr]:even:bg-brand-surface/70 [&_tr]:hover:bg-brand-surface-accent/70"
-                  )}
-                >
+                <TableBody>
                   {seniorityGenderData.data.map((row) => (
                     <TableRow
                       key={row.range}
@@ -190,12 +170,12 @@ export function SeniorityGenderTable({
                       <TableCell className="text-right">{row.percentage.toFixed(0)}%</TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell>{seniorityGenderData.totals.range}</TableCell>
-                    <TableCell className="text-right">{seniorityGenderData.totals.femenino}</TableCell>
-                    <TableCell className="text-right">{seniorityGenderData.totals.masculino}</TableCell>
-                    <TableCell className="text-right">{seniorityGenderData.totals.total}</TableCell>
-                    <TableCell className="text-right">{seniorityGenderData.totals.percentage.toFixed(0)}%</TableCell>
+                  <TableRow className="bg-gray-200 font-bold border-t-2 border-corporate-red/60">
+                    <TableCell className="font-bold">{seniorityGenderData.totals.range}</TableCell>
+                    <TableCell className="text-right font-bold">{seniorityGenderData.totals.femenino}</TableCell>
+                    <TableCell className="text-right font-bold">{seniorityGenderData.totals.masculino}</TableCell>
+                    <TableCell className="text-right font-bold">{seniorityGenderData.totals.total}</TableCell>
+                    <TableCell className="text-right font-bold">{seniorityGenderData.totals.percentage.toFixed(0)}%</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
