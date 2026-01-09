@@ -34,6 +34,39 @@
   .gradient-brand-subtle {
     background: linear-gradient(135deg, rgba(249, 115, 22, 0.08) 0%, rgba(239, 68, 68, 0.08) 100%);
   }
+
+  /* Tablas corporativas con colores MRM */
+  .table-corporate {
+    @apply w-full text-corporate-black;
+  }
+
+  .table-corporate thead {
+    @apply bg-gray-100;
+  }
+
+  .table-corporate thead th {
+    @apply bg-gray-100 text-corporate-black font-semibold text-sm px-4 py-3 text-left border-b-2 border-corporate-red/50;
+  }
+
+  .table-corporate tbody tr {
+    @apply border-b border-gray-100;
+  }
+
+  .table-corporate tbody tr:nth-child(odd) {
+    @apply bg-white;
+  }
+
+  .table-corporate tbody tr:nth-child(even) {
+    @apply bg-gray-50;
+  }
+
+  .table-corporate tbody tr:hover {
+    @apply bg-gray-100/70;
+  }
+
+  .table-corporate tbody td {
+    @apply px-4 py-2.5 text-sm text-corporate-black;
+  }
 }
 
 

@@ -160,11 +160,12 @@ export function RetentionFilterPanel({
       
       // Add current year if not present
       allDates.push(new Date().toISOString());
-      
-      // Extract unique years from dates (2022-2025 range)
+
+      // Extract unique years from dates (2022 to current year range)
+      const currentYear = new Date().getFullYear();
       const uniqueYears = Array.from(new Set(allDates.map(dateStr => {
         const year = new Date(dateStr).getFullYear();
-        return year >= 2022 && year <= 2025 ? year : null;
+        return year >= 2022 && year <= currentYear ? year : null;
       }).filter(year => year !== null))) as number[];
       uniqueYears.sort((a, b) => b - a);
 

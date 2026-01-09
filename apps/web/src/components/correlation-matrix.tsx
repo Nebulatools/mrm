@@ -114,7 +114,7 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
   // Función auxiliar para calcular días en rachas de ausentismo consecutivo
   const calcularRachasAusentismo = (incidencias: any[], numeroEmpleado: number, debugFirst: boolean = false) => {
     // CÓDIGOS REALES DE INCIDENCIAS NEGATIVAS (según DB real)
-    const INCIDENT_CODES = ['FI', 'ENFE', 'PSIN', 'SUSP']
+    const INCIDENT_CODES = ['FI', 'ENFE', 'PSIN', 'SUSP', 'ACCI']
 
     // Filtrar incidencias de ausentismo del empleado y ordenar por fecha
     const ausencias = incidencias
@@ -200,8 +200,8 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
       const tuvoBaja = bajas.some(baja => baja.numero_empleado === emp.numero_empleado) ? 1 : 0
 
       // CÓDIGOS REALES según DB (verificado con MCP)
-      const INCIDENT_CODES = ['FI', 'ENFE', 'PSIN', 'SUSP'] // Incidencias negativas
-      const PERMISO_CODES = ['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST'] // Permisos/ausencias autorizadas
+      const INCIDENT_CODES = ['FI', 'ENFE', 'PSIN', 'SUSP', 'ACCI'] // Incidencias negativas
+      const PERMISO_CODES = ['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST', 'PAT', 'FEST'] // Permisos/ausencias autorizadas
 
       const incidenciasEmpleado = incidencias.filter(inc => inc.emp === emp.numero_empleado)
 

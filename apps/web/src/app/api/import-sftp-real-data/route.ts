@@ -93,7 +93,7 @@ interface IncidenciaSFTP {
   ubicacion2: string | null;
 }
 
-const INCIDENT_CODES = new Set(['FI', 'SUS', 'PSIN', 'ENFE']);
+const INCIDENT_CODES = new Set(['FI', 'SUSP', 'PSIN', 'ENFE']);
 const PERMISO_CODES = new Set(['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST']);
 
 export async function POST(request: NextRequest) {
@@ -203,20 +203,8 @@ export async function POST(request: NextRequest) {
           // Mapear datos del SFTP a estructura de BD
           const empleadosTransformados: EmpleadoSFTP[] = empleadosData.map((record: Record<string, unknown>, index: number) => {
             
-            // Parsear fecha de ingreso
-            let fechaIngreso = '2024-01-01'; // Default
-            if (record['Fecha Ingreso']) {
-              try {
-                const fechaStr = String(record['Fecha Ingreso']);
-                if (fechaStr.includes('/')) {
-                  const [day, month, year] = fechaStr.split('/');
-                  const fullYear = year.length === 2 ? `20${year}` : year;
-                  fechaIngreso = `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-                }
-              } catch (e) {
-                console.warn(`Error parseando fecha para empleado ${index + 1}:`, e);
-              }
-            }
+            // Parsear fecha de ingreso usando parseDate (maneja strings Y seriales Excel)
+            const fechaIngreso = parseDate(record['Fecha Ingreso']) || '2024-01-01';
             
             return {
               numero_empleado: parseInt(String(record['Número'] || record['Gafete'] || (index + 1))),
@@ -224,7 +212,7 @@ export async function POST(request: NextRequest) {
               nombres: String(record['Nombres'] || 'Nombre'),
               nombre_completo: String(record['Nombre Completo'] || `${record['Nombres']} ${record['Apellidos']}` || `Empleado ${index + 1}`),
               gafete: String(record['Gafete'] || ''),
-              genero: String(record['Género'] || record['Genero'] || ''),
+              genero: pickField(record as Record<string, unknown>, ['Género', 'G?nero', 'Genero', 'GÉNERO', 'GENERO'], 'genero'),
               imss: String(record['IMSS'] || ''),
               fecha_nacimiento: record['Fecha de Nacimiento'] ? parseDate(record['Fecha de Nacimiento']) : null,
               estado: String(record['Estado'] || ''),
@@ -516,7 +504,10 @@ function parseDate(dateValue: unknown): string | null {
     const parts = str.split('/');
     if (parts.length === 3) {
       const [day, month, year] = parts;
-      const fullYear = year.length === 2 ? `20${year}` : year;
+      // Regla simple: año >= 50 → 1900s, año < 50 → 2000s
+      const fullYear = year.length === 2
+        ? (parseInt(year) >= 50 ? `19${year}` : `20${year}`)
+        : year;
       return `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
   }

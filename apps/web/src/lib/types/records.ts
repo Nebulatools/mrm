@@ -18,6 +18,7 @@ export interface PlantillaRecord {
   area?: string | null
   clasificacion?: string | null
   ubicacion?: string | null
+  cc?: string | null // Centro de Costo
   genero?: string | null
   fecha_nacimiento?: string | null
   fecha_antiguedad?: string | null

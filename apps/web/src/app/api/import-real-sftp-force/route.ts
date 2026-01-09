@@ -285,7 +285,7 @@ export async function POST(request: NextRequest) {
         nombres: String(nombres).trim(),
         nombre_completo: `${nombres} ${apellidos}`.trim(),
         gafete: emp['Gafete'] || numero,
-        genero: emp['Género'] || emp['G?nero'] || 'No especificado',
+        genero: pickField(emp, ['Género', 'G?nero', 'Genero', 'GÉNERO', 'GENERO'], 'genero'),
         imss: emp['IMSS'] || '',
         fecha_nacimiento: parseDate(emp['Fecha de Nacimiento']),
         estado: emp['Estado'] || 'No especificado',
@@ -521,7 +521,153 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================
-    // PASO 5.6: IMPORTAR INCIDENCIAS DESDE PDF (DESACTIVADO)
+    // PASO 5.6: INSERTAR PRENOMINA HORIZONTAL
+    // ========================================
+    console.log('💾 Insertando datos de Prenomina Horizontal...');
+
+    let prenominaInsertada = 0;
+    const prenominaReales: Array<{
+      numero_empleado: number;
+      nombre: string;
+      semana_inicio: string;
+      semana_fin: string;
+      lun_fecha: string | null;
+      lun_horas_ord: number;
+      lun_horas_te: number;
+      lun_incidencia: string;
+      mar_fecha: string | null;
+      mar_horas_ord: number;
+      mar_horas_te: number;
+      mar_incidencia: string;
+      mie_fecha: string | null;
+      mie_horas_ord: number;
+      mie_horas_te: number;
+      mie_incidencia: string;
+      jue_fecha: string | null;
+      jue_horas_ord: number;
+      jue_horas_te: number;
+      jue_incidencia: string;
+      vie_fecha: string | null;
+      vie_horas_ord: number;
+      vie_horas_te: number;
+      vie_incidencia: string;
+      sab_fecha: string | null;
+      sab_horas_ord: number;
+      sab_horas_te: number;
+      sab_incidencia: string;
+      dom_fecha: string | null;
+      dom_horas_ord: number;
+      dom_horas_te: number;
+      dom_incidencia: string;
+      fecha_creacion: string;
+    }> = [];
+
+    // Procesar datos de Prenomina Horizontal
+    nominaData.forEach((nomina: Record<string, unknown>, index: number) => {
+      const numeroEmpleado = parseInt(String(
+        nomina['Número'] ||
+        nomina['N?mero'] ||
+        nomina['Numero'] ||
+        nomina['#'] ||
+        nomina['ID'] ||
+        nomina['No'] ||
+        (index + 1)
+      ).trim());
+
+      const nombre = String(nomina['Nombre'] || nomina['NOMBRE'] || nomina['nombre'] || '').trim();
+
+      if (numeroEmpleado && nombre) {
+        // Parsear fechas de cada día
+        const lunFecha = parseDate(nomina['LUN']);
+        const marFecha = parseDate(nomina['MAR']);
+        const mieFecha = parseDate(nomina['MIE']);
+        const jueFecha = parseDate(nomina['JUE']);
+        const vieFecha = parseDate(nomina['VIE']);
+        const sabFecha = parseDate(nomina['SAB']);
+        const domFecha = parseDate(nomina['DOM']);
+
+        // Determinar semana_inicio y semana_fin
+        const semanaInicio = lunFecha || marFecha || mieFecha || jueFecha || vieFecha || sabFecha || domFecha;
+        if (!semanaInicio) return; // Skip si no hay fechas válidas
+
+        const semanaFechaObj = new Date(semanaInicio + 'T00:00:00');
+        const semanaFinFechaObj = new Date(semanaFechaObj);
+        semanaFinFechaObj.setDate(semanaFinFechaObj.getDate() + 6);
+        const semanaFin = semanaFinFechaObj.toISOString().split('T')[0];
+
+        prenominaReales.push({
+          numero_empleado: numeroEmpleado,
+          nombre: nombre,
+          semana_inicio: semanaInicio,
+          semana_fin: semanaFin,
+
+          lun_fecha: lunFecha,
+          lun_horas_ord: parseFloat(String(nomina['LUN-ORD'] || nomina['LUN - ORD'] || nomina['LUN ORD'] || '0')),
+          lun_horas_te: parseFloat(String(nomina['LUN- TE'] || nomina['LUN-TE'] || nomina['LUN TE'] || '0')),
+          lun_incidencia: String(nomina['LUN-INC'] || nomina['LUN - INC'] || nomina['LUN INC'] || '').trim(),
+
+          mar_fecha: marFecha,
+          mar_horas_ord: parseFloat(String(nomina['MAR-ORD'] || nomina['MAR - ORD'] || nomina['MAR ORD'] || '0')),
+          mar_horas_te: parseFloat(String(nomina['MAR - TE'] || nomina['MAR-TE'] || nomina['MAR TE'] || '0')),
+          mar_incidencia: String(nomina['MAR-INC'] || nomina['MAR - INC'] || nomina['MAR INC'] || '').trim(),
+
+          mie_fecha: mieFecha,
+          mie_horas_ord: parseFloat(String(nomina['MIE-ORD'] || nomina['MIE - ORD'] || nomina['MIE ORD'] || '0')),
+          mie_horas_te: parseFloat(String(nomina['MIE - TE'] || nomina['MIE-TE'] || nomina['MIE TE'] || '0')),
+          mie_incidencia: String(nomina['MIE-INC'] || nomina['MIE - INC'] || nomina['MIE INC'] || '').trim(),
+
+          jue_fecha: jueFecha,
+          jue_horas_ord: parseFloat(String(nomina['JUE-ORD'] || nomina['JUE - ORD'] || nomina['JUE ORD'] || '0')),
+          jue_horas_te: parseFloat(String(nomina['JUE - TE'] || nomina['JUE-TE'] || nomina['JUE TE'] || '0')),
+          jue_incidencia: String(nomina['JUE-INC'] || nomina['JUE - INC'] || nomina['JUE INC'] || '').trim(),
+
+          vie_fecha: vieFecha,
+          vie_horas_ord: parseFloat(String(nomina['VIE-ORD'] || nomina['VIE - ORD'] || nomina['VIE ORD'] || '0')),
+          vie_horas_te: parseFloat(String(nomina['VIE - TE'] || nomina['VIE-TE'] || nomina['VIE TE'] || '0')),
+          vie_incidencia: String(nomina['VIE-INC'] || nomina['VIE - INC'] || nomina['VIE INC'] || '').trim(),
+
+          sab_fecha: sabFecha,
+          sab_horas_ord: parseFloat(String(nomina['SAB-ORD'] || nomina['SAB - ORD'] || nomina['SAB ORD'] || '0')),
+          sab_horas_te: parseFloat(String(nomina['SAB - TE'] || nomina['SAB-TE'] || nomina['SAB TE'] || '0')),
+          sab_incidencia: String(nomina['SAB-INC'] || nomina['SAB - INC'] || nomina['SAB INC'] || '').trim(),
+
+          dom_fecha: domFecha,
+          dom_horas_ord: parseFloat(String(nomina['DOM-ORD'] || nomina['DOM - ORD'] || nomina['DOM ORD'] || '0')),
+          dom_horas_te: parseFloat(String(nomina['DOM - TE'] || nomina['DOM-TE'] || nomina['DOM TE'] || '0')),
+          dom_incidencia: String(nomina['DOM-INC'] || nomina['DOM - INC'] || nomina['DOM INC'] || '').trim(),
+
+          fecha_creacion: new Date().toISOString()
+        });
+      }
+    });
+
+    console.log(`📊 Registros de prenomina preparados: ${prenominaReales.length}`);
+
+    // Insertar prenomina en lotes con UPSERT
+    if (prenominaReales.length > 0) {
+      for (let i = 0; i < prenominaReales.length; i += BATCH_SIZE) {
+        const batch = prenominaReales.slice(i, i + BATCH_SIZE);
+
+        const { data, error } = await supabaseAdmin
+          .from('prenomina_horizontal')
+          .upsert(batch, {
+            onConflict: 'numero_empleado,semana_inicio',
+            ignoreDuplicates: false
+          })
+          .select();
+
+        if (error) {
+          console.error(`Error insertando prenomina lote ${Math.floor(i/BATCH_SIZE) + 1}:`, error);
+          // Continuar con el siguiente lote en caso de error
+        } else {
+          prenominaInsertada += data?.length || 0;
+          console.log(`✅ Lote prenomina ${Math.floor(i/BATCH_SIZE) + 1} insertado: ${data?.length} registros`);
+        }
+      }
+    }
+
+    // ========================================
+    // PASO 5.7: IMPORTAR INCIDENCIAS DESDE PDF (DESACTIVADO)
     // ========================================
     // A petición: por ahora omitimos parseo/import desde PDFs.
     let incidenciasInsertadas = 0;
@@ -545,10 +691,15 @@ export async function POST(request: NextRequest) {
       .from('incidencias')
       .select('*', { count: 'exact', head: true });
 
+    const { count: totalPrenomina } = await supabaseAdmin
+      .from('prenomina_horizontal')
+      .select('*', { count: 'exact', head: true });
+
     console.log('✅ IMPORTACIÓN REAL COMPLETADA!');
     console.log(`📊 Total empleados en BD: ${totalEmpleados}`);
     console.log(`📊 Total bajas en BD: ${totalBajas}`);
     console.log(`📊 Total asistencia en BD: ${totalAsistencia}`);
+    console.log(`📊 Total prenomina en BD: ${totalPrenomina}`);
 
     let scheduleMeta: { last_run?: string | null; next_run?: string | null } = {};
     const { data: scheduleRow, error: scheduleError } = await supabaseAdmin
@@ -610,6 +761,11 @@ export async function POST(request: NextRequest) {
         incidencias: {
           insertadas: incidenciasInsertadas,
           total_en_bd: totalIncidencias
+        },
+        prenomina: {
+          encontrados: prenominaReales.length,
+          insertados: prenominaInsertada,
+          total_en_bd: totalPrenomina
         }
       },
       schedule: scheduleMeta,

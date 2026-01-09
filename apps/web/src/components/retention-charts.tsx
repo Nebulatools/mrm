@@ -277,18 +277,30 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         involuntariaMonthsData[i].rotacionAcumulada12m = calculateRolling12MonthRotation(involuntariaMonthsData, i, plantilla, 'involuntaria', bajaEventos);
       }
 
+      // Calcular rotación YTD (Year To Date - desde enero hasta el mes actual)
+      for (let i = 0; i < allMonthsData.length; i++) {
+        allMonthsData[i].rotacionYTD = calculateYTDRotation(allMonthsData, i, plantilla, 'all', bajaEventos);
+      }
+      for (let i = 0; i < voluntariaMonthsData.length; i++) {
+        voluntariaMonthsData[i].rotacionYTD = calculateYTDRotation(voluntariaMonthsData, i, plantilla, 'voluntaria', bajaEventos);
+      }
+      for (let i = 0; i < involuntariaMonthsData.length; i++) {
+        involuntariaMonthsData[i].rotacionYTD = calculateYTDRotation(involuntariaMonthsData, i, plantilla, 'involuntaria', bajaEventos);
+      }
+
       const buildComparison = (filteredMonthsData: MonthlyRetentionData[]) => {
         const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
         const selectedYear = currentYear || new Date().getFullYear();
         const previousYear = selectedYear - 1;
         const lastTwoYears = [previousYear, selectedYear];
-        
+
         const comparisonData: YearlyComparisonData[] = monthNames.map((monthName, index) => {
           const dataByYear: YearlyComparisonData = { mes: monthName };
           lastTwoYears.forEach(year => {
             const monthData = filteredMonthsData.find(d => d.year === year && d.month === index + 1);
             if (monthData) {
               dataByYear[`rotacion${year}`] = monthData.rotacionAcumulada12m;
+              dataByYear[`rotacionYTD${year}`] = monthData.rotacionYTD ?? 0;
               dataByYear[`bajas${year}`] = monthData.bajas;
               dataByYear[`activos${year}`] = monthData.activos;
             }
@@ -338,7 +350,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     try {
       const currentMonthData = monthsData[currentIndex];
       if (!currentMonthData) return 0;
-      
+
       const currentMonthDate = startOfMonth(new Date(currentMonthData.year, currentMonthData.month - 1, 1));
       const startDate12m = startOfDay(subMonths(currentMonthDate, 11));
       const endDate12m = endOfMonth(currentMonthDate);
@@ -400,10 +412,91 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
       const promedioActivos12m = (activosInicioRango + activosFinRango) / 2;
       const rotacionAcumulada = promedioActivos12m > 0 ? (bajasEn12Meses / promedioActivos12m) * 100 : 0;
-      
+
       return Number(rotacionAcumulada.toFixed(2));
     } catch (error) {
       console.error('Error calculating rolling 12-month rotation:', error);
+      return 0;
+    }
+  };
+
+  const calculateYTDRotation = (
+    monthsData: MonthlyRetentionData[],
+    currentIndex: number,
+    plantilla: PlantillaRecord[],
+    motive: 'involuntaria' | 'voluntaria' | 'all',
+    bajaEventos?: BajaEvento[]
+  ): number => {
+    try {
+      const currentMonthData = monthsData[currentIndex];
+      if (!currentMonthData) return 0;
+
+      const currentMonthDate = startOfMonth(new Date(currentMonthData.year, currentMonthData.month - 1, 1));
+      // YTD: desde enero del mismo año hasta el mes actual
+      const startDateYTD = new Date(currentMonthData.year, 0, 1); // 1 de enero del año
+      const endDateYTD = endOfMonth(currentMonthDate);
+
+      const plantillaFiltrada = plantilla;
+      const empleadosMap = new Map<number, PlantillaRecord>();
+      plantillaFiltrada.forEach(emp => {
+        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
+        if (Number.isFinite(numero)) {
+          empleadosMap.set(numero, emp);
+        }
+      });
+
+      // Contar todas las bajas en el período YTD
+      let bajasYTD: number;
+
+      if (bajaEventos && bajaEventos.length > 0) {
+        const eventosSet = new Set<string>();
+        bajaEventos.forEach(evento => {
+          const numero = Number(evento.numero_empleado);
+          if (!Number.isFinite(numero)) return;
+          const empleado = empleadosMap.get(numero);
+          if (!empleado) return;
+          const fechaBaja = parseSupabaseDate(evento.fecha_baja);
+          if (!fechaBaja) return;
+          if (fechaBaja < startDateYTD || fechaBaja > endDateYTD) return;
+          if (!bajaMatchesMotivo(empleado, motive, evento.motivo_normalizado)) return;
+          eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
+        });
+        bajasYTD = eventosSet.size;
+      } else {
+        bajasYTD = plantillaFiltrada.filter(emp => {
+          if (!emp.fecha_baja) return false;
+          if (!bajaMatchesMotivo(emp, motive)) return false;
+          const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
+          if (!fechaBaja) return false;
+          return fechaBaja >= startDateYTD && fechaBaja <= endDateYTD;
+        }).length;
+      }
+
+      // Calcular promedio de empleados activos en el período YTD
+      const activosInicioRango = plantillaFiltrada.filter(emp => {
+        const fechaIngreso = (emp as any)._fecha_ingreso ?? parseSupabaseDate(emp.fecha_ingreso);
+        if (!fechaIngreso || fechaIngreso > startDateYTD) {
+          return false;
+        }
+        const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
+        return !fechaBaja || fechaBaja > startDateYTD;
+      }).length;
+
+      const activosFinRango = plantillaFiltrada.filter(emp => {
+        const fechaIngreso = (emp as any)._fecha_ingreso ?? parseSupabaseDate(emp.fecha_ingreso);
+        if (!fechaIngreso || fechaIngreso > endDateYTD) {
+          return false;
+        }
+        const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
+        return !fechaBaja || fechaBaja > endDateYTD;
+      }).length;
+
+      const promedioActivosYTD = (activosInicioRango + activosFinRango) / 2;
+      const rotacionYTD = promedioActivosYTD > 0 ? (bajasYTD / promedioActivosYTD) * 100 : 0;
+
+      return Number(rotacionYTD.toFixed(2));
+    } catch (error) {
+      console.error('Error calculating YTD rotation:', error);
       return 0;
     }
   };
@@ -602,7 +695,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     <div className="space-y-6">
       {/* Primera fila de gráficas - con borde sutil para distinguir del resto */}
       <div className="relative rounded-2xl border-2 border-blue-500/20 bg-gradient-to-br from-blue-50/30 to-transparent p-4 dark:border-blue-400/20 dark:from-blue-950/20">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Gráfico 1: Rotación Acumulada (12 meses móviles) con comparación anual */}
         <div className="rounded-lg border bg-card p-4 shadow-sm h-full dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación Acumulada (12 meses móviles)</h3>
@@ -662,7 +755,64 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
           </VisualizationContainer>
         </div>
 
-        {/* Gráfico 2: Rotación Mensual (Múltiples Líneas) */}
+        {/* Gráfico 2: Rotación YTD (Year To Date) */}
+        <div className="rounded-lg border bg-card p-4 shadow-sm h-full dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
+          <h3 className="text-base font-semibold mb-2">Rotación YTD (Year To Date)</h3>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Rotación acumulada de enero a la fecha
+          </p>
+          <VisualizationContainer
+            title="Rotación YTD"
+            type="chart"
+            className="h-[280px] w-full"
+            filename="rotacion-ytd"
+          >
+            {(fullscreen) => (
+              <div style={{ height: fullscreen ? 360 : 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={yearlyComparison}>
+                    <CartesianGrid strokeDasharray="4 8" stroke={gridStrokeColor} />
+                    <XAxis
+                      dataKey="mes"
+                      tick={{ fontSize: 11, fill: axisSecondaryColor }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: axisMutedColor }}
+                      label={{ value: 'Rotación %', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisPrimaryColor } }}
+                      domain={rotationDomain}
+                    />
+                    <Tooltip cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(0), 0.35) }} content={<CustomTooltip />} wrapperStyle={TOOLTIP_WRAPPER_STYLE} />
+                    <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
+                    {previousYearForCharts && (
+                      <Area
+                        type="monotone"
+                        dataKey={`rotacionYTD${previousYearForCharts}`}
+                        name={`${previousYearForCharts} YTD (año anterior)`}
+                        stroke={withOpacity(getModernColor(1), 0.9)}
+                        fill={withOpacity(getModernColor(1), 0.18)}
+                        strokeWidth={1.5}
+                        dot={false}
+                        activeDot={{ r: 3 }}
+                        legendType="none"
+                      />
+                    )}
+                    {selectedYearForCharts && (
+                      <Bar
+                        dataKey={`rotacionYTD${selectedYearForCharts}`}
+                        name={`${selectedYearForCharts} YTD`}
+                        fill={getModernColor(0)}
+                        radius={[4, 4, 0, 0]}
+                        maxBarSize={18}
+                      />
+                    )}
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </VisualizationContainer>
+        </div>
+
+        {/* Gráfico 4: Rotación Mensual (Múltiples Líneas) */}
         <div className="rounded-lg border bg-card p-4 shadow-sm h-full dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación Mensual</h3>
           <p className="mb-4 text-sm text-muted-foreground">Rotación mensual % con comparativo del año anterior</p>

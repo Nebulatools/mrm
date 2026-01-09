@@ -30,6 +30,7 @@ interface ImportResults {
   asistencia: number;
   incidencias?: number;
   permisos?: number;
+  prenomina?: number;
   errors: string[];
 }
 
@@ -81,7 +82,7 @@ const DAY_OPTIONS = [
 ];
 
 export function SFTPImportAdmin() {
-  const forceImportEnabled = false;
+  const forceImportEnabled = false; // 🔒 Deshabilitado por seguridad después de importación inicial exitosa
   const [isManualUpdating, setIsManualUpdating] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [sftpFiles, setSftpFiles] = useState<SFTPFile[]>([]);
@@ -805,6 +806,21 @@ export function SFTPImportAdmin() {
                   </div>
                   <div className="text-2xl font-bold text-amber-600">
                     {importResults.permisos.toLocaleString()}
+                  </div>
+                </div>
+              )}
+
+              {typeof importResults.prenomina === 'number' && (
+                <div className="p-4 border rounded-lg bg-gradient-to-br from-indigo-50 to-indigo-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Database className="h-5 w-5 text-indigo-600" />
+                    <span className="font-medium">Prenomina Horizontal</span>
+                  </div>
+                  <div className="text-2xl font-bold text-indigo-600">
+                    {importResults.prenomina.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-indigo-600/70 mt-1">
+                    Registros semanales de horas trabajadas
                   </div>
                 </div>
               )}

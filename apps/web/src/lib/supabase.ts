@@ -202,6 +202,7 @@ export const db = {
         area: normalizeArea(emp.area) || 'Sin Área',
         clasificacion: emp.clasificacion || 'Sin Clasificación',
         ubicacion: (emp as any).ubicacion || null,
+        cc: emp.cc || null, // Centro de Costo
         empresa: (emp as any).empresa || null,
         genero: emp.genero || null,
         fecha_nacimiento: emp.fecha_nacimiento || null,

@@ -12,6 +12,7 @@ export interface MonthlyRetentionData {
   rotacionVoluntaria: number;
   rotacionInvoluntaria: number;
   rotacionAcumulada12m: number;
+  rotacionYTD?: number; // Year To Date rotation (January to current month)
   bajas: number;
   bajasVoluntarias: number;
   bajasInvoluntarias: number;

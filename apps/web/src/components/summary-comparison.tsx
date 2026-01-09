@@ -7,8 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, TrendingDown, AlertCircle, TrendingUp } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import type { TooltipProps, TooltipPayload } from 'recharts';
-import { isMotivoClave, normalizeIncidenciaCode } from '@/lib/normalizers';
+import type { TooltipProps } from 'recharts';
+import { isMotivoClave, normalizeIncidenciaCode, normalizeCCToUbicacion } from '@/lib/normalizers';
+
+// Define TooltipPayload type locally since it's not exported in this recharts version
+type TooltipPayload = {
+  name?: string;
+  value?: number;
+  color?: string;
+  dataKey?: string | number;
+  payload?: any;
+};
 import { cn } from '@/lib/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
 import {
@@ -23,6 +32,16 @@ import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { KPICard } from '@/components/kpi-card';
 import { useTheme } from '@/components/theme-provider';
+
+// ✅ CATEGORIZACIÓN DE INCIDENCIAS: 4 grupos
+const FALTAS_CODES = new Set(["FI", "SUSP"]);
+const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1"]);
+const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]);
+const VACACIONES_CODES = new Set(["VAC"]);
+
+// ✅ LEGACY: Mantener para compatibilidad
+const INCIDENT_CODES = new Set([...FALTAS_CODES, ...SALUD_CODES]);
+const PERMISO_CODES = new Set([...PERMISOS_CODES, ...VACACIONES_CODES]);
 
 interface BajaRecord {
   numero_empleado: number;
@@ -49,6 +68,7 @@ interface SummaryComparisonProps {
   retentionKPIsOverride?: {
     rotacionMensual: number;
     rotacionMensualAnterior: number;
+    rotacionMensualSameMonthPrevYear: number;
     rotacionAcumulada: number;
     rotacionAcumuladaAnterior: number;
     rotacionAnioActual: number;
@@ -63,10 +83,6 @@ interface SummaryComparisonProps {
 }
 
 type IncidenciaWithDescription = IncidenciaRecord & { incidencia?: string | null };
-
-// ✅ Códigos de incidencias y permisos (igual que en incidents-tab.tsx)
-const INCIDENT_CODES = new Set(["FI", "SUS", "PSIN", "ENFE"]);
-const PERMISO_CODES = new Set(["PCON", "VAC", "MAT3", "MAT1", "JUST"]);
 
 const formatMonthLabel = (date: Date) => {
   const monthLabel = date.toLocaleDateString('es-MX', { month: 'short' });
@@ -161,7 +177,7 @@ const sanitizeSeriesKey = (label: string) => {
   return base || 'serie';
 };
 
-type NegocioSeriesConfig = {
+type UbicacionSeriesConfig = {
   label: string;
   key: string;
   empleadosRotacion: PlantillaRecord[];
@@ -183,12 +199,13 @@ export function SummaryComparison({
 
   const plantillaRotacion = plantillaYearScope && plantillaYearScope.length > 0 ? plantillaYearScope : plantilla;
 
-  const negocioSeriesConfig = useMemo<NegocioSeriesConfig[]>(() => {
+  const ubicacionSeriesConfig = useMemo<UbicacionSeriesConfig[]>(() => {
     const entries = new Map<string, { label: string; empleadosRotacion: PlantillaRecord[]; empleadoIds: Set<number> }>();
 
     const register = (emp: PlantillaRecord | undefined, includeInRotacion: boolean) => {
       if (!emp) return;
-      const rawLabel = typeof emp.empresa === 'string' && emp.empresa.trim().length > 0 ? emp.empresa.trim() : 'Sin Negocio';
+      const cc = (emp as any).cc;
+      const rawLabel = normalizeCCToUbicacion(cc);
       let entry = entries.get(rawLabel);
       if (!entry) {
         entry = { label: rawLabel, empleadosRotacion: [], empleadoIds: new Set<number>() };
@@ -207,14 +224,14 @@ export function SummaryComparison({
     (plantilla || []).forEach(emp => register(emp, false));
 
     if (entries.size === 0) {
-      entries.set('Sin Negocio', { label: 'Sin Negocio', empleadosRotacion: [], empleadoIds: new Set<number>() });
+      entries.set('SIN UBICACIÓN', { label: 'SIN UBICACIÓN', empleadosRotacion: [], empleadoIds: new Set<number>() });
     }
 
-    const configs: NegocioSeriesConfig[] = Array.from(entries.values()).map((entry, index) => {
-      const keyBase = sanitizeSeriesKey(entry.label || `Negocio ${index + 1}`);
+    const configs: UbicacionSeriesConfig[] = Array.from(entries.values()).map((entry, index) => {
+      const keyBase = sanitizeSeriesKey(entry.label || `Ubicacion ${index + 1}`);
       return {
-        label: entry.label || `Negocio ${index + 1}`,
-        key: keyBase || `negocio_${index}`,
+        label: entry.label || `Ubicacion ${index + 1}`,
+        key: keyBase || `ubicacion_${index}`,
         empleadosRotacion: entry.empleadosRotacion,
         empleadoIds: entry.empleadoIds
       };
@@ -230,11 +247,16 @@ export function SummaryComparison({
       seenKeys.add(keyCandidate);
     });
 
-    configs.sort((a, b) => a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }));
-    return configs;
+    // Filtrar 'OTROS' y 'SIN UBICACIÓN' para que solo aparezcan CAD, CORPORATIVO, FILIALES
+    const filteredConfigs = configs.filter(config =>
+      config.label !== 'OTROS' && config.label !== 'SIN UBICACIÓN'
+    );
+
+    filteredConfigs.sort((a, b) => a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }));
+    return filteredConfigs;
   }, [plantillaRotacion, plantilla]);
 
-  const [motivoFilterType, setMotivoFilterType] = useState<'involuntaria' | 'voluntaria'>('involuntaria');
+  const [motivoFilterType, setMotivoFilterType] = useState<'all' | 'involuntaria' | 'voluntaria'>('voluntaria');
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const axisColor = isDark ? '#E2E8F0' : '#475569';
@@ -294,7 +316,7 @@ export function SummaryComparison({
         ytd: ReturnType<typeof calcularRotacionYTDConDesglose>;
       }> = {};
 
-      negocioSeriesConfig.forEach(({ key, empleadosRotacion }) => {
+      ubicacionSeriesConfig.forEach(({ key, empleadosRotacion }) => {
         const plantillaNegocio = empleadosRotacion.length > 0 ? empleadosRotacion : [];
         const mensual = calcularRotacionConDesglose(plantillaNegocio, startDate, endDate);
         const rolling = calcularRotacionAcumulada12mConDesglose(plantillaNegocio, endDate);
@@ -312,17 +334,17 @@ export function SummaryComparison({
     }
 
     return points;
-  }, [negocioSeriesConfig, referenceDate]);
+  }, [ubicacionSeriesConfig, referenceDate]);
 
-  const empleadoNegocioMap = useMemo(() => {
+  const empleadoUbicacionMap = useMemo(() => {
     const map = new Map<number, string>();
-    negocioSeriesConfig.forEach(({ key, empleadoIds }) => {
+    ubicacionSeriesConfig.forEach(({ key, empleadoIds }) => {
       empleadoIds.forEach(id => {
         map.set(id, key);
       });
     });
     return map;
-  }, [negocioSeriesConfig]);
+  }, [ubicacionSeriesConfig]);
 
   const incidenciasPermisosSeries = useMemo(() => {
     if (!incidencias || incidencias.length === 0) {
@@ -330,7 +352,7 @@ export function SummaryComparison({
         mes: string;
         month: number;
         year: number;
-        negocios: Record<string, { incidencias: number; permisos: number }>;
+        negocios: Record<string, { incidencias: number; permisos: number; incidenciasPct: number; permisosPct: number }>;
       }>;
     }
 
@@ -339,7 +361,7 @@ export function SummaryComparison({
       mes: string;
       month: number;
       year: number;
-      negocios: Record<string, { incidencias: number; permisos: number }>;
+      negocios: Record<string, { incidencias: number; permisos: number; incidenciasPct: number; permisosPct: number }>;
     }> = [];
 
     for (let offset = 11; offset >= 0; offset--) {
@@ -347,38 +369,76 @@ export function SummaryComparison({
       const startDate = new Date(current.getFullYear(), current.getMonth(), 1);
       const endDate = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59, 999);
 
-      const negociosCounts: Record<string, { incidencias: number; permisos: number }> = {};
-      negocioSeriesConfig.forEach(({ key }) => {
-        negociosCounts[key] = { incidencias: 0, permisos: 0 };
+      const ubicacionesCounts: Record<string, { incidencias: number; permisos: number; incidenciasPct: number; permisosPct: number }> = {};
+      ubicacionSeriesConfig.forEach(({ key }) => {
+        ubicacionesCounts[key] = { incidencias: 0, permisos: 0, incidenciasPct: 0, permisosPct: 0 };
+      });
+
+      // Count active employees per ubicacion for this month
+      const activosPerUbicacion: Record<string, number> = {};
+      ubicacionSeriesConfig.forEach(({ key }) => {
+        activosPerUbicacion[key] = 0;
+      });
+
+      plantilla.forEach((emp) => {
+        const empleadoId = emp.numero_empleado;
+        if (!empleadoId) return;
+        const ubicacionKey = empleadoUbicacionMap.get(empleadoId);
+        if (!ubicacionKey) return;
+
+        const fechaIngreso = emp.fecha_ingreso ? new Date(emp.fecha_ingreso) : null;
+        if (!fechaIngreso || fechaIngreso > endDate) return;
+
+        const fechaBaja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+        if (fechaBaja && fechaBaja < startDate) return;
+
+        activosPerUbicacion[ubicacionKey]++;
+      });
+
+      // Track unique employees with incidents/permisos per ubicacion
+      const empleadosConIncidencias: Record<string, Set<number>> = {};
+      const empleadosConPermisos: Record<string, Set<number>> = {};
+      ubicacionSeriesConfig.forEach(({ key }) => {
+        empleadosConIncidencias[key] = new Set();
+        empleadosConPermisos[key] = new Set();
       });
 
       incidencias.forEach((inc) => {
         const empleadoId = Number(inc.emp);
         if (Number.isNaN(empleadoId)) return;
-        const negocioKey = empleadoNegocioMap.get(empleadoId);
-        if (!negocioKey) return;
+        const ubicacionKey = empleadoUbicacionMap.get(empleadoId);
+        if (!ubicacionKey) return;
 
         const fechaInc = new Date(inc.fecha);
         if (fechaInc < startDate || fechaInc > endDate) return;
 
         const code = normalizeIncidenciaCode(inc.inci);
         if (code && INCIDENT_CODES.has(code)) {
-          negociosCounts[negocioKey].incidencias += 1;
+          ubicacionesCounts[ubicacionKey].incidencias += 1;
+          empleadosConIncidencias[ubicacionKey].add(empleadoId);
         } else if (code && PERMISO_CODES.has(code)) {
-          negociosCounts[negocioKey].permisos += 1;
+          ubicacionesCounts[ubicacionKey].permisos += 1;
+          empleadosConPermisos[ubicacionKey].add(empleadoId);
         }
+      });
+
+      // Calculate percentages: (unique employees with incidents / total active employees) * 100
+      ubicacionSeriesConfig.forEach(({ key }) => {
+        const activos = activosPerUbicacion[key] || 1; // Avoid division by zero
+        ubicacionesCounts[key].incidenciasPct = (empleadosConIncidencias[key].size / activos) * 100;
+        ubicacionesCounts[key].permisosPct = (empleadosConPermisos[key].size / activos) * 100;
       });
 
       series.push({
         mes: formatMonthLabel(current),
         month: current.getMonth() + 1,
         year: current.getFullYear(),
-        negocios: negociosCounts
+        negocios: ubicacionesCounts
       });
     }
 
     return series;
-  }, [incidencias, empleadoNegocioMap, negocioSeriesConfig, referenceDate]);
+  }, [incidencias, plantilla, empleadoUbicacionMap, ubicacionSeriesConfig, referenceDate]);
 
   // ✅ ACTUALIZADO: Calcular antigüedad en meses y categorizar según nuevas especificaciones
   const getAntiguedadMeses = (fechaIngreso: string): number => {
@@ -503,27 +563,79 @@ export function SummaryComparison({
     return result;
   };
 
-  // Calcular ausentismo
+  // ✅ CORREGIDO: Calcular ausentismo desglosado en 4 categorías
   const calcularAusentismo = (grupo: PlantillaRecord[]) => {
     const empleadosIds = grupo.map(e => e.numero_empleado || Number(e.emp_id));
     const incidenciasGrupo = incidencias.filter(i => empleadosIds.includes(i.emp));
 
-    const permisos = incidenciasGrupo.filter(i =>
-      i.inci?.toUpperCase() === 'INC' ||
-      i.inci?.toUpperCase().includes('PERMISO')
-    ).length;
+    let faltas = 0;
+    let salud = 0;
+    let permisos = 0;
+    let vacaciones = 0;
 
-    const faltas = incidenciasGrupo.filter(i =>
-      i.inci?.toUpperCase() === 'FJ' ||
-      i.inci?.toUpperCase() === 'FI'
-    ).length;
+    incidenciasGrupo.forEach(inc => {
+      const code = normalizeIncidenciaCode(inc.inci);
+      if (!code) return;
+
+      if (FALTAS_CODES.has(code)) {
+        faltas += 1;
+      } else if (SALUD_CODES.has(code)) {
+        salud += 1;
+      } else if (PERMISOS_CODES.has(code)) {
+        permisos += 1;
+      } else if (VACACIONES_CODES.has(code)) {
+        vacaciones += 1;
+      }
+    });
 
     return {
       total: incidenciasGrupo.length,
-      permisos,
       faltas,
-      otros: incidenciasGrupo.length - permisos - faltas
+      salud,
+      permisos,
+      vacaciones,
+      otros: incidenciasGrupo.length - faltas - salud - permisos - vacaciones
     };
+  };
+
+  // Preparar datos por UBICACIÓN
+  const datosPorUbicacion = () => {
+    // Obtener ubicaciones únicas, filtrar OTROS y SIN UBICACIÓN
+    const ubicaciones = [...new Set(plantilla.map(e => {
+      const cc = (e as any).cc;
+      return normalizeCCToUbicacion(cc);
+    }))].filter(u => u !== 'OTROS' && u !== 'SIN UBICACIÓN');
+
+    return ubicaciones.map(ubicacion => {
+      const empleados = plantilla.filter(e => {
+        const cc = (e as any).cc;
+        return normalizeCCToUbicacion(cc) === ubicacion;
+      });
+
+      const empleadosActivos = empleados.filter(e => e.activo);
+      const porAntiguedad = empleadosActivos.reduce((acc, emp) => {
+        const meses = getAntiguedadMeses(emp.fecha_ingreso);
+        const categoria = clasificarAntiguedad(meses);
+        acc[categoria] = (acc[categoria] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const hoy = new Date();
+      const mesInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      const mesFin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+
+      return {
+        nombre: ubicacion,
+        total: empleadosActivos.length,
+        antiguedad: porAntiguedad,
+        rotacion: {
+          mensual: calcularRotacionConDesglose(empleados, mesInicio, mesFin),
+          doce_meses: calcularRotacionAcumulada12mConDesglose(empleados, hoy),
+          ytd: calcularRotacionYTDConDesglose(empleados, hoy)
+        },
+        ausentismo: calcularAusentismo(empleados)
+      };
+    });
   };
 
   // Preparar datos por NEGOCIO
@@ -632,7 +744,7 @@ export function SummaryComparison({
     });
   };
 
-  const renderSeccion = (datos: ReturnType<typeof datosPorNegocio>, tipoGrupo: 'negocio' | 'area' | 'departamento') => {
+  const renderSeccion = (datos: ReturnType<typeof datosPorNegocio>, tipoGrupo: 'ubicacion' | 'negocio' | 'area' | 'departamento') => {
     // ✅ CORREGIDO: Los KPIs de arriba (Incidencias, Permisos) usan TODA la plantilla filtrada
     // No deben reagruparse, ya vienen filtrados desde dashboard-page.tsx
     // Calcular KPIs del mes actual y anterior para comparación usando TODA la plantilla filtrada
@@ -642,6 +754,7 @@ export function SummaryComparison({
 
     if (retentionKPIsOverride) {
       kpisPrevMonth.rotacionMensual = retentionKPIsOverride.rotacionMensualAnterior;
+      kpisPrevYear.rotacionMensual = retentionKPIsOverride.rotacionMensualSameMonthPrevYear;
       kpisPrevYear.rotacionAcumulada = retentionKPIsOverride.rotacionAcumuladaAnterior;
       kpisPrevYear.rotacionAnioActual = retentionKPIsOverride.rotacionAnioActualAnterior;
     }
@@ -676,15 +789,15 @@ export function SummaryComparison({
       {
         key: 'rotacion-mensual',
         icon: <TrendingDown className="h-6 w-6" />,
-        secondaryLabel: 'vs mes anterior',
-        secondaryValue: kpisPrevMonth.rotacionMensual,
+        secondaryLabel: 'vs mismo mes año anterior',
+        secondaryValue: kpisPrevYear.rotacionMensual,
         hidePreviousValue: true,
         kpi: {
           name: 'Rotación Mensual',
           category: 'retention',
           value: kpisActuales.rotacionMensual,
-          previous_value: kpisPrevMonth.rotacionMensual,
-          variance_percentage: calculateVariancePercentage(kpisActuales.rotacionMensual, kpisPrevMonth.rotacionMensual),
+          previous_value: kpisPrevYear.rotacionMensual,
+          variance_percentage: calculateVariancePercentage(kpisActuales.rotacionMensual, kpisPrevYear.rotacionMensual),
           period_start: format(currentMonthStart, 'yyyy-MM-dd'),
           period_end: format(currentMonthEnd, 'yyyy-MM-dd')
         }
@@ -798,7 +911,10 @@ export function SummaryComparison({
       };
     });
 
-    const rotationLabel = motivoFilterType === 'involuntaria' ? 'Rotación Involuntaria' : 'Rotación Voluntaria';
+    const rotationLabel =
+      motivoFilterType === 'involuntaria' ? 'Rotación Involuntaria' :
+      motivoFilterType === 'voluntaria' ? 'Rotación Voluntaria' :
+      'Rotación Total';
     const getRotationValue = (input?: { involuntaria?: number; voluntaria?: number; total?: number }) => {
       if (!input) return 0;
       if (motivoFilterType === 'involuntaria') {
@@ -812,7 +928,7 @@ export function SummaryComparison({
 
     const monthlyChartData = rotationSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.label };
-      negocioSeriesConfig.forEach(({ key }) => {
+      ubicacionSeriesConfig.forEach(({ key }) => {
         const value = getRotationValue(point.negocios[key]?.mensual);
         row[key] = Number(value.toFixed(2));
       });
@@ -821,7 +937,7 @@ export function SummaryComparison({
 
     const rollingChartData = rotationSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.label };
-      negocioSeriesConfig.forEach(({ key }) => {
+      ubicacionSeriesConfig.forEach(({ key }) => {
         const value = getRotationValue(point.negocios[key]?.rolling);
         row[key] = Number(value.toFixed(2));
       });
@@ -836,7 +952,7 @@ export function SummaryComparison({
 
     const ytdChartData = ytdSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.label };
-      negocioSeriesConfig.forEach(({ key }) => {
+      ubicacionSeriesConfig.forEach(({ key }) => {
         const value = getRotationValue(point.negocios[key]?.ytd);
         row[key] = Number(value.toFixed(2));
       });
@@ -844,7 +960,7 @@ export function SummaryComparison({
     });
 
     const hasSeriesData = (data: Array<Record<string, any>>) =>
-      data.some(row => negocioSeriesConfig.some(({ key }) => (Number(row[key]) || 0) > 0));
+      data.some(row => ubicacionSeriesConfig.some(({ key }) => (Number(row[key]) || 0) > 0));
 
     const hasMonthlyData = hasSeriesData(monthlyChartData);
     const hasRollingData = hasSeriesData(rollingChartData);
@@ -852,18 +968,18 @@ export function SummaryComparison({
 
     const incidenciasChartData = incidenciasPermisosSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.mes };
-      negocioSeriesConfig.forEach(({ key }) => {
-        const value = point.negocios[key]?.incidencias ?? 0;
-        row[key] = value;
+      ubicacionSeriesConfig.forEach(({ key }) => {
+        const value = point.negocios[key]?.incidenciasPct ?? 0;
+        row[key] = Number(value.toFixed(2));
       });
       return row;
     });
 
     const permisosChartData = incidenciasPermisosSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.mes };
-      negocioSeriesConfig.forEach(({ key }) => {
-        const value = point.negocios[key]?.permisos ?? 0;
-        row[key] = value;
+      ubicacionSeriesConfig.forEach(({ key }) => {
+        const value = point.negocios[key]?.permisosPct ?? 0;
+        row[key] = Number(value.toFixed(2));
       });
       return row;
     });
@@ -887,12 +1003,12 @@ export function SummaryComparison({
       isDark
     );
     const incidenciasTooltipContent = createSummaryTooltip(
-      (entry) => `${Number(entry.value ?? 0).toLocaleString('es-MX')} registros`,
+      (entry) => `${Number(entry.value ?? 0).toFixed(2)}%`,
       (entry) => `${entry.name} · Incidencias`,
       isDark
     );
     const permisosTooltipContent = createSummaryTooltip(
-      (entry) => `${Number(entry.value ?? 0).toLocaleString('es-MX')} registros`,
+      (entry) => `${Number(entry.value ?? 0).toFixed(2)}%`,
       (entry) => `${entry.name} · Permisos`,
       isDark
     );
@@ -948,15 +1064,15 @@ export function SummaryComparison({
                   <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={datosActivos}
-                margin={{ top: 5, right: 20, left: 10, bottom: 65 }}
+                margin={{ top: 5, right: 20, left: 10, bottom: 40 }}
                 barSize={datosActivos.length > 5 ? undefined : 80}
               >
                 <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
                 <XAxis
                   dataKey="nombre"
-                  angle={-35}
-                  textAnchor="end"
-                  height={75}
+                  angle={0}
+                  textAnchor="middle"
+                  height={40}
                   interval={0}
                   tick={{ fontSize: 11, fill: axisColor }}
                 />
@@ -978,7 +1094,7 @@ export function SummaryComparison({
                     return label;
                   }}
                 />
-                <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
+                <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} layout="horizontal" />
                 <Bar dataKey="0-3 meses" stackId="a" fill={TENURE_COLORS[0]} />
                 <Bar dataKey="3-6 meses" stackId="a" fill={TENURE_COLORS[1]} />
                 <Bar dataKey="6-12 meses" stackId="a" fill={TENURE_COLORS[2]} />
@@ -1016,6 +1132,18 @@ export function SummaryComparison({
           </span>
           <div className="flex flex-wrap gap-2">
             <Button
+              variant={motivoFilterType === 'voluntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+              size="sm"
+              onClick={() => setMotivoFilterType('voluntaria')}
+              className={cn(
+                "transition-all",
+                refreshEnabled && "rounded-full font-semibold",
+                motivoFilterType === 'voluntaria' && refreshEnabled && "shadow-brand"
+              )}
+            >
+              Rotación Voluntaria
+            </Button>
+            <Button
               variant={motivoFilterType === 'involuntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
               size="sm"
               onClick={() => setMotivoFilterType('involuntaria')}
@@ -1028,16 +1156,16 @@ export function SummaryComparison({
               Rotación Involuntaria
             </Button>
             <Button
-              variant={motivoFilterType === 'voluntaria' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
+              variant={motivoFilterType === 'all' ? (refreshEnabled ? 'cta' : 'default') : 'outline'}
               size="sm"
-              onClick={() => setMotivoFilterType('voluntaria')}
+              onClick={() => setMotivoFilterType('all')}
               className={cn(
                 "transition-all",
                 refreshEnabled && "rounded-full font-semibold",
-                motivoFilterType === 'voluntaria' && refreshEnabled && "shadow-brand"
+                motivoFilterType === 'all' && refreshEnabled && "shadow-brand"
               )}
             >
-              Rotación Voluntaria
+              Rotación Total
             </Button>
           </div>
         </div>
@@ -1090,7 +1218,7 @@ export function SummaryComparison({
                       wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {negocioSeriesConfig.map((config, index) => {
+                    {ubicacionSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
                         <Line
@@ -1123,7 +1251,7 @@ export function SummaryComparison({
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
-                12 Meses Móviles
+                Rotación - 12 Meses Móviles
               </CardTitle>
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
@@ -1156,7 +1284,7 @@ export function SummaryComparison({
                       wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {negocioSeriesConfig.map((config, index) => {
+                    {ubicacionSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
                         <Line
@@ -1189,7 +1317,7 @@ export function SummaryComparison({
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
-                Lo que va del Año
+                Rotación - Lo que va del Año
               </CardTitle>
             </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
@@ -1222,7 +1350,7 @@ export function SummaryComparison({
                       wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {negocioSeriesConfig.map((config, index) => {
+                    {ubicacionSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
                         <Line
@@ -1282,7 +1410,8 @@ export function SummaryComparison({
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: axisColor }} />
                     <YAxis
                       tick={{ fontSize: 11, fill: axisColor }}
-                      label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      label={{ value: 'Porcentaje (%)', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      tickFormatter={(value) => `${Number(value ?? 0).toFixed(1)}%`}
                     />
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(3), 0.35) }}
@@ -1290,7 +1419,7 @@ export function SummaryComparison({
                       wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {negocioSeriesConfig.map((config, index) => {
+                    {ubicacionSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
                         <Line
@@ -1347,7 +1476,8 @@ export function SummaryComparison({
                     <XAxis dataKey="mes" angle={-35} textAnchor="end" height={70} tick={{ fontSize: 11, fill: axisColor }} />
                     <YAxis
                       tick={{ fontSize: 11, fill: axisColor }}
-                      label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      label={{ value: 'Porcentaje (%)', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: axisLabelColor } }}
+                      tickFormatter={(value) => `${Number(value ?? 0).toFixed(1)}%`}
                     />
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(4), 0.35) }}
@@ -1355,7 +1485,7 @@ export function SummaryComparison({
                       wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {negocioSeriesConfig.map((config, index) => {
+                    {ubicacionSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
                         <Line
@@ -1394,54 +1524,49 @@ export function SummaryComparison({
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className={cn("w-full text-sm text-foreground", refreshEnabled && "text-brand-ink dark:text-slate-100")}>
+              <table className="table-corporate w-full text-sm">
                 <thead>
-                  <tr
-                    className={cn(
-                      "border-b border-slate-200 dark:border-slate-700/70",
-                      refreshEnabled && "border-brand-border/60 dark:border-brand-border/40"
-                    )}
-                  >
-                    <th className={cn("pb-3 text-left font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                  <tr>
+                    <th className="pb-3 text-left font-medium">
                       Nombre
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                    <th className="pb-3 text-right font-medium">
                       Total
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
-                      Permisos
-                    </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
+                    <th className="pb-3 text-right font-medium">
                       Faltas
                     </th>
-                    <th className={cn("pb-3 text-right font-medium", refreshEnabled && "font-heading text-brand-ink dark:text-slate-100")}>
-                      Otros
+                    <th className="pb-3 text-right font-medium">
+                      Salud
+                    </th>
+                    <th className="pb-3 text-right font-medium">
+                      Permisos
+                    </th>
+                    <th className="pb-3 text-right font-medium">
+                      Vacaciones
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {datos.map((d, idx) => (
-                    <tr
-                      key={idx}
-                      className={cn(
-                        "border-b last:border-0",
-                        refreshEnabled && "border-brand-border/60 dark:border-brand-border/40"
-                      )}
-                    >
-                      <td className={cn("py-3 font-medium", refreshEnabled && "font-heading")}>
+                    <tr key={idx}>
+                      <td className="py-3 font-medium">
                         {d.nombre}
                       </td>
-                      <td className="py-3 text-right">
+                      <td className="py-3 text-right font-semibold">
                         {d.ausentismo.total}
+                      </td>
+                      <td className="py-3 text-right text-orange-600 dark:text-orange-400">
+                        {d.ausentismo.faltas}
+                      </td>
+                      <td className="py-3 text-right text-purple-600 dark:text-purple-400">
+                        {d.ausentismo.salud}
                       </td>
                       <td className="py-3 text-right text-blue-600 dark:text-blue-300">
                         {d.ausentismo.permisos}
                       </td>
-                      <td className="py-3 text-right text-red-600 dark:text-red-400">
-                        {d.ausentismo.faltas}
-                      </td>
-                      <td className="py-3 text-right text-muted-foreground">
-                        {d.ausentismo.otros}
+                      <td className="py-3 text-right text-yellow-600 dark:text-yellow-400">
+                        {d.ausentismo.vacaciones}
                       </td>
                     </tr>
                   ))}
@@ -1455,6 +1580,7 @@ export function SummaryComparison({
   };
 
   // ✅ CORREGIDO: Usar useMemo para recalcular cuando cambien plantilla, bajas, o incidencias
+  const ubicacion = useMemo(() => datosPorUbicacion(), [plantilla, bajas, incidencias]);
   const negocio = useMemo(() => datosPorNegocio(), [plantilla, bajas, incidencias]);
   const areas = useMemo(() => datosPorArea(), [plantilla, bajas, incidencias]);
   const departamentos = useMemo(() => datosPorDepartamento(), [plantilla, bajas, incidencias]);
@@ -1465,13 +1591,22 @@ export function SummaryComparison({
         <h2 className={cn("text-2xl font-bold", refreshEnabled && "font-heading text-3xl text-brand-ink")}>📊 Resumen Comparativo</h2>
       </div>
 
-      <Tabs defaultValue="negocio" className="w-full">
+      <Tabs defaultValue="ubicacion" className="w-full">
         <TabsList
           className={cn(
-            "grid w-full grid-cols-3",
+            "grid w-full grid-cols-4",
             refreshEnabled && "rounded-full bg-brand-surface-accent p-1 text-brand-ink shadow-sm"
           )}
         >
+          <TabsTrigger
+            value="ubicacion"
+            className={cn(
+              refreshEnabled &&
+                "rounded-full text-xs font-semibold uppercase tracking-[0.12em] data-[state=active]:bg-brand text-brand-ink data-[state=active]:text-brand-foreground"
+            )}
+          >
+            Ubicación
+          </TabsTrigger>
           <TabsTrigger
             value="negocio"
             className={cn(
@@ -1500,6 +1635,10 @@ export function SummaryComparison({
             Departamento
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="ubicacion" className={cn("space-y-4", refreshEnabled && "space-y-6")}>
+          {renderSeccion(ubicacion, 'ubicacion')}
+        </TabsContent>
 
         <TabsContent value="negocio" className={cn("space-y-4", refreshEnabled && "space-y-6")}>
           {renderSeccion(negocio, 'negocio')}
