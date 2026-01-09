@@ -362,8 +362,13 @@ export class KPICalculator {
     const prevBajasPorTemporalidad = bajasPorTemporalidad;
 
     // 6. Rotación Mensual - % de rotación = Bajas del período/Activos Prom
-    const rotacionMensual = (bajasPeriodo / (activosProm || 1)) * 100;
-    const prevRotacionMensual = (prevBajasPeriodo / (prevActivosProm || 1)) * 100;
+    // ✅ Validación: Si no hay activos promedio, rotación es 0%
+    const rotacionMensual = activosProm > 0
+      ? (bajasPeriodo / activosProm) * 100
+      : 0;
+    const prevRotacionMensual = prevActivosProm > 0
+      ? (prevBajasPeriodo / prevActivosProm) * 100
+      : 0;
 
     const previousYearEndDate = endOfMonth(subYears(endDate, 1));
     const rotacionAcumuladaActual = this.calculateRotacionAcumulada(plantilla, endDate);
@@ -376,16 +381,26 @@ export class KPICalculator {
     const prevIncidenciasCount = prevIncidenciasFiltered.length;
 
     // 7. Inc prom x empleado - Incidencias/Activos Prom
-    const incPromXEmpleado = incidenciasCount / (activosProm || 1);
-    const prevIncPromXEmpleado = prevIncidenciasCount / (prevActivosProm || 1);
+    // ✅ Validación: Si no hay activos promedio, incidencias por empleado es 0
+    const incPromXEmpleado = activosProm > 0
+      ? incidenciasCount / activosProm
+      : 0;
+    const prevIncPromXEmpleado = prevActivosProm > 0
+      ? prevIncidenciasCount / prevActivosProm
+      : 0;
 
     // 8. Días Laborados - ((Activos)/7)*6 
     const diasLaborados = Math.round((activosActuales / 7) * 6);
     const prevDiasLaborados = Math.round((prevActivosActuales / 7) * 6);
 
     // 9. %incidencias - Incidencias/días Laborados
-    const porcentajeIncidencias = (incidenciasCount / (diasLaborados || 1)) * 100;
-    const prevPorcentajeIncidencias = (prevIncidenciasCount / (prevDiasLaborados || 1)) * 100;
+    // ✅ Validación: Si no hay días laborados, porcentaje de incidencias es 0%
+    const porcentajeIncidencias = diasLaborados > 0
+      ? (incidenciasCount / diasLaborados) * 100
+      : 0;
+    const prevPorcentajeIncidencias = prevDiasLaborados > 0
+      ? (prevIncidenciasCount / prevDiasLaborados) * 100
+      : 0;
 
     // Helper function to calculate variance
     const calculateVariance = (current: number, previous: number): number => {

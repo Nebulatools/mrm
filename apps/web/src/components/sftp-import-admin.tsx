@@ -82,7 +82,7 @@ const DAY_OPTIONS = [
 ];
 
 export function SFTPImportAdmin() {
-  const forceImportEnabled = false;
+  const forceImportEnabled = false; // 🔒 Deshabilitado por seguridad después de importación inicial exitosa
   const [isManualUpdating, setIsManualUpdating] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [sftpFiles, setSftpFiles] = useState<SFTPFile[]>([]);

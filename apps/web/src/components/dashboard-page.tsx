@@ -1503,16 +1503,16 @@ export function DashboardPage() {
                   <VisualizationContainer
                     title="Antigüedad por área"
                     type="chart"
-                    className="h-[320px] w-full"
+                    className="h-[600px] w-full"
                     filename="antiguedad-por-area"
                   >
                     {(fullscreen) => (
-                      <div style={{ width: '100%', height: fullscreen ? 360 : 300 }}>
+                      <div style={{ width: '100%', height: fullscreen ? 560 : 560 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={seniorityByArea} layout="vertical" margin={{ left: 24, right: 16, top: 8, bottom: 8 }}>
+                      <BarChart data={seniorityByArea} layout="vertical" margin={{ left: 32, right: 16, top: 8, bottom: 8 }} barCategoryGap="15%">
                         <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                         <XAxis type="number" allowDecimals={false} tick={{ fill: chartAxisColor, fontSize: 12 }} />
-                        <YAxis dataKey="area" type="category" width={140} tick={{ fill: chartAxisColor, fontSize: 11 }} interval={0} />
+                        <YAxis dataKey="area" type="category" width={180} tick={{ fill: chartAxisColor, fontSize: 12 }} interval={0} />
                         <Legend wrapperStyle={{ color: chartAxisColor }} />
                         <Tooltip
                           cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.12)" : "rgba(148, 163, 184, 0.06)" }}

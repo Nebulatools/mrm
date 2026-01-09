@@ -7,11 +7,14 @@ import { MetricToggle } from "@/components/ui/metric-toggle";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { normalizeIncidenciaCode } from "@/lib/normalizers";
 import type { IncidenciaCSVRecord, PlantillaRecord } from "@/lib/supabase";
+import type { RetentionFilterOptions } from "@/lib/filters/filters";
+import { applyFiltersWithScope } from "@/lib/filters/filters";
 
 interface AbsenteeismTableProps {
   incidencias: IncidenciaCSVRecord[];
   plantilla: PlantillaRecord[];
   currentYear?: number;
+  filters?: RetentionFilterOptions;
 }
 
 // ✅ AGRUPACIÓN CORRECTA (igual a incidents-tab.tsx líneas 46-49)
@@ -25,14 +28,19 @@ const MONTH_LABELS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'S
 export function AbsenteeismTable({
   incidencias,
   plantilla,
-  currentYear
+  currentYear,
+  filters
 }: AbsenteeismTableProps) {
   const [metricType, setMetricType] = useState<"number" | "percent">("number");
 
   // Filtrar incidencias según año y empleados de la plantilla filtrada
   const filteredIncidencias = useMemo(() => {
+    const plantillaFiltered = filters
+      ? applyFiltersWithScope(plantilla, filters, 'general')
+      : plantilla;
+
     const empleadosEnPlantilla = new Set(
-      plantilla.map(e => (e as any).numero_empleado || e.id)
+      plantillaFiltered.map(e => (e as any).numero_empleado || e.id)
     );
 
     return incidencias.filter((inc) => {
@@ -43,10 +51,14 @@ export function AbsenteeismTable({
       }
       return empleadosEnPlantilla.has(inc.emp);
     });
-  }, [incidencias, plantilla, currentYear]);
+  }, [incidencias, plantilla, currentYear, filters]);
 
   // Calcular datos por mes
   const tableData = useMemo(() => {
+    const plantillaFiltered = filters
+      ? applyFiltersWithScope(plantilla, filters, 'general')
+      : plantilla;
+
     const year = currentYear || new Date().getFullYear();
 
     // Calcular DÍAS LABORADOS por mes (Activos / 7 × 6)
@@ -55,7 +67,7 @@ export function AbsenteeismTable({
       const end = new Date(year, month, 0);
 
       // Contar empleados activos en el mes
-      const activosEnMes = plantilla.filter(emp => {
+      const activosEnMes = plantillaFiltered.filter(emp => {
         const ingreso = new Date(emp.fecha_ingreso);
         const baja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
 
@@ -121,7 +133,7 @@ export function AbsenteeismTable({
     });
 
     return { dataByMotivo: finalData, diasLaboradosPorMes, year };
-  }, [filteredIncidencias, plantilla, currentYear, metricType]);
+  }, [filteredIncidencias, plantilla, currentYear, metricType, filters]);
 
   return (
     <Card>

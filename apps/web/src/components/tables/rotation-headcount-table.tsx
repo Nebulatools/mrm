@@ -11,15 +11,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { PlantillaRecord } from "@/lib/supabase";
+import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { normalizeCCToUbicacion } from "@/lib/normalizers";
 import { parseSupabaseDate } from "@/lib/retention-calculations";
+import { applyFiltersWithScope } from "@/lib/filters/filters";
 import { endOfMonth } from "date-fns";
 
 interface RotationHeadcountTableProps {
   plantilla: PlantillaRecord[];
   year?: number;
+  filters?: RetentionFilterOptions;
   refreshEnabled?: boolean;
 }
 
@@ -49,12 +52,19 @@ const UBICACIONES = ['CAD', 'CORPORATIVO', 'FILIALES', 'OTROS'];
 export function RotationHeadcountTable({
   plantilla,
   year,
+  filters,
   refreshEnabled = false,
 }: RotationHeadcountTableProps) {
 
   const currentYear = year || new Date().getFullYear();
 
   const data = useMemo(() => {
+    // ✅ Aplicar filtros con scope 'general' (departamento, área, empresa)
+    // Excluye mes y año porque la tabla muestra 12 meses
+    const plantillaFiltered = filters
+      ? applyFiltersWithScope(plantilla, filters, 'general')
+      : plantilla;
+
     const locationMonthMap = new Map<string, Record<string, number>>();
 
     // Initialize all locations
@@ -67,7 +77,7 @@ export function RotationHeadcountTable({
       const monthEnd = endOfMonth(new Date(currentYear, month.num - 1, 1));
 
       UBICACIONES.forEach(ubicacion => {
-        const headcount = plantilla.filter(emp => {
+        const headcount = plantillaFiltered.filter(emp => {
           const cc = (emp as any).cc || '';
           const empUbicacion = normalizeCCToUbicacion(cc);
           if (empUbicacion !== ubicacion) return false;
@@ -93,7 +103,7 @@ export function RotationHeadcountTable({
     });
 
     return result;
-  }, [plantilla, currentYear]);
+  }, [plantilla, currentYear, filters]);
 
   // Calculate monthly totals
   const monthlyTotals = useMemo(() => {

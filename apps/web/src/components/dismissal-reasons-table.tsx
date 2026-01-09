@@ -22,13 +22,14 @@ import { VisualizationContainer } from "@/components/visualization-container";
 //
 
 interface Employee {
-  id: string;
+  numero_empleado: number;
   puesto?: string;
-  departamento?: string;
-  clasificacion?: string;
-  fecha_baja: string | null;
-  motivo_baja?: string;
+  unidad?: string;  // Centro de costo (cc)
+  empresa?: string;
   ubicacion?: string;
+  departamento?: string;
+  area?: string;
+  fecha_ingreso: string;
 }
 
 interface DismissalReasonsTableProps {
@@ -87,13 +88,14 @@ export function DismissalReasonsTable({
   
   const empleadosDetalle: Employee[] = (showAll ? empleadosOrdenados : empleadosOrdenados.slice(0, 10))
     .map(emp => ({
-      id: String(emp.emp_id || emp.numero_empleado || emp.id || 'N/A'),
+      numero_empleado: emp.numero_empleado || 0,
       puesto: sanitizeText(normalizePuesto(emp.puesto)) || 'Sin puesto',
+      unidad: sanitizeText(emp.cc || '') || 'Sin unidad',
+      empresa: sanitizeText(emp.empresa || '') || 'Sin empresa',
+      ubicacion: sanitizeText(emp.ubicacion || '') || 'Sin ubicación',
       departamento: sanitizeText(normalizeDepartamento(emp.departamento)) || 'Sin departamento',
-      clasificacion: sanitizeText(emp.clasificacion || '') || 'Sin clasificación',
-      fecha_baja: emp.fecha_baja,
-      motivo_baja: sanitizeText(prettyMotivo(emp.motivo_baja) || '') || 'No especificado',
-      ubicacion: sanitizeText((emp as any).ubicacion || '') || 'Sin ubicación'
+      area: sanitizeText(emp.area || '') || 'Sin área',
+      fecha_ingreso: emp.fecha_ingreso
     }));
 
   const formatDate = (dateString: string | null) => {
@@ -149,7 +151,7 @@ export function DismissalReasonsTable({
                 refreshEnabled && "font-body text-sm text-brand-ink/70"
               )}
             >
-              ID, Departamento, Ubicación, Puesto, Clasificación - Datos completos de empleados
+              # de Nómina, Puesto, Unidad, Empresa, Ubicación, Departamento, Área, Fecha de Ingreso
             </p>
           </div>
           <Button
@@ -186,27 +188,29 @@ export function DismissalReasonsTable({
                 <Table className="table-corporate">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-20">ID</TableHead>
-                      <TableHead>Departamento</TableHead>
-                      <TableHead>Ubicación</TableHead>
+                      <TableHead className="w-24"># de Nómina</TableHead>
                       <TableHead>Puesto</TableHead>
-                      <TableHead>Clasificación</TableHead>
-                      <TableHead>Fecha Baja</TableHead>
-                      <TableHead>Motivo</TableHead>
+                      <TableHead>Unidad</TableHead>
+                      <TableHead>Empresa</TableHead>
+                      <TableHead>Ubicación</TableHead>
+                      <TableHead>Departamento</TableHead>
+                      <TableHead>Área</TableHead>
+                      <TableHead>Fecha Ingreso</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {empleadosDetalle.map((empleado, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-mono text-xs">
-                          {empleado.id}
+                          {empleado.numero_empleado}
                         </TableCell>
-                        <TableCell>{empleado.departamento || "Sin Depto"}</TableCell>
-                        <TableCell>{empleado.ubicacion || "Sin Ubicación"}</TableCell>
                         <TableCell>{empleado.puesto || "Sin Puesto"}</TableCell>
-                        <TableCell>{empleado.clasificacion || "Sin Clasificación"}</TableCell>
-                        <TableCell>{formatDate(empleado.fecha_baja)}</TableCell>
-                        <TableCell>{empleado.motivo_baja}</TableCell>
+                        <TableCell>{empleado.unidad || "Sin Unidad"}</TableCell>
+                        <TableCell>{empleado.empresa || "Sin Empresa"}</TableCell>
+                        <TableCell>{empleado.ubicacion || "Sin Ubicación"}</TableCell>
+                        <TableCell>{empleado.departamento || "Sin Depto"}</TableCell>
+                        <TableCell>{empleado.area || "Sin Área"}</TableCell>
+                        <TableCell>{formatDate(empleado.fecha_ingreso)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

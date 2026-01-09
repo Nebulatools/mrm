@@ -14,12 +14,15 @@ import type { PlantillaRecord, MotivoBajaRecord } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { normalizeCCToUbicacion, isMotivoClave } from "@/lib/normalizers";
+import type { RetentionFilterOptions } from "@/lib/filters/filters";
+import { applyFiltersWithScope } from "@/lib/filters/filters";
 
 interface RotationBajasVoluntariasTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
   year?: number;
   refreshEnabled?: boolean;
+  filters?: RetentionFilterOptions;
 }
 
 interface LocationMonthData {
@@ -50,14 +53,19 @@ export function RotationBajasVoluntariasTable({
   motivosBaja,
   year,
   refreshEnabled = false,
+  filters,
 }: RotationBajasVoluntariasTableProps) {
 
   const currentYear = year || new Date().getFullYear();
 
   const data = useMemo(() => {
+    const plantillaFiltered = filters
+      ? applyFiltersWithScope(plantilla, filters, 'general')
+      : plantilla;
+
     // Create employee map with ubicacion
     const empleadoMap = new Map<number, string>();
-    plantilla.forEach(emp => {
+    plantillaFiltered.forEach(emp => {
       const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
       const cc = (emp as any).cc || '';
       const ubicacion = normalizeCCToUbicacion(cc);
@@ -105,7 +113,7 @@ export function RotationBajasVoluntariasTable({
     });
 
     return result;
-  }, [plantilla, motivosBaja, currentYear]);
+  }, [plantilla, motivosBaja, currentYear, filters]);
 
   // Calculate monthly totals
   const monthlyTotals = useMemo(() => {

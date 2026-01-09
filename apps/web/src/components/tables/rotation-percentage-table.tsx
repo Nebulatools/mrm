@@ -16,12 +16,15 @@ import { VisualizationContainer } from "@/components/visualization-container";
 import { normalizeCCToUbicacion } from "@/lib/normalizers";
 import { parseSupabaseDate } from "@/lib/retention-calculations";
 import { endOfMonth, startOfMonth } from "date-fns";
+import type { RetentionFilterOptions } from "@/lib/filters/filters";
+import { applyFiltersWithScope } from "@/lib/filters/filters";
 
 interface RotationPercentageTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
   year?: number;
   refreshEnabled?: boolean;
+  filters?: RetentionFilterOptions;
 }
 
 interface LocationMonthData {
@@ -52,14 +55,19 @@ export function RotationPercentageTable({
   motivosBaja,
   year,
   refreshEnabled = false,
+  filters,
 }: RotationPercentageTableProps) {
 
   const currentYear = year || new Date().getFullYear();
 
   const data = useMemo(() => {
+    const plantillaFiltered = filters
+      ? applyFiltersWithScope(plantilla, filters, 'general')
+      : plantilla;
+
     // Create employee map with ubicacion
     const empleadoMap = new Map<number, string>();
-    plantilla.forEach(emp => {
+    plantillaFiltered.forEach(emp => {
       const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
       const cc = (emp as any).cc || '';
       const ubicacion = normalizeCCToUbicacion(cc);
@@ -97,7 +105,7 @@ export function RotationPercentageTable({
         }).length;
 
         // Calculate headcount at month start and end
-        const headcountStart = plantilla.filter(emp => {
+        const headcountStart = plantillaFiltered.filter(emp => {
           const cc = (emp as any).cc || '';
           const empUbicacion = normalizeCCToUbicacion(cc);
           if (empUbicacion !== ubicacion) return false;
@@ -109,7 +117,7 @@ export function RotationPercentageTable({
           return !fechaBaja || fechaBaja > monthStart;
         }).length;
 
-        const headcountEnd = plantilla.filter(emp => {
+        const headcountEnd = plantillaFiltered.filter(emp => {
           const cc = (emp as any).cc || '';
           const empUbicacion = normalizeCCToUbicacion(cc);
           if (empUbicacion !== ubicacion) return false;
@@ -152,7 +160,7 @@ export function RotationPercentageTable({
     });
 
     return result;
-  }, [plantilla, motivosBaja, currentYear]);
+  }, [plantilla, motivosBaja, currentYear, filters]);
 
   // Calculate monthly averages
   const monthlyAverages = useMemo(() => {
