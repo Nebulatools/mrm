@@ -34,6 +34,18 @@ interface ImportResults {
   errors: string[];
 }
 
+interface StructureChange {
+  filename: string;
+  added: string[];
+  removed: string[];
+}
+
+interface PendingApproval {
+  logId: number;
+  structureChanges: StructureChange[];
+  message: string;
+}
+
 interface SFTPFile {
   name: string;
   type: 'plantilla' | 'incidencias' | 'act';
@@ -96,6 +108,8 @@ export function SFTPImportAdmin() {
   const [scheduleLoading, setScheduleLoading] = useState(true);
   const [scheduleSaving, setScheduleSaving] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
 
   const mapScheduleFromApi = (payload: any): SyncSchedule => {
     const rawFrequency = String(payload?.frequency ?? 'manual').toLowerCase();
@@ -215,19 +229,43 @@ export function SFTPImportAdmin() {
     if (isManualUpdating) return;
     setIsManualUpdating(true);
     setImportResults(null);
-    
+    setPendingApproval(null);
+
     try {
       console.log('🔄 Ejecutando actualización manual de datos SFTP...');
-      
+
       const response = await fetch('/api/import-sftp-real-data?trigger=manual', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         }
       });
-      
+
       const result = await response.json();
-      
+
+      // 🔒 Verificar si hay una importación en curso (error 409)
+      if (response.status === 409) {
+        console.warn('⚠️ Importación bloqueada: ya hay una en curso');
+        setImportResults({
+          empleados: 0,
+          bajas: 0,
+          asistencia: 0,
+          errors: [`Ya hay una importación en curso (ID: ${result.details?.importId}). Estado: ${result.details?.status}. Espera a que termine o cancélala.`]
+        });
+        return;
+      }
+
+      // Verificar si se requiere aprobación por cambios estructurales
+      if (result.requiresApproval) {
+        setPendingApproval({
+          logId: result.logId,
+          structureChanges: result.structureChanges,
+          message: result.message
+        });
+        console.log('⚠️ Se requiere aprobación:', result.structureChanges);
+        return;
+      }
+
       if (result.success) {
         setImportResults(result.results);
         if (result.schedule) {
@@ -243,7 +281,7 @@ export function SFTPImportAdmin() {
           errors: [result.error || 'Error desconocido']
         });
       }
-      
+
     } catch (error) {
       console.error('❌ Error ejecutando actualización manual:', error);
       setImportResults({
@@ -255,6 +293,58 @@ export function SFTPImportAdmin() {
     } finally {
       setIsManualUpdating(false);
     }
+  };
+
+  const approveImport = async () => {
+    if (!pendingApproval || isApproving) return;
+    setIsApproving(true);
+
+    try {
+      console.log('✅ Aprobando importación con cambios estructurales...');
+
+      // Aprobar y continuar con la importación
+      const response = await fetch(`/api/sftp/approve?logId=${pendingApproval.logId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setImportResults(result.results);
+        setPendingApproval(null);
+        if (result.schedule) {
+          setSchedule(mapScheduleFromApi(result.schedule));
+        }
+        console.log('✅ Importación aprobada y completada:', result.results);
+      } else {
+        console.error('❌ Error aprobando importación:', result.error);
+        setImportResults({
+          empleados: 0,
+          bajas: 0,
+          asistencia: 0,
+          errors: [result.error || 'Error al aprobar importación']
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Error aprobando importación:', error);
+      setImportResults({
+        empleados: 0,
+        bajas: 0,
+        asistencia: 0,
+        errors: [error instanceof Error ? error.message : 'Error de conexión']
+      });
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const rejectImport = () => {
+    setPendingApproval(null);
+    console.log('❌ Importación rechazada por el usuario');
   };
 
   const loadFilePreview = async (filename: string) => {
@@ -740,6 +830,94 @@ export function SFTPImportAdmin() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Aprobación Pendiente */}
+      {pendingApproval && (
+        <Card className="mb-6 border-yellow-400">
+          <CardHeader className="bg-yellow-50">
+            <CardTitle className="flex items-center gap-2 text-yellow-800">
+              <AlertCircle className="h-5 w-5" />
+              ⚠️ Cambios Estructurales Detectados
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              {pendingApproval.message}
+            </p>
+
+            <div className="space-y-4 mb-6">
+              {pendingApproval.structureChanges.map((change, index) => (
+                <div key={index} className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    {change.filename}
+                  </h4>
+
+                  {change.added.length > 0 && (
+                    <div className="mb-3">
+                      <span className="text-sm font-medium text-green-700">Columnas agregadas:</span>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {change.added.map((col, i) => (
+                          <Badge key={i} variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                            + {col}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {change.removed.length > 0 && (
+                    <div>
+                      <span className="text-sm font-medium text-red-700">Columnas eliminadas:</span>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {change.removed.map((col, i) => (
+                          <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-300">
+                            - {col}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <Separator className="my-4" />
+
+            <div className="flex gap-3">
+              <Button
+                onClick={approveImport}
+                disabled={isApproving}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isApproving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Aprobando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Aprobar y Continuar Importación
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={rejectImport}
+                disabled={isApproving}
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50"
+              >
+                Rechazar
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-4">
+              Al aprobar, la estructura se guardará como referencia para futuras importaciones.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Resultados */}
       {importResults && (

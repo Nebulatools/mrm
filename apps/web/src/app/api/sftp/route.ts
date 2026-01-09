@@ -136,36 +136,8 @@ class SFTPService {
       console.error('Error listing SFTP files:', error);
       await sftp.end();
 
-      // Return mock files as fallback - basado en los archivos reales del SFTP
-      const mockFiles: SFTPFile[] = [
-        {
-          name: 'Motivos Bajas (1).xlsx',
-          type: 'plantilla',
-          lastModified: new Date('2024-12-01'),
-          size: 15600
-        },
-        {
-          name: 'ME 5. Incidencias.xlsx',
-          type: 'incidencias',
-          lastModified: new Date('2024-12-01'),
-          size: 8900
-        },
-        {
-          name: 'Prenomina Horizontal.xlsx',
-          type: 'plantilla',
-          lastModified: new Date('2024-12-01'),
-          size: 25600
-        },
-        {
-          name: 'Validacion Alta d.docx',
-          type: 'act',
-          lastModified: new Date('2024-12-01'),
-          size: 12800
-        }
-      ];
-
-      console.log(`Fallback: returning ${mockFiles.length} mock files`);
-      return mockFiles;
+      // FAIL FAST: No mock data - surface connection issues immediately
+      throw new Error(`SFTP connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

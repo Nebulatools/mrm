@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development Guidelines (IMPORTANT - READ FIRST)
+
+Before making any changes to this codebase, follow these rules:
+
+1. **Think First**: Read the codebase for relevant files before making changes. Never speculate about code you haven't opened.
+2. **Check Before Major Changes**: Before any significant modification, verify the plan with the user.
+3. **High-Level Explanations**: Every step of the way, provide a brief explanation of what changes were made.
+4. **Simplicity First**: Make every task and code change as simple as possible. Avoid massive or complex changes. Every change should impact as little code as possible.
+5. **Documentation**: Keep this CLAUDE.md file updated to describe how the architecture works.
+6. **No Speculation**: Never make claims about code before investigating. Give grounded, hallucination-free answers.
+
 ## Project Overview
 
 HR KPI Dashboard - A Business Intelligence dashboard for analyzing Human Resources KPIs, built with Next.js 14 and Supabase. The system processes data from SFTP sources and provides interactive visualizations with AI-powered insights.
@@ -183,6 +194,53 @@ SFTP_DIRECTORY=ReportesRH
 Notes:
 - The API fails fast if SFTP env vars are missing (no insecure defaults).
 - Excel/CSV parsing is handled server-side; batch inserts are used.
+
+### SFTP Structure Change Detection (v2.0)
+
+The system automatically detects structural changes (column additions/removals) in SFTP files and requires admin approval before proceeding with imports that have such changes.
+
+**Workflow:**
+1. User clicks "Actualizar Información (Manual)" in `/admin`
+2. System downloads files and compares column structure with last import
+3. If structural changes detected → Shows approval UI with added/removed columns
+4. Admin approves → Import proceeds and new structure is saved as reference
+5. If no structural changes → Import proceeds automatically
+
+**Key Components:**
+- `apps/web/src/lib/sftp-structure-comparator.ts` - Structure comparison logic
+- `apps/web/src/app/api/sftp/approve/route.ts` - Approval endpoint
+- `apps/web/src/app/api/import-sftp-real-data/route.ts` - Main import with structure check
+
+**Database Tables (Bitácora):**
+
+**4. sftp_file_structure (Structure History)**
+```sql
+id: SERIAL PRIMARY KEY
+filename: VARCHAR(500) NOT NULL
+file_type: VARCHAR(50) NOT NULL
+columns_json: JSONB NOT NULL
+row_count: INTEGER
+checksum: VARCHAR(64)
+imported_at: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+```
+
+**5. sftp_import_log (Import Audit Log)**
+```sql
+id: SERIAL PRIMARY KEY
+trigger_type: VARCHAR(50) NOT NULL DEFAULT 'manual'
+status: VARCHAR(50) NOT NULL DEFAULT 'pending'
+structure_changes: JSONB DEFAULT '{"added": [], "removed": []}'
+has_structure_changes: BOOLEAN DEFAULT FALSE
+results: JSONB DEFAULT '{}'
+requires_approval: BOOLEAN DEFAULT FALSE
+approved_by: TEXT
+approved_at: TIMESTAMP WITH TIME ZONE
+started_at: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+completed_at: TIMESTAMP WITH TIME ZONE
+```
+
+**Principle:**
+> "Solo pausar cuando cambia la ESTRUCTURA del archivo. Los datos (registros) fluyen automáticamente."
 
 ### Type System
 

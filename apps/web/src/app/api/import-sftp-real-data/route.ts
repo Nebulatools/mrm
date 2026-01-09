@@ -3,6 +3,12 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sftpClient } from '@/lib/sftp-client';
 import { requireAdmin } from '@/lib/server-auth';
 import { computeNextRun, normalizeDayOfWeek, normalizeFrequency, normalizeRunTime } from '@/lib/utils/sync-schedule';
+import {
+  compareFileStructure,
+  saveFileStructure,
+  createImportLog,
+  updateImportLogStatus
+} from '@/lib/sftp-structure-comparator';
 
 const normalizeKey = (key: unknown): string =>
   typeof key === 'string'
@@ -102,6 +108,28 @@ export async function POST(request: NextRequest) {
     return auth.error;
   }
 
+  // 🔒 LOCK DE CONCURRENCIA: Verificar si ya hay una importación en curso
+  const { data: runningImport } = await supabaseAdmin
+    .from('sftp_import_log')
+    .select('id, status, created_at')
+    .in('status', ['pending', 'analyzing', 'awaiting_approval'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (runningImport) {
+    console.log(`⚠️ Importación bloqueada: ya existe una importación en curso (ID: ${runningImport.id}, status: ${runningImport.status})`);
+    return NextResponse.json({
+      success: false,
+      error: 'Ya hay una importación en curso',
+      details: {
+        importId: runningImport.id,
+        status: runningImport.status,
+        startedAt: runningImport.created_at
+      }
+    }, { status: 409 }); // 409 Conflict
+  }
+
   const isServiceRun = auth.userId === 'service';
   const triggerSource = request.nextUrl.searchParams.get('trigger') ?? '';
   const manualTrigger = triggerSource === 'manual';
@@ -179,7 +207,110 @@ export async function POST(request: NextRequest) {
     // 1. Obtener lista de archivos del SFTP
     const files = await sftpClient.listFiles();
     console.log(`📁 Archivos encontrados:`, files.map(f => f.name));
-    
+
+    // 2. Verificar estructura de archivos antes de importar
+    const structureChanges: { filename: string; added: string[]; removed: string[] }[] = [];
+    let hasAnyStructureChanges = false;
+
+    // Verificar archivo de empleados
+    const empleadosFileCheck = files.find(f => f.name.includes('Validacion Alta') && f.name.includes('empleados'));
+    if (empleadosFileCheck) {
+      const empleadosPreview = await sftpClient.downloadFile(empleadosFileCheck.name);
+      if (empleadosPreview.length > 0) {
+        const columns = Object.keys(empleadosPreview[0]);
+        const comparison = await compareFileStructure(empleadosFileCheck.name, columns);
+
+        if (comparison.hasChanges) {
+          hasAnyStructureChanges = true;
+          structureChanges.push({
+            filename: empleadosFileCheck.name,
+            added: comparison.added,
+            removed: comparison.removed
+          });
+          console.log(`⚠️ Cambios estructurales detectados en ${empleadosFileCheck.name}:`, {
+            added: comparison.added,
+            removed: comparison.removed
+          });
+        } else if (comparison.isFirstImport) {
+          console.log(`ℹ️ Primera importación de ${empleadosFileCheck.name} - guardando estructura`);
+          await saveFileStructure(empleadosFileCheck.name, 'empleados', columns, empleadosPreview.length);
+        }
+      }
+    }
+
+    // Verificar archivo de bajas
+    const bajasFileCheck = files.find(f => f.name.toLowerCase().includes('motivos') && f.name.toLowerCase().includes('baja'));
+    if (bajasFileCheck) {
+      const bajasPreview = await sftpClient.downloadFile(bajasFileCheck.name);
+      if (bajasPreview.length > 0) {
+        const columns = Object.keys(bajasPreview[0]);
+        const comparison = await compareFileStructure(bajasFileCheck.name, columns);
+
+        if (comparison.hasChanges) {
+          hasAnyStructureChanges = true;
+          structureChanges.push({
+            filename: bajasFileCheck.name,
+            added: comparison.added,
+            removed: comparison.removed
+          });
+          console.log(`⚠️ Cambios estructurales detectados en ${bajasFileCheck.name}:`, {
+            added: comparison.added,
+            removed: comparison.removed
+          });
+        } else if (comparison.isFirstImport) {
+          console.log(`ℹ️ Primera importación de ${bajasFileCheck.name} - guardando estructura`);
+          await saveFileStructure(bajasFileCheck.name, 'bajas', columns, bajasPreview.length);
+        }
+      }
+    }
+
+    // Verificar archivo de incidencias
+    const incidenciasFileCheck = files.find(f => f.name.toLowerCase().includes('incidencia') && f.name.toLowerCase().endsWith('.csv'));
+    if (incidenciasFileCheck) {
+      const incidenciasPreview = await sftpClient.downloadFile(incidenciasFileCheck.name);
+      if (incidenciasPreview.length > 0) {
+        const columns = Object.keys(incidenciasPreview[0]);
+        const comparison = await compareFileStructure(incidenciasFileCheck.name, columns);
+
+        if (comparison.hasChanges) {
+          hasAnyStructureChanges = true;
+          structureChanges.push({
+            filename: incidenciasFileCheck.name,
+            added: comparison.added,
+            removed: comparison.removed
+          });
+          console.log(`⚠️ Cambios estructurales detectados en ${incidenciasFileCheck.name}:`, {
+            added: comparison.added,
+            removed: comparison.removed
+          });
+        } else if (comparison.isFirstImport) {
+          console.log(`ℹ️ Primera importación de ${incidenciasFileCheck.name} - guardando estructura`);
+          await saveFileStructure(incidenciasFileCheck.name, 'incidencias', columns, incidenciasPreview.length);
+        }
+      }
+    }
+
+    // Si hay cambios estructurales, crear log y solicitar aprobación
+    if (hasAnyStructureChanges) {
+      const triggerType = isServiceRun ? 'cron' : 'manual';
+      const logId = await createImportLog(triggerType, true, {
+        added: structureChanges.flatMap(c => c.added),
+        removed: structureChanges.flatMap(c => c.removed)
+      });
+
+      console.log(`🔒 Importación pausada - se requiere aprobación (log_id: ${logId})`);
+
+      return NextResponse.json({
+        success: false,
+        requiresApproval: true,
+        logId,
+        message: 'Se detectaron cambios estructurales en los archivos. Se requiere aprobación antes de continuar.',
+        structureChanges
+      }, { status: 202 });
+    }
+
+    console.log('✅ Verificación de estructura completada - sin cambios');
+
     const results = {
       empleados: 0,
       bajas: 0,
@@ -423,6 +554,34 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Importación de datos SFTP completada!');
     console.log(`📊 Resultados finales - Empleados: ${results.empleados}, Bajas: ${results.bajas}, Incidencias: ${results.incidencias}`);
+
+    // Guardar estructuras de archivos procesados exitosamente para futuras comparaciones
+    try {
+      if (empleadosFile && results.empleados > 0) {
+        const empleadosDataForStructure = await sftpClient.downloadFile(empleadosFile.name);
+        if (empleadosDataForStructure.length > 0) {
+          await saveFileStructure(empleadosFile.name, 'empleados', Object.keys(empleadosDataForStructure[0]), results.empleados);
+          console.log(`💾 Estructura guardada: ${empleadosFile.name}`);
+        }
+      }
+      if (bajasFile && results.bajas > 0) {
+        const bajasDataForStructure = await sftpClient.downloadFile(bajasFile.name);
+        if (bajasDataForStructure.length > 0) {
+          await saveFileStructure(bajasFile.name, 'bajas', Object.keys(bajasDataForStructure[0]), results.bajas);
+          console.log(`💾 Estructura guardada: ${bajasFile.name}`);
+        }
+      }
+      if (incidenciasFile && results.incidencias !== null && results.incidencias > 0) {
+        const incidenciasDataForStructure = await sftpClient.downloadFile(incidenciasFile.name);
+        if (incidenciasDataForStructure.length > 0) {
+          await saveFileStructure(incidenciasFile.name, 'incidencias', Object.keys(incidenciasDataForStructure[0]), incidenciasDataForStructure.length);
+          console.log(`💾 Estructura guardada: ${incidenciasFile.name}`);
+        }
+      }
+    } catch (structureError) {
+      console.error('Error guardando estructuras:', structureError);
+      // No fallar la importación por esto, solo loggear
+    }
 
     let scheduleMeta: { last_run?: string | null; next_run?: string | null } = {};
     const { data: scheduleRow, error: scheduleError } = await supabaseAdmin
