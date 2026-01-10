@@ -112,36 +112,28 @@ export const calculateMonthlyRetention = async (
     const buildEventos = (rangeStartInner: Date, rangeEndInner: Date): EventoDetallado[] => {
       const eventosMap = new Map<string, EventoDetallado>();
 
-      const addEvento = (numero: number, fecha: Date, motivo: string, empleado: PlantillaRecord) => {
-        const key = `${numero}-${fecha.toISOString().slice(0, 10)}`;
-        if (!eventosMap.has(key)) {
-          eventosMap.set(key, { numero_empleado: numero, fecha, motivo, empleado });
-        }
-      };
-
-      if (bajaEventos && bajaEventos.length > 0) {
-        bajaEventos.forEach(evento => {
-          const numero = Number(evento.numero_empleado);
-          if (!Number.isFinite(numero)) return;
-          const empleado = empleadosMap.get(numero);
-          if (!empleado) return;
-          const fechaBaja = parseSupabaseDate(evento.fecha_baja);
-          if (!fechaBaja) return;
-          if (fechaBaja < rangeStartInner || fechaBaja > rangeEndInner) return;
-          if (!bajaMatchesMotivo(empleado, motive, evento.motivo_normalizado)) return;
-          addEvento(numero, fechaBaja, evento.motivo_normalizado, empleado);
-        });
-      }
-
+      // SOURCE: empleados_sftp (plantilla) - fecha_baja and motivo_baja
       plantillaFiltered.forEach(emp => {
         const fechaBajaParsed = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
         if (!fechaBajaParsed) return;
         if (fechaBajaParsed < rangeStartInner || fechaBajaParsed > rangeEndInner) return;
-        if (!bajaMatchesMotivo(emp, motive)) return;
+
         const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
         if (!Number.isFinite(numero)) return;
+
         const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
-        addEvento(numero, fechaBajaParsed, motivoNormalizado, emp);
+
+        if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
+
+        const key = `${numero}-${fechaBajaParsed.toISOString().slice(0, 10)}`;
+        if (!eventosMap.has(key)) {
+          eventosMap.set(key, {
+            numero_empleado: numero,
+            fecha: fechaBajaParsed,
+            motivo: motivoNormalizado,
+            empleado: emp
+          });
+        }
       });
 
       return Array.from(eventosMap.values());

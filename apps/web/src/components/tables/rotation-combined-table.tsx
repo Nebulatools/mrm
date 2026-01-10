@@ -10,24 +10,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { PlantillaRecord, MotivoBajaRecord } from "@/lib/supabase";
+import type { PlantillaRecord } from "@/lib/supabase";
+import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/visualization-container";
-import { normalizeCCToUbicacion } from "@/lib/normalizers";
+import { normalizeCCToUbicacion, normalizeMotivo, isMotivoClave } from "@/lib/normalizers";
 import { parseSupabaseDate } from "@/lib/retention-calculations";
 import { endOfMonth, startOfMonth } from "date-fns";
+import { isFutureMonth } from "@/lib/date-utils";
+import { getYearParenthetical } from "@/lib/filters/year-display";
 
 interface RotationCombinedTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
-  year?: number;
+  selectedYears?: number[];
   refreshEnabled?: boolean;
 }
 
 interface MetricData {
   ubicacion: string;
   metrica: string;
-  months: Record<string, string | number>;
+  months: Record<string, string | number | null>;
   avg: string | number;
 }
 
@@ -57,26 +60,36 @@ const METRICAS = [
 export function RotationCombinedTable({
   plantilla,
   motivosBaja,
-  year,
+  selectedYears = [],
   refreshEnabled = false,
 }: RotationCombinedTableProps) {
 
-  const currentYear = year || new Date().getFullYear();
+  // Use first selected year for monthly calculations, or current year if none selected
+  const currentYear = selectedYears.length > 0 ? selectedYears[0] : new Date().getFullYear();
 
   const data = useMemo(() => {
-    // Create employee map with ubicacion
-    const empleadoMap = new Map<number, string>();
-    plantilla.forEach(emp => {
-      const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
-      const cc = (emp as any).cc || '';
-      const ubicacion = normalizeCCToUbicacion(cc);
-      empleadoMap.set(numero, ubicacion);
+    // Filter motivos_baja by the same years as the bajas being analyzed
+    // This ensures we only use motivos from the matching year period
+    const filteredMotivosBaja = selectedYears.length > 0
+      ? motivosBaja.filter(baja => {
+          if (!baja.fecha_baja) return false;
+          const bajaYear = new Date(baja.fecha_baja).getFullYear();
+          return selectedYears.includes(bajaYear);
+        })
+      : motivosBaja;
+
+    // Create lookup map: numero_empleado -> motivo from filtered motivos_baja table
+    const motivosMap = new Map<number, string>();
+    filteredMotivosBaja.forEach(baja => {
+      motivosMap.set(baja.numero_empleado, baja.motivo);
     });
 
-    // Filter bajas for the selected year
-    const bajasYear = motivosBaja.filter(baja => {
-      const fecha = new Date(baja.fecha_baja);
-      return fecha.getFullYear() === currentYear;
+    // SOURCE: empleados_sftp (plantilla) - filter bajas for the selected years
+    const bajasYear = plantilla.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      if (selectedYears.length === 0) return true; // No year filter = show all
+      const fecha = new Date(emp.fecha_baja);
+      return selectedYears.includes(fecha.getFullYear());
     });
 
     // First calculate all metrics by ubicacion
@@ -93,6 +106,15 @@ export function RotationCombinedTable({
       MONTHS.forEach(month => {
         const monthStart = startOfMonth(new Date(currentYear, month.num - 1, 1));
         const monthEnd = endOfMonth(monthStart);
+
+        // Skip future months
+        if (isFutureMonth(currentYear, month.num)) {
+          metricsByUbicacion[ubicacion].activos.months[month.key] = null;
+          metricsByUbicacion[ubicacion].voluntarias.months[month.key] = null;
+          metricsByUbicacion[ubicacion].involuntarias.months[month.key] = null;
+          metricsByUbicacion[ubicacion].porcentaje.months[month.key] = null;
+          return;
+        }
 
         // Calculate headcount
         const headcountStart = plantilla.filter(emp => {
@@ -124,28 +146,23 @@ export function RotationCombinedTable({
         metricsByUbicacion[ubicacion].activos.months[month.key] = roundedHeadcount;
         metricsByUbicacion[ubicacion].activos.values.push(roundedHeadcount);
 
-        // Count bajas
-        const bajasMes = bajasYear.filter(baja => {
-          const numero = Number(baja.numero_empleado);
-          const empUbicacion = empleadoMap.get(numero);
-          if (!empUbicacion || empUbicacion !== ubicacion) return false;
+        // Count bajas for this location and month
+        const bajasMes = bajasYear.filter(emp => {
+          const cc = (emp as any).cc || '';
+          const empUbicacion = normalizeCCToUbicacion(cc);
+          if (empUbicacion !== ubicacion) return false;
 
-          const fecha = new Date(baja.fecha_baja);
+          const fecha = new Date(emp.fecha_baja!);
           const monthNum = fecha.getMonth() + 1;
           return monthNum === month.num;
         });
 
-        // INVOLUNTARIAS = Abandono, Término, Rescisión, Ausentismo
-        const involuntarias = bajasMes.filter(b => {
-          const motivo = (b.motivo || '').toLowerCase();
-          return (
-            motivo.includes('abandono') ||
-            motivo.includes('ausentismo') ||
-            motivo.includes('rescisión') ||
-            motivo.includes('rescision') ||
-            motivo.includes('término') ||
-            motivo.includes('termino')
-          );
+        // INVOLUNTARIAS = use isMotivoClave from normalizers
+        // JOIN: Get motivo from motivos_baja lookup by numero_empleado
+        const involuntarias = bajasMes.filter(emp => {
+          const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
+          const motivo = normalizeMotivo(rawMotivo || '');
+          return isMotivoClave(motivo);
         }).length;
 
         const voluntarias = bajasMes.length - involuntarias;
@@ -193,7 +210,7 @@ export function RotationCombinedTable({
     });
 
     return result;
-  }, [plantilla, motivosBaja, currentYear]);
+  }, [plantilla, motivosBaja, currentYear, selectedYears]);
 
   // Calculate monthly totals/averages
   const monthlyTotals = useMemo(() => {
@@ -274,7 +291,7 @@ export function RotationCombinedTable({
               refreshEnabled && "font-heading text-xl text-brand-ink dark:text-white"
             )}
           >
-            Rotación por Ubicación - Resumen Anual ({currentYear})
+            Rotación por Ubicación - Resumen Anual{getYearParenthetical(selectedYears)}
           </CardTitle>
           <p
             className={cn(

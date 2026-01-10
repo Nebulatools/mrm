@@ -10,22 +10,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { MotivoBajaRecord } from "@/lib/supabase";
+import type { PlantillaRecord } from "@/lib/supabase";
+import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { prettyMotivo } from "@/lib/normalizers";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { getYearParenthetical } from "@/lib/filters/year-display";
+import { isFutureMonth } from "@/lib/date-utils";
 
 interface RotationByMotiveMonthTableProps {
+  plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
-  year?: number;
+  selectedYears?: number[];
   refreshEnabled?: boolean;
 }
 
 interface MotiveMonthData {
   motivo: string;
-  months: Record<string, number>;
+  months: Record<string, number | null>;
   total: number;
 }
 
@@ -45,26 +47,48 @@ const MONTHS = [
 ];
 
 export function RotationByMotiveMonthTable({
+  plantilla,
   motivosBaja,
-  year,
+  selectedYears = [],
   refreshEnabled = false,
 }: RotationByMotiveMonthTableProps) {
 
-  const currentYear = year || new Date().getFullYear();
-
   const { data, grandTotal } = useMemo(() => {
-    // Filter bajas for the selected year
-    const bajasYear = motivosBaja.filter(baja => {
-      const fecha = new Date(baja.fecha_baja);
-      return fecha.getFullYear() === currentYear;
+    // Filter motivos_baja by the same years as the bajas being analyzed
+    // This ensures we only use motivos from the matching year period
+    const filteredMotivosBaja = selectedYears.length > 0
+      ? motivosBaja.filter(baja => {
+          if (!baja.fecha_baja) return false;
+          const bajaYear = new Date(baja.fecha_baja).getFullYear();
+          return selectedYears.includes(bajaYear);
+        })
+      : motivosBaja;
+
+    // Create lookup map: numero_empleado -> motivo from filtered motivos_baja table
+    const motivosMap = new Map<number, string>();
+    filteredMotivosBaja.forEach(baja => {
+      motivosMap.set(baja.numero_empleado, baja.motivo);
     });
 
-    // Group by motivo and month
-    const motivoMonthMap = new Map<string, Record<string, number>>();
+    // SOURCE: empleados_sftp (plantilla) - filter by fecha_baja
+    const bajasAll = plantilla.filter(emp => emp.fecha_baja);
 
-    bajasYear.forEach(baja => {
-      const motivo = prettyMotivo(baja.motivo || baja.descripcion) || 'No especificado';
-      const fecha = new Date(baja.fecha_baja);
+    // Filter bajas for the selected years (if any)
+    const bajasYear = selectedYears.length > 0
+      ? bajasAll.filter(emp => {
+          const fecha = new Date(emp.fecha_baja!);
+          return selectedYears.includes(fecha.getFullYear());
+        })
+      : bajasAll;
+
+    // Group by motivo and month
+    const motivoMonthMap = new Map<string, Record<string, number | null>>();
+
+    bajasYear.forEach(emp => {
+      // JOIN: Get motivo from motivos_baja lookup by numero_empleado
+      const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
+      const motivo = prettyMotivo(rawMotivo) || 'No especificado';
+      const fecha = new Date(emp.fecha_baja!);
       const month = fecha.getMonth() + 1; // 1-12
 
       const monthKey = MONTHS.find(m => m.num === month)?.key || '';
@@ -75,13 +99,15 @@ export function RotationByMotiveMonthTable({
       }
 
       const motivoData = motivoMonthMap.get(motivo)!;
-      motivoData[monthKey] = (motivoData[monthKey] || 0) + 1;
+      motivoData[monthKey] = ((motivoData[monthKey] as number) || 0) + 1;
     });
 
     // Get top motivos by frequency
     const motivoCounts = new Map<string, number>();
-    bajasYear.forEach(baja => {
-      const motivo = prettyMotivo(baja.motivo || baja.descripcion) || 'No especificado';
+    bajasYear.forEach(emp => {
+      // JOIN: Get motivo from motivos_baja lookup by numero_empleado
+      const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
+      const motivo = prettyMotivo(rawMotivo) || 'No especificado';
       motivoCounts.set(motivo, (motivoCounts.get(motivo) || 0) + 1);
     });
 
@@ -90,25 +116,40 @@ export function RotationByMotiveMonthTable({
       .slice(0, 5)
       .map(([motivo]) => motivo);
 
+    // Mark future months as null (based on first selected year or current year)
+    const refYear = selectedYears.length > 0 ? selectedYears[0] : new Date().getFullYear();
+    topMotivos.forEach(motivo => {
+      MONTHS.forEach(month => {
+        if (isFutureMonth(refYear, month.num)) {
+          const months = motivoMonthMap.get(motivo);
+          if (months) months[month.key] = null;
+        }
+      });
+    });
+
     // Build data array for top motivos only
     const data: MotiveMonthData[] = topMotivos.map(motivo => {
       const months = motivoMonthMap.get(motivo) || {};
-      const total = Object.values(months).reduce((sum, count) => sum + count, 0);
+      const validValues = Object.values(months).filter((v): v is number => v !== null);
+      const total = validValues.reduce((sum, count) => sum + count, 0);
       return { motivo, months, total };
     });
 
     const grandTotal = bajasYear.length;
 
     return { data, grandTotal };
-  }, [motivosBaja, currentYear]);
+  }, [plantilla, motivosBaja, selectedYears]);
 
   // Calculate monthly totals
   const monthlyTotals = useMemo(() => {
-    const totals: Record<string, number> = {};
-    data.forEach(row => {
-      MONTHS.forEach(month => {
-        totals[month.key] = (totals[month.key] || 0) + (row.months[month.key] || 0);
-      });
+    const totals: Record<string, number | null> = {};
+    MONTHS.forEach(month => {
+      const hasNull = data.some(row => row.months[month.key] === null);
+      if (hasNull) {
+        totals[month.key] = null;
+      } else {
+        totals[month.key] = data.reduce((sum, row) => sum + ((row.months[month.key] as number) || 0), 0);
+      }
     });
     return totals;
   }, [data]);
@@ -134,7 +175,7 @@ export function RotationByMotiveMonthTable({
               refreshEnabled && "font-heading text-xl text-brand-ink dark:text-white"
             )}
           >
-            Motivo de Baja por Mes ({currentYear})
+            Motivo de Baja por Mes{getYearParenthetical(selectedYears)}
           </CardTitle>
           <p
             className={cn(
@@ -175,7 +216,7 @@ export function RotationByMotiveMonthTable({
                       </TableCell>
                       {MONTHS.map(month => (
                         <TableCell key={month.key} className="text-right">
-                          {row.months[month.key] || ''}
+                          {row.months[month.key] === null ? '-' : (row.months[month.key] || '')}
                         </TableCell>
                       ))}
                       <TableCell className="text-right font-semibold">{row.total}</TableCell>
@@ -186,7 +227,7 @@ export function RotationByMotiveMonthTable({
                     <TableCell className="font-bold">Total general</TableCell>
                     {MONTHS.map(month => (
                       <TableCell key={month.key} className="text-right font-bold">
-                        {monthlyTotals[month.key] || ''}
+                        {monthlyTotals[month.key] === null ? '-' : (monthlyTotals[month.key] || '')}
                       </TableCell>
                     ))}
                     <TableCell className="text-right font-bold">{grandTotal}</TableCell>

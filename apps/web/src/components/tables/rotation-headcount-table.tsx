@@ -18,6 +18,7 @@ import { normalizeCCToUbicacion } from "@/lib/normalizers";
 import { parseSupabaseDate } from "@/lib/retention-calculations";
 import { applyFiltersWithScope } from "@/lib/filters/filters";
 import { endOfMonth } from "date-fns";
+import { isFutureMonth } from "@/lib/date-utils";
 
 interface RotationHeadcountTableProps {
   plantilla: PlantillaRecord[];
@@ -28,7 +29,7 @@ interface RotationHeadcountTableProps {
 
 interface LocationMonthData {
   ubicacion: string;
-  months: Record<string, number>;
+  months: Record<string, number | null>;
   avg: number;
 }
 
@@ -65,7 +66,7 @@ export function RotationHeadcountTable({
       ? applyFiltersWithScope(plantilla, filters, 'general')
       : plantilla;
 
-    const locationMonthMap = new Map<string, Record<string, number>>();
+    const locationMonthMap = new Map<string, Record<string, number | null>>();
 
     // Initialize all locations
     UBICACIONES.forEach(ubicacion => {
@@ -74,6 +75,12 @@ export function RotationHeadcountTable({
 
     // Calculate headcount for each location and month
     MONTHS.forEach(month => {
+      // Skip future months
+      if (isFutureMonth(currentYear, month.num)) {
+        UBICACIONES.forEach(ub => { locationMonthMap.get(ub)![month.key] = null; });
+        return;
+      }
+
       const monthEnd = endOfMonth(new Date(currentYear, month.num - 1, 1));
 
       UBICACIONES.forEach(ubicacion => {
@@ -97,8 +104,8 @@ export function RotationHeadcountTable({
     // Build data array
     const result: LocationMonthData[] = UBICACIONES.map(ubicacion => {
       const months = locationMonthMap.get(ubicacion) || {};
-      const values = Object.values(months);
-      const avg = values.length > 0 ? Math.round(values.reduce((sum, val) => sum + val, 0) / values.length) : 0;
+      const validValues = Object.values(months).filter((v): v is number => v !== null);
+      const avg = validValues.length > 0 ? Math.round(validValues.reduce((sum, val) => sum + val, 0) / validValues.length) : 0;
       return { ubicacion, months, avg };
     });
 
@@ -107,10 +114,15 @@ export function RotationHeadcountTable({
 
   // Calculate monthly totals
   const monthlyTotals = useMemo(() => {
-    const totals: Record<string, number> = {};
+    const totals: Record<string, number | null> = {};
     data.forEach(row => {
       MONTHS.forEach(month => {
-        totals[month.key] = (totals[month.key] || 0) + (row.months[month.key] || 0);
+        const val = row.months[month.key];
+        if (val === null) {
+          if (totals[month.key] === undefined) totals[month.key] = null;
+        } else {
+          totals[month.key] = (totals[month.key] || 0) + val;
+        }
       });
     });
     return totals;
@@ -118,8 +130,8 @@ export function RotationHeadcountTable({
 
   // Calculate average total
   const avgTotal = useMemo(() => {
-    const values = Object.values(monthlyTotals);
-    return values.length > 0 ? Math.round(values.reduce((sum, val) => sum + val, 0) / values.length) : 0;
+    const validValues = Object.values(monthlyTotals).filter((v): v is number => v !== null);
+    return validValues.length > 0 ? Math.round(validValues.reduce((sum, val) => sum + val, 0) / validValues.length) : 0;
   }, [monthlyTotals]);
 
   return (
@@ -205,7 +217,7 @@ export function RotationHeadcountTable({
                       </TableCell>
                       {MONTHS.map(month => (
                         <TableCell key={month.key} className="text-right">
-                          {row.months[month.key] || 0}
+                          {row.months[month.key] === null ? '-' : (row.months[month.key] || 0)}
                         </TableCell>
                       ))}
                       <TableCell className="text-right font-semibold">{row.avg}</TableCell>
@@ -216,7 +228,7 @@ export function RotationHeadcountTable({
                     <TableCell>Total</TableCell>
                     {MONTHS.map(month => (
                       <TableCell key={month.key} className="text-right">
-                        {monthlyTotals[month.key] || 0}
+                        {monthlyTotals[month.key] === null ? '-' : (monthlyTotals[month.key] || 0)}
                       </TableCell>
                     ))}
                     <TableCell className="text-right">{avgTotal}</TableCell>

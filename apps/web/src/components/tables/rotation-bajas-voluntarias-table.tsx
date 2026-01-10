@@ -10,12 +10,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { PlantillaRecord, MotivoBajaRecord } from "@/lib/supabase";
+import type { PlantillaRecord } from "@/lib/supabase";
+import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/visualization-container";
-import { normalizeCCToUbicacion, isMotivoClave } from "@/lib/normalizers";
+import { normalizeCCToUbicacion, isMotivoClave, normalizeMotivo } from "@/lib/normalizers";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { applyFiltersWithScope } from "@/lib/filters/filters";
+import { isFutureMonth } from "@/lib/date-utils";
 
 interface RotationBajasVoluntariasTableProps {
   plantilla: PlantillaRecord[];
@@ -27,7 +29,7 @@ interface RotationBajasVoluntariasTableProps {
 
 interface LocationMonthData {
   ubicacion: string;
-  months: Record<string, number>;
+  months: Record<string, number | null>;
   total: number;
 }
 
@@ -59,41 +61,49 @@ export function RotationBajasVoluntariasTable({
   const currentYear = year || new Date().getFullYear();
 
   const data = useMemo(() => {
+    // Filter motivos_baja by the same year as the bajas being analyzed
+    // This ensures we only use motivos from the matching year
+    const filteredMotivosBaja = motivosBaja.filter(baja => {
+      if (!baja.fecha_baja) return false;
+      const bajaYear = new Date(baja.fecha_baja).getFullYear();
+      return bajaYear === currentYear;
+    });
+
+    // Create lookup map: numero_empleado -> motivo from filtered motivos_baja table
+    const motivosMap = new Map<number, string>();
+    filteredMotivosBaja.forEach(baja => {
+      motivosMap.set(baja.numero_empleado, baja.motivo);
+    });
+
     const plantillaFiltered = filters
       ? applyFiltersWithScope(plantilla, filters, 'general')
       : plantilla;
 
-    // Create employee map with ubicacion
-    const empleadoMap = new Map<number, string>();
-    plantillaFiltered.forEach(emp => {
-      const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
-      const cc = (emp as any).cc || '';
-      const ubicacion = normalizeCCToUbicacion(cc);
-      empleadoMap.set(numero, ubicacion);
-    });
-
-    // Filter bajas for the selected year (voluntary only)
-    const bajasYear = motivosBaja.filter(baja => {
-      const fecha = new Date(baja.fecha_baja);
+    // SOURCE: empleados_sftp (plantilla) - filter bajas voluntarias
+    const bajasYear = plantillaFiltered.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const fecha = new Date(emp.fecha_baja);
       if (fecha.getFullYear() !== currentYear) return false;
 
+      // JOIN: Get motivo from motivos_baja lookup by numero_empleado
+      const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
+      const motivo = normalizeMotivo(rawMotivo || '');
       // Only voluntary bajas (not isMotivoClave)
-      const motivo = baja.motivo || baja.descripcion || '';
       return !isMotivoClave(motivo);
     });
 
     // Group by ubicacion and month
-    const locationMonthMap = new Map<string, Record<string, number>>();
+    const locationMonthMap = new Map<string, Record<string, number | null>>();
 
     // Initialize all locations
     UBICACIONES.forEach(ubicacion => {
       locationMonthMap.set(ubicacion, {});
     });
 
-    bajasYear.forEach(baja => {
-      const numero = Number(baja.numero_empleado);
-      const ubicacion = empleadoMap.get(numero) || 'OTROS';
-      const fecha = new Date(baja.fecha_baja);
+    bajasYear.forEach(emp => {
+      const cc = (emp as any).cc || '';
+      const ubicacion = normalizeCCToUbicacion(cc);
+      const fecha = new Date(emp.fecha_baja!);
       const month = fecha.getMonth() + 1; // 1-12
 
       const monthKey = MONTHS.find(m => m.num === month)?.key || '';
@@ -101,14 +111,22 @@ export function RotationBajasVoluntariasTable({
 
       const locationData = locationMonthMap.get(ubicacion);
       if (locationData) {
-        locationData[monthKey] = (locationData[monthKey] || 0) + 1;
+        locationData[monthKey] = ((locationData[monthKey] as number) || 0) + 1;
+      }
+    });
+
+    // Mark future months as null
+    MONTHS.forEach(month => {
+      if (isFutureMonth(currentYear, month.num)) {
+        UBICACIONES.forEach(ub => { locationMonthMap.get(ub)![month.key] = null; });
       }
     });
 
     // Build data array
     const result: LocationMonthData[] = UBICACIONES.map(ubicacion => {
       const months = locationMonthMap.get(ubicacion) || {};
-      const total = Object.values(months).reduce((sum, count) => sum + count, 0);
+      const validValues = Object.values(months).filter((v): v is number => v !== null);
+      const total = validValues.reduce((sum, count) => sum + count, 0);
       return { ubicacion, months, total };
     });
 
@@ -117,11 +135,14 @@ export function RotationBajasVoluntariasTable({
 
   // Calculate monthly totals
   const monthlyTotals = useMemo(() => {
-    const totals: Record<string, number> = {};
-    data.forEach(row => {
-      MONTHS.forEach(month => {
-        totals[month.key] = (totals[month.key] || 0) + (row.months[month.key] || 0);
-      });
+    const totals: Record<string, number | null> = {};
+    MONTHS.forEach(month => {
+      const hasNull = data.some(row => row.months[month.key] === null);
+      if (hasNull) {
+        totals[month.key] = null;
+      } else {
+        totals[month.key] = data.reduce((sum, row) => sum + ((row.months[month.key] as number) || 0), 0);
+      }
     });
     return totals;
   }, [data]);
@@ -214,7 +235,7 @@ export function RotationBajasVoluntariasTable({
                       </TableCell>
                       {MONTHS.map(month => (
                         <TableCell key={month.key} className="text-right">
-                          {row.months[month.key] || ''}
+                          {row.months[month.key] === null ? '-' : (row.months[month.key] || '')}
                         </TableCell>
                       ))}
                       <TableCell className="text-right font-semibold">{row.total}</TableCell>
@@ -225,7 +246,7 @@ export function RotationBajasVoluntariasTable({
                     <TableCell>Total</TableCell>
                     {MONTHS.map(month => (
                       <TableCell key={month.key} className="text-right">
-                        {monthlyTotals[month.key] || ''}
+                        {monthlyTotals[month.key] === null ? '-' : (monthlyTotals[month.key] || '')}
                       </TableCell>
                     ))}
                     <TableCell className="text-right">{grandTotal}</TableCell>

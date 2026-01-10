@@ -36,6 +36,7 @@ import { ModelTrendsTab } from "./model-trends-tab";
 import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters/filters";
 import { kpiCalculator, type KPIResult, type TimeFilter } from "@/lib/kpi-calculator";
 import { db, type PlantillaRecord, type IncidenciaCSVRecord } from "@/lib/supabase";
+import type { MotivoBajaRecord } from "@/lib/types/records";
 import { createBrowserClient } from "@/lib/supabase-client";
 import { format, endOfMonth, startOfDay } from "date-fns";
 import { es } from 'date-fns/locale';
@@ -112,7 +113,7 @@ export function DashboardPage() {
   });
   const [timePeriod] = useState<TimePeriod>('monthly');
   const [bajasPorMotivoData, setBajasPorMotivoData] = useState<BajasPorMotivoData[]>([]);
-  const [bajasData, setBajasData] = useState<any[]>([]);
+  const [bajasData, setBajasData] = useState<MotivoBajaRecord[]>([]);
   const [incidenciasData, setIncidenciasData] = useState<IncidenciaCSVRecord[]>([]);
 
   // Toggle para filtrar visualizaciones por rotación involuntaria vs voluntaria
@@ -1662,6 +1663,7 @@ export function DashboardPage() {
               plantilla={plantillaFiltered}
               plantillaAnual={plantillaFilteredYearScope}
               currentYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}
+              selectedYears={retentionFilters.years}
               selectedMonths={retentionFilters.months}
               initialIncidencias={incidenciasFiltered}
               onKPIsUpdate={setIncidentsKpiSnapshot}
@@ -1892,7 +1894,7 @@ export function DashboardPage() {
             {/* Mapa de Calor de Bajas por Motivo */}
             <BajasPorMotivoHeatmap
               data={bajasPorMotivoData}
-              year={currentYear}
+              selectedYears={retentionFilters.years}
             />
 
             <AbandonosOtrosSummary referenceDate={selectedPeriod} />
@@ -1902,16 +1904,18 @@ export function DashboardPage() {
               <RotationByMotiveAreaTable
                 plantilla={plantillaFiltered}
                 motivosBaja={bajasData}
+                selectedYears={retentionFilters.years}
                 refreshEnabled={refreshEnabled}
               />
               <RotationByMotiveSeniorityTable
-                plantilla={plantillaFiltered}
+                plantilla={data.plantilla || []}
                 motivosBaja={bajasData}
                 refreshEnabled={refreshEnabled}
               />
               <RotationByMotiveMonthTable
+                plantilla={plantillaFilteredYearScope}
                 motivosBaja={bajasData}
-                year={selectedPeriod.getFullYear()}
+                selectedYears={retentionFilters.years}
                 refreshEnabled={refreshEnabled}
               />
             </div>
@@ -1921,7 +1925,7 @@ export function DashboardPage() {
               <RotationCombinedTable
                 plantilla={plantillaFilteredYearScope}
                 motivosBaja={bajasData}
-                year={selectedPeriod.getFullYear()}
+                selectedYears={retentionFilters.years}
                 refreshEnabled={refreshEnabled}
               />
             </div>

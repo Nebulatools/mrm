@@ -19,11 +19,13 @@ import { Users, AlertCircle, Activity, ClipboardCheck } from "lucide-react";
 import { getModernColor, withOpacity } from "@/lib/chart-colors";
 import { useTheme } from "@/components/theme-provider";
 import { AbsenteeismTable } from "@/components/absenteeism-table";
+import { getTitleWithYear } from "@/lib/filters/year-display";
 
 type Props = {
   plantilla?: PlantillaRecord[];
   plantillaAnual?: PlantillaRecord[];
   currentYear?: number;
+  selectedYears?: number[];
   selectedMonths?: number[];
   initialIncidencias?: IncidenciaCSVRecord[];
   onKPIsUpdate?: (kpis: {
@@ -206,7 +208,7 @@ const formatToDDMMYYYY = (value?: string | null) => {
   return format(parsed, 'dd-MM-yyyy');
 };
 
-export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedMonths, initialIncidencias, onKPIsUpdate }: Props) {
+export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedYears = [], selectedMonths, initialIncidencias, onKPIsUpdate }: Props) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
@@ -1213,7 +1215,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         <Card className="h-[400px] flex flex-col">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div className="flex-1">
-              <CardTitle className="text-base">Ausentismo por Motivo - {currentYear || new Date().getFullYear()}</CardTitle>
+              <CardTitle className="text-base">{getTitleWithYear('Ausentismo por Motivo', selectedYears)}</CardTitle>
               <p className="text-sm text-gray-600">Evolución de Faltas, Salud, Permisos y Vacaciones {metricType === "percent" ? "(porcentaje)" : "(cantidad)"}</p>
             </div>
           </CardHeader>
@@ -1724,6 +1726,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedM
         incidencias={incidencias}
         plantilla={empleadosPeriodo}
         currentYear={currentYear}
+        selectedYears={selectedYears}
       />
 
       {/* Tabla completa (mostrar 10 por defecto; botón para ver todo) */}

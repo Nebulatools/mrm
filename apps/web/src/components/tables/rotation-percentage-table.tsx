@@ -10,18 +10,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { PlantillaRecord, MotivoBajaRecord } from "@/lib/supabase";
+import type { PlantillaRecord } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { normalizeCCToUbicacion } from "@/lib/normalizers";
 import { parseSupabaseDate } from "@/lib/retention-calculations";
 import { endOfMonth, startOfMonth } from "date-fns";
+import { isFutureMonth } from "@/lib/date-utils";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { applyFiltersWithScope } from "@/lib/filters/filters";
 
 interface RotationPercentageTableProps {
   plantilla: PlantillaRecord[];
-  motivosBaja: MotivoBajaRecord[];
   year?: number;
   refreshEnabled?: boolean;
   filters?: RetentionFilterOptions;
@@ -29,7 +29,7 @@ interface RotationPercentageTableProps {
 
 interface LocationMonthData {
   ubicacion: string;
-  months: Record<string, string>; // Percentage as string
+  months: Record<string, string | null>; // Percentage as string, null for future months
   avg: string;
 }
 
@@ -52,7 +52,6 @@ const UBICACIONES = ['CAD', 'CORPORATIVO', 'FILIALES', 'OTROS'];
 
 export function RotationPercentageTable({
   plantilla,
-  motivosBaja,
   year,
   refreshEnabled = false,
   filters,
@@ -65,23 +64,15 @@ export function RotationPercentageTable({
       ? applyFiltersWithScope(plantilla, filters, 'general')
       : plantilla;
 
-    // Create employee map with ubicacion
-    const empleadoMap = new Map<number, string>();
-    plantillaFiltered.forEach(emp => {
-      const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
-      const cc = (emp as any).cc || '';
-      const ubicacion = normalizeCCToUbicacion(cc);
-      empleadoMap.set(numero, ubicacion);
-    });
-
-    // Filter bajas for the selected year
-    const bajasYear = motivosBaja.filter(baja => {
-      const fecha = new Date(baja.fecha_baja);
+    // SOURCE: empleados_sftp (plantilla) - filter bajas for the selected year
+    const bajasYear = plantillaFiltered.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const fecha = new Date(emp.fecha_baja);
       return fecha.getFullYear() === currentYear;
     });
 
     // Calculate rotation percentage for each location and month
-    const locationMonthMap = new Map<string, Record<string, string>>();
+    const locationMonthMap = new Map<string, Record<string, string | null>>();
 
     // Initialize all locations
     UBICACIONES.forEach(ubicacion => {
@@ -89,17 +80,23 @@ export function RotationPercentageTable({
     });
 
     MONTHS.forEach(month => {
+      // Skip future months
+      if (isFutureMonth(currentYear, month.num)) {
+        UBICACIONES.forEach(ub => { locationMonthMap.get(ub)![month.key] = null; });
+        return;
+      }
+
       const monthStart = startOfMonth(new Date(currentYear, month.num - 1, 1));
       const monthEnd = endOfMonth(monthStart);
 
       UBICACIONES.forEach(ubicacion => {
         // Count bajas for this location and month
-        const bajas = bajasYear.filter(baja => {
-          const numero = Number(baja.numero_empleado);
-          const empUbicacion = empleadoMap.get(numero) || 'OTROS';
+        const bajas = bajasYear.filter(emp => {
+          const cc = (emp as any).cc || '';
+          const empUbicacion = normalizeCCToUbicacion(cc);
           if (empUbicacion !== ubicacion) return false;
 
-          const fecha = new Date(baja.fecha_baja);
+          const fecha = new Date(emp.fecha_baja!);
           const monthNum = fecha.getMonth() + 1;
           return monthNum === month.num;
         }).length;
@@ -144,10 +141,10 @@ export function RotationPercentageTable({
     const result: LocationMonthData[] = UBICACIONES.map(ubicacion => {
       const months = locationMonthMap.get(ubicacion) || {};
 
-      // Calculate average rotation
+      // Calculate average rotation (exclude null values)
       const values: number[] = [];
       Object.values(months).forEach(val => {
-        if (val) {
+        if (val !== null && val) {
           const num = parseFloat(val.replace('%', ''));
           if (!isNaN(num)) values.push(num);
         }
@@ -160,17 +157,24 @@ export function RotationPercentageTable({
     });
 
     return result;
-  }, [plantilla, motivosBaja, currentYear, filters]);
+  }, [plantilla, currentYear, filters]);
 
   // Calculate monthly averages
   const monthlyAverages = useMemo(() => {
-    const averages: Record<string, string> = {};
+    const averages: Record<string, string | null> = {};
 
     MONTHS.forEach(month => {
+      // Check if any row has null for this month (future month)
+      const hasNull = data.some(row => row.months[month.key] === null);
+      if (hasNull) {
+        averages[month.key] = null;
+        return;
+      }
+
       const values: number[] = [];
       data.forEach(row => {
         const val = row.months[month.key];
-        if (val) {
+        if (val !== null && val) {
           const num = parseFloat(val.replace('%', ''));
           if (!isNaN(num)) values.push(num);
         }
@@ -284,7 +288,7 @@ export function RotationPercentageTable({
                       </TableCell>
                       {MONTHS.map(month => (
                         <TableCell key={month.key} className="text-right">
-                          {row.months[month.key] || ''}
+                          {row.months[month.key] === null ? '-' : (row.months[month.key] || '')}
                         </TableCell>
                       ))}
                       <TableCell className="text-right font-semibold">{row.avg}</TableCell>
@@ -295,7 +299,7 @@ export function RotationPercentageTable({
                     <TableCell>Promedio</TableCell>
                     {MONTHS.map(month => (
                       <TableCell key={month.key} className="text-right">
-                        {monthlyAverages[month.key] || ''}
+                        {monthlyAverages[month.key] === null ? '-' : (monthlyAverages[month.key] || '')}
                       </TableCell>
                     ))}
                     <TableCell className="text-right">{overallAvg}</TableCell>

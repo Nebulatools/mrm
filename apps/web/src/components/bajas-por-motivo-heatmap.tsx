@@ -6,6 +6,7 @@ import { isMotivoClave } from '@/lib/normalizers'
 import { VisualizationContainer } from './visualization-container'
 import { useTheme } from '@/components/theme-provider'
 import { cn } from '@/lib/utils'
+import { getTitleWithYear } from '@/lib/filters/year-display'
 
 interface BajasPorMotivoData {
   motivo: string
@@ -25,7 +26,7 @@ interface BajasPorMotivoData {
 
 interface BajasPorMotivoHeatmapProps {
   data: BajasPorMotivoData[]
-  year: number
+  selectedYears?: number[]
   motivoFilter?: 'involuntaria' | 'voluntaria' | 'all'
 }
 
@@ -39,7 +40,7 @@ const MESES_LABELS = [
   'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
 ]
 
-export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'all' }: BajasPorMotivoHeatmapProps) {
+export function BajasPorMotivoHeatmap({ data, selectedYears = [], motivoFilter = 'all' }: BajasPorMotivoHeatmapProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -141,7 +142,7 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'all' }: Baja
     <Card className={cn('border border-brand-border/40', isDark && 'bg-brand-surface/80 text-brand-ink')}>
       <CardHeader>
         <CardTitle className="text-lg font-semibold text-brand-ink">
-          🚦 Bajas por Motivo - {year}
+          🚦 {getTitleWithYear('Bajas por Motivo', selectedYears)}
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Mapa de calor mostrando la cantidad de bajas por motivo y mes
@@ -149,10 +150,10 @@ export function BajasPorMotivoHeatmap({ data, year, motivoFilter = 'all' }: Baja
       </CardHeader>
       <CardContent>
         <VisualizationContainer
-          title={`Bajas por motivo - ${year}`}
+          title={getTitleWithYear('Bajas por motivo', selectedYears)}
           type="table"
           className="w-full"
-          filename={`bajas-por-motivo-${year}`}
+          filename={`bajas-por-motivo${selectedYears.length > 0 ? `-${selectedYears.join('-')}` : ''}`}
         >
           {() => (
             <div className="overflow-x-auto rounded-2xl border border-brand-border/40 bg-card shadow-sm dark:bg-brand-surface/70">

@@ -9,11 +9,13 @@ import { normalizeIncidenciaCode } from "@/lib/normalizers";
 import type { IncidenciaCSVRecord, PlantillaRecord } from "@/lib/supabase";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { applyFiltersWithScope } from "@/lib/filters/filters";
+import { getTitleWithYear } from "@/lib/filters/year-display";
 
 interface AbsenteeismTableProps {
   incidencias: IncidenciaCSVRecord[];
   plantilla: PlantillaRecord[];
   currentYear?: number;
+  selectedYears?: number[];
   filters?: RetentionFilterOptions;
 }
 
@@ -29,6 +31,7 @@ export function AbsenteeismTable({
   incidencias,
   plantilla,
   currentYear,
+  selectedYears = [],
   filters
 }: AbsenteeismTableProps) {
   const [metricType, setMetricType] = useState<"number" | "percent">("number");
@@ -140,7 +143,7 @@ export function AbsenteeismTable({
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-base">
-            Tabla de Ausentismo por Mes - {tableData.year}
+            {getTitleWithYear('Tabla de Ausentismo por Mes', selectedYears)}
           </CardTitle>
           <p className="text-sm text-gray-600">
             Jornadas: (Activos / 7) × 6 | Desglose por motivo

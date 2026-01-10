@@ -10,7 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { PlantillaRecord, MotivoBajaRecord } from "@/lib/supabase";
+import type { PlantillaRecord } from "@/lib/supabase";
+import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { prettyMotivo } from "@/lib/normalizers";
@@ -18,6 +19,7 @@ import { prettyMotivo } from "@/lib/normalizers";
 interface RotationByMotiveAreaTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
+  selectedYears?: number[];
   refreshEnabled?: boolean;
 }
 
@@ -30,25 +32,38 @@ interface MotiveAreaData {
 export function RotationByMotiveAreaTable({
   plantilla,
   motivosBaja,
+  selectedYears = [],
   refreshEnabled = false,
 }: RotationByMotiveAreaTableProps) {
 
   const { data, topMotivos, grandTotal } = useMemo(() => {
-    // Create map of numero_empleado -> area
-    const empleadoAreaMap = new Map<number, string>();
-    plantilla.forEach(emp => {
-      if (emp.numero_empleado) {
-        empleadoAreaMap.set(emp.numero_empleado, emp.area || 'Sin Área');
-      }
+    // Filter motivos_baja by selected years for data integrity
+    const filteredMotivosBaja = selectedYears.length > 0
+      ? motivosBaja.filter(baja => {
+          if (!baja.fecha_baja) return false;
+          const bajaYear = new Date(baja.fecha_baja).getFullYear();
+          return selectedYears.includes(bajaYear);
+        })
+      : motivosBaja;
+
+    // Create lookup map: numero_empleado -> motivo from filtered motivos_baja
+    const motivosMap = new Map<number, string>();
+    filteredMotivosBaja.forEach(baja => {
+      motivosMap.set(baja.numero_empleado, baja.motivo);
     });
+
+    // SOURCE: empleados_sftp (plantilla) - filter only employees with fecha_baja
+    const bajasAll = plantilla.filter(emp => emp.fecha_baja);
 
     // Group bajas by area and motivo
     const areaMotivosMap = new Map<string, Record<string, number>>();
     const motivosSet = new Set<string>();
 
-    motivosBaja.forEach(baja => {
-      const area = empleadoAreaMap.get(baja.numero_empleado) || 'Sin Área';
-      const motivo = prettyMotivo(baja.motivo || baja.descripcion) || 'No especificado';
+    bajasAll.forEach(emp => {
+      const area = emp.area || 'Sin Área';
+      // JOIN: Get motivo from motivos_baja lookup by numero_empleado
+      const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
+      const motivo = prettyMotivo(rawMotivo) || 'No especificado';
 
       if (!areaMotivosMap.has(area)) {
         areaMotivosMap.set(area, {});
@@ -61,8 +76,10 @@ export function RotationByMotiveAreaTable({
 
     // Get top motivos by frequency
     const motivoCounts = new Map<string, number>();
-    motivosBaja.forEach(baja => {
-      const motivo = prettyMotivo(baja.motivo || baja.descripcion) || 'No especificado';
+    bajasAll.forEach(emp => {
+      // JOIN: Get motivo from motivos_baja lookup by numero_empleado
+      const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
+      const motivo = prettyMotivo(rawMotivo) || 'No especificado';
       motivoCounts.set(motivo, (motivoCounts.get(motivo) || 0) + 1);
     });
 
@@ -81,10 +98,10 @@ export function RotationByMotiveAreaTable({
     // Sort by total descending
     data.sort((a, b) => b.total - a.total);
 
-    const grandTotal = motivosBaja.length;
+    const grandTotal = bajasAll.length;
 
     return { data, topMotivos, grandTotal };
-  }, [plantilla, motivosBaja]);
+  }, [plantilla, motivosBaja, selectedYears]);
 
   // Calculate percentage for each motivo
   const motivoTotals = useMemo(() => {

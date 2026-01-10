@@ -10,7 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { PlantillaRecord, MotivoBajaRecord } from "@/lib/supabase";
+import type { PlantillaRecord } from "@/lib/supabase";
+import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { prettyMotivo } from "@/lib/normalizers";
@@ -46,24 +47,25 @@ export function RotationByMotiveSeniorityTable({
 }: RotationByMotiveSeniorityTableProps) {
 
   const { data, grandTotal } = useMemo(() => {
-    // Create map of numero_empleado -> fecha_ingreso
-    const empleadoIngresoMap = new Map<number, string>();
-    plantilla.forEach(emp => {
-      if (emp.numero_empleado && emp.fecha_ingreso) {
-        empleadoIngresoMap.set(emp.numero_empleado, emp.fecha_ingreso);
-      }
+    // This table shows all-time data (no year filter) - seniority patterns are historical
+    // Create lookup map: numero_empleado -> motivo from motivos_baja table
+    const motivosMap = new Map<number, string>();
+    motivosBaja.forEach(baja => {
+      motivosMap.set(baja.numero_empleado, baja.motivo);
     });
+
+    // SOURCE: empleados_sftp (plantilla) - filter only employees with fecha_baja
+    const bajasAll = plantilla.filter(emp => emp.fecha_baja && emp.fecha_ingreso);
 
     // Group bajas by motivo and seniority at termination
     const motivoSeniorityMap = new Map<string, Record<string, number>>();
 
-    motivosBaja.forEach(baja => {
-      const motivo = prettyMotivo(baja.motivo || baja.descripcion) || 'No especificado';
-      const fechaIngreso = empleadoIngresoMap.get(baja.numero_empleado);
+    bajasAll.forEach(emp => {
+      // JOIN: Get motivo from motivos_baja lookup by numero_empleado
+      const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
+      const motivo = prettyMotivo(rawMotivo) || 'No especificado';
 
-      if (!fechaIngreso || !baja.fecha_baja) return;
-
-      const months = differenceInMonths(new Date(baja.fecha_baja), new Date(fechaIngreso));
+      const months = differenceInMonths(new Date(emp.fecha_baja!), new Date(emp.fecha_ingreso!));
 
       // Find appropriate bucket
       const bucket = SENIORITY_BUCKETS.find(b => months >= b.min && months < b.max);
@@ -79,8 +81,10 @@ export function RotationByMotiveSeniorityTable({
 
     // Get top motivos by frequency
     const motivoCounts = new Map<string, number>();
-    motivosBaja.forEach(baja => {
-      const motivo = prettyMotivo(baja.motivo || baja.descripcion) || 'No especificado';
+    bajasAll.forEach(emp => {
+      // JOIN: Get motivo from motivos_baja lookup by numero_empleado
+      const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
+      const motivo = prettyMotivo(rawMotivo) || 'No especificado';
       motivoCounts.set(motivo, (motivoCounts.get(motivo) || 0) + 1);
     });
 
@@ -96,7 +100,7 @@ export function RotationByMotiveSeniorityTable({
       return { motivo, seniorityBuckets, total };
     });
 
-    const grandTotal = motivosBaja.length;
+    const grandTotal = bajasAll.length;
 
     return { data, grandTotal };
   }, [plantilla, motivosBaja]);

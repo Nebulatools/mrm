@@ -218,6 +218,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       // Detectar el rango de años con datos reales de bajas - DINÁMICO
       const hoy = new Date();
       const añoActual = hoy.getFullYear();
+      const selectedYear = currentYear || añoActual;
 
       const bajasConFecha = plantilla.filter(emp => bajaMatchesMotivo(emp, 'all'));
       const años = new Set<number>();
@@ -233,6 +234,11 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
           años.add(año);
         }
       });
+
+      // SIEMPRE incluir el año seleccionado y el anterior para comparación YTD
+      // Esto asegura que las gráficas YTD siempre tengan datos para ambos años
+      años.add(selectedYear);
+      años.add(selectedYear - 1);
 
       // Si no hay bajas, usar solo el año actual
       const years = años.size > 0 ? Array.from(años).sort() : [añoActual];
@@ -355,44 +361,26 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       const startDate12m = startOfDay(subMonths(currentMonthDate, 11));
       const endDate12m = endOfMonth(currentMonthDate);
 
-      const plantillaFiltrada = plantilla;
-      const empleadosMap = new Map<number, PlantillaRecord>();
-      plantillaFiltrada.forEach(emp => {
-        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
-        if (Number.isFinite(numero)) {
-          empleadosMap.set(numero, emp);
-        }
-      });
-
       // Contar todas las bajas en el período de 12 meses
-      let bajasEn12Meses: number;
+      // SOURCE: empleados_sftp (plantilla) - fecha_baja and motivo_baja
+      const eventosSet = new Set<string>();
+      plantilla.forEach(emp => {
+        const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
+        if (!fechaBaja) return;
+        if (fechaBaja < startDate12m || fechaBaja > endDate12m) return;
 
-      if (bajaEventos && bajaEventos.length > 0) {
-        const eventosSet = new Set<string>();
-        bajaEventos.forEach(evento => {
-          const numero = Number(evento.numero_empleado);
-          if (!Number.isFinite(numero)) return;
-          const empleado = empleadosMap.get(numero);
-          if (!empleado) return;
-          const fechaBaja = parseSupabaseDate(evento.fecha_baja);
-          if (!fechaBaja) return;
-          if (fechaBaja < startDate12m || fechaBaja > endDate12m) return;
-          if (!bajaMatchesMotivo(empleado, motive, evento.motivo_normalizado)) return;
-          eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
-        });
-        bajasEn12Meses = eventosSet.size;
-      } else {
-        bajasEn12Meses = plantillaFiltrada.filter(emp => {
-          if (!emp.fecha_baja) return false;
-          if (!bajaMatchesMotivo(emp, motive)) return false;
-          const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
-          if (!fechaBaja) return false;
-          return fechaBaja >= startDate12m && fechaBaja <= endDate12m;
-        }).length;
-      }
+        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
+        if (!Number.isFinite(numero)) return;
+
+        const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
+
+        if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
+        eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
+      });
+      const bajasEn12Meses = eventosSet.size;
 
       // Calcular promedio de empleados activos en el período de 12 meses
-      const activosInicioRango = plantillaFiltrada.filter(emp => {
+      const activosInicioRango = plantilla.filter(emp => {
         const fechaIngreso = (emp as any)._fecha_ingreso ?? parseSupabaseDate(emp.fecha_ingreso);
         if (!fechaIngreso || fechaIngreso > startDate12m) {
           return false;
@@ -401,7 +389,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         return !fechaBaja || fechaBaja > startDate12m;
       }).length;
 
-      const activosFinRango = plantillaFiltrada.filter(emp => {
+      const activosFinRango = plantilla.filter(emp => {
         const fechaIngreso = (emp as any)._fecha_ingreso ?? parseSupabaseDate(emp.fecha_ingreso);
         if (!fechaIngreso || fechaIngreso > endDate12m) {
           return false;
@@ -436,44 +424,26 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       const startDateYTD = new Date(currentMonthData.year, 0, 1); // 1 de enero del año
       const endDateYTD = endOfMonth(currentMonthDate);
 
-      const plantillaFiltrada = plantilla;
-      const empleadosMap = new Map<number, PlantillaRecord>();
-      plantillaFiltrada.forEach(emp => {
-        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
-        if (Number.isFinite(numero)) {
-          empleadosMap.set(numero, emp);
-        }
-      });
-
       // Contar todas las bajas en el período YTD
-      let bajasYTD: number;
+      // SOURCE: empleados_sftp (plantilla) - fecha_baja and motivo_baja
+      const eventosSet = new Set<string>();
+      plantilla.forEach(emp => {
+        const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
+        if (!fechaBaja) return;
+        if (fechaBaja < startDateYTD || fechaBaja > endDateYTD) return;
 
-      if (bajaEventos && bajaEventos.length > 0) {
-        const eventosSet = new Set<string>();
-        bajaEventos.forEach(evento => {
-          const numero = Number(evento.numero_empleado);
-          if (!Number.isFinite(numero)) return;
-          const empleado = empleadosMap.get(numero);
-          if (!empleado) return;
-          const fechaBaja = parseSupabaseDate(evento.fecha_baja);
-          if (!fechaBaja) return;
-          if (fechaBaja < startDateYTD || fechaBaja > endDateYTD) return;
-          if (!bajaMatchesMotivo(empleado, motive, evento.motivo_normalizado)) return;
-          eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
-        });
-        bajasYTD = eventosSet.size;
-      } else {
-        bajasYTD = plantillaFiltrada.filter(emp => {
-          if (!emp.fecha_baja) return false;
-          if (!bajaMatchesMotivo(emp, motive)) return false;
-          const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
-          if (!fechaBaja) return false;
-          return fechaBaja >= startDateYTD && fechaBaja <= endDateYTD;
-        }).length;
-      }
+        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
+        if (!Number.isFinite(numero)) return;
+
+        const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
+
+        if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
+        eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
+      });
+      const bajasYTD = eventosSet.size;
 
       // Calcular promedio de empleados activos en el período YTD
-      const activosInicioRango = plantillaFiltrada.filter(emp => {
+      const activosInicioRango = plantilla.filter(emp => {
         const fechaIngreso = (emp as any)._fecha_ingreso ?? parseSupabaseDate(emp.fecha_ingreso);
         if (!fechaIngreso || fechaIngreso > startDateYTD) {
           return false;
@@ -482,7 +452,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         return !fechaBaja || fechaBaja > startDateYTD;
       }).length;
 
-      const activosFinRango = plantillaFiltrada.filter(emp => {
+      const activosFinRango = plantilla.filter(emp => {
         const fechaIngreso = (emp as any)._fecha_ingreso ?? parseSupabaseDate(emp.fecha_ingreso);
         if (!fechaIngreso || fechaIngreso > endDateYTD) {
           return false;
@@ -503,6 +473,13 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
   // Helper para tablas: usa monthlyData (filtrado/toggle) para recalcular bajas 12M, promedio de activos 12M y rotación coherente
   const compute12mStats = (targetYear: number, targetMonth: number) => {
+    // No mostrar datos para meses futuros que aún no han ocurrido
+    const now = new Date();
+    const targetDate = new Date(targetYear, targetMonth - 1, 1);
+    if (targetDate > now) {
+      return { bajas12m: null, activosProm12m: null, rotacion12m: null };
+    }
+
     const windowEntries: MonthlyRetentionData[] = [];
     for (let i = 0; i < 12; i++) {
       const d = new Date(targetYear, targetMonth - 1 - i, 1);
