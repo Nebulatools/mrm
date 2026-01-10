@@ -21,8 +21,16 @@ import {
   RefreshCw,
   Eye,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  FolderOpen
 } from 'lucide-react';
+
+interface ArchivoProcesado {
+  nombre: string;
+  tipo: string;
+  registros: number;
+  detalles?: string;
+}
 
 interface ImportResults {
   empleados: number;
@@ -32,6 +40,7 @@ interface ImportResults {
   permisos?: number;
   prenomina?: number;
   errors: string[];
+  archivos?: ArchivoProcesado[];
 }
 
 interface StructureChange {
@@ -933,76 +942,33 @@ export function SFTPImportAdmin() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-5 w-5 text-blue-600" />
-                  <span className="font-medium">Empleados Importados</span>
-                </div>
-                <div className="text-2xl font-bold text-blue-600">
-                  {importResults.empleados.toLocaleString()}
-                </div>
+            {/* Archivos SFTP Procesados */}
+            {importResults.archivos && importResults.archivos.length > 0 ? (
+              <div className="space-y-2 mb-4">
+                {importResults.archivos.map((archivo, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-slate-600" />
+                      <span className="font-mono text-sm font-medium">{archivo.nombre}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="secondary" className="text-sm font-bold">
+                        {archivo.registros.toLocaleString()} registros
+                      </Badge>
+                      {archivo.detalles && (
+                        <span className="text-sm text-muted-foreground">
+                          ({archivo.detalles})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-              
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <UserMinus className="h-5 w-5 text-red-600" />
-                  <span className="font-medium">Bajas Importadas</span>
-                </div>
-                <div className="text-2xl font-bold text-red-600">
-                  {importResults.bajas.toLocaleString()}
-                </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-4 mb-4">
+                No hay archivos procesados
               </div>
-              
-              <div className="bg-green-50 p-6 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  <span className="font-medium">Asistencia Importada</span>
-                </div>
-                <div className="text-2xl font-bold text-green-600">
-                  {importResults.asistencia.toLocaleString()}
-                </div>
-              </div>
-
-              {typeof importResults.incidencias === 'number' && (
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileText className="h-5 w-5 text-purple-600" />
-                    <span className="font-medium">Incidencias Importadas</span>
-                  </div>
-                  <div className="text-2xl font-bold text-purple-600">
-                    {importResults.incidencias.toLocaleString()}
-                  </div>
-                </div>
-              )}
-
-              {typeof importResults.permisos === 'number' && (
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileText className="h-5 w-5 text-amber-600" />
-                    <span className="font-medium">Permisos Importados</span>
-                  </div>
-                  <div className="text-2xl font-bold text-amber-600">
-                    {importResults.permisos.toLocaleString()}
-                  </div>
-                </div>
-              )}
-
-              {typeof importResults.prenomina === 'number' && (
-                <div className="p-4 border rounded-lg bg-gradient-to-br from-indigo-50 to-indigo-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Database className="h-5 w-5 text-indigo-600" />
-                    <span className="font-medium">Prenomina Horizontal</span>
-                  </div>
-                  <div className="text-2xl font-bold text-indigo-600">
-                    {importResults.prenomina.toLocaleString()}
-                  </div>
-                  <div className="text-xs text-indigo-600/70 mt-1">
-                    Registros semanales de horas trabajadas
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
 
             {importResults.errors.length > 0 && (
               <>

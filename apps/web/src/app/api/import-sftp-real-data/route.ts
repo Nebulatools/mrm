@@ -7,8 +7,22 @@ import {
   compareFileStructure,
   saveFileStructure,
   createImportLog,
-  updateImportLogStatus
+  updateImportLogStatus,
+  createFileVersion,
 } from '@/lib/sftp-structure-comparator';
+import {
+  compareRecordBatch,
+  saveRecordDiffs,
+  getImportDiffSummary,
+} from '@/lib/sftp-row-hash';
+import {
+  notifyStructureChangesDetected,
+  notifyImportCompleted,
+  notifyImportFailed,
+  notifyImportBlocked,
+  type ImportSummary,
+  type StructureChange,
+} from '@/lib/email-notifier';
 
 const normalizeKey = (key: unknown): string =>
   typeof key === 'string'
@@ -99,6 +113,41 @@ interface IncidenciaSFTP {
   ubicacion2: string | null;
 }
 
+interface PrenominaSFTP {
+  numero_empleado: number;
+  nombre: string;
+  semana_inicio: string;
+  semana_fin: string;
+  lun_fecha: string | null;
+  lun_horas_ord: number;
+  lun_horas_te: number;
+  lun_incidencia: string | null;
+  mar_fecha: string | null;
+  mar_horas_ord: number;
+  mar_horas_te: number;
+  mar_incidencia: string | null;
+  mie_fecha: string | null;
+  mie_horas_ord: number;
+  mie_horas_te: number;
+  mie_incidencia: string | null;
+  jue_fecha: string | null;
+  jue_horas_ord: number;
+  jue_horas_te: number;
+  jue_incidencia: string | null;
+  vie_fecha: string | null;
+  vie_horas_ord: number;
+  vie_horas_te: number;
+  vie_incidencia: string | null;
+  sab_fecha: string | null;
+  sab_horas_ord: number;
+  sab_horas_te: number;
+  sab_incidencia: string | null;
+  dom_fecha: string | null;
+  dom_horas_ord: number;
+  dom_horas_te: number;
+  dom_incidencia: string | null;
+}
+
 const INCIDENT_CODES = new Set(['FI', 'SUSP', 'PSIN', 'ENFE']);
 const PERMISO_CODES = new Set(['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST']);
 
@@ -119,6 +168,10 @@ export async function POST(request: NextRequest) {
 
   if (runningImport) {
     console.log(`⚠️ Importación bloqueada: ya existe una importación en curso (ID: ${runningImport.id}, status: ${runningImport.status})`);
+
+    // Notificar por email que se bloqueó
+    await notifyImportBlocked(runningImport.id, runningImport.status);
+
     return NextResponse.json({
       success: false,
       error: 'Ya hay una importación en curso',
@@ -300,6 +353,14 @@ export async function POST(request: NextRequest) {
 
       console.log(`🔒 Importación pausada - se requiere aprobación (log_id: ${logId})`);
 
+      // Notificar por email sobre cambios estructurales
+      const emailChanges: StructureChange[] = structureChanges.map(c => ({
+        filename: c.filename,
+        added: c.added,
+        removed: c.removed
+      }));
+      await notifyStructureChangesDetected(logId, emailChanges);
+
       return NextResponse.json({
         success: false,
         requiresApproval: true,
@@ -317,7 +378,10 @@ export async function POST(request: NextRequest) {
       asistencia: 0,
       incidencias: null as number | null,
       permisos: null as number | null,
-      errors: [] as string[]
+      prenomina: null as number | null,
+      errors: [] as string[],
+      // Detalle de archivos procesados
+      archivos: [] as { nombre: string; tipo: string; registros: number; detalles?: string }[]
     };
 
     // 2. Procesar archivo de empleados (Validacion Alta de empleados.xls)
@@ -392,8 +456,15 @@ export async function POST(request: NextRequest) {
           }
           
           results.empleados = empleadosTransformados.length;
+
+          // Agregar info del archivo procesado
+          results.archivos.push({
+            nombre: empleadosFile.name,
+            tipo: 'empleados',
+            registros: empleadosTransformados.length
+          });
         }
-        
+
       } catch (error) {
         console.error('Error procesando empleados:', error);
         results.errors.push(`Error empleados: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -476,9 +547,16 @@ export async function POST(request: NextRequest) {
           } else {
             console.log('✅ Bajas insertadas correctamente');
             results.bajas = bajasTransformadas.length;
+
+            // Agregar info del archivo procesado
+            results.archivos.push({
+              nombre: bajasFile.name,
+              tipo: 'bajas',
+              registros: bajasTransformadas.length
+            });
           }
         }
-        
+
       } catch (error) {
         console.error('Error procesando bajas:', error);
         results.errors.push(`Error bajas: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -543,6 +621,14 @@ export async function POST(request: NextRequest) {
 
             results.incidencias = totalIncidencias;
             results.permisos = totalPermisos;
+
+            // Agregar info del archivo procesado
+            results.archivos.push({
+              nombre: incidenciasFile.name,
+              tipo: 'incidencias',
+              registros: incidenciasTransformadas.length,
+              detalles: `${totalIncidencias} incidencias + ${totalPermisos} permisos`
+            });
           }
         }
 
@@ -552,34 +638,130 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('✅ Importación de datos SFTP completada!');
-    console.log(`📊 Resultados finales - Empleados: ${results.empleados}, Bajas: ${results.bajas}, Incidencias: ${results.incidencias}`);
+    // 5. Procesar archivo de prenomina (Prenomina Horizontal.csv)
+    const prenominaFile = files.find(f => f.name.toLowerCase().includes('prenomina') && f.name.toLowerCase().endsWith('.csv'));
 
-    // Guardar estructuras de archivos procesados exitosamente para futuras comparaciones
+    if (prenominaFile) {
+      console.log(`📥 Procesando archivo de prenomina: ${prenominaFile.name}`);
+
+      try {
+        const prenominaData = await sftpClient.downloadFile(prenominaFile.name);
+        console.log(`📊 Registros de prenomina encontrados: ${prenominaData.length}`);
+
+        if (prenominaData.length > 0) {
+          const prenominaTransformadas = prenominaData
+            .map((record: Record<string, unknown>) => transformPrenominaRecord(record))
+            .filter((record): record is PrenominaSFTP => record !== null);
+
+          if (prenominaTransformadas.length > 0) {
+            console.log(`🔄 Registros de prenomina transformados: ${prenominaTransformadas.length}`);
+            console.log('Sample prenomina:', prenominaTransformadas[0]);
+
+            // Determinar semana para eliminar registros existentes
+            const semanasUnicas = [...new Set(prenominaTransformadas.map(p => p.semana_inicio))];
+            console.log(`🧹 Eliminando registros de prenomina para semanas: ${semanasUnicas.join(', ')}`);
+
+            for (const semana of semanasUnicas) {
+              await supabaseAdmin
+                .from('prenomina_horizontal')
+                .delete()
+                .eq('semana_inicio', semana);
+            }
+
+            // Insertar en lotes
+            const batchSize = 100;
+            for (let i = 0; i < prenominaTransformadas.length; i += batchSize) {
+              const batch = prenominaTransformadas.slice(i, i + batchSize);
+              const { error } = await supabaseAdmin
+                .from('prenomina_horizontal')
+                .insert(batch);
+
+              if (error) {
+                console.error(`Error insertando prenomina lote ${Math.floor(i / batchSize) + 1}:`, error);
+                results.errors.push(`Error lote prenomina ${Math.floor(i / batchSize) + 1}: ${error.message}`);
+              } else {
+                console.log(`✅ Lote prenomina ${Math.floor(i / batchSize) + 1} insertado correctamente`);
+              }
+            }
+
+            results.prenomina = prenominaTransformadas.length;
+
+            // Agregar info del archivo procesado
+            results.archivos.push({
+              nombre: prenominaFile.name,
+              tipo: 'prenomina',
+              registros: prenominaTransformadas.length,
+              detalles: `Semana ${semanasUnicas[0] || 'N/A'}`
+            });
+          }
+        }
+
+      } catch (error) {
+        console.error('Error procesando prenomina:', error);
+        results.errors.push(`Error prenomina: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    console.log('✅ Importación de datos SFTP completada!');
+    console.log(`📊 Resultados finales - Empleados: ${results.empleados}, Bajas: ${results.bajas}, Incidencias: ${results.incidencias}, Prenomina: ${results.prenomina}`);
+
+    // Guardar versiones de archivos con SHA256 y estructuras
+    const fileVersionIds: { empleados?: number; bajas?: number; incidencias?: number } = {};
     try {
       if (empleadosFile && results.empleados > 0) {
         const empleadosDataForStructure = await sftpClient.downloadFile(empleadosFile.name);
         if (empleadosDataForStructure.length > 0) {
+          // Guardar estructura (compatibilidad)
           await saveFileStructure(empleadosFile.name, 'empleados', Object.keys(empleadosDataForStructure[0]), results.empleados);
-          console.log(`💾 Estructura guardada: ${empleadosFile.name}`);
+          // Crear versión con SHA256
+          const fileVersion = await createFileVersion(
+            empleadosFile.name,
+            'empleados',
+            JSON.stringify(empleadosDataForStructure),
+            Object.keys(empleadosDataForStructure[0]),
+            results.empleados
+          );
+          if (fileVersion) {
+            fileVersionIds.empleados = fileVersion.id;
+            console.log(`📁 Versión creada: ${fileVersion.versionedFilename} (SHA256: ${fileVersion.checksum.substring(0, 16)}...)`);
+          }
         }
       }
       if (bajasFile && results.bajas > 0) {
         const bajasDataForStructure = await sftpClient.downloadFile(bajasFile.name);
         if (bajasDataForStructure.length > 0) {
           await saveFileStructure(bajasFile.name, 'bajas', Object.keys(bajasDataForStructure[0]), results.bajas);
-          console.log(`💾 Estructura guardada: ${bajasFile.name}`);
+          const fileVersion = await createFileVersion(
+            bajasFile.name,
+            'bajas',
+            JSON.stringify(bajasDataForStructure),
+            Object.keys(bajasDataForStructure[0]),
+            results.bajas
+          );
+          if (fileVersion) {
+            fileVersionIds.bajas = fileVersion.id;
+          }
         }
       }
       if (incidenciasFile && results.incidencias !== null && results.incidencias > 0) {
         const incidenciasDataForStructure = await sftpClient.downloadFile(incidenciasFile.name);
         if (incidenciasDataForStructure.length > 0) {
           await saveFileStructure(incidenciasFile.name, 'incidencias', Object.keys(incidenciasDataForStructure[0]), incidenciasDataForStructure.length);
-          console.log(`💾 Estructura guardada: ${incidenciasFile.name}`);
+          const fileVersion = await createFileVersion(
+            incidenciasFile.name,
+            'incidencias',
+            JSON.stringify(incidenciasDataForStructure),
+            Object.keys(incidenciasDataForStructure[0]),
+            incidenciasDataForStructure.length
+          );
+          if (fileVersion) {
+            fileVersionIds.incidencias = fileVersion.id;
+          }
         }
       }
+      console.log('📁 Versiones de archivos guardadas:', fileVersionIds);
     } catch (structureError) {
-      console.error('Error guardando estructuras:', structureError);
+      console.error('Error guardando estructuras/versiones:', structureError);
       // No fallar la importación por esto, solo loggear
     }
 
@@ -621,6 +803,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Notificar éxito por email
+    const importSummary: ImportSummary = {
+      empleados: results.empleados,
+      bajas: results.bajas,
+      incidencias: results.incidencias,
+      permisos: results.permisos,
+      errors: results.errors,
+    };
+    await notifyImportCompleted(0, importSummary); // logId 0 para importaciones sin cambios estructurales
+
     const response = NextResponse.json({
       success: true,
       message: 'Importación de datos SFTP completada',
@@ -631,6 +823,13 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error en importación SFTP:', error);
+
+    // Notificar error por email
+    await notifyImportFailed(
+      error instanceof Error ? error.message : 'Error desconocido',
+      { step: 'importación principal' }
+    );
+
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -757,6 +956,90 @@ function transformIncidenciaRecord(record: Record<string, unknown>, index: numbe
     inci,
     status,
     ubicacion2,
+  };
+}
+
+// Helper para parsear fechas en formato DD/MM/YYYY (prenomina)
+function parsePrenominaDate(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  const str = String(value).trim();
+  if (!str) return null;
+
+  // Formato DD/MM/YYYY
+  const parts = str.split('/');
+  if (parts.length === 3) {
+    const [day, month, year] = parts.map(Number);
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      const date = new Date(year, month - 1, day);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+      }
+    }
+  }
+  return null;
+}
+
+function transformPrenominaRecord(record: Record<string, unknown>): PrenominaSFTP | null {
+  // Obtener número de empleado
+  const numeroEmpleado = parseOptionalInt(record['Número']) ??
+                         parseOptionalInt(record['N?mero']) ??
+                         parseOptionalInt(record['Numero']);
+  if (!numeroEmpleado) return null;
+
+  const nombre = sanitizeString(record['Nombre']) ?? '';
+
+  // Parsear fechas de cada día
+  const lunFecha = parsePrenominaDate(record['LUN']);
+  const marFecha = parsePrenominaDate(record['MAR']);
+  const mieFecha = parsePrenominaDate(record['MIE']);
+  const jueFecha = parsePrenominaDate(record['JUE']);
+  const vieFecha = parsePrenominaDate(record['VIE']);
+  const sabFecha = parsePrenominaDate(record['SAB']);
+  const domFecha = parsePrenominaDate(record['DOM']);
+
+  // Determinar semana_inicio (lunes) y semana_fin (domingo)
+  const semanaInicio = lunFecha || marFecha || mieFecha || jueFecha || vieFecha || sabFecha || domFecha;
+  if (!semanaInicio) return null;
+
+  // Calcular semana_fin (6 días después del lunes)
+  const inicioDate = new Date(semanaInicio);
+  const finDate = new Date(inicioDate);
+  finDate.setDate(finDate.getDate() + 6);
+  const semanaFin = finDate.toISOString().split('T')[0];
+
+  return {
+    numero_empleado: numeroEmpleado,
+    nombre,
+    semana_inicio: semanaInicio,
+    semana_fin: semanaFin,
+    lun_fecha: lunFecha,
+    lun_horas_ord: parseOptionalFloat(record['LUN-ORD']) ?? 0,
+    lun_horas_te: parseOptionalFloat(record['LUN-TE']) ?? parseOptionalFloat(record['LUN- TE']) ?? 0,
+    lun_incidencia: sanitizeString(record['LUN-INC']),
+    mar_fecha: marFecha,
+    mar_horas_ord: parseOptionalFloat(record['MAR-ORD']) ?? 0,
+    mar_horas_te: parseOptionalFloat(record['MAR-TE']) ?? parseOptionalFloat(record['MAR - TE']) ?? 0,
+    mar_incidencia: sanitizeString(record['MAR-INC']),
+    mie_fecha: mieFecha,
+    mie_horas_ord: parseOptionalFloat(record['MIE-ORD']) ?? 0,
+    mie_horas_te: parseOptionalFloat(record['MIE-TE']) ?? parseOptionalFloat(record['MIE - TE']) ?? 0,
+    mie_incidencia: sanitizeString(record['MIE-INC']),
+    jue_fecha: jueFecha,
+    jue_horas_ord: parseOptionalFloat(record['JUE-ORD']) ?? 0,
+    jue_horas_te: parseOptionalFloat(record['JUE-TE']) ?? parseOptionalFloat(record['JUE - TE']) ?? 0,
+    jue_incidencia: sanitizeString(record['JUE-INC']),
+    vie_fecha: vieFecha,
+    vie_horas_ord: parseOptionalFloat(record['VIE-ORD']) ?? 0,
+    vie_horas_te: parseOptionalFloat(record['VIE-TE']) ?? parseOptionalFloat(record['VIE - TE']) ?? 0,
+    vie_incidencia: sanitizeString(record['VIE-INC']),
+    sab_fecha: sabFecha,
+    sab_horas_ord: parseOptionalFloat(record['SAB-ORD']) ?? 0,
+    sab_horas_te: parseOptionalFloat(record['SAB-TE']) ?? parseOptionalFloat(record['SAB - TE']) ?? 0,
+    sab_incidencia: sanitizeString(record['SAB-INC']),
+    dom_fecha: domFecha,
+    dom_horas_ord: parseOptionalFloat(record['DOM-ORD']) ?? 0,
+    dom_horas_te: parseOptionalFloat(record['DOM-TE']) ?? parseOptionalFloat(record['DOM - TE']) ?? 0,
+    dom_incidencia: sanitizeString(record['DOM-INC']),
   };
 }
 

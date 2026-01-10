@@ -518,7 +518,10 @@ export function DashboardPage() {
       .trim();
   };
 
-  // ✅ NUEVO: Filtrar bajas e incidencias basándose en empleados filtrados
+  // ✅ CORREGIDO: Filtrar bajas e incidencias basándose en empleados filtrados
+  // El filtro de ubicacionesIncidencias ya se aplica en plantillaFiltered via applyRetentionFilters()
+  // Por lo tanto, empleadosFiltradosIds ya contiene solo los IDs de empleados de las ubicaciones seleccionadas
+  // NO debemos filtrar incidencias por ubicacion2 directamente porque ese campo NO existe en la tabla incidencias
   const empleadosFiltradosIds = new Set(plantillaFiltered.map(e => e.numero_empleado || Number(e.emp_id)));
   const bajasFiltered = bajasData.filter(b => empleadosFiltradosIds.has(b.numero_empleado));
   const incidenciasFiltered = incidenciasData
@@ -526,13 +529,6 @@ export function DashboardPage() {
       // Incluir incidencias con emp negativo (sintético) o sin match para no perder datos
       if (i.emp === undefined || i.emp === null || i.emp < 0) return true;
       return empleadosFiltradosIds.size === 0 || empleadosFiltradosIds.has(i.emp);
-    })
-    .filter((i) => {
-      if (!retentionFilters.ubicacionesIncidencias || retentionFilters.ubicacionesIncidencias.length === 0) {
-        return true;
-      }
-      const incUb = normalizeText((i as any).ubicacion2);
-      return retentionFilters.ubicacionesIncidencias.some((u) => normalizeText(u) === incUb);
     })
     .map((i) => ({
       id: i.id,
