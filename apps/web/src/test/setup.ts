@@ -86,26 +86,13 @@ vi.mock('@/lib/sftp-client', () => ({
     listFiles: vi.fn().mockResolvedValue([]),
     downloadFile: vi.fn().mockResolvedValue(null),
     clearCache: vi.fn(),
+    getPlantillaFromCache: vi.fn().mockReturnValue(null),
+    getIncidenciasFromCache: vi.fn().mockReturnValue(null),
   },
 }));
 
-// Mock KPI Calculator
-vi.mock('@/lib/kpi-calculator', () => ({
-  kpiCalculator: {
-    calculateAllKPIs: vi.fn().mockResolvedValue([]),
-    clearCache: vi.fn(),
-    forceRefresh: vi.fn(),
-    getBajasPorMotivoYMes: vi.fn().mockResolvedValue([]),
-    getBajasPorMotivoYMesFromPlantilla: vi.fn().mockResolvedValue([]),
-  },
-  KPICalculator: vi.fn().mockImplementation(() => ({
-    calculateAllKPIs: vi.fn().mockResolvedValue([]),
-    clearCache: vi.fn(),
-    forceRefresh: vi.fn(),
-    getBajasPorMotivoYMes: vi.fn().mockResolvedValue([]),
-    getBajasPorMotivoYMesFromPlantilla: vi.fn().mockResolvedValue([]),
-  })),
-}));
+// Don't mock KPI Calculator globally - let individual tests mock it if needed
+// This allows testing the actual implementation
 
 // Mock Google Generative AI
 vi.mock('@/lib/gemini-ai', () => ({
@@ -140,11 +127,11 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
 }));
 
 // Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+global.ResizeObserver = class ResizeObserver {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+} as any;
 
 // Suppress console errors in tests (optional)
 global.console = {

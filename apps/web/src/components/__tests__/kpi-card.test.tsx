@@ -38,10 +38,10 @@ describe('KPICard Component', () => {
       variance_percentage: 6.67,
     });
 
-    renderWithProviders(<KPICard kpi={mockKPI} />);
+    const { container } = renderWithProviders(<KPICard kpi={mockKPI} />);
 
-    // Check for variance badge
-    const varianceBadge = screen.getByText('+6.7%');
+    // Check for variance badge - KPI Card shows absolute difference for Activos
+    const varianceBadge = screen.getByText('+5'); // 80 - 75 = +5
     expect(varianceBadge).toBeInTheDocument();
     expect(varianceBadge).toHaveClass('bg-green-100'); // Positive variance for Activos is good
   });

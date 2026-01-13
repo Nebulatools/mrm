@@ -105,4 +105,4 @@ export { default as userEvent } from '@testing-library/user-event';
 /**
  * Re-export mock data helpers
  */
-export { createMockKPI, createMockEmpleado, createMockAsistencia } from './mockData';
+export { createMockKPI, createMockEmpleado, createMockAsistencia, mockMotivosBaja } from './mockData';

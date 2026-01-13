@@ -17,6 +17,8 @@ export const mockPlantilla: PlantillaRecord[] = [
     puesto: 'Vendedor Senior',
     area: 'Comercial',
     clasificacion: 'CONFIANZA',
+    fecha_nacimiento: '1990-05-15',
+    genero: 'masculino',
     created_at: '2020-01-15T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
   },
@@ -32,6 +34,8 @@ export const mockPlantilla: PlantillaRecord[] = [
     puesto: 'Analista de Marketing',
     area: 'Comercial',
     clasificacion: 'SINDICALIZADO',
+    fecha_nacimiento: '1985-08-20',
+    genero: 'femenino',
     created_at: '2021-03-10T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
   },
@@ -47,6 +51,8 @@ export const mockPlantilla: PlantillaRecord[] = [
     puesto: 'Operador de Producción',
     area: 'Producción',
     clasificacion: 'SINDICALIZADO',
+    fecha_nacimiento: '1978-03-10',
+    genero: 'masculino',
     created_at: '2019-05-20T00:00:00Z',
     updated_at: '2023-12-31T00:00:00Z',
   },
@@ -62,6 +68,8 @@ export const mockPlantilla: PlantillaRecord[] = [
     puesto: 'Coordinador de RH',
     area: 'Administración',
     clasificacion: 'CONFIANZA',
+    fecha_nacimiento: '1992-11-25',
+    genero: 'femenino',
     created_at: '2022-08-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
   },
@@ -77,8 +85,34 @@ export const mockPlantilla: PlantillaRecord[] = [
     puesto: 'Operador Junior',
     area: 'Producción',
     clasificacion: 'EVENTUAL',
+    fecha_nacimiento: '1995-07-08',
+    genero: 'masculino',
     created_at: '2023-10-15T00:00:00Z',
     updated_at: '2023-12-20T00:00:00Z',
+  },
+];
+
+/**
+ * Mock Motivos Baja Data
+ */
+export const mockMotivosBaja = [
+  {
+    id: 1,
+    numero_empleado: 1003,
+    fecha_baja: '2023-12-31',
+    tipo: 'Voluntaria',
+    motivo: 'Renuncia voluntaria',
+    descripcion: 'Mejor oportunidad laboral',
+    fecha_creacion: '2023-12-31T00:00:00Z',
+  },
+  {
+    id: 2,
+    numero_empleado: 1005,
+    fecha_baja: '2023-12-20',
+    tipo: 'Voluntaria',
+    motivo: 'Abandono de trabajo',
+    descripcion: 'No se presentó más',
+    fecha_creacion: '2023-12-20T00:00:00Z',
   },
 ];
 
