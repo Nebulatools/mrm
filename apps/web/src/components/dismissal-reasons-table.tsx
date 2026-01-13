@@ -30,6 +30,9 @@ interface Employee {
   departamento?: string;
   area?: string;
   fecha_ingreso: string;
+  fecha_baja: string | null;
+  motivo: string;
+  antiguedad: string;
 }
 
 interface DismissalReasonsTableProps {
@@ -86,6 +89,23 @@ export function DismissalReasonsTable({
     (a, b) => parseFechaToTime(b.fecha_baja) - parseFechaToTime(a.fecha_baja)
   );
   
+  const calcularAntiguedad = (fechaIngreso: string | null, fechaBaja: string | null): string => {
+    if (!fechaIngreso) return '—';
+    const inicio = new Date(fechaIngreso);
+    const fin = fechaBaja ? new Date(fechaBaja) : new Date();
+    if (isNaN(inicio.getTime()) || isNaN(fin.getTime())) return '—';
+
+    const diffMs = fin.getTime() - inicio.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const years = Math.floor(diffDays / 365);
+    const months = Math.floor((diffDays % 365) / 30);
+
+    if (years > 0 && months > 0) return `${years}a ${months}m`;
+    if (years > 0) return `${years} año${years > 1 ? 's' : ''}`;
+    if (months > 0) return `${months} mes${months > 1 ? 'es' : ''}`;
+    return `${diffDays} días`;
+  };
+
   const empleadosDetalle: Employee[] = (showAll ? empleadosOrdenados : empleadosOrdenados.slice(0, 10))
     .map(emp => ({
       numero_empleado: emp.numero_empleado || 0,
@@ -95,7 +115,10 @@ export function DismissalReasonsTable({
       ubicacion: sanitizeText(emp.ubicacion || '') || 'Sin ubicación',
       departamento: sanitizeText(normalizeDepartamento(emp.departamento)) || 'Sin departamento',
       area: sanitizeText(emp.area || '') || 'Sin área',
-      fecha_ingreso: emp.fecha_ingreso
+      fecha_ingreso: emp.fecha_ingreso,
+      fecha_baja: emp.fecha_baja || null,
+      motivo: prettyMotivo(emp.motivo_baja),
+      antiguedad: calcularAntiguedad(emp.fecha_ingreso, emp.fecha_baja)
     }));
 
   const formatDate = (dateString: string | null) => {
@@ -151,7 +174,7 @@ export function DismissalReasonsTable({
                 refreshEnabled && "font-body text-sm text-brand-ink/70"
               )}
             >
-              # de Nómina, Puesto, Unidad, Empresa, Ubicación, Departamento, Área, Fecha de Ingreso
+              # de Nómina, Puesto, Departamento, Área, Fecha de Baja, Motivo, Antigüedad
             </p>
           </div>
           <Button
@@ -190,12 +213,11 @@ export function DismissalReasonsTable({
                     <TableRow>
                       <TableHead className="w-24"># de Nómina</TableHead>
                       <TableHead>Puesto</TableHead>
-                      <TableHead>Unidad</TableHead>
-                      <TableHead>Empresa</TableHead>
-                      <TableHead>Ubicación</TableHead>
                       <TableHead>Departamento</TableHead>
                       <TableHead>Área</TableHead>
-                      <TableHead>Fecha Ingreso</TableHead>
+                      <TableHead>Fecha Baja</TableHead>
+                      <TableHead>Motivo</TableHead>
+                      <TableHead>Antigüedad</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -205,12 +227,11 @@ export function DismissalReasonsTable({
                           {empleado.numero_empleado}
                         </TableCell>
                         <TableCell>{empleado.puesto || "Sin Puesto"}</TableCell>
-                        <TableCell>{empleado.unidad || "Sin Unidad"}</TableCell>
-                        <TableCell>{empleado.empresa || "Sin Empresa"}</TableCell>
-                        <TableCell>{empleado.ubicacion || "Sin Ubicación"}</TableCell>
                         <TableCell>{empleado.departamento || "Sin Depto"}</TableCell>
                         <TableCell>{empleado.area || "Sin Área"}</TableCell>
-                        <TableCell>{formatDate(empleado.fecha_ingreso)}</TableCell>
+                        <TableCell>{formatDate(empleado.fecha_baja)}</TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={empleado.motivo}>{empleado.motivo || "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap">{empleado.antiguedad}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -596,16 +596,16 @@ export function DashboardPage() {
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
   })();
 
-  // Género: horizontal bar
+  // Género: horizontal bar (solo empleados activos para consistencia con tabla de antigüedad)
   const genderCounts = (() => {
     const norm = (g?: string | null) => {
       const s = (g || '').toString().trim().toUpperCase();
-      if (["H", "HOMBRE", "M", "MASCULINO"].includes(s)) return "HOMBRE";
-      if (["M", "MUJER", "F", "FEMENINO"].includes(s)) return "MUJER";
+      if (["H", "HOMBRE", "MASCULINO"].includes(s)) return "HOMBRE";
+      if (["MUJER", "F", "FEMENINO"].includes(s)) return "MUJER";
       return s || 'NO ESPECIFICADO';
     };
     const map = new Map<string, number>();
-    plantillaFiltered.forEach(e => {
+    plantillaFiltered.filter(e => e.activo).forEach(e => {
       const key = norm((e as any).genero);
       map.set(key, (map.get(key) || 0) + 1);
     });
@@ -705,21 +705,34 @@ export function DashboardPage() {
         rotacionMensual: 0,
         rotacionMensualAnterior: 0,
         rotacionMensualVariacion: 0,
+        rotacionMensualSameMonthPrevYear: 0,
         rotacionMensualClaves: 0,
         rotacionMensualClavesAnterior: 0,
         rotacionMensualClavesVariacion: 0,
+        // ✅ Voluntaria variants
+        rotacionMensualVoluntaria: 0,
+        rotacionMensualVoluntariaAnterior: 0,
+        rotacionMensualVoluntariaVariacion: 0,
         rotacionAcumulada: 0,
         rotacionAcumuladaAnterior: 0,
         rotacionAcumuladaVariacion: 0,
         rotacionAcumuladaClaves: 0,
         rotacionAcumuladaClavesAnterior: 0,
         rotacionAcumuladaClavesVariacion: 0,
+        // ✅ Voluntaria variants
+        rotacionAcumuladaVoluntaria: 0,
+        rotacionAcumuladaVoluntariaAnterior: 0,
+        rotacionAcumuladaVoluntariaVariacion: 0,
         rotacionAnioActual: 0,
         rotacionAnioActualAnterior: 0,
         rotacionAnioActualVariacion: 0,
         rotacionAnioActualClaves: 0,
         rotacionAnioActualClavesAnterior: 0,
         rotacionAnioActualClavesVariacion: 0,
+        // ✅ Voluntaria variants
+        rotacionAnioActualVoluntaria: 0,
+        rotacionAnioActualVoluntariaAnterior: 0,
+        rotacionAnioActualVoluntariaVariacion: 0,
       } as any;
     }
 
@@ -1197,11 +1210,13 @@ export function DashboardPage() {
             <TabsTrigger value="retention" className={tabTriggerClass}>
               Rotación
             </TabsTrigger>
+            {/* Tab de Tendencias oculto temporalmente
             {isAdmin && (
               <TabsTrigger value="trends" className={tabTriggerClass}>
                 Tendencias
               </TabsTrigger>
             )}
+            */}
           </TabsList>
 
           {/* Overview Tab - Nuevo Resumen Comparativo */}
@@ -1222,13 +1237,14 @@ export function DashboardPage() {
               selectedMonth={retentionFilters.months.length > 0 ? retentionFilters.months[0] : undefined}
               referenceDate={selectedPeriod}
               retentionKPIsOverride={{
-                rotacionMensual: filteredRetentionKPIs.rotacionMensual,
-                rotacionMensualAnterior: filteredRetentionKPIs.rotacionMensualAnterior,
-                rotacionMensualSameMonthPrevYear: filteredRetentionKPIs.rotacionMensualSameMonthPrevYear,
-                rotacionAcumulada: filteredRetentionKPIs.rotacionAcumulada,
-                rotacionAcumuladaAnterior: filteredRetentionKPIs.rotacionAcumuladaAnterior,
-                rotacionAnioActual: filteredRetentionKPIs.rotacionAnioActual,
-                rotacionAnioActualAnterior: filteredRetentionKPIs.rotacionAnioActualAnterior
+                // ✅ CORREGIDO: Usar valores VOLUNTARIA para tab Resumen
+                rotacionMensual: filteredRetentionKPIs.rotacionMensualVoluntaria,
+                rotacionMensualAnterior: filteredRetentionKPIs.rotacionMensualVoluntariaAnterior,
+                rotacionMensualSameMonthPrevYear: filteredRetentionKPIs.rotacionMensualVoluntariaSameMonthPrevYear ?? filteredRetentionKPIs.rotacionMensualVoluntariaAnterior,
+                rotacionAcumulada: filteredRetentionKPIs.rotacionAcumuladaVoluntaria,
+                rotacionAcumuladaAnterior: filteredRetentionKPIs.rotacionAcumuladaVoluntariaAnterior,
+                rotacionAnioActual: filteredRetentionKPIs.rotacionAnioActualVoluntaria,
+                rotacionAnioActualAnterior: filteredRetentionKPIs.rotacionAnioActualVoluntariaAnterior
               }}
               incidentsKPIsOverride={incidentsKpiSnapshot || undefined}
               refreshEnabled={refreshEnabled}
@@ -1448,22 +1464,23 @@ export function DashboardPage() {
                     {(fullscreen) => (
                       <div style={{ width: '100%', height: fullscreen ? 340 : 280 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                      <ScatterChart margin={{ left: 16, right: 16, top: 8, bottom: 8 }}>
+                      <ScatterChart margin={{ left: 24, right: 16, top: 16, bottom: 40 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                         <XAxis
                           dataKey="age"
                           name="Edad"
-                          unit=" años"
                           type="number"
                           allowDecimals={false}
-                          tick={{ fill: chartAxisColor, fontSize: 12 }}
+                          tick={{ fill: chartAxisColor, fontSize: 11 }}
+                          label={{ value: 'Edad (años)', position: 'bottom', offset: 20, style: { fill: chartAxisColor, fontSize: 12, fontWeight: 500 } }}
                         />
                         <YAxis
                           dataKey="count"
                           name="# Empleados"
                           type="number"
                           allowDecimals={false}
-                          tick={{ fill: chartSecondaryAxisColor, fontSize: 12 }}
+                          tick={{ fill: chartSecondaryAxisColor, fontSize: 11 }}
+                          label={{ value: '# Empleados', angle: -90, position: 'insideLeft', offset: 0, style: { fill: chartSecondaryAxisColor, fontSize: 12, fontWeight: 500, textAnchor: 'middle' } }}
                         />
                         <Tooltip
                           cursor={{ strokeDasharray: '3 3', stroke: isDark ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.45)' }}
@@ -1738,11 +1755,11 @@ export function DashboardPage() {
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Rotación Mensual',
+                      name: 'Rotación Mensual Voluntaria',
                       category: 'retention',
-                      value: filteredRetentionKPIs.rotacionMensual,
-                      previous_value: filteredRetentionKPIs.rotacionMensualAnterior,
-                      variance_percentage: filteredRetentionKPIs.rotacionMensualVariacion,
+                      value: filteredRetentionKPIs.rotacionMensualVoluntaria,
+                      previous_value: filteredRetentionKPIs.rotacionMensualVoluntariaAnterior,
+                      variance_percentage: filteredRetentionKPIs.rotacionMensualVoluntariaVariacion,
                       period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth(), 1)
                         .toISOString()
                         .split('T')[0],
@@ -1759,8 +1776,8 @@ export function DashboardPage() {
                         noWrap: true
                       },
                       {
-                        label: 'Rot. Voluntaria',
-                        value: filteredRetentionKPIs.rotacionMensualVoluntaria,
+                        label: 'Rot. Total',
+                        value: filteredRetentionKPIs.rotacionMensual,
                         isPercent: true,
                         noWrap: true
                       }
@@ -1770,11 +1787,11 @@ export function DashboardPage() {
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Rotación Acumulada',
+                      name: 'Rotación Acumulada Voluntaria',
                       category: 'retention',
-                      value: filteredRetentionKPIs.rotacionAcumulada,
-                      previous_value: filteredRetentionKPIs.rotacionAcumuladaAnterior,
-                      variance_percentage: filteredRetentionKPIs.rotacionAcumuladaVariacion,
+                      value: filteredRetentionKPIs.rotacionAcumuladaVoluntaria,
+                      previous_value: filteredRetentionKPIs.rotacionAcumuladaVoluntariaAnterior,
+                      variance_percentage: filteredRetentionKPIs.rotacionAcumuladaVoluntariaVariacion,
                       period_start: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() - 11, 1)
                         .toISOString()
                         .split('T')[0],
@@ -1791,8 +1808,8 @@ export function DashboardPage() {
                         noWrap: true
                       },
                       {
-                        label: 'Rot. Voluntaria',
-                        value: filteredRetentionKPIs.rotacionAcumuladaVoluntaria,
+                        label: 'Rot. Total',
+                        value: filteredRetentionKPIs.rotacionAcumulada,
                         isPercent: true,
                         noWrap: true
                       }
@@ -1802,11 +1819,11 @@ export function DashboardPage() {
                   <KPICard
                     refreshEnabled={refreshEnabled}
                     kpi={{
-                      name: 'Rotación Año Actual',
+                      name: 'Rotación Año Actual Voluntaria',
                       category: 'retention',
-                      value: filteredRetentionKPIs.rotacionAnioActual,
-                      previous_value: filteredRetentionKPIs.rotacionAnioActualAnterior,
-                      variance_percentage: filteredRetentionKPIs.rotacionAnioActualVariacion,
+                      value: filteredRetentionKPIs.rotacionAnioActualVoluntaria,
+                      previous_value: filteredRetentionKPIs.rotacionAnioActualVoluntariaAnterior,
+                      variance_percentage: filteredRetentionKPIs.rotacionAnioActualVoluntariaVariacion,
                       period_start: new Date(selectedPeriod.getFullYear(), 0, 1).toISOString().split('T')[0],
                       period_end: new Date(selectedPeriod.getFullYear(), selectedPeriod.getMonth() + 1, 0)
                         .toISOString()
@@ -1821,8 +1838,8 @@ export function DashboardPage() {
                         noWrap: true
                       },
                       {
-                        label: 'Rot. Voluntaria',
-                        value: filteredRetentionKPIs.rotacionAnioActualVoluntaria,
+                        label: 'Rot. Total',
+                        value: filteredRetentionKPIs.rotacionAnioActual,
                         isPercent: true,
                         noWrap: true
                       }
@@ -1937,10 +1954,11 @@ export function DashboardPage() {
             />
           </TabsContent>
 
-          {/* Trends Tab */}
+          {/* Trends Tab - Oculto temporalmente
           <TabsContent value="trends" className="space-y-6">
             <ModelTrendsTab />
           </TabsContent>
+          */}
           </Tabs>
         </main>
       </VisualizationExportProvider>

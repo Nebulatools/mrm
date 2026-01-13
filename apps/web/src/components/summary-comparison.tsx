@@ -5,7 +5,7 @@ import type { CSSProperties } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, TrendingDown, AlertCircle, TrendingUp } from 'lucide-react';
+import { Users, TrendingDown, AlertCircle, TrendingUp, Clipboard } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import type { TooltipProps } from 'recharts';
 import { isMotivoClave, normalizeIncidenciaCode, normalizeCCToUbicacion } from '@/lib/normalizers';
@@ -540,13 +540,19 @@ export function SummaryComparison({
       permisos
     });
 
+    // ✅ CORREGIDO: Calcular porcentajes de incidencias y permisos
+    const incidenciasPct = empleadosActivos > 0 ? (totalIncidencias / empleadosActivos) * 100 : 0;
+    const permisosPct = empleadosActivos > 0 ? (permisos / empleadosActivos) * 100 : 0;
+
     const result = {
       empleadosActivos,
-      rotacionMensual: rotacionMensual.total,
-      rotacionAcumulada: rotacionAcumuladaDesglose.total,
-      rotacionAnioActual: rotacionAnioActualDesglose.total,
-      incidencias: totalIncidencias,
-      permisos
+      // ✅ CORREGIDO: Usar VOLUNTARIA para los cards de Resumen
+      rotacionMensual: rotacionMensual.voluntaria,
+      rotacionAcumulada: rotacionAcumuladaDesglose.voluntaria,
+      rotacionAnioActual: rotacionAnioActualDesglose.voluntaria,
+      // ✅ CORREGIDO: Usar porcentajes en vez de conteos
+      incidencias: incidenciasPct,
+      permisos: permisosPct
     };
 
     if (retentionKPIsOverride) {
@@ -556,8 +562,10 @@ export function SummaryComparison({
     }
 
     if (incidentsKPIsOverride) {
-      result.incidencias = incidentsKPIsOverride.incidencias;
-      result.permisos = incidentsKPIsOverride.permisos;
+      // ✅ CORREGIDO: Convertir conteos a porcentajes
+      const activos = result.empleadosActivos || 1;
+      result.incidencias = activos > 0 ? (incidentsKPIsOverride.incidencias / activos) * 100 : 0;
+      result.permisos = activos > 0 ? (incidentsKPIsOverride.permisos / activos) * 100 : 0;
     }
 
     return result;
@@ -760,8 +768,10 @@ export function SummaryComparison({
     }
 
     if (incidentsKPIsOverride) {
-      kpisPrevMonth.incidencias = incidentsKPIsOverride.incidenciasAnterior;
-      kpisPrevMonth.permisos = incidentsKPIsOverride.permisosAnterior;
+      // ✅ CORREGIDO: Convertir conteos anteriores a porcentajes
+      const activosPrev = kpisPrevMonth.empleadosActivos || 1;
+      kpisPrevMonth.incidencias = activosPrev > 0 ? (incidentsKPIsOverride.incidenciasAnterior / activosPrev) * 100 : 0;
+      kpisPrevMonth.permisos = activosPrev > 0 ? (incidentsKPIsOverride.permisosAnterior / activosPrev) * 100 : 0;
     }
 
     const effectiveReference = referenceDate ?? new Date();
@@ -793,7 +803,7 @@ export function SummaryComparison({
         secondaryValue: kpisPrevYear.rotacionMensual,
         hidePreviousValue: true,
         kpi: {
-          name: 'Rotación Mensual',
+          name: 'Rotación Mensual Voluntaria',
           category: 'retention',
           value: kpisActuales.rotacionMensual,
           previous_value: kpisPrevYear.rotacionMensual,
@@ -815,7 +825,7 @@ export function SummaryComparison({
           }
         ],
         kpi: {
-          name: 'Rotación Acumulada',
+          name: 'Rotación Acumulada Voluntaria',
           category: 'retention',
           value: kpisActuales.rotacionAcumulada,
           previous_value: kpisPrevYear.rotacionAcumulada,
@@ -838,7 +848,7 @@ export function SummaryComparison({
           }
         ],
         kpi: {
-          name: 'Rotación Año Actual',
+          name: 'Rotación Año Actual Voluntaria',
           category: 'retention',
           value: kpisActuales.rotacionAnioActual,
           previous_value: kpisPrevYear.rotacionAnioActual,
@@ -854,9 +864,11 @@ export function SummaryComparison({
         secondaryLabel: 'vs mes anterior',
         secondaryValue: kpisPrevMonth.incidencias,
         hidePreviousValue: true,
+        secondaryIsPercent: true,
         kpi: {
+          // ✅ CORREGIDO: Mostrar como porcentaje (% de empleados con incidencias)
           name: 'Incidencias',
-          category: 'incidents',
+          category: 'retention',  // Cambiado para mostrar con %
           value: kpisActuales.incidencias,
           previous_value: kpisPrevMonth.incidencias,
           variance_percentage: calculateVariancePercentage(kpisActuales.incidencias, kpisPrevMonth.incidencias),
@@ -866,13 +878,15 @@ export function SummaryComparison({
       },
       {
         key: 'permisos',
-        icon: <TrendingUp className="h-6 w-6" />,
+        icon: <Clipboard className="h-6 w-6" />,
         secondaryLabel: 'vs mes anterior',
         secondaryValue: kpisPrevMonth.permisos,
         hidePreviousValue: true,
+        secondaryIsPercent: true,
         kpi: {
+          // ✅ CORREGIDO: Mostrar como porcentaje (% de empleados con permisos)
           name: 'Permisos',
-          category: 'incidents',
+          category: 'retention',  // Cambiado para mostrar con %
           value: kpisActuales.permisos,
           previous_value: kpisPrevMonth.permisos,
           variance_percentage: calculateVariancePercentage(kpisActuales.permisos, kpisPrevMonth.permisos),
@@ -1530,19 +1544,19 @@ export function SummaryComparison({
                     <th className="pb-3 text-left font-medium">
                       Nombre
                     </th>
-                    <th className="pb-3 text-right font-medium">
+                    <th className="pb-3 text-center font-medium">
                       Total
                     </th>
-                    <th className="pb-3 text-right font-medium">
+                    <th className="pb-3 text-center font-medium">
                       Faltas
                     </th>
-                    <th className="pb-3 text-right font-medium">
+                    <th className="pb-3 text-center font-medium">
                       Salud
                     </th>
-                    <th className="pb-3 text-right font-medium">
+                    <th className="pb-3 text-center font-medium">
                       Permisos
                     </th>
-                    <th className="pb-3 text-right font-medium">
+                    <th className="pb-3 text-center font-medium">
                       Vacaciones
                     </th>
                   </tr>
@@ -1553,19 +1567,19 @@ export function SummaryComparison({
                       <td className="py-3 font-medium">
                         {d.nombre}
                       </td>
-                      <td className="py-3 text-right font-semibold">
+                      <td className="py-3 text-center font-semibold">
                         {d.ausentismo.total}
                       </td>
-                      <td className="py-3 text-right text-orange-600 dark:text-orange-400">
+                      <td className="py-3 text-center text-orange-600 dark:text-orange-400">
                         {d.ausentismo.faltas}
                       </td>
-                      <td className="py-3 text-right text-purple-600 dark:text-purple-400">
+                      <td className="py-3 text-center text-purple-600 dark:text-purple-400">
                         {d.ausentismo.salud}
                       </td>
-                      <td className="py-3 text-right text-blue-600 dark:text-blue-300">
+                      <td className="py-3 text-center text-blue-600 dark:text-blue-300">
                         {d.ausentismo.permisos}
                       </td>
-                      <td className="py-3 text-right text-yellow-600 dark:text-yellow-400">
+                      <td className="py-3 text-center text-yellow-600 dark:text-yellow-400">
                         {d.ausentismo.vacaciones}
                       </td>
                     </tr>

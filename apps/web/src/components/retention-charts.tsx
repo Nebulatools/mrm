@@ -76,6 +76,44 @@ const TEMPORALITY_COLORS = [
   '#f97316'  // +12m
 ];
 
+// Helper function para mostrar labels arriba de las barras SIN decimal
+const renderBarLabel = (props: any) => {
+  const { x, y, width, value } = props;
+  if (value === null || value === undefined || value === 0) return null;
+
+  return (
+    <text
+      x={Number(x) + Number(width) / 2}
+      y={Number(y) - 4}
+      fill="#475569"
+      textAnchor="middle"
+      fontSize={10}
+      fontWeight={600}
+    >
+      {Math.round(value)}
+    </text>
+  );
+};
+
+// Helper function para mostrar labels con símbolo % (para gráficas de rotación)
+const renderBarLabelPercent = (props: any) => {
+  const { x, y, width, value } = props;
+  if (value === null || value === undefined || value === 0) return null;
+
+  return (
+    <text
+      x={Number(x) + Number(width) / 2}
+      y={Number(y) - 4}
+      fill="#475569"
+      textAnchor="middle"
+      fontSize={10}
+      fontWeight={600}
+    >
+      {`${Math.round(value)}%`}
+    </text>
+  );
+};
+
 export function RetentionCharts({ currentDate = new Date(), currentYear, filters, motivoFilter = 'all' }: RetentionChartsProps) {
   // Create authenticated Supabase client for RLS filtering
   const supabase = createBrowserClient();
@@ -573,14 +611,15 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     }
 
     const isIncrease = value > 0;
+    // ✅ INVERTIDO: Para rotación, positivo = rojo (malo), negativo = verde (bueno)
     const base = isIncrease
-      ? { r: 34, g: 197, b: 94 }
-      : { r: 239, g: 68, b: 68 };
+      ? { r: 239, g: 68, b: 68 }    // Rojo para aumento (malo)
+      : { r: 34, g: 197, b: 94 };   // Verde para disminución (bueno)
 
     const intensity = Math.min(Math.abs(value) / 12, 1);
-    const backgroundAlpha = 0.22 + intensity * 0.32;
-    const borderAlpha = 0.4 + intensity * 0.28;
-    const lightTextColor = isIncrease ? "#166534" : "#991B1B";
+    const backgroundAlpha = 0.28 + intensity * 0.38;  // Más visible
+    const borderAlpha = 0.5 + intensity * 0.35;       // Más visible
+    const lightTextColor = isIncrease ? "#991B1B" : "#166534";
 
     return (
       <span
@@ -661,7 +700,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       }
 
       return {
-        mes: currentEntry?.mes || previousEntry?.mes || monthName,
+        mes: monthName,  // Usar solo monthName para no mostrar el año en eje X
         rotacionActual: currentEntry?.rotacionPorcentaje ?? null,
         rotacionAnterior: previousEntry?.rotacionPorcentaje ?? null
       };
@@ -672,7 +711,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     <div className="space-y-6">
       {/* Primera fila de gráficas - con borde sutil para distinguir del resto */}
       <div className="relative rounded-2xl border-2 border-blue-500/20 bg-gradient-to-br from-blue-50/30 to-transparent p-4 dark:border-blue-400/20 dark:from-blue-950/20">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Gráfico 1: Rotación Acumulada (12 meses móviles) con comparación anual */}
         <div className="rounded-lg border bg-card p-4 shadow-sm h-full dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación Acumulada (12 meses móviles)</h3>
@@ -708,11 +747,11 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                         type="monotone"
                         dataKey={`rotacion${previousYearForCharts}`}
                         name={`${previousYearForCharts} (año anterior)`}
-                        stroke={withOpacity(getModernColor(1), 0.9)}
-                        fill={withOpacity(getModernColor(1), 0.18)}
+                        stroke={withOpacity('#94a3b8', 0.9)}
+                        fill={withOpacity('#94a3b8', 0.25)}
                         strokeWidth={1.5}
                         dot={false}
-                        activeDot={{ r: 3 }}
+                        activeDot={{ r: 3, fill: '#94a3b8' }}
                         legendType="none"
                       />
                     )}
@@ -723,6 +762,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                         fill={getModernColor(0)}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={18}
+                        label={renderBarLabelPercent}
                       />
                     )}
                   </ComposedChart>
@@ -732,9 +772,9 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
           </VisualizationContainer>
         </div>
 
-        {/* Gráfico 2: Rotación YTD (Year To Date) */}
+        {/* Gráfico 2: Rotación - Lo que va del Año */}
         <div className="rounded-lg border bg-card p-4 shadow-sm h-full dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
-          <h3 className="text-base font-semibold mb-2">Rotación YTD (Year To Date)</h3>
+          <h3 className="text-base font-semibold mb-2">Rotación - Lo que va del Año</h3>
           <p className="mb-4 text-sm text-muted-foreground">
             Rotación acumulada de enero a la fecha
           </p>
@@ -765,11 +805,11 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                         type="monotone"
                         dataKey={`rotacionYTD${previousYearForCharts}`}
                         name={`${previousYearForCharts} YTD (año anterior)`}
-                        stroke={withOpacity(getModernColor(1), 0.9)}
-                        fill={withOpacity(getModernColor(1), 0.18)}
+                        stroke={withOpacity('#94a3b8', 0.9)}
+                        fill={withOpacity('#94a3b8', 0.25)}
                         strokeWidth={1.5}
                         dot={false}
-                        activeDot={{ r: 3 }}
+                        activeDot={{ r: 3, fill: '#94a3b8' }}
                         legendType="none"
                       />
                     )}
@@ -780,6 +820,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                         fill={getModernColor(0)}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={18}
+                        label={renderBarLabelPercent}
                       />
                     )}
                   </ComposedChart>
@@ -810,6 +851,10 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       angle={0}
                       tickMargin={10}
                       height={38}
+                      tickFormatter={(value: string) => {
+                        // Quitar año del mes (ej: "ene 25" → "ene")
+                        return value.replace(/\s*\d{2,4}\s*$/, '').trim();
+                      }}
                     />
                     <YAxis
                       orientation="left"
@@ -826,11 +871,11 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                         type="monotone"
                         dataKey="rotacionAnterior"
                         name={`${previousYearForMonthly} (año anterior)`}
-                        stroke={withOpacity(getModernColor(2), 0.9)}
-                        fill={withOpacity(getModernColor(2), 0.16)}
+                        stroke={withOpacity('#94a3b8', 0.9)}
+                        fill={withOpacity('#94a3b8', 0.25)}
                         strokeWidth={1.5}
                         dot={false}
-                        activeDot={{ r: 3 }}
+                        activeDot={{ r: 3, fill: '#94a3b8' }}
                         legendType="none"
                       />
                     )}
@@ -840,6 +885,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       fill={MONTHLY_SERIES_COLORS.rotation}
                       radius={[4, 4, 0, 0]}
                       maxBarSize={22}
+                      label={renderBarLabelPercent}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -873,6 +919,10 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       angle={0}
                       tickMargin={10}
                       height={38}
+                      tickFormatter={(value: string) => {
+                        // Quitar año del mes (ej: "ene 25" → "ene")
+                        return value.replace(/\s*\d{2,4}\s*$/, '').trim();
+                      }}
                     />
                     <YAxis
                       tick={{ fontSize: 11, fill: axisMutedColor }}
@@ -889,7 +939,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     <Bar dataKey="bajasMenor3m" stackId="a" fill={TEMPORALITY_COLORS[0]} name="< 3 meses" />
                     <Bar dataKey="bajas3a6m" stackId="a" fill={TEMPORALITY_COLORS[1]} name="3-6 meses" />
                     <Bar dataKey="bajas6a12m" stackId="a" fill={TEMPORALITY_COLORS[2]} name="6-12 meses" />
-                    <Bar dataKey="bajasMas12m" stackId="a" fill={TEMPORALITY_COLORS[3]} name="+12 meses" />
+                    <Bar dataKey="bajasMas12m" stackId="a" fill={TEMPORALITY_COLORS[3]} name="+12 meses" label={renderBarLabel} />
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-[11px] font-medium text-muted-foreground">

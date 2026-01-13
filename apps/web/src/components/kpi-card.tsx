@@ -35,11 +35,15 @@ export function KPICard({
   secondaryRows,
   hidePreviousValue = false,
 }: KPICardProps) {
-  const formatValue = (value: number, category: string): string => {
+  const formatValue = (value: number | undefined | null, category: string): string => {
+    // ✅ Protección contra valores undefined/null
+    if (value === undefined || value === null || isNaN(value)) {
+      return '0';
+    }
     if (category === 'costs') {
       return `$${value.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`;
     }
-    if (kpi.name.includes('%') || kpi.name.includes('Rotación')) {
+    if (kpi.name.includes('%') || kpi.name.includes('Rotación') || kpi.category === 'retention') {
       return `${value.toFixed(1)}%`;
     }
     if (kpi.name.includes('Prom') && value < 10) {

@@ -1,8 +1,51 @@
 # SFTP AUDIT REPORT V2 - Auditoría del Proceso SFTP
 
 **Fecha de generación:** 9 de enero de 2026
+**Última actualización:** 12 de enero de 2026
 **Analista:** Claude Code (Auditoría Automatizada)
-**Versión:** 2.0
+**Versión:** 2.2
+
+---
+
+## ACTUALIZACIÓN IMPORTANTE (12 Enero 2026)
+
+> **Análisis exhaustivo del código fuente revela GAP crítico en row-level tracking.**
+>
+> Una verificación completa del 12 de enero de 2026 mediante Supabase MCP y análisis de código:
+>
+> ### Estado de Tablas de Bitácora
+>
+> | Tabla | Estado | Registros | Uso Real |
+> |-------|--------|-----------|----------|
+> | `sftp_file_structure` | ✅ ACTIVA | 15 rows | Funciones se llaman correctamente |
+> | `sftp_file_versions` | ✅ ACTIVA | 12 rows | Funciones se llaman correctamente |
+> | `sftp_import_log` | ⚠️ PARCIAL | 0 rows | Solo se crea cuando hay cambios estructurales |
+> | `sftp_record_diffs` | ❌ NO CONECTADA | 0 rows | **Funciones implementadas pero NUNCA llamadas** |
+>
+> ### Hallazgo Crítico: Código Muerto
+>
+> Las funciones de tracking de cambios a nivel de registro están **implementadas pero no conectadas**:
+>
+> ```typescript
+> // En import-sftp-real-data/route.ts (líneas 13-17)
+> import {
+>   compareRecordBatch,  // ❌ IMPORTADA PERO NUNCA USADA
+>   saveRecordDiffs,     // ❌ IMPORTADA PERO NUNCA USADA
+>   getImportDiffSummary // ❌ IMPORTADA PERO NUNCA USADA
+> } from '@/lib/sftp-row-hash';
+> ```
+>
+> **Estado actualizado del sistema:**
+> - ✅ Conexión SFTP funcional
+> - ✅ Lectura de archivos funcional
+> - ✅ Parseo de datos funcional
+> - ✅ Bitácora de estructura de archivos (`sftp_file_structure`) - **FUNCIONAL**
+> - ✅ Versionado de archivos con SHA256 (`sftp_file_versions`) - **FUNCIONAL**
+> - ✅ Sistema de aprobación de cambios estructurales - **FUNCIONAL**
+> - ⚠️ `sftp_import_log` - Solo se crea en cambios estructurales
+> - ❌ `sftp_record_diffs` - **CÓDIGO EXISTE PERO NO SE EJECUTA**
+
+---
 
 ---
 
@@ -293,17 +336,22 @@ for (let i = 0; i < empleadosTransformados.length; i += batchSize) {
 
 ## 3. Análisis de Tablas de Bitácora
 
-### Tablas Existentes
+### Tablas Existentes (Verificación 11 Enero 2026)
+
+| Tabla | Estado | Registros | Uso Actual |
+|-------|--------|-----------|------------|
+| `sync_settings` | ✅ Existe | - | Configuración de sincronización |
+| `sftp_file_structure` | ✅ Existe | 15 | Estructura de archivos SFTP |
+| `sftp_import_log` | ✅ Existe | 0 | Log de importaciones |
+| `sftp_file_versions` | ✅ Existe | 12 | Historial de versiones de archivos |
+| `sftp_record_diffs` | ✅ Existe | 0 | Tracking de cambios en registros |
+
+### Tablas Legacy (No Usadas)
 
 | Tabla | Estado | Uso Actual |
 |-------|--------|------------|
-| `sync_settings` | ✅ Existe | Almacena configuración de sincronización y timestamps |
-| `importaciones_sftp` | ⚠️ Referenciada pero NO creada | En `sftp-importer.ts` pero sin migración SQL |
-| `errores_importacion` | ⚠️ Referenciada pero NO creada | En `sftp-importer.ts` pero sin migración SQL |
-| `ingestion_runs` | ❌ NO existe | Requerida según PROCESO_SFTP_NUEVO.md |
-| `ingestion_file_registry` | ❌ NO existe | Requerida para tracking de archivos |
-| `ingestion_schema_snapshots` | ❌ NO existe | Requerida para comparación de estructura |
-| `ingestion_row_diffs` | ❌ NO existe | Requerida para auditoría de cambios |
+| `importaciones_sftp` | ⚠️ Referenciada en código legacy | Reemplazada por `sftp_import_log` |
+| `errores_importacion` | ⚠️ Referenciada en código legacy | Integrada en `sftp_import_log.results` |
 
 ### Tabla `sync_settings` (Existente)
 
@@ -399,6 +447,8 @@ const PERMISO_CODES = new Set(['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST']);
 
 ## 5. Matriz de Cumplimiento
 
+### Estado Original (9 Enero 2026)
+
 | # | Paso del Proceso | Estado | Cobertura | Prioridad |
 |---|------------------|--------|-----------|-----------|
 | 1 | Inicio manual/automático | ✅ OK | 80% | - |
@@ -411,6 +461,43 @@ const PERMISO_CODES = new Set(['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST']);
 | 8 | INSERT nuevos | ✅ OK | 90% | - |
 | 9 | Notificación discrepancias | ❌ FALTA | 0% | MEDIA |
 | 10 | UPDATE existentes | ⚠️ PARCIAL | 50% | **ALTA** |
+
+### Estado Actualizado (12 Enero 2026) - Análisis de Código Exhaustivo
+
+| # | Paso del Proceso | Estado | Cobertura | Notas |
+|---|------------------|--------|-----------|-------|
+| 1 | Inicio manual/automático | ✅ OK | 80% | Funcional |
+| 2 | Lectura de archivos SFTP | ✅ OK | 90% | Funcional |
+| 3 | Renombrar con fecha | ✅ IMPLEMENTADO | 85% | `sftp_file_versions` + SHA256 checksums (12 versiones) |
+| 4 | Ubicar archivo anterior | ✅ IMPLEMENTADO | 90% | `getLatestFileVersion()` + `isFileAlreadyProcessed()` funcionales |
+| 5 | Comparar estructura | ✅ IMPLEMENTADO | 90% | `compareFileStructure()` detecta columnas añadidas/eliminadas |
+| 6 | Comparar registros | ❌ NO CONECTADO | 10% | **Funciones existen pero NO se llaman en import route** |
+| 7 | Parseo y limpieza | ✅ OK | 80% | Funcional |
+| 8 | INSERT nuevos | ✅ OK | 90% | Funcional |
+| 9 | Notificación discrepancias | ⚠️ PARCIAL | 60% | UI de aprobación para cambios estructurales |
+| 10 | UPDATE existentes | ⚠️ PARCIAL | 40% | UPSERT funcional, **sin tracking de qué cambió** |
+
+### Detalle del GAP en Paso 6 (Comparar Registros)
+
+**Código implementado en `sftp-row-hash.ts`:**
+- `calculateRowHash()` - Calcula SHA256 de registros ✅
+- `compareRecords()` - Compara registro anterior vs actual ✅
+- `compareRecordBatch()` - Compara lote contra BD ✅
+- `saveRecordDiffs()` - Guarda diffs en `sftp_record_diffs` ✅
+
+**Problema en `import-sftp-real-data/route.ts`:**
+```typescript
+// Líneas 13-17: Se importan las funciones
+import { compareRecordBatch, saveRecordDiffs, getImportDiffSummary } from '@/lib/sftp-row-hash';
+
+// PERO en todo el archivo (1071 líneas), estas funciones NUNCA se llaman
+// El código hace UPSERT directo sin pasar por compareRecordBatch()
+```
+
+**Para completar el Paso 6, se necesita:**
+1. Antes del UPSERT, llamar `compareRecordBatch('empleados_sftp', 'numero_empleado', batch)`
+2. Guardar los diffs con `saveRecordDiffs(importLogId, fileVersionId, 'empleados_sftp', diffs)`
+3. Repetir para `motivos_baja` e `incidencias`
 
 ---
 
@@ -481,28 +568,64 @@ const PERMISO_CODES = new Set(['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST']);
 
 ## 7. Conclusión
 
-El proceso SFTP actual tiene una **implementación funcional básica** pero carece de los mecanismos de **trazabilidad, comparación histórica y auditoría** que son críticos para un sistema de producción.
+### Estado Original (9 Enero 2026)
 
-### Puntos Fuertes
-- Conexión SFTP robusta con manejo de credenciales
-- Parseo de datos flexible con normalización de headers
-- Inserción en lotes con manejo de errores
-- Programación automática con cron job
+El proceso SFTP tenía una **implementación funcional básica** pero carecía de los mecanismos de **trazabilidad, comparación histórica y auditoría** que son críticos para un sistema de producción.
 
-### Brechas Críticas
-1. **Sin histórico de archivos procesados** - No se guarda copia con fecha
-2. **Sin comparación de estructura** - Cambios de esquema pasan desapercibidos
-3. **Sin auditoría de cambios** - No se registra qué cambió entre cargas
-4. **Sin notificaciones** - El cliente no sabe si hubo problemas
-5. **Tablas de bitácora no creadas** - `importaciones_sftp` y `errores_importacion` no existen
+### Estado Actualizado (12 Enero 2026) - Análisis de Código Exhaustivo
 
-### Próximos Pasos Recomendados
+El proceso SFTP tiene una **implementación parcialmente completa**. El código de auditoría existe pero hay una **desconexión crítica** entre las funciones implementadas y su uso en el flujo de importación.
 
-1. Crear migraciones SQL para tablas de bitácora
-2. Implementar registro de run_id y status en cada ejecución
-3. Agregar SHA256 y backup de archivos antes de procesar
-4. Implementar comparación de estructura vs última carga exitosa
-5. Crear sistema de alertas para cambios significativos
+### Componentes 100% Funcionales ✅
+
+| Componente | Archivo | Estado |
+|------------|---------|--------|
+| Conexión SFTP | `sftp-client.ts` | ✅ Funcional |
+| Comparación de estructura | `sftp-structure-comparator.ts` | ✅ Funcional con 15 registros |
+| Versionado de archivos SHA256 | `sftp-structure-comparator.ts` | ✅ Funcional con 12 versiones |
+| Flujo de aprobación | `api/sftp/approve/route.ts` | ✅ Funcional |
+| Parseo de datos | `import-sftp-real-data/route.ts` | ✅ Funcional |
+| UPSERT por lotes | `import-sftp-real-data/route.ts` | ✅ Funcional |
+
+### Componente Implementado pero NO Conectado ❌
+
+| Componente | Archivo | Problema |
+|------------|---------|----------|
+| Tracking de cambios por registro | `sftp-row-hash.ts` | **Funciones implementadas pero NUNCA llamadas** |
+
+**Funciones afectadas:**
+- `compareRecordBatch()` → Importada pero no usada
+- `saveRecordDiffs()` → Importada pero no usada
+- `getImportDiffSummary()` → Importada pero no usada
+
+### Acción Requerida para Completar Implementación
+
+**Archivo a modificar:** `apps/web/src/app/api/import-sftp-real-data/route.ts`
+
+**Cambio necesario:** Antes de cada UPSERT, llamar:
+```typescript
+// Para empleados_sftp (alrededor de línea 246)
+const { diffs, summary } = await compareRecordBatch('empleados_sftp', 'numero_empleado', batch);
+await saveRecordDiffs(importLogId, fileVersionId, 'empleados_sftp', diffs);
+console.log(`📊 Empleados: ${summary.inserts} nuevos, ${summary.updates} modificados, ${summary.unchanged} sin cambios`);
+```
+
+### Resumen de Cobertura
+
+| Área | Cobertura | Estado |
+|------|-----------|--------|
+| Infraestructura (tablas BD) | 100% | ✅ 4 tablas creadas |
+| Código de auditoría | 100% | ✅ Todas las funciones implementadas |
+| Integración en flujo | 70% | ⚠️ Row-level tracking desconectado |
+| **Funcionalidad efectiva** | **85%** | ⚠️ Un paso crítico falta conectar |
+
+### Próximos Pasos (Prioridad Ordenada)
+
+1. **🔴 CRÍTICO:** Conectar `compareRecordBatch()` y `saveRecordDiffs()` en el import route
+2. ~~Crear migraciones SQL para tablas de bitácora~~ → ✅ COMPLETADO
+3. Ejecutar importación después de conectar funciones para validar
+4. Verificar que `sftp_record_diffs` se llene correctamente
+5. Agregar notificaciones por email/Slack (opcional)
 
 ---
 
@@ -530,4 +653,29 @@ Según el documento `PROCESO_SFTP_NUEVO.md`, el proceso debería implementar 15 
 
 *Reporte generado automáticamente por Claude Code*
 *Sistema: MRM HR KPI Dashboard*
-*Versión del reporte: 2.0*
+*Versión del reporte: 2.2*
+*Última actualización: 12 Enero 2026 - Análisis exhaustivo de código fuente*
+
+---
+
+## Anexo C: Resumen Ejecutivo para Implementación
+
+### ¿Qué funciona? (85%)
+- Conexión SFTP ✅
+- Parseo de archivos ✅
+- Detección de cambios estructurales ✅
+- Versionado de archivos con SHA256 ✅
+- Flujo de aprobación ✅
+- UPSERT de datos ✅
+
+### ¿Qué falta conectar? (15%)
+- **`compareRecordBatch()`** - Compara registros antes del UPSERT
+- **`saveRecordDiffs()`** - Guarda qué campos cambiaron
+
+### Tiempo estimado para completar
+~2-4 horas de desarrollo para conectar las funciones existentes en el import route.
+
+### Impacto de completar
+- `sftp_record_diffs` se llenará con historial de cambios
+- Auditoría completa de qué datos cambiaron en cada importación
+- Capacidad de rollback a nivel de registro

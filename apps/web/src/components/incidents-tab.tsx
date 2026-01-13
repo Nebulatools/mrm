@@ -118,9 +118,9 @@ const renderPieInnerLabel = ({
   const value = typeof payload?.value === "number" ? payload.value : 0;
   const label = typeof payload?.name === "string" ? payload.name : "";
   const displayValue = `${value.toLocaleString("es-MX")} · ${safePercent.toFixed(1)}%`;
-  const isSmallSlice = safePercent < 12;
-  const outerPointRadius = outerRadiusNum + 8;
-  const accentRadius = outerRadiusNum + 28;
+  const isSmallSlice = safePercent < 8;  // Reducido de 12 a 8 para menos labels externos
+  const outerPointRadius = outerRadiusNum + 18;  // Aumentado de 12 a 18 para más espacio
+  const accentRadius = outerRadiusNum + 55;  // Aumentado de 38 a 55 para mayor separación
   const angle = -midAngleNum * RADIAN;
   const connectorStartX = cxNum + outerRadiusNum * Math.cos(angle);
   const connectorStartY = cyNum + outerRadiusNum * Math.sin(angle);
@@ -686,7 +686,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
         ] : undefined
       },
       {
-        icon: <Activity className="h-6 w-6" />,
+        icon: <AlertCircle className="h-6 w-6" />,
         kpi: {
           name: isPercent ? 'Incidencias (%)' : 'Incidencias (#)',
           category: 'incidents' as const,
@@ -1207,7 +1207,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
             ))}
       </div>
       <p className="text-xs text-gray-500">
-        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones) · <strong>Permisos (subgrupo):</strong> PSIN, PCON, FEST, PATER, JUST (sin VAC)
+        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones). <strong>Grupos:</strong> Vacaciones (VAC) · Faltas (FI, SUSP) · Salud (ENFE, MAT3, MAT1) · Permisos (PSIN, PCON, FEST, PATER, JUST)
       </p>
 
       {/* Gráfica de Tendencia Mensual - 4 Categorías */}
@@ -1367,7 +1367,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
 
         {/* Resumen por tipo - Solo Faltas + Salud */}
         <Card className="h-[420px] flex flex-col">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Incidencias por tipo (Faltas + Salud)</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Incidencias por tipo</CardTitle></CardHeader>
           <CardContent className="flex-1 overflow-hidden pt-2 pb-4">
             <VisualizationContainer
               title="Tabla de incidencias por tipo"
@@ -1754,7 +1754,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                       <TableRow>
                         <TableHead>ID</TableHead>
                         <TableHead>Fecha</TableHead>
-                        <TableHead>Incidencia</TableHead>
+                        <TableHead>Código</TableHead>
+                        <TableHead>Motivo</TableHead>
                         <TableHead>Días</TableHead>
                         <TableHead>Empresa</TableHead>
                         <TableHead>Departamento</TableHead>
@@ -1767,7 +1768,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                         <TableRow key={i.id}>
                           <TableCell>{i.id}</TableCell>
                           <TableCell>{formatToDDMMYYYY(i.fecha)}</TableCell>
-                          <TableCell>{labelForIncidencia(i.inci, i.incidencia) || '-'}</TableCell>
+                          <TableCell className="font-medium">{normalizeIncidenciaCode(i.inci) || '—'}</TableCell>
+                          <TableCell>{i.incidencia || labelForIncidencia(i.inci) || '—'}</TableCell>
                           <TableCell>1</TableCell>
                           <TableCell>{i.empresa || '—'}</TableCell>
                           <TableCell>{i.departamento || '—'}</TableCell>
