@@ -8,7 +8,17 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest watch",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report",
+    "test:all": "npm run test:run && npm run test:e2e",
+    "playwright:install": "playwright install --with-deps"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -40,6 +50,11 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
+    "@playwright/test": "^1.57.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.4",
     "@types/papaparse": "^5.3.16",
@@ -47,12 +62,18 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/ssh2-sftp-client": "^9.0.5",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^4.0.17",
+    "@vitest/ui": "^4.0.17",
     "dotenv": "^17.2.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.32",
+    "happy-dom": "^20.1.0",
     "ignore-loader": "^0.1.2",
+    "jsdom": "^27.4.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.17"
   }
 }

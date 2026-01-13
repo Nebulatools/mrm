@@ -334,7 +334,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
       const buildComparison = (filteredMonthsData: MonthlyRetentionData[]) => {
         const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-        const selectedYear = currentYear || new Date().getFullYear();
+        // FIX: Usar el año de currentDate (fecha seleccionada) en lugar del año del sistema
+        const selectedYear = currentYear || currentDate?.getFullYear() || new Date().getFullYear();
         const previousYear = selectedYear - 1;
         const lastTwoYears = [previousYear, selectedYear];
 
@@ -909,8 +910,10 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyData.filter(d => {
                     const fecha = new Date(d.year, d.month - 1, 1);
-                    const targetYear = currentYear || new Date().getFullYear();
-                    return d.year === targetYear && fecha <= new Date();
+                    // FIX: Usar el año de currentDate (fecha seleccionada) en lugar del año del sistema
+                    const targetYear = currentYear || currentDate?.getFullYear() || new Date().getFullYear();
+                    const referenceDate = currentDate || new Date();
+                    return d.year === targetYear && fecha <= referenceDate;
                   })}>
                     <CartesianGrid strokeDasharray="4 8" stroke={gridStrokeColor} />
                     <XAxis

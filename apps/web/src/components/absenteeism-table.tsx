@@ -34,7 +34,7 @@ export function AbsenteeismTable({
   selectedYears = [],
   filters
 }: AbsenteeismTableProps) {
-  const [metricType, setMetricType] = useState<"number" | "percent">("number");
+  const [metricType, setMetricType] = useState<"number" | "percent">("percent");
 
   // Filtrar incidencias según año y empleados de la plantilla filtrada
   const filteredIncidencias = useMemo(() => {
@@ -121,7 +121,7 @@ export function AbsenteeismTable({
       finalData[motivo] = dataByMotivo[motivo].map((count, idx) => {
         if (metricType === "percent") {
           const dias = diasLaboradosPorMes[idx];
-          return dias > 0 ? ((count / dias) * 100).toFixed(2) + '%' : '0.00%';
+          return dias > 0 ? ((count / dias) * 100).toFixed(0) + '%' : '0%';
         }
         return count;
       });

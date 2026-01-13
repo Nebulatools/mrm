@@ -958,8 +958,9 @@ export function SummaryComparison({
       return row;
     });
 
-    const currentYear = new Date().getFullYear();
-    let ytdSeries = rotationSeries.filter(point => point.year === currentYear);
+    // FIX: Usar el año de la fecha seleccionada, no el año del sistema
+    const selectedYear = referenceDate.getFullYear();
+    let ytdSeries = rotationSeries.filter(point => point.year === selectedYear);
     if (ytdSeries.length === 0) {
       ytdSeries = rotationSeries;
     }
