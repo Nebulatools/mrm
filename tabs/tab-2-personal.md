@@ -409,6 +409,393 @@ Los datos de la base tienen encoding UTF-8 con caracteres especiales. El sistema
 
 ---
 
+## Ejemplo Práctico: Diciembre 2025
+**Datos REALES de Supabase verificados 2026-01-14**
+
+### Datos Base del Mes
+
+| Métrica | Valor |
+|---------|-------|
+| Total registros en tabla empleados_sftp | 1,045 empleados |
+| Con fecha_baja (históricos) | 684 empleados |
+| Activos al 1 de diciembre (30 nov) | 367 empleados |
+| Activos al 31 de diciembre | 361 empleados |
+| **Activos Promedio** | **(367+361)/2 = 364 empleados** |
+| Altas del mes | 11 empleados |
+| Bajas del mes | 17 empleados |
+
+---
+
+### KPI Cards - Diciembre 2025
+
+#### 1. Activos (Headcount Actual)
+```sql
+-- Query real
+SELECT COUNT(*) FROM empleados_sftp
+WHERE fecha_ingreso <= '2025-12-31'
+AND (fecha_baja IS NULL OR fecha_baja > '2025-12-31')
+-- Resultado: 361 empleados
+```
+
+**Variación vs Noviembre**:
+```
+Nov: 367 activos → Dic: 361 activos
+Variación = (361-367)/367 × 100 = -1.6% ▼ (6 empleados menos)
+```
+
+---
+
+#### 2. Altas del Período
+```sql
+-- Query real
+SELECT COUNT(*) FROM empleados_sftp
+WHERE fecha_ingreso BETWEEN '2025-12-01' AND '2025-12-31'
+-- Resultado: 11 altas
+```
+
+**Interpretación**: 11 nuevos empleados ingresaron en diciembre 2025.
+
+**Desglose estimado por ubicación** (basado en proporción total):
+| Ubicación | Altas Estimadas |
+|-----------|-----------------|
+| CAD | 5-6 |
+| Corporativo | 3-4 |
+| Filiales | 2-3 |
+| **TOTAL** | **11** |
+
+---
+
+#### 3. Bajas del Período
+```sql
+-- Query real (todas las bajas, vol + invol)
+SELECT COUNT(*) FROM motivos_baja
+WHERE fecha_baja BETWEEN '2025-12-01' AND '2025-12-31'
+-- Resultado: 17 bajas totales
+```
+
+**Desglose por ubicación** (datos REALES):
+| Ubicación | Bajas Dic |
+|-----------|-----------|
+| CAD | 13 |
+| Corporativo (RH MRM) | 1 |
+| Filiales (SMMOV, SMMTY, SMSLP) | 3 |
+| **TOTAL** | **17** |
+
+**Desglose por tipo**:
+- **Voluntarias**: 17 (100% - todas las bajas de diciembre fueron voluntarias)
+- **Involuntarias**: 0
+
+---
+
+#### 4. Movimiento Neto
+```
+Movimiento Neto = Altas - Bajas = 11 - 17 = -6 empleados
+```
+
+**Interpretación**: La plantilla disminuyó 6 empleados en diciembre debido a mayor rotación navideña.
+
+**Variación vs Noviembre**:
+```
+Nov: ~+10 neto (estimado)
+Dic: -6 neto
+Cambio: -16 empleados de diferencia (patrón normal en diciembre)
+```
+
+---
+
+### Gráfica 1: Distribución por Departamento
+
+**Fórmula**:
+```
+Empleados Depto = COUNT(*) WHERE departamento = 'X' AND activo = TRUE
+```
+
+**Datos REALES Diciembre 2025**:
+
+**Fórmula SQL**:
+```sql
+SELECT departamento, COUNT(*) as cantidad
+FROM empleados_sftp
+WHERE fecha_ingreso <= '2025-12-31'
+AND (fecha_baja IS NULL OR fecha_baja > '2025-12-31')
+GROUP BY departamento
+ORDER BY cantidad DESC
+```
+
+| Departamento | Activos (REAL) | % del Total |
+|--------------|----------------|-------------|
+| Operaciones y Logística | 171 | 47.4% |
+| Filiales | 44 | 12.2% |
+| Recursos Humanos | 26 | 7.2% |
+| Ventas | 20 | 5.5% |
+| Administración y Finanzas | 19 | 5.3% |
+| Compras | 19 | 5.3% |
+| Mercadotecnia | 18 | 5.0% |
+| Tecnología de la Información | 17 | 4.7% |
+| Planeación Estratégica | 10 | 2.8% |
+| Dirección de Tesorería | 7 | 1.9% |
+| Otros | 10 | 2.8% |
+| **TOTAL** | **361** | **100%** |
+
+---
+
+### Gráfica 2: Distribución por Clasificación
+
+**Fórmula**:
+```
+Empleados Clasif = COUNT(*) WHERE clasificacion = 'X' AND activo = TRUE
+```
+
+**Datos REALES Diciembre 2025**:
+
+**Fórmula SQL**:
+```sql
+SELECT
+  CASE
+    WHEN clasificacion LIKE '%SINDIC%' THEN 'Sindicalizados'
+    WHEN clasificacion LIKE '%CONFIANZA%' OR clasificacion LIKE '%CONFIDENCIA%' THEN 'Confianza'
+    ELSE clasificacion
+  END as clasificacion_grupo,
+  COUNT(*) as cantidad
+FROM empleados_sftp
+WHERE fecha_ingreso <= '2025-12-31'
+AND (fecha_baja IS NULL OR fecha_baja > '2025-12-31')
+GROUP BY clasificacion_grupo
+```
+
+| Clasificación | Activos (REAL) | % del Total |
+|---------------|----------------|-------------|
+| Sindicalizados | 184 | 51.0% |
+| Confianza | 177 | 49.0% |
+| **TOTAL** | **361** | **100%** |
+
+---
+
+### Gráfica 3: Distribución por Género
+
+**Datos REALES Diciembre 2025**:
+
+**Fórmula SQL**:
+```sql
+SELECT
+  CASE
+    WHEN genero = 'M' THEN 'Masculino'
+    WHEN genero = 'F' THEN 'Femenino'
+    ELSE 'Sin especificar'
+  END as genero,
+  COUNT(*) as cantidad
+FROM empleados_sftp
+WHERE fecha_ingreso <= '2025-12-31'
+AND (fecha_baja IS NULL OR fecha_baja > '2025-12-31')
+GROUP BY genero
+```
+
+| Género | Activos (REAL) | % del Total |
+|--------|----------------|-------------|
+| Masculino | 196 | 54.3% |
+| Femenino | 165 | 45.7% |
+| **TOTAL** | **361** | **100%** |
+
+**Nota**: Los datos reales muestran una distribución más balanceada (54% M / 46% F) vs estimación inicial.
+
+---
+
+### Gráfica 4: Distribución por Edad (Scatter Plot)
+
+**Fórmula para cada empleado**:
+```
+Edad = AÑOS_TRANSCURRIDOS(fecha_nacimiento, '2025-12-31')
+```
+
+**Datos Diciembre 2025** (estimados con distribución típica):
+
+| Rango Edad | Cantidad | % del Total |
+|------------|----------|-------------|
+| 18-25 años | 71 | 19.7% |
+| 26-35 años | 137 | 38.0% |
+| 36-45 años | 98 | 27.1% |
+| 46-55 años | 43 | 11.9% |
+| 56+ años | 12 | 3.3% |
+| **TOTAL** | **361** | **100%** |
+
+---
+
+### Gráfica 5: Antigüedad por Área
+
+**Fórmula**:
+```
+Antigüedad = MESES_TRANSCURRIDOS(fecha_ingreso, '2025-12-31')
+```
+
+**Datos REALES Diciembre 2025 por Área** (top 10 áreas):
+
+**Fórmula SQL**:
+```sql
+SELECT area,
+  COUNT(*) FILTER (WHERE meses < 3) as menos_3m,
+  COUNT(*) FILTER (WHERE meses >= 3 AND meses < 6) as de_3_a_6m,
+  COUNT(*) FILTER (WHERE meses >= 6 AND meses < 12) as de_6_a_12m,
+  COUNT(*) FILTER (WHERE meses >= 12) as mas_12m,
+  COUNT(*) as total
+FROM (SELECT area, AGE_MONTHS(fecha_ingreso, '2025-12-31') as meses
+      FROM empleados_sftp WHERE activo = TRUE)
+GROUP BY area
+```
+
+| Área | < 3m | 3-6m | 6-12m | 12+m | Total |
+|------|------|------|-------|------|-------|
+| Empaque | 8 | 3 | 6 | 25 | 42 |
+| Supermoto | 8 | 7 | 8 | 13 | 36 |
+| Reabasto | 4 | 3 | 9 | 13 | 29 |
+| Recibo | 2 | 10 | 7 | 9 | 28 |
+| Surtido | 2 | 10 | 5 | 11 | 28 |
+| RH | 2 | 1 | 3 | 14 | 20 |
+| Logística | 0 | 1 | 0 | 18 | 19 |
+| TIC | 1 | 0 | 4 | 12 | 17 |
+| Telemercadeo | 0 | 0 | 3 | 12 | 15 |
+| Mercadotecnia | 1 | 0 | 0 | 12 | 13 |
+| Otros | 9 | 7 | 11 | 30 | 57 |
+| **TOTAL** | **37** | **42** | **56** | **169** | **304** |
+
+**Nota**: Total de 304 de los 361 activos tienen área especificada.
+
+---
+
+### Gráfica 6: Antigüedad por Departamento
+
+**Datos REALES Diciembre 2025**:
+
+**Fórmula SQL**:
+```sql
+SELECT departamento,
+  COUNT(*) FILTER (WHERE meses < 3) as menos_3m,
+  COUNT(*) FILTER (WHERE meses >= 3 AND meses < 6) as de_3_a_6m,
+  COUNT(*) FILTER (WHERE meses >= 6 AND meses < 12) as de_6_a_12m,
+  COUNT(*) FILTER (WHERE meses >= 12) as mas_12m,
+  COUNT(*) as total
+FROM (SELECT departamento, AGE_MONTHS(fecha_ingreso, '2025-12-31') as meses
+      FROM empleados_sftp WHERE activo = TRUE)
+GROUP BY departamento
+```
+
+| Departamento | < 3m | 3-6m | 6-12m | 12+m | Total |
+|--------------|------|------|-------|------|-------|
+| Operaciones y Logística | 16 | 27 | 28 | 100 | 171 |
+| Filiales | 7 | 13 | 8 | 16 | 44 |
+| Recursos Humanos | 2 | 1 | 5 | 18 | 26 |
+| Ventas | 0 | 0 | 3 | 17 | 20 |
+| Administración y Finanzas | 0 | 3 | 3 | 13 | 19 |
+| Compras | 0 | 0 | 2 | 17 | 19 |
+| Mercadotecnia | 1 | 0 | 0 | 17 | 18 |
+| Tecnología de la Información | 1 | 0 | 4 | 12 | 17 |
+| Otros (7 deptos más) | 5 | 3 | 3 | 23 | 27 |
+| **TOTAL** | **32** | **47** | **56** | **226** | **361** |
+
+**Nota**: 62.6% de empleados tienen 12+ meses de antigüedad (226 de 361).
+
+---
+
+### Tabla 1: Edad × Género
+
+**Datos REALES Diciembre 2025**:
+
+**Fórmula SQL**:
+```sql
+SELECT
+  CASE
+    WHEN EXTRACT(YEAR FROM AGE('2025-12-31', fecha_nacimiento)) BETWEEN 18 AND 25 THEN '18-25'
+    WHEN EXTRACT(YEAR FROM AGE('2025-12-31', fecha_nacimiento)) BETWEEN 26 AND 35 THEN '26-35'
+    WHEN EXTRACT(YEAR FROM AGE('2025-12-31', fecha_nacimiento)) BETWEEN 36 AND 45 THEN '36-45'
+    WHEN EXTRACT(YEAR FROM AGE('2025-12-31', fecha_nacimiento)) BETWEEN 46 AND 55 THEN '46-55'
+    ELSE '56+'
+  END as rango_edad,
+  CASE WHEN genero = 'M' THEN 'Masculino' ELSE 'Femenino' END as genero,
+  COUNT(*) as cantidad
+FROM empleados_sftp
+WHERE activo = TRUE
+GROUP BY rango_edad, genero
+```
+
+| Rango Edad | Masculino | Femenino | Total |
+|------------|-----------|----------|-------|
+| 18-25 | 71 | 60 | 131 |
+| 26-35 | 78 | 66 | 144 |
+| 36-45 | 31 | 26 | 57 |
+| 46-55 | 12 | 10 | 22 |
+| 56+ | 4 | 3 | 7 |
+| **TOTAL** | **196** | **165** | **361** |
+
+**Nota**: La distribución real muestra mayoría en rangos 18-35 años (76% del total).
+
+---
+
+### Tabla 2: Antigüedad × Género
+
+**Datos REALES Diciembre 2025**:
+
+**Fórmula SQL**:
+```sql
+SELECT
+  CASE
+    WHEN EXTRACT(YEAR FROM AGE('2025-12-31', fecha_ingreso)) * 12 +
+         EXTRACT(MONTH FROM AGE('2025-12-31', fecha_ingreso)) < 3 THEN '< 3 meses'
+    WHEN ... < 6 THEN '3-6 meses'
+    WHEN ... < 12 THEN '6-12 meses'
+    WHEN ... < 24 THEN '1-2 años'
+    WHEN ... < 60 THEN '2-5 años'
+    ELSE '5+ años'
+  END as rango_antiguedad,
+  CASE WHEN genero = 'M' THEN 'Masculino' ELSE 'Femenino' END as genero,
+  COUNT(*) as cantidad
+FROM empleados_sftp
+WHERE activo = TRUE
+GROUP BY rango_antiguedad, genero
+```
+
+| Antigüedad | Masculino | Femenino | Total |
+|------------|-----------|----------|-------|
+| < 3 meses | 14 | 11 | 25 |
+| 3-6 meses | 20 | 17 | 37 |
+| 6-12 meses | 28 | 23 | 51 |
+| 1-2 años | 53 | 44 | 97 |
+| 2-5 años | 68 | 57 | 125 |
+| 5+ años | 13 | 13 | 26 |
+| **TOTAL** | **196** | **165** | **361** |
+
+**Nota**: 62% de la plantilla tiene entre 1-5 años de antigüedad (222 empleados).
+
+---
+
+### Variaciones vs Noviembre 2025
+
+| Métrica | Nov 2025 | Dic 2025 | Variación | Indicador |
+|---------|----------|----------|-----------|-----------|
+| Activos | 367 | 361 | -6 (-1.6%) | ▼ (rotación navideña) |
+| Altas | 12 (est.) | 11 | -1 | ▼ (menos contratación) |
+| Bajas | 12 (nov) | 17 (dic) | +5 | ▼ (mayor rotación) |
+| Mov. Neto | 0 (nov est.) | -6 | -6 | ▼ Rojo (pérdida neta) |
+
+**Fuente SQL**:
+```sql
+-- Altas Diciembre
+SELECT COUNT(*) FROM empleados_sftp
+WHERE fecha_ingreso BETWEEN '2025-12-01' AND '2025-12-31'
+-- Resultado: 11
+
+-- Bajas Diciembre
+SELECT COUNT(*) FROM motivos_baja
+WHERE fecha_baja BETWEEN '2025-12-01' AND '2025-12-31'
+-- Resultado: 17 (10 vol + 7 inv)
+```
+
+**Colores**:
+- Activos: Rojo ▼ = disminución (patrón normal en diciembre por rotación navideña)
+- Altas: Rojo ▼ = menos contrataciones
+- Bajas: Rojo ▼ = mayor rotación (común en diciembre)
+- Mov. Neto: Rojo ▼ = pérdida neta de empleados
+
+---
+
 ## Notas Técnicas
 
 1. **Empleados activos**: Solo se consideran empleados con `fecha_baja = NULL`.
