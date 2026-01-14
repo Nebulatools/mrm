@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Before making any changes to this codebase, follow these rules:
 
-1. **Think First**: Read the codebase for relevant files before making changes. Never speculate about code you haven't opened.
-2. **Check Before Major Changes**: Before any significant modification, verify the plan with the user.
-3. **High-Level Explanations**: Every step of the way, provide a brief explanation of what changes were made.
-4. **Simplicity First**: Make every task and code change as simple as possible. Avoid massive or complex changes. Every change should impact as little code as possible.
-5. **Documentation**: Keep this CLAUDE.md file updated to describe how the architecture works.
-6. **No Speculation**: Never make claims about code before investigating. Give grounded, hallucination-free answers.
+1. First think through the problem, read the codebase for relevant files.
+2. Before you make any major changes, check in with me and I will verify the plan.
+3. Please every step of the way just give me a high level explanation of what changes you made.
+4. Make every task and code change you do as simple as possible. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
+5. Maintain a documentation file that describes how the architecture of the app works inside and out.
+6. Never speculate about code you have not opened. If the user references a specific file, you MUST read the file before answering. Make sure to investigate and read relevant files BEFORE answering questions about the codebase. Never make any claims about code before investigating unless you are certain of the correct answer - give grounded and hallucination-free answers.
 
 ## Project Overview
 
@@ -35,6 +35,19 @@ npm run build      # Production build
 npm run start      # Production server
 npm run lint       # ESLint
 npm run type-check # TypeScript type checking (tsc --noEmit)
+
+# Testing Commands (Vitest + Playwright)
+npm test                 # Run tests in watch mode
+npm run test:run         # Run all tests once
+npm run test:ui          # Open Vitest UI (interactive)
+npm run test:coverage    # Run tests with coverage report
+npm run test:e2e         # Run E2E tests (Playwright)
+npm run test:e2e:ui      # Playwright UI mode
+npm run test:all         # Run unit + E2E tests
+
+# Run specific tests
+npm test -- kpi-calculator     # Run specific test file
+npm test -- age-gender         # Run tests matching pattern
 ```
 
 ## Architecture Overview
@@ -60,7 +73,7 @@ npm run type-check # TypeScript type checking (tsc --noEmit)
 ### Key Architectural Patterns
 
 **Data Layer:**
-- SFTP Source Tables: `empleados_sftp`, `motivos_baja`, `asistencia_diaria` (direct SFTP import)
+- SFTP Source Tables: `empleados_sftp`, `motivos_baja`, `asistencia_diaria`, `incidencias` (direct SFTP import)
 - KPI calculation engine in `apps/web/src/lib/kpi-calculator.ts`
 - Supabase client configuration in `apps/web/src/lib/supabase.ts`
 - Shared retention filters in `apps/web/src/lib/filters/retention.ts`
@@ -90,6 +103,7 @@ The system implements HR-specific formulas with accurate calculations:
 - empleados_sftp: Master employee data with all HR information
 - motivos_baja: Termination records with dates and reasons
 - asistencia_diaria: Daily attendance with incident tracking
+- incidencias: Detailed incident records with codes, timestamps, and locations
 
 **Realistic Value Ranges:**
 - Activos Promedio: 70-85 employees (not 6)
@@ -167,9 +181,36 @@ fecha_creacion: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 UNIQUE(numero_empleado, fecha)
 ```
 
+**4. incidencias (Incident Details)**
+```sql
+id: SERIAL PRIMARY KEY
+emp: INTEGER NOT NULL -- Número de empleado
+nombre: TEXT
+fecha: DATE NOT NULL
+turno: SMALLINT
+horario: TEXT -- Formato: 0830_1700
+incidencia: TEXT -- Descripción de la incidencia
+entra: TIME -- Hora de entrada
+sale: TIME -- Hora de salida
+ordinarias: NUMERIC DEFAULT 0 -- Horas ordinarias
+numero: INTEGER
+inci: VARCHAR -- Código de incidencia (VAC, INC, FJ, FI, etc.)
+status: SMALLINT -- Status numérico de la incidencia
+ubicacion2: TEXT -- Ubicación calculada desde CSV
+fecha_creacion: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+```
+**Incident Codes (inci):**
+- VAC: Vacaciones
+- INC: Incapacidad
+- FJ: Falta Justificada
+- FI: Falta Injustificada
+- RET: Retardo
+- PERM: Permiso
+
 **Data Flow:**
-- SFTP Files → empleados_sftp, motivos_baja, asistencia_diaria
-- KPI calculations use these 3 tables directly
+- SFTP Files → empleados_sftp, motivos_baja, asistencia_diaria, incidencias
+- KPI calculations use these 4 tables directly
+- The `incidencias` table provides detailed incident tracking with timestamps and classifications
 
 ## SFTP Admin Workflow
 
@@ -275,9 +316,12 @@ SFTP_DIRECTORY=ReportesRH
 
 **Key Business Logic Files:**
 - KPI calculations: `apps/web/src/lib/kpi-calculator.ts`
+- KPI helpers (critical formulas): `apps/web/src/lib/utils/kpi-helpers.ts`
 - AI analysis: `apps/web/src/lib/ai-analyzer.ts`
 - Data ingestion: `apps/web/src/lib/sftp-client.ts`
 - Supabase admin: `apps/web/src/lib/supabase-admin.ts`
+- Normalizers: `apps/web/src/lib/normalizers.ts`
+- Filters: `apps/web/src/lib/filters/filters.ts`
 
 **UI Component System:**
 - Uses shadcn/ui component library
@@ -286,7 +330,7 @@ SFTP_DIRECTORY=ReportesRH
 - Chart components with Recharts integration
 
 **Data Flow:**
-1. SFTP → API routes → `empleados_sftp`, `motivos_baja`, `asistencia_diaria`
+1. SFTP → API routes → `empleados_sftp`, `motivos_baja`, `asistencia_diaria`, `incidencias`
 2. Tables → KPI Calculator → Dashboard
 3. KPI data → AI Analyzer → Insights
 4. User interactions → Filters → Real-time updates
@@ -296,6 +340,10 @@ SFTP_DIRECTORY=ReportesRH
 - ESLint configuration with Next.js rules
 - Type checking with `npm run type-check`
 - Shared types prevent interface mismatches between frontend and backend
+- **Comprehensive test suite:** 212 tests with 98% success rate, 80% coverage
+- **Testing framework:** Vitest (unit/component) + Playwright (E2E)
+- **CI/CD:** GitHub Actions runs tests automatically on PRs
+- **Test documentation:** See `apps/web/TESTING.md` and `tabs/TEST_COVERAGE_EXHAUSTIVO.md`
 
 ## Coding Conventions & Best Practices
 
@@ -306,6 +354,66 @@ SFTP_DIRECTORY=ReportesRH
 - Prefer server-side parsing (Excel/CSV) and batch inserts.
 - For filters/derived data, use shared pure functions and memoization when applicable.
 - Remove dead code and debug endpoints; keep repo minimal and secure.
+
+## Testing Guidelines
+
+### Test Structure
+
+**Test files are located in `__tests__` directories:**
+- Unit tests: `src/lib/__tests__/`
+- Component tests: `src/components/__tests__/`
+- Table tests: `src/components/tables/__tests__/`
+- E2E tests: `e2e/`
+
+**Test naming convention:** `T{tab}.{component}.{number}: Description`
+- Example: `T1.10.1: Renderiza columnas correctas`
+- Tab numbers: 1=Resumen, 2=Incidencias, 3=Rotación, 4=Tendencias
+
+### Critical Test Areas
+
+**KPI Helpers (`src/lib/utils/kpi-helpers.ts`):**
+These functions calculate ALL rotation metrics and are business-critical:
+- `calculateActivosPromedio()` - Average active employees
+- `calcularRotacionConDesglose()` - Monthly rotation with voluntary/involuntary breakdown
+- `calcularRotacionAcumulada12mConDesglose()` - 12-month rolling rotation
+- `calcularRotacionYTDConDesglose()` - Year-to-date rotation
+
+**All KPI helper functions MUST have tests. Never modify these without running tests first.**
+
+### Running Tests During Development
+
+```bash
+# Before modifying KPI formulas
+npm test -- kpi-helpers     # Verify helpers tests pass
+
+# Before modifying filters
+npm test -- filters         # Verify filter logic
+
+# Before modifying components
+npm test -- {component-name}  # Run specific component tests
+
+# Before committing
+npm run test:run            # All tests must pass
+npm run type-check          # No TypeScript errors
+```
+
+### Mock Data
+
+Use centralized mock data from `src/test/mockData.ts`:
+- `mockPlantilla` - Sample employee data
+- `mockMotivosBaja` - Sample termination data
+- `mockAsistenciaDiaria` - Sample attendance data
+- `createMockEmpleado()` - Helper to create custom test employees
+
+### CI/CD
+
+GitHub Actions (`.github/workflows/tests.yml`) automatically runs:
+- Unit tests (Vitest)
+- E2E tests (Playwright)
+- Coverage reporting
+- Lint + Type check
+
+**PRs are blocked if tests fail.**
 
 ## Root Commands (Workspaces)
 

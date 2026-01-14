@@ -936,19 +936,27 @@ calcularRotacionAcumulada12mConDesglose(plantilla, endDate)
 La gráfica del Tab Rotación ahora también usa ventana móvil ✓ (corregido 2026-01-14):
 
 ```typescript
-// Código corregido en retention-charts.tsx línea 268:
-for (let offset = 11; offset >= 0; offset--) {
-  const baseDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - offset, 1);
-  // Genera 12 puntos móviles hacia atrás desde fecha seleccionada
+// Código corregido en retention-charts.tsx línea 269:
+// Genera 2 ventanas móviles de 12 meses para comparación:
+for (let yearOffset = 1; yearOffset >= 0; yearOffset--) {
+  for (let offset = 11; offset >= 0; offset--) {
+    const baseDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() - offset - (yearOffset * 12),
+      1
+    );
+    // yearOffset=1: Año anterior (ej: Ene-2024 a Dic-2024)
+    // yearOffset=0: Año actual (ej: Ene-2025 a Dic-2025)
+  }
 }
 ```
 
 **Comportamiento en ambos tabs**:
 
-| Tab | Mes Seleccionado | Gráfica Muestra | Comportamiento |
-|-----|------------------|----------------|----------------|
-| **Resumen** | Julio 2025 | Ago-2024 → Jul-2025 (12 meses) | ✓ Móvil |
-| **Rotación** | Julio 2025 | Ago-2024 → Jul-2025 (12 meses) | ✓ Móvil ✅ **CORREGIDO**|
+| Tab | Mes Seleccionado | Gráfica Muestra | Comparación |
+|-----|------------------|----------------|-------------|
+| **Resumen** | Diciembre 2025 | Ene-2025 → Dic-2025 (12 meses) | Sin comparación |
+| **Rotación** | Diciembre 2025 | 2024: Ene-2024 → Dic-2024<br>2025: Ene-2025 → Dic-2025 | ✓ Con sombreado ✅ |
 
 ---
 

@@ -390,33 +390,43 @@ Total: (120+15+24) / (159.5+143+37.5) = 159 / 341 = 46.6% ✓
 
 ### Gráfica 1: Rotación 12 Meses Móviles
 
-**✅ CORREGIDO 2026-01-14 - Ahora funciona con ventana móvil real**:
+**✅ CORREGIDO 2026-01-14 - Ventana móvil real CON comparación año anterior**:
 
-Esta gráfica ahora calcula correctamente 12 meses MÓVILES hacia atrás desde la fecha seleccionada:
+Esta gráfica ahora calcula 12 meses MÓVILES hacia atrás + comparación con año anterior:
 
 ```typescript
-// Código CORREGIDO en retention-charts.tsx línea 268:
-for (let offset = 11; offset >= 0; offset--) {
-  const baseDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - offset, 1);
-  const startDate = startOfMonth(baseDate);
-  const endDate = endOfMonth(baseDate);
-  // Genera 12 puntos móviles hacia atrás desde fecha seleccionada
+// Código CORREGIDO en retention-charts.tsx línea 269:
+// Genera 2 ventanas de 12 meses para comparación:
+for (let yearOffset = 1; yearOffset >= 0; yearOffset--) {
+  for (let offset = 11; offset >= 0; offset--) {
+    const baseDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() - offset - (yearOffset * 12),
+      1
+    );
+    // yearOffset=1: Genera ventana año anterior (12 meses atrás -12)
+    // yearOffset=0: Genera ventana actual (12 meses atrás)
+  }
 }
 
-// Si seleccionas Julio 2025:
-// Muestra: Ago-2024, Sep-2024, Oct-2024... Jul-2025 (12 meses) ✓
+// Ejemplo: Si seleccionas Diciembre 2025
+// Ventana Año Anterior (2024): Ene-2024 → Dic-2024 (12 meses)
+// Ventana Actual (2025): Ene-2025 → Dic-2025 (12 meses)
+// Gráfica muestra AMBAS ventanas con sombreado comparativo ✓
 
-// Si seleccionas Diciembre 2025:
-// Muestra: Ene-2025, Feb-2025, Mar-2025... Dic-2025 (12 meses) ✓
+// Ejemplo: Si seleccionas Julio 2025
+// Ventana Año Anterior: Ago-2023 → Jul-2024 (12 meses)
+// Ventana Actual: Ago-2024 → Jul-2025 (12 meses)
+// Gráfica muestra AMBAS ventanas con sombreado ✓
 ```
 
 **Consistencia con Tab Resumen**:
-- **Tab Resumen**: Ventana móvil de 12 meses ✓
-- **Tab Rotación**: Ventana móvil de 12 meses ✓ **AHORA CONSISTENTE**
+- **Tab Resumen**: Ventana móvil de 12 meses (sin comparación año anterior)
+- **Tab Rotación**: Ventana móvil de 12 meses + comparación año anterior ✓ **CORREGIDO**
 
 **Cambio Realizado**:
-- **Antes**: `for (const year of years) for (let month = 0; month < 12; month++)` ❌
-- **Después**: `for (let offset = 11; offset >= 0; offset--)` ✓
+- **Antes**: `for (const year of years) for (month = 0; month < 12)` → Años completos fijos ❌
+- **Después**: `for (yearOffset = 1; yearOffset >= 0) for (offset = 11; offset >= 0)` → Ventanas móviles ✓
 
 ---
 

@@ -258,35 +258,42 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       const añoActual = hoy.getFullYear();
       const selectedYear = currentYear || añoActual;
 
-      // ✅ CORREGIDO: Generar ventana móvil de 12 meses hacia atrás desde currentDate
-      // Similar a summary-comparison.tsx para consistencia
+      // ✅ CORREGIDO: Generar ventana móvil de 12 meses + año anterior para comparación
       const allMonthsData: MonthlyRetentionData[] = [];
       const voluntariaMonthsData: MonthlyRetentionData[] = [];
       const involuntariaMonthsData: MonthlyRetentionData[] = [];
 
-      // Generar 12 puntos móviles hacia atrás desde currentDate
-      for (let offset = 11; offset >= 0; offset--) {
-        const baseDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - offset, 1);
-        const startDate = startOfMonth(baseDate);
-        const endDate = endOfMonth(baseDate);
+      // Generar 2 ventanas de 12 meses para comparación:
+      // 1. Año actual: 12 meses móviles hacia atrás desde currentDate
+      // 2. Año anterior: misma ventana pero -12 meses
+      for (let yearOffset = 1; yearOffset >= 0; yearOffset--) {
+        for (let offset = 11; offset >= 0; offset--) {
+          const baseDate = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() - offset - (yearOffset * 12),
+            1
+          );
+          const startDate = startOfMonth(baseDate);
+          const endDate = endOfMonth(baseDate);
 
-        // NO incluir meses futuros
-        if (startDate > hoy) {
-          continue;
+          // NO incluir meses futuros
+          if (startDate > hoy) {
+            continue;
+          }
+
+          const year = baseDate.getFullYear();
+          const month = baseDate.getMonth() + 1;
+
+          const [monthDataAll, monthDataVol, monthDataInv] = await Promise.all([
+            calculateMonthlyRetention(startDate, endDate, plantilla, 'all', bajaEventos),
+            calculateMonthlyRetention(startDate, endDate, plantilla, 'voluntaria', bajaEventos),
+            calculateMonthlyRetention(startDate, endDate, plantilla, 'involuntaria', bajaEventos),
+          ]);
+
+          allMonthsData.push({ ...monthDataAll, year, month });
+          voluntariaMonthsData.push({ ...monthDataVol, year, month });
+          involuntariaMonthsData.push({ ...monthDataInv, year, month });
         }
-
-        const year = baseDate.getFullYear();
-        const month = baseDate.getMonth() + 1;
-
-        const [monthDataAll, monthDataVol, monthDataInv] = await Promise.all([
-          calculateMonthlyRetention(startDate, endDate, plantilla, 'all', bajaEventos),
-          calculateMonthlyRetention(startDate, endDate, plantilla, 'voluntaria', bajaEventos),
-          calculateMonthlyRetention(startDate, endDate, plantilla, 'involuntaria', bajaEventos),
-        ]);
-
-        allMonthsData.push({ ...monthDataAll, year, month });
-        voluntariaMonthsData.push({ ...monthDataVol, year, month });
-        involuntariaMonthsData.push({ ...monthDataInv, year, month });
       }
 
       // Calcular rotación acumulada de 12 meses móviles (misma lógica original)
@@ -311,24 +318,33 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         involuntariaMonthsData[i].rotacionYTD = calculateYTDRotation(involuntariaMonthsData, i, plantilla, 'involuntaria', bajaEventos);
       }
 
-      // ✅ CORREGIDO: buildComparison ahora funciona con ventana móvil de 12 meses
+      // ✅ CORREGIDO: buildComparison con ventana móvil + comparación año anterior
       const buildComparison = (filteredMonthsData: MonthlyRetentionData[]) => {
-        // Extraer años únicos de los datos móviles (pueden ser 1 o 2 años)
+        const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+        // Extraer años únicos de los datos móviles
         const uniqueYears = Array.from(new Set(filteredMonthsData.map(d => d.year))).sort();
-        const lastTwoYears = uniqueYears.length >= 2 ? [uniqueYears[0], uniqueYears[uniqueYears.length - 1]] : uniqueYears;
+        const lastTwoYears = uniqueYears.length >= 2
+          ? [uniqueYears[uniqueYears.length - 2], uniqueYears[uniqueYears.length - 1]]
+          : uniqueYears;
 
-        // Generar datos para comparación basados en los meses que realmente tenemos
-        const comparisonData: YearlyComparisonData[] = filteredMonthsData.map(monthData => {
-          const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-          const monthName = monthNames[monthData.month - 1];
+        // Agrupar datos por mes (index 0-11) combinando datos de ambos años
+        const comparisonData: YearlyComparisonData[] = monthNames.map((monthName, monthIndex) => {
+          const dataByYear: YearlyComparisonData = { mes: monthName };
 
-          const dataByYear: YearlyComparisonData = {
-            mes: monthName,
-            [`rotacion${monthData.year}`]: monthData.rotacionAcumulada12m,
-            [`rotacionYTD${monthData.year}`]: monthData.rotacionYTD ?? 0,
-            [`bajas${monthData.year}`]: monthData.bajas,
-            [`activos${monthData.year}`]: monthData.activos
-          };
+          // Para cada año, buscar el dato correspondiente a este mes
+          lastTwoYears.forEach(year => {
+            const monthData = filteredMonthsData.find(d =>
+              d.year === year && d.month === (monthIndex + 1)
+            );
+
+            if (monthData) {
+              dataByYear[`rotacion${year}`] = monthData.rotacionAcumulada12m;
+              dataByYear[`rotacionYTD${year}`] = monthData.rotacionYTD ?? 0;
+              dataByYear[`bajas${year}`] = monthData.bajas;
+              dataByYear[`activos${year}`] = monthData.activos;
+            }
+          });
 
           return dataByYear;
         });
