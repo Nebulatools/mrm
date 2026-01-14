@@ -398,3 +398,170 @@ ORDER BY mes;
 ---
 
 *Documento generado automáticamente desde análisis de Supabase*
+
+
+---
+
+## COMPARACIÓN SFTP vs SUPABASE
+
+**Fecha de análisis:** 14/1/2026, 10:31:11 a.m.
+
+### 1. EMPLEADOS_SFTP (Validación Alta Empleados)
+
+| Fuente | Total Registros | Información Clave |
+|--------|----------------|-------------------|
+| **SFTP** | 1051 | Datos actuales desde archivo SFTP |
+| **Supabase** | 1,045 | Datos maestros históricos (365 activos, 680 inactivos) |
+
+**Columnas en SFTP:**
+- N?mero
+- Gafete
+- G?nero
+- IMSS
+- Fecha de Nacimiento
+- Estado
+- Fecha Ingreso
+- Fecha Antig?edad
+- Empresa
+- No. Registro Patronal
+- CodigoPuesto
+- Puesto
+- C?digo Depto
+- Departamento
+- C?digo de CC
+- CC
+- Subcuenta CC
+- Clasificaci?n
+- Codigo Area
+- Area
+- Ubicaci?n
+- Tipo de N?mina
+- Turno
+- Prestaci?n de Ley
+- Paquete de Prestaciones
+- Fecha Baja
+- Activo
+- Ubicacion2
+
+**Análisis:**
+- SFTP tiene 6 registros MÁS que Supabase
+- Posible actualización pendiente de importar a Supabase
+
+### 2. MOTIVOS_BAJA
+
+| Fuente | Total Registros | Período |
+|--------|----------------|----------|
+| **SFTP** | 10 | Archivo actual SFTP |
+| **Supabase** | 667 | 2024-01 a 2026-01 |
+
+**Columnas en SFTP:**
+- Fecha
+- #
+- Tipo
+- Motivo
+- Descripci?n
+- Observaciones
+
+**Análisis:**
+- Supabase tiene 657 bajas adicionales
+- Posible historial más completo en Supabase
+
+### 3. INCIDENCIAS
+
+| Fuente | Total Registros | Período |
+|--------|----------------|----------|
+| **SFTP** | 52 | Archivo actual SFTP |
+| **Supabase** | 7,107 | 2025-01-01 a 2026-01-11 |
+
+**Columnas en SFTP:**
+- N?mero
+- Nombre
+- Fecha
+- Turno
+- Horario
+- Incidencia
+- Entra
+- Sale
+- Ordinarias
+- #
+- INCI
+- Status
+- Ubicacion2
+
+**Análisis:**
+- Supabase tiene 7055 incidencias adicionales
+- Supabase mantiene historial más extenso
+
+### 4. PRENOMINA_HORIZONTAL (Horas Semanales)
+
+| Fuente | Total Registros | Uso |
+|--------|----------------|-----|
+| **SFTP** | 374 | Datos semanales actuales |
+| **Supabase** | 368 | Tracking de horas trabajadas |
+
+**Columnas en SFTP:**
+- N?mero
+- Nombre
+- LUN
+- LUN-ORD
+- LUN- TE
+- LUN-INC
+- MAR
+- MAR-ORD
+- MAR - TE
+- MAR-INC
+- MIE
+- MIE-ORD
+- MIE - TE
+- MIE-INC
+- JUE
+- JUE-ORD
+- JUE - TE
+- JUE-INC
+- VIE
+- VIE-ORD
+- VIE - TE
+- VIE-INC
+- SAB
+- SAB-ORD
+- SAB - TE
+- SAB-INC
+- DOM
+- DOM-ORD
+- DOM - TE
+- DOM-INC
+
+**Análisis:**
+- SFTP tiene 6 registros adicionales
+- Datos SFTP más actualizados para nómina
+
+---
+
+## RESUMEN CONSOLIDADO
+
+| Tabla | SFTP | Supabase | Estado |
+|-------|------|----------|--------|
+| empleados_sftp | 1051 | 1,045 | ⚠️ SFTP más actual |
+| motivos_baja | 10 | 667 | ⚠️ Supabase más completo |
+| incidencias | 52 | 7,107 | ⚠️ Supabase más completo |
+| prenomina_horizontal | 374 | 368 | ⚠️ SFTP más actual |
+
+### Complementariedad de Datos
+
+**SFTP proporciona:**
+- Datos **actualizados** de empleados activos
+- Registros **recientes** de bajas e incidencias
+- Información de **nómina semanal** actualizada
+
+**Supabase mantiene:**
+- **Historial completo** de todos los empleados (activos + inactivos)
+- Datos **normalizados** con IDs únicos
+- **Índices** y relaciones para queries rápidos
+- **Metadata** de auditoría (fecha_creacion)
+
+**Estrategia Recomendada:**
+1. ✅ SFTP como fuente de **datos actualizados**
+2. ✅ Supabase como **repositorio histórico**
+3. ✅ Sincronización **periódica** (diaria/semanal)
+4. ✅ Validación de **integridad** en cada importación
+

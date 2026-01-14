@@ -940,8 +940,15 @@ export function SummaryComparison({
       return input.total ?? 0;
     };
 
-    const monthlyChartData = rotationSeries.map(point => {
-      const row: Record<string, number | string> = { mes: point.label };
+    // Nombres de meses fijos para eje X
+    const monthNamesFixed = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const selectedYear = referenceDate.getFullYear();
+
+    // ✅ Rotación Mensual: Eje X FIJO (ene-dic) solo año seleccionado
+    const monthlySeries = rotationSeries.filter(point => point.year === selectedYear);
+    const monthlyChartData = monthlySeries.map(point => {
+      const monthLabel = monthNamesFixed[point.month - 1];
+      const row: Record<string, number | string> = { mes: monthLabel };
       ubicacionSeriesConfig.forEach(({ key }) => {
         const value = getRotationValue(point.negocios[key]?.mensual);
         row[key] = Number(value.toFixed(2));
@@ -949,6 +956,7 @@ export function SummaryComparison({
       return row;
     });
 
+    // ✅ Rotación 12M Móviles: Eje X DINÁMICO (Feb 24, Mar 24... Ene 25)
     const rollingChartData = rotationSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.label };
       ubicacionSeriesConfig.forEach(({ key }) => {
@@ -958,15 +966,15 @@ export function SummaryComparison({
       return row;
     });
 
-    // FIX: Usar el año de la fecha seleccionada, no el año del sistema
-    const selectedYear = referenceDate.getFullYear();
+    // ✅ Rotación YTD: Eje X FIJO (ene-dic) solo año seleccionado
     let ytdSeries = rotationSeries.filter(point => point.year === selectedYear);
     if (ytdSeries.length === 0) {
       ytdSeries = rotationSeries;
     }
 
     const ytdChartData = ytdSeries.map(point => {
-      const row: Record<string, number | string> = { mes: point.label };
+      const monthLabel = monthNamesFixed[point.month - 1];
+      const row: Record<string, number | string> = { mes: monthLabel };
       ubicacionSeriesConfig.forEach(({ key }) => {
         const value = getRotationValue(point.negocios[key]?.ytd);
         row[key] = Number(value.toFixed(2));

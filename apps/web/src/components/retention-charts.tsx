@@ -703,19 +703,82 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       };
     })
     .filter((row): row is { mes: string; rotacionActual: number | null; rotacionAnterior: number | null } => row !== null);
+
+  // ✅ Dataset para gráfico de 12M Móviles con eje X dinámico
+  // Muestra los últimos 12 meses reales (ej: "Feb 24", "Mar 24"... "Ene 25")
+  const rolling12MChartData = (() => {
+    const last12Months = monthlyData
+      .filter(d => {
+        const dataDate = new Date(d.year, d.month - 1, 1);
+        const windowStart = subMonths(currentDate, 11);
+        return dataDate >= startOfMonth(windowStart) && dataDate <= endOfMonth(currentDate);
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.year, a.month - 1, 1);
+        const dateB = new Date(b.year, b.month - 1, 1);
+        return dateA.getTime() - dateB.getTime();
+      })
+      .slice(-12);
+
+    return last12Months.map(d => {
+      const monthLabel = monthNames[d.month - 1];
+      const yearShort = d.year.toString().slice(-2);
+      return {
+        mes: `${monthLabel} ${yearShort}`,
+        rotacionAcumulada: d.rotacionAcumulada12m ?? 0,
+        year: d.year,
+        month: d.month
+      };
+    });
+  })();
+
+  // Dataset para comparación año anterior en 12M móviles
+  const rolling12MPreviousYearData = (() => {
+    const windowStart = subMonths(currentDate, 23);
+    const windowEnd = subMonths(currentDate, 12);
+
+    const previousYearMonths = monthlyData
+      .filter(d => {
+        const dataDate = new Date(d.year, d.month - 1, 1);
+        return dataDate >= startOfMonth(windowStart) && dataDate <= endOfMonth(windowEnd);
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.year, a.month - 1, 1);
+        const dateB = new Date(b.year, b.month - 1, 1);
+        return dateA.getTime() - dateB.getTime();
+      })
+      .slice(-12);
+
+    const dataMap = new Map<number, number>();
+    previousYearMonths.forEach(d => {
+      dataMap.set(d.month, d.rotacionAcumulada12m ?? 0);
+    });
+    return dataMap;
+  })();
+
+  // Combinar datos actuales con año anterior para el gráfico de 12M
+  const rolling12MCombinedData = rolling12MChartData.map(d => ({
+    ...d,
+    rotacionAnterior: rolling12MPreviousYearData.get(d.month) ?? null
+  }));
+
+  // Calcular el año anterior para la leyenda del gráfico de 12M
+  const rolling12MYearAnterior = rolling12MChartData.length > 0
+    ? rolling12MChartData[0].year - 1
+    : currentDate.getFullYear() - 1;
   
   return (
     <div className="space-y-6">
       {/* Primera fila de gráficas - con borde sutil para distinguir del resto */}
       <div className="relative rounded-2xl border-2 border-blue-500/20 bg-gradient-to-br from-blue-50/30 to-transparent p-4 dark:border-blue-400/20 dark:from-blue-950/20">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Gráfico 1: Rotación Acumulada (12 meses móviles) con comparación anual */}
+        {/* Gráfico 1: Rotación Acumulada (12 meses móviles) con eje X DINÁMICO */}
         <div className="rounded-lg border bg-card p-4 shadow-sm h-full dark:border-brand-border/40 dark:bg-brand-surface-accent/70">
           <h3 className="text-base font-semibold mb-2">Rotación Acumulada (12 meses móviles)</h3>
           <p className="mb-4 text-sm text-muted-foreground">
-            {availableYears.length > 0 
-              ? `Comparación ${availableYears[0]} vs ${availableYears[availableYears.length - 1]}`
-              : 'Comparación anual'}
+            {rolling12MCombinedData.length > 0
+              ? `Ventana móvil: ${rolling12MCombinedData[0]?.mes} - ${rolling12MCombinedData[rolling12MCombinedData.length - 1]?.mes}`
+              : 'Últimos 12 meses'}
           </p>
           <VisualizationContainer
             title="Rotación acumulada 12M"
@@ -726,11 +789,14 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             {(fullscreen) => (
               <div style={{ height: fullscreen ? 360 : 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={yearlyComparison}>
+                  <ComposedChart data={rolling12MCombinedData}>
                     <CartesianGrid strokeDasharray="4 8" stroke={gridStrokeColor} />
                     <XAxis
                       dataKey="mes"
-                      tick={{ fontSize: 11, fill: axisSecondaryColor }}
+                      tick={{ fontSize: 10, fill: axisSecondaryColor }}
+                      angle={-35}
+                      textAnchor="end"
+                      height={50}
                     />
                     <YAxis
                       tick={{ fontSize: 11, fill: axisMutedColor }}
@@ -739,29 +805,26 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     />
                     <Tooltip cursor={{ strokeDasharray: '3 3', stroke: withOpacity(getModernColor(0), 0.35) }} content={<CustomTooltip />} wrapperStyle={TOOLTIP_WRAPPER_STYLE} />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {previousYearForCharts && (
-                      <Area
-                        type="monotone"
-                        dataKey={`rotacion${previousYearForCharts}`}
-                        name={`${previousYearForCharts} (año anterior)`}
-                        stroke={withOpacity('#94a3b8', 0.9)}
-                        fill={withOpacity('#94a3b8', 0.25)}
-                        strokeWidth={1.5}
-                        dot={false}
-                        activeDot={{ r: 3, fill: '#94a3b8' }}
-                        legendType="none"
-                      />
-                    )}
-                    {selectedYearForCharts && (
-                      <Bar
-                        dataKey={`rotacion${selectedYearForCharts}`}
-                        name={selectedYearForCharts.toString()}
-                        fill={getModernColor(0)}
-                        radius={[4, 4, 0, 0]}
-                        maxBarSize={18}
-                        label={renderBarLabelPercent}
-                      />
-                    )}
+                    <Area
+                      type="monotone"
+                      dataKey="rotacionAnterior"
+                      name={`${rolling12MYearAnterior}`}
+                      stroke={withOpacity('#94a3b8', 0.9)}
+                      fill={withOpacity('#94a3b8', 0.25)}
+                      strokeWidth={1.5}
+                      dot={false}
+                      activeDot={{ r: 3, fill: '#94a3b8' }}
+                      legendType="none"
+                      connectNulls
+                    />
+                    <Bar
+                      dataKey="rotacionAcumulada"
+                      name="12M Móviles"
+                      fill={getModernColor(0)}
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={18}
+                      label={renderBarLabelPercent}
+                    />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>

@@ -270,27 +270,11 @@ export const db = {
     return (data || []) as MotivoBajaRecord[];
   },
 
+  // DEPRECATED: asistencia_diaria table doesn't exist - use getIncidenciasCSV instead
   async getAsistenciaDiaria(startDate?: string, endDate?: string, client = supabase) {
-    console.log('🗄️ Fetching asistencia_diaria data...', { startDate, endDate });
-    let query = client
-      .from('asistencia_diaria')
-      .select('*')
-      .order('fecha', { ascending: false })
-
-    if (startDate) {
-      query = query.gte('fecha', startDate)
-    }
-    if (endDate) {
-      query = query.lte('fecha', endDate)
-    }
-
-    const { data, error } = await query
-    if (error) {
-      console.error('❌ Error fetching asistencia_diaria:', error);
-      throw error;
-    }
-    console.log('✅ asistencia_diaria data loaded:', data?.length, 'records');
-    return (data || []) as AsistenciaDiariaRecord[]
+    console.warn('⚠️ getAsistenciaDiaria is deprecated - table asistencia_diaria does not exist. Using incidencias table instead.');
+    // Return incidencias data instead
+    return this.getIncidenciasCSV(startDate, endDate, client);
   },
 
   async getDepartamentos(client = supabase) {
@@ -355,47 +339,29 @@ export const db = {
     return (data || []) as PlantillaRecord[]
   },
 
-  // Get incidencias from asistencia_diaria (where horas_incidencia > 0)
+  // DEPRECATED: asistencia_diaria table doesn't exist - use getIncidenciasCSV instead
   async getIncidenciasFromAsistencia(startDate?: string, endDate?: string, client = supabase) {
-    console.log('🗄️ Fetching incidencias from asistencia_diaria...', { startDate, endDate });
-    let query = client
-      .from('asistencia_diaria')
-      .select('*')
-      .gt('horas_incidencia', 0) // Solo registros con incidencias
-      .order('fecha', { ascending: false })
-
-    if (startDate) {
-      query = query.gte('fecha', startDate)
-    }
-    if (endDate) {
-      query = query.lte('fecha', endDate)
-    }
-
-    const { data, error } = await query
-    if (error) {
-      console.error('❌ Error fetching incidencias from asistencia:', error);
-      throw error;
-    }
-    console.log('✅ incidencias from asistencia loaded:', data?.length, 'records');
-    return (data || []) as AsistenciaDiariaRecord[]
+    console.warn('⚠️ getIncidenciasFromAsistencia is deprecated - table asistencia_diaria does not exist. Using incidencias table instead.');
+    // Return incidencias data instead
+    return this.getIncidenciasCSV(startDate, endDate, client);
   },
 
   // Stats operations
   async getKPIStats(client = supabase) {
-    const [empleados, asistencia, bajas] = await Promise.all([
+    const [empleados, incidencias, bajas] = await Promise.all([
       this.getEmpleadosSFTP(client),
-      this.getAsistenciaDiaria(undefined, undefined, client),
+      this.getIncidenciasCSV(undefined, undefined, client),
       this.getMotivosBaja(undefined, undefined, client)
     ])
 
-    // Contar incidencias (registros con horas_incidencia > 0)
-    const incidencias = asistencia.filter((a: AsistenciaDiariaRecord) => (a.horas_incidencia || 0) > 0)
+    // Contar días únicos desde incidencias
+    const diasUnicos = Array.from(new Set(incidencias.map((i: IncidenciaCSVRecord) => i.fecha))).length;
 
     return {
       totalEmployees: empleados.length,
       activeEmployees: empleados.filter((e: PlantillaRecord) => e.activo).length,
       totalIncidents: incidencias.length,
-      totalActiveDays: Array.from(new Set(asistencia.map((a: AsistenciaDiariaRecord) => a.fecha))).length,
+      totalActiveDays: diasUnicos,
       totalTerminations: bajas.length
     }
   }
