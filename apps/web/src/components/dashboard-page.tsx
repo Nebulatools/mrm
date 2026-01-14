@@ -123,6 +123,11 @@ export function DashboardPage() {
     incidenciasAnterior: number;
     permisos: number;
     permisosAnterior: number;
+    // Porcentajes pre-calculados para consistencia entre tabs
+    incidenciasPct: number;
+    incidenciasAnteriorPct: number;
+    permisosPct: number;
+    permisosAnteriorPct: number;
   } | null>(null);
 
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({

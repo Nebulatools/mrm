@@ -722,9 +722,9 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
     return last12Months.map(d => {
       const monthLabel = monthNames[d.month - 1];
-      const yearShort = d.year.toString().slice(-2);
+      // ✅ CORREGIDO: Solo mostrar mes sin año (eje X más limpio)
       return {
-        mes: `${monthLabel} ${yearShort}`,
+        mes: monthLabel,
         rotacionAcumulada: d.rotacionAcumulada12m ?? 0,
         year: d.year,
         month: d.month
@@ -819,7 +819,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     />
                     <Bar
                       dataKey="rotacionAcumulada"
-                      name="12M Móviles"
+                      name={`${new Date().getFullYear()}`}
                       fill={getModernColor(0)}
                       radius={[4, 4, 0, 0]}
                       maxBarSize={18}
@@ -864,7 +864,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       <Area
                         type="monotone"
                         dataKey={`rotacionYTD${previousYearForCharts}`}
-                        name={`${previousYearForCharts} YTD (año anterior)`}
+                        name={`${previousYearForCharts} (año anterior)`}
                         stroke={withOpacity('#94a3b8', 0.9)}
                         fill={withOpacity('#94a3b8', 0.25)}
                         strokeWidth={1.5}
@@ -876,7 +876,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     {selectedYearForCharts && (
                       <Bar
                         dataKey={`rotacionYTD${selectedYearForCharts}`}
-                        name={`${selectedYearForCharts} YTD`}
+                        name={`${selectedYearForCharts}`}
                         fill={getModernColor(0)}
                         radius={[4, 4, 0, 0]}
                         maxBarSize={18}

@@ -425,3 +425,9 @@ npm run start      # start production for apps/web
 npm run lint       # ESLint (Next config)
 npm run type-check # TypeScript check (apps/web)
 ```
+
+
+ - Vacaciones: VAC (separado)
+  - Faltas: FI, SUSP
+  - Salud: ENFE, MAT3, MAT1
+  - Permisos: PSIN, PCON, FEST, PATER, JUST (SIN VAC)

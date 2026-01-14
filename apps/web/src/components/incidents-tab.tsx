@@ -33,6 +33,11 @@ type Props = {
     incidenciasAnterior: number;
     permisos: number;
     permisosAnterior: number;
+    // Porcentajes pre-calculados para consistencia entre tabs
+    incidenciasPct: number;
+    incidenciasAnteriorPct: number;
+    permisosPct: number;
+    permisosAnteriorPct: number;
   }) => void;
 };
 
@@ -609,16 +614,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
     return total;
   }, [countByType]);
 
-  useEffect(() => {
-    if (!onKPIsUpdate) return;
-    onKPIsUpdate({
-      incidencias: totalIncidencias,
-      incidenciasAnterior: totalIncidenciasAnterior,
-      permisos: totalPermisos,
-      permisosAnterior: totalPermisosAnteriores
-    });
-  }, [onKPIsUpdate, totalIncidencias, totalIncidenciasAnterior, totalPermisos, totalPermisosAnteriores]);
-
   const toISODate = (date: Date) => format(date, 'yyyy-MM-dd');
 
   const empleadosConIncidenciasPct = activosCount > 0 ? (empleadosConIncidencias / activosCount) * 100 : 0;
@@ -627,6 +622,21 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
   const incidenciasPctAnterior = diasLaborablesPrev > 0 ? (totalIncidenciasAnterior / diasLaborablesPrev) * 100 : 0;
   const permisosPct = diasLaborablesActual > 0 ? (totalPermisos / diasLaborablesActual) * 100 : 0;
   const permisosPctAnterior = diasLaborablesPrev > 0 ? (totalPermisosAnteriores / diasLaborablesPrev) * 100 : 0;
+
+  // ✅ useEffect DESPUÉS de declarar las variables que usa
+  useEffect(() => {
+    if (!onKPIsUpdate) return;
+    onKPIsUpdate({
+      incidencias: totalIncidencias,
+      incidenciasAnterior: totalIncidenciasAnterior,
+      permisos: totalPermisos,
+      permisosAnterior: totalPermisosAnteriores,
+      incidenciasPct,
+      incidenciasAnteriorPct: incidenciasPctAnterior,
+      permisosPct,
+      permisosAnteriorPct: permisosPctAnterior
+    });
+  }, [onKPIsUpdate, totalIncidencias, totalIncidenciasAnterior, totalPermisos, totalPermisosAnteriores, incidenciasPct, incidenciasPctAnterior, permisosPct, permisosPctAnterior]);
 
   // Percentages segmentados por tipo
   const faltasPct = diasLaborablesActual > 0 ? (totalFaltas / diasLaborablesActual) * 100 : 0;

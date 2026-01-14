@@ -4,6 +4,25 @@ import { sftpClient } from './sftp-client';
 import { startOfMonth, endOfMonth, format, differenceInDays, isWithinInterval, subMonths, subYears } from 'date-fns';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/**
+ * Helper: Contar días laborables en un período (lunes a sábado)
+ * Fórmula del jefe: días laborados = empleados × días_laborables_período
+ */
+function contarDiasLaborables(inicio: Date, fin: Date): number {
+  let count = 0;
+  const current = new Date(inicio);
+
+  while (current <= fin) {
+    const dayOfWeek = current.getDay(); // 0=domingo, 1=lunes, ..., 6=sábado
+    if (dayOfWeek >= 1 && dayOfWeek <= 6) { // lunes a sábado
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return count;
+}
+
 export interface KPIResult {
   name: string;
   category: string;
@@ -389,9 +408,14 @@ export class KPICalculator {
       ? prevIncidenciasCount / prevActivosProm
       : 0;
 
-    // 8. Días Laborados - ((Activos)/7)*6 
-    const diasLaborados = Math.round((activosActuales / 7) * 6);
-    const prevDiasLaborados = Math.round((prevActivosActuales / 7) * 6);
+    // 8. Días Laborados - Empleados × Días laborables del período (lunes a sábado)
+    // ✅ CORREGIDO: Fórmula del jefe - días laborados = empleados × días_laborables_período
+    const diasLaborablesMes = contarDiasLaborables(startDate, endDate);
+    const diasLaborados = activosActuales * diasLaborablesMes;
+    const prevStartDate = subMonths(startDate, 1);
+    const prevEndDate = subMonths(endDate, 1);
+    const prevDiasLaborablesMes = contarDiasLaborables(prevStartDate, prevEndDate);
+    const prevDiasLaborados = prevActivosActuales * prevDiasLaborablesMes;
 
     // 9. %incidencias - Incidencias/días Laborados
     // ✅ Validación: Si no hay días laborados, porcentaje de incidencias es 0%

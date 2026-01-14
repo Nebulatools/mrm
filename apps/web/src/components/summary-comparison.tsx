@@ -41,7 +41,27 @@ const VACACIONES_CODES = new Set(["VAC"]);
 
 // ✅ LEGACY: Mantener para compatibilidad
 const INCIDENT_CODES = new Set([...FALTAS_CODES, ...SALUD_CODES]);
-const PERMISO_CODES = new Set([...PERMISOS_CODES, ...VACACIONES_CODES]);
+// ✅ CORREGIDO: Permisos SIN vacaciones (VAC se cuenta separado)
+const PERMISO_CODES = new Set(PERMISOS_CODES);
+
+/**
+ * Helper: Contar días laborables en un período (lunes a sábado)
+ * Fórmula del jefe: días laborados = empleados × días_laborables_mes
+ */
+function contarDiasLaborablesMes(inicio: Date, fin: Date): number {
+  let count = 0;
+  const current = new Date(inicio);
+
+  while (current <= fin) {
+    const dayOfWeek = current.getDay(); // 0=domingo, 1=lunes, ..., 6=sábado
+    if (dayOfWeek >= 1 && dayOfWeek <= 6) { // lunes a sábado
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return count;
+}
 
 interface BajaRecord {
   numero_empleado: number;
@@ -79,6 +99,11 @@ interface SummaryComparisonProps {
     incidenciasAnterior: number;
     permisos: number;
     permisosAnterior: number;
+    // Porcentajes pre-calculados para consistencia entre tabs
+    incidenciasPct: number;
+    incidenciasAnteriorPct: number;
+    permisosPct: number;
+    permisosAnteriorPct: number;
   };
 }
 
@@ -540,9 +565,13 @@ export function SummaryComparison({
       permisos
     });
 
-    // ✅ CORREGIDO: Calcular porcentajes de incidencias y permisos
-    const incidenciasPct = empleadosActivos > 0 ? (totalIncidencias / empleadosActivos) * 100 : 0;
-    const permisosPct = empleadosActivos > 0 ? (permisos / empleadosActivos) * 100 : 0;
+    // ✅ CORREGIDO: Calcular porcentajes usando días laborados (fórmula del jefe)
+    // Días laborados = Empleados × Días laborables del mes (lunes a sábado)
+    const diasLaborablesMes = contarDiasLaborablesMes(periodoInicio, periodoFin);
+    const diasLaborados = empleadosActivos * diasLaborablesMes;
+
+    const incidenciasPct = diasLaborados > 0 ? (totalIncidencias / diasLaborados) * 100 : 0;
+    const permisosPct = diasLaborados > 0 ? (permisos / diasLaborados) * 100 : 0;
 
     const result = {
       empleadosActivos,
@@ -562,10 +591,9 @@ export function SummaryComparison({
     }
 
     if (incidentsKPIsOverride) {
-      // ✅ CORREGIDO: Convertir conteos a porcentajes
-      const activos = result.empleadosActivos || 1;
-      result.incidencias = activos > 0 ? (incidentsKPIsOverride.incidencias / activos) * 100 : 0;
-      result.permisos = activos > 0 ? (incidentsKPIsOverride.permisos / activos) * 100 : 0;
+      // ✅ CORREGIDO: Usar porcentajes pre-calculados por incidents-tab para consistencia
+      result.incidencias = incidentsKPIsOverride.incidenciasPct;
+      result.permisos = incidentsKPIsOverride.permisosPct;
     }
 
     return result;
@@ -768,10 +796,9 @@ export function SummaryComparison({
     }
 
     if (incidentsKPIsOverride) {
-      // ✅ CORREGIDO: Convertir conteos anteriores a porcentajes
-      const activosPrev = kpisPrevMonth.empleadosActivos || 1;
-      kpisPrevMonth.incidencias = activosPrev > 0 ? (incidentsKPIsOverride.incidenciasAnterior / activosPrev) * 100 : 0;
-      kpisPrevMonth.permisos = activosPrev > 0 ? (incidentsKPIsOverride.permisosAnterior / activosPrev) * 100 : 0;
+      // ✅ CORREGIDO: Usar porcentajes pre-calculados por incidents-tab para consistencia
+      kpisPrevMonth.incidencias = incidentsKPIsOverride.incidenciasAnteriorPct;
+      kpisPrevMonth.permisos = incidentsKPIsOverride.permisosAnteriorPct;
     }
 
     const effectiveReference = referenceDate ?? new Date();
