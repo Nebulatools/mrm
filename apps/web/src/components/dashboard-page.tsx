@@ -1236,6 +1236,7 @@ export function DashboardPage() {
             <SummaryComparison
               plantilla={plantillaFiltered}
               plantillaYearScope={plantillaFilteredYearScope}
+              plantillaGeneral={plantillaFilteredGeneral}
               bajas={bajasFiltered}
               incidencias={incidenciasFiltered}
               selectedYear={retentionFilters.years.length > 0 ? retentionFilters.years[0] : undefined}

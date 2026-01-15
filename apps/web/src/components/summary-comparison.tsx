@@ -79,6 +79,7 @@ interface IncidenciaRecord {
 interface SummaryComparisonProps {
   plantilla: PlantillaRecord[];
   plantillaYearScope?: PlantillaRecord[];
+  plantillaGeneral?: PlantillaRecord[];  // Sin filtros temporales (para rolling 12M)
   bajas: BajaRecord[];
   incidencias: IncidenciaRecord[];
   selectedYear?: number;    // ✅ Opcional: undefined = SIN filtro (mostrar TODO)
@@ -212,6 +213,7 @@ type UbicacionSeriesConfig = {
 export function SummaryComparison({
   plantilla,
   plantillaYearScope,
+  plantillaGeneral,  // Sin filtros temporales (para rolling 12M con datos históricos)
   bajas,
   incidencias,
   selectedYear,
@@ -222,7 +224,11 @@ export function SummaryComparison({
   incidentsKPIsOverride
 }: SummaryComparisonProps) {
 
-  const plantillaRotacion = plantillaYearScope && plantillaYearScope.length > 0 ? plantillaYearScope : plantilla;
+  // ✅ FIX: Usar plantillaGeneral (sin filtros de año/mes) para cálculos de rotación
+  // Esto permite que rolling 12M incluya bajas históricas (ej: bajas 2024 para enero 2025)
+  const plantillaRotacion = plantillaGeneral && plantillaGeneral.length > 0
+    ? plantillaGeneral
+    : (plantillaYearScope && plantillaYearScope.length > 0 ? plantillaYearScope : plantilla);
 
   const ubicacionSeriesConfig = useMemo<UbicacionSeriesConfig[]>(() => {
     const entries = new Map<string, { label: string; empleadosRotacion: PlantillaRecord[]; empleadoIds: Set<number> }>();
