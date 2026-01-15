@@ -310,9 +310,9 @@ export function RotationCombinedTable({
           className="w-full"
           filename="rotacion-ubicacion-resumen-anual"
         >
-          {() => (
-            <div className="overflow-x-auto">
-              <Table className="table-corporate text-sm">
+          {(isFullscreen) => (
+            <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
+              <Table className={cn("table-corporate", isFullscreen ? "text-base" : "text-sm")}>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">MÉTRICA</TableHead>

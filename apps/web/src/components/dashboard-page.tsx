@@ -382,7 +382,8 @@ export function DashboardPage() {
         );
 
         // Calcular datos del mapa de calor con plantilla filtrada
-        const data = await kpiCalculator.getBajasPorMotivoYMesFromPlantilla(plantillaFiltrada, currentYear);
+        // NOTA: La función consulta motivos_baja directamente y filtra por numero_empleado
+        const data = await kpiCalculator.getBajasPorMotivoYMesFromPlantilla(plantillaFiltrada, currentYear, supabase);
         setBajasPorMotivoData(data);
 
         console.log('🗺️ Mapa de Calor filtrado:', {
@@ -1285,8 +1286,8 @@ export function DashboardPage() {
               )}
             </div>
 
-            {/* Gráficas intermedias: Clasificación, Género, Edad (scatter) */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {/* Gráficas intermedias: Clasificación, Edad (scatter) */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card className={cn(elevatedCardClass)}>
                 <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
                   <CardTitle className={cn("text-base", elevatedTitleClass)}>Clasificación</CardTitle>
@@ -1371,88 +1372,6 @@ export function DashboardPage() {
 
               <Card className={cn(elevatedCardClass)}>
                 <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
-                  <CardTitle className={cn("text-base", elevatedTitleClass)}>Género</CardTitle>
-                  <p className={cn("text-sm text-muted-foreground", elevatedSubtleTextClass)}>
-                    Hombre / Mujer
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <VisualizationContainer
-                    title="Distribución por género"
-                    type="chart"
-                    className="h-[340px] w-full"
-                    filename="genero-personal"
-                  >
-                    {(fullscreen) => (
-                      <div style={{ width: '100%', height: fullscreen ? 420 : 320 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart
-                            data={genderCounts}
-                            margin={{ top: 32, right: 32, bottom: 40, left: 16 }}
-                          >
-                            <CartesianGrid
-                              strokeDasharray="4 8"
-                              stroke={chartGridColor}
-                              strokeOpacity={0.65}
-                              vertical={false}
-                            />
-                            <XAxis
-                              dataKey="name"
-                              axisLine={false}
-                              tickLine={false}
-                              tick={{ fontSize: 12, fill: chartAxisColor }}
-                              interval={0}
-                              tickMargin={12}
-                            />
-                            <YAxis
-                              type="number"
-                              axisLine={false}
-                              tickLine={false}
-                              tick={{ fontSize: 12, fill: chartSecondaryAxisColor }}
-                              allowDecimals={false}
-                              domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.15)]}
-                            />
-                            <Tooltip
-                              cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.16)" : "rgba(148, 163, 184, 0.08)" }}
-                              contentStyle={{
-                                borderRadius: 12,
-                                borderColor: chartTooltipBorder,
-                                backgroundColor: chartTooltipBg,
-                                boxShadow: chartTooltipShadow,
-                              }}
-                              labelStyle={{ fontWeight: 600, color: chartTooltipLabelColor }}
-                              formatter={(value: number) => value.toLocaleString("es-MX")}
-                            />
-                            <defs>
-                              <linearGradient id="genderGradient" x1="0" x2="1" y1="0" y2="0">
-                                <stop offset="0%" stopColor="#34d399" />
-                                <stop offset="100%" stopColor="#22d3ee" />
-                              </linearGradient>
-                            </defs>
-                            <Bar
-                              dataKey="value"
-                              fill="url(#genderGradient)"
-                              radius={[12, 12, 0, 0]}
-                              maxBarSize={68}
-                            >
-                              <LabelList
-                                dataKey="value"
-                                position="top"
-                                formatter={(value: number) => value.toLocaleString("es-MX")}
-                                style={{ fill: chartTooltipLabelColor, fontWeight: 600, fontSize: 12 }}
-                                offset={14}
-                              />
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </VisualizationContainer>
-                </CardContent>
-              </Card>
-
-              <Card className={cn(elevatedCardClass)}>
-                <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
                   <CardTitle className={cn("text-base", elevatedTitleClass)}>
                     Distribución por Edad
                   </CardTitle>
@@ -1476,6 +1395,7 @@ export function DashboardPage() {
                           dataKey="age"
                           name="Edad"
                           type="number"
+                          domain={[18, 'dataMax']}
                           allowDecimals={false}
                           tick={{ fill: chartAxisColor, fontSize: 11 }}
                           label={{ value: 'Edad (años)', position: 'bottom', offset: 20, style: { fill: chartAxisColor, fontSize: 12, fontWeight: 500 } }}

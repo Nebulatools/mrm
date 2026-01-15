@@ -174,7 +174,7 @@ export function DismissalReasonsTable({
                 refreshEnabled && "font-body text-sm text-brand-ink/70"
               )}
             >
-              # de Nómina, Puesto, Departamento, Área, Fecha de Baja, Motivo, Antigüedad
+              Vista compacta con todas las columnas visibles sin scroll horizontal
             </p>
           </div>
           <Button
@@ -206,32 +206,40 @@ export function DismissalReasonsTable({
             className="w-full"
             filename="detalle-bajas"
           >
-            {() => (
-              <div className="overflow-x-auto">
-                <Table className="table-corporate">
+            {(isFullscreen) => (
+              <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
+                <Table className={cn("table-corporate", isFullscreen ? "text-sm" : "text-xs")}>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-24"># de Nómina</TableHead>
-                      <TableHead>Puesto</TableHead>
-                      <TableHead>Departamento</TableHead>
-                      <TableHead>Área</TableHead>
-                      <TableHead>Fecha Baja</TableHead>
-                      <TableHead>Motivo</TableHead>
-                      <TableHead>Antigüedad</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "w-16 px-2"}># Nómina</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "max-w-[100px] px-2"}>Puesto</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "w-20 px-2"}>Unidad</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "w-16 px-2"}>Emp</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "w-20 px-2"}>Ubicación</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "max-w-[80px] px-2"}>Depto</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "w-20 px-2"}>Área</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "w-20 px-2"}>F. Ingreso</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "w-20 px-2"}>F. Baja</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "max-w-[120px] px-2"}>Motivo Baja</TableHead>
+                      <TableHead className={isFullscreen ? "px-4" : "w-16 px-2"}>Antig.</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {empleadosDetalle.map((empleado, index) => (
                       <TableRow key={index}>
-                        <TableCell className="font-mono text-xs">
+                        <TableCell className={cn("font-mono", isFullscreen ? "text-xs px-4" : "text-[10px] px-2")}>
                           {empleado.numero_empleado}
                         </TableCell>
-                        <TableCell>{empleado.puesto || "Sin Puesto"}</TableCell>
-                        <TableCell>{empleado.departamento || "Sin Depto"}</TableCell>
-                        <TableCell>{empleado.area || "Sin Área"}</TableCell>
-                        <TableCell>{formatDate(empleado.fecha_baja)}</TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={empleado.motivo}>{empleado.motivo || "—"}</TableCell>
-                        <TableCell className="whitespace-nowrap">{empleado.antiguedad}</TableCell>
+                        <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[100px] truncate px-2")} title={empleado.puesto}>{empleado.puesto || "—"}</TableCell>
+                        <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={empleado.unidad}>{empleado.unidad || "—"}</TableCell>
+                        <TableCell className={cn(isFullscreen ? "px-4" : "w-16 truncate px-2")} title={empleado.empresa}>{empleado.empresa || "—"}</TableCell>
+                        <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={empleado.ubicacion}>{empleado.ubicacion || "—"}</TableCell>
+                        <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[80px] truncate px-2")} title={empleado.departamento}>{empleado.departamento || "—"}</TableCell>
+                        <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={empleado.area}>{empleado.area || "—"}</TableCell>
+                        <TableCell className={cn("whitespace-nowrap", isFullscreen ? "px-4" : "w-20 px-2")}>{formatDate(empleado.fecha_ingreso)}</TableCell>
+                        <TableCell className={cn("whitespace-nowrap", isFullscreen ? "px-4" : "w-20 px-2")}>{formatDate(empleado.fecha_baja)}</TableCell>
+                        <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[120px] truncate px-2")} title={empleado.motivo}>{empleado.motivo || "—"}</TableCell>
+                        <TableCell className={cn("whitespace-nowrap", isFullscreen ? "px-4" : "w-16 px-2")}>{empleado.antiguedad}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

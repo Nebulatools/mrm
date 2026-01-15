@@ -192,8 +192,8 @@ export function RotationBajasVoluntariasTable({
           className="w-full"
           filename="bajas-voluntarias-ubicacion"
         >
-          {() => (
-            <div className="overflow-x-auto">
+          {(isFullscreen) => (
+            <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
               <Table
                 className={cn(
                   "text-sm",

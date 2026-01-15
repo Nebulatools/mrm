@@ -30,7 +30,7 @@ interface RotationPercentageTableProps {
 interface LocationMonthData {
   ubicacion: string;
   months: Record<string, string | null>; // Percentage as string, null for future months
-  avg: string;
+  total: string;
 }
 
 const MONTHS = [
@@ -141,7 +141,7 @@ export function RotationPercentageTable({
     const result: LocationMonthData[] = UBICACIONES.map(ubicacion => {
       const months = locationMonthMap.get(ubicacion) || {};
 
-      // Calculate average rotation (exclude null values)
+      // Calculate total rotation (sum, exclude null values)
       const values: number[] = [];
       Object.values(months).forEach(val => {
         if (val !== null && val) {
@@ -149,11 +149,11 @@ export function RotationPercentageTable({
           if (!isNaN(num)) values.push(num);
         }
       });
-      const avg = values.length > 0
-        ? (values.reduce((sum, val) => sum + val, 0) / values.length).toFixed(1) + '%'
+      const total = values.length > 0
+        ? values.reduce((sum, val) => sum + val, 0).toFixed(1) + '%'
         : '';
 
-      return { ubicacion, months, avg };
+      return { ubicacion, months, total };
     });
 
     return result;
@@ -191,17 +191,17 @@ export function RotationPercentageTable({
     return averages;
   }, [data]);
 
-  // Calculate overall average
-  const overallAvg = useMemo(() => {
+  // Calculate overall total (sum)
+  const overallTotal = useMemo(() => {
     const values: number[] = [];
     data.forEach(row => {
-      if (row.avg) {
-        const num = parseFloat(row.avg.replace('%', ''));
+      if (row.total) {
+        const num = parseFloat(row.total.replace('%', ''));
         if (!isNaN(num)) values.push(num);
       }
     });
     return values.length > 0
-      ? (values.reduce((sum, val) => sum + val, 0) / values.length).toFixed(1) + '%'
+      ? values.reduce((sum, val) => sum + val, 0).toFixed(1) + '%'
       : '';
   }, [data]);
 
@@ -245,8 +245,8 @@ export function RotationPercentageTable({
           className="w-full"
           filename="rotacion-porcentaje-ubicacion"
         >
-          {() => (
-            <div className="overflow-x-auto">
+          {(isFullscreen) => (
+            <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
               <Table
                 className={cn(
                   "text-sm",
@@ -272,7 +272,7 @@ export function RotationPercentageTable({
                         {month.label}
                       </TableHead>
                     ))}
-                    <TableHead className="text-right font-bold">Promedio</TableHead>
+                    <TableHead className="text-right font-bold">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody
@@ -291,7 +291,7 @@ export function RotationPercentageTable({
                           {row.months[month.key] === null ? '-' : (row.months[month.key] || '')}
                         </TableCell>
                       ))}
-                      <TableCell className="text-right font-semibold">{row.avg}</TableCell>
+                      <TableCell className="text-right font-semibold">{row.total}</TableCell>
                     </TableRow>
                   ))}
                   {/* Averages row */}
@@ -302,7 +302,7 @@ export function RotationPercentageTable({
                         {monthlyAverages[month.key] === null ? '-' : (monthlyAverages[month.key] || '')}
                       </TableCell>
                     ))}
-                    <TableCell className="text-right">{overallAvg}</TableCell>
+                    <TableCell className="text-right">{overallTotal}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

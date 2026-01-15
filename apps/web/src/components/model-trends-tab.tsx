@@ -103,7 +103,7 @@ function formatMonthLabel(value: string): string {
     // Parse as YYYY-MM-DD and create date at noon UTC to avoid timezone issues
     const [year, month] = value.split('-').map(Number);
     const date = new Date(Date.UTC(year, month - 1, 15, 12, 0, 0));
-    return format(date, "MMM yyyy", { locale: es });
+    return format(date, "MMM", { locale: es }).toLowerCase();
   } catch {
     return value;
   }

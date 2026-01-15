@@ -19,23 +19,34 @@ function cleanText(text: string): string {
 }
 
 // ===================== MOTIVOS DE BAJA =====================
-// Total: 11 motivos únicos encontrados en motivos_baja
+// Total: 21 motivos únicos encontrados en motivos_baja (actualizado Enero 2026)
 
 const MOTIVOS_REALES: Record<string, string> = {
-  // Los 11 motivos EXACTOS de la DB (ordenados por frecuencia)
+  // Los 21 motivos EXACTOS de la DB (ordenados por frecuencia)
   "Baja": "Baja Voluntaria",                                      // 421 casos
   "Otra raz?n": "Otra razón",                                     // 67 casos
   "Abandono / No regres?": "Abandono / No regresó",              // 46 casos
   "T?rmino del contrato": "Término del contrato",                // 36 casos
+  "Regreso a la escuela": "Regreso a la escuela",                // 15 casos
   "Rescisi?n por desempe?o": "Rescisión por desempeño",         // 12 casos
   "Otro trabajo mejor compen": "Otro trabajo mejor compensado",  // 8 casos
   "Rescisi?n por disciplina": "Rescisión por disciplina",       // 8 casos
+  "Trabajo muy dif?cil": "Trabajo muy difícil",                  // 8 casos
+  "Cambio de domicilio": "Cambio de domicilio",                  // 4 casos
+  "Falta quien cuide hijos": "Falta quien cuide hijos",          // 4 casos
+  "No le gust? el tipo de trabajo": "No le gustó el tipo de trabajo", // 4 casos
+  "Problema de transporte": "Problema de transporte",            // 4 casos
+  "Ausentismo": "Ausentismo",                                    // 3 casos
+  "Falta de oportunidades": "Falta de oportunidades",            // 2 casos
   "Cambio de ciudad": "Cambio de ciudad",                        // 1 caso
+  "Jubilaci?n": "Jubilación",                                    // 1 caso
   "Motivos de salud": "Motivos de salud",                        // 1 caso
   "No le gust? el ambiente": "No le gustó el ambiente",          // 1 caso
   "No le gustaron las instal": "No le gustaron las instalaciones", // 1 caso
+  "Poco salario y prestacion": "Poco salario y prestaciones",    // 1 caso
+  "Problemas con jefe inmedi": "Problemas con jefe inmediato",   // 1 caso
 
-  // MOTIVOS ADICIONALES que aparecen en pantallas (no están en DB)
+  // VARIANTES DE ENCODING (mismo motivo, diferentes codificaciones)
   "Rescisi?n de contrat": "Rescisión de contrato",
   "Separaci?n voluntari": "Separación voluntaria",
   "Rescisi�n por disciplina": "Rescisión por disciplina",
@@ -178,18 +189,45 @@ export function normalizeMotivo(raw?: string | null): string {
   // Fallback con limpieza para casos que no coinciden exactamente
   const cleaned = cleanText(raw);
 
-  // Busca por patrones en el texto limpio
-  if (cleaned.includes('baja')) return 'Baja Voluntaria';
-  if (cleaned.includes('abandono') || cleaned.includes('regres')) return 'Abandono / No regresó';
-  if (cleaned.includes('termino') || cleaned.includes('contrato')) return 'Término del contrato';
+  // Busca por patrones en el texto limpio (orden de especificidad: más específico primero)
+
+  // Rescisiones (involuntarias)
   if (cleaned.includes('rescision') && cleaned.includes('desempe')) return 'Rescisión por desempeño';
   if (cleaned.includes('rescision') && cleaned.includes('disciplina')) return 'Rescisión por disciplina';
+  if (cleaned.includes('rescision') && cleaned.includes('contrat')) return 'Rescisión de contrato';
+  if (cleaned.includes('termino') && cleaned.includes('contrato')) return 'Término del contrato';
+
+  // Abandonos
+  if (cleaned.includes('abandono') || (cleaned.includes('no') && cleaned.includes('regres'))) return 'Abandono / No regresó';
+  if (cleaned.includes('ausentismo')) return 'Ausentismo';
+
+  // Trabajo y condiciones laborales
   if (cleaned.includes('trabajo') && cleaned.includes('mejor')) return 'Otro trabajo mejor compensado';
+  if (cleaned.includes('trabajo') && cleaned.includes('dificil')) return 'Trabajo muy difícil';
+  if (cleaned.includes('tipo') && cleaned.includes('trabajo')) return 'No le gustó el tipo de trabajo';
+  if (cleaned.includes('oportunidades')) return 'Falta de oportunidades';
+  if (cleaned.includes('jefe') || cleaned.includes('inmediato')) return 'Problemas con jefe inmediato';
+
+  // Ambiente e instalaciones
   if (cleaned.includes('ambiente')) return 'No le gustó el ambiente';
   if (cleaned.includes('instalaciones') || cleaned.includes('instal')) return 'No le gustaron las instalaciones';
-  if (cleaned.includes('salud')) return 'Motivos de salud';
+
+  // Motivos personales/familiares
+  if (cleaned.includes('escuela')) return 'Regreso a la escuela';
+  if (cleaned.includes('domicilio')) return 'Cambio de domicilio';
   if (cleaned.includes('ciudad')) return 'Cambio de ciudad';
+  if (cleaned.includes('transporte')) return 'Problema de transporte';
+  if (cleaned.includes('hijos') || cleaned.includes('cuide')) return 'Falta quien cuide hijos';
+  if (cleaned.includes('salud')) return 'Motivos de salud';
+  if (cleaned.includes('jubila')) return 'Jubilación';
+
+  // Compensación
+  if (cleaned.includes('salario') || cleaned.includes('prestacion')) return 'Poco salario y prestaciones';
+
+  // Genéricos (al final)
+  if (cleaned.includes('baja') && !cleaned.includes('trabajo')) return 'Baja Voluntaria';
   if (cleaned.includes('otra') || cleaned.includes('razon')) return 'Otra razón';
+  if (cleaned.includes('separacion') && cleaned.includes('voluntar')) return 'Separación voluntaria';
 
   return raw; // Si no hay match, devuelve el original
 }

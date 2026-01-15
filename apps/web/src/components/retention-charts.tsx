@@ -258,15 +258,15 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       const añoActual = hoy.getFullYear();
       const selectedYear = currentYear || añoActual;
 
-      // ✅ CORREGIDO: Generar ventana móvil de 12 meses + año anterior para comparación
+      // ✅ CORREGIDO: Generar ventana de 36 meses para cálculo correcto de 12M móviles
       const allMonthsData: MonthlyRetentionData[] = [];
       const voluntariaMonthsData: MonthlyRetentionData[] = [];
       const involuntariaMonthsData: MonthlyRetentionData[] = [];
 
-      // Generar 2 ventanas de 12 meses para comparación:
-      // 1. Año actual: 12 meses móviles hacia atrás desde currentDate
-      // 2. Año anterior: misma ventana pero -12 meses
-      for (let yearOffset = 1; yearOffset >= 0; yearOffset--) {
+      // Generar 3 ventanas de 12 meses (36 meses total):
+      // Para calcular 12M móviles del año anterior necesitamos datos de 2 años atrás
+      // Ejemplo: Para 12M móviles de ene 2024, necesitamos feb 2023 - ene 2024
+      for (let yearOffset = 2; yearOffset >= 0; yearOffset--) {
         for (let offset = 11; offset >= 0; offset--) {
           const baseDate = new Date(
             currentDate.getFullYear(),
@@ -322,11 +322,11 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       const buildComparison = (filteredMonthsData: MonthlyRetentionData[]) => {
         const monthNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-        // Extraer años únicos de los datos móviles
-        const uniqueYears = Array.from(new Set(filteredMonthsData.map(d => d.year))).sort();
-        const lastTwoYears = uniqueYears.length >= 2
-          ? [uniqueYears[uniqueYears.length - 2], uniqueYears[uniqueYears.length - 1]]
-          : uniqueYears;
+        // ✅ FIX: Usar año seleccionado (o actual) y su año anterior para comparación
+        // Esto asegura que siempre comparemos el año que el usuario está viendo vs el anterior
+        const targetYear = selectedYear;
+        const previousYear = targetYear - 1;
+        const lastTwoYears = [previousYear, targetYear];
 
         // Agrupar datos por mes (index 0-11) combinando datos de ambos años
         const comparisonData: YearlyComparisonData[] = monthNames.map((monthName, monthIndex) => {
@@ -1055,7 +1055,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               className="w-full"
               filename="tabla-rotacion-acumulada"
             >
-              {() => (
+              {(isFullscreen) => (
             <div className="relative w-full overflow-visible rounded-xl border border-slate-200/70 shadow-sm dark:border-slate-700/60">
               <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm whitespace-normal">
                 <thead>
@@ -1141,14 +1141,14 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               className="w-full"
               filename="tabla-rotacion-mensual"
             >
-              {() => (
+              {(isFullscreen) => (
             <div className="relative w-full overflow-visible rounded-xl border border-slate-200/70 shadow-sm dark:border-slate-700/60">
               <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm whitespace-normal">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700/70 dark:bg-slate-800/60">
                     <th className="px-3 py-2 text-left text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm" rowSpan={2}>Mes</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm bg-blue-100 dark:bg-blue-500/20" colSpan={3}>{availableYears[0] || 2024}</th>
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm bg-red-100 dark:bg-red-500/20" colSpan={3}>{availableYears[availableYears.length - 1] || 2025}</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm bg-blue-100 dark:bg-blue-500/20" colSpan={3}>{availableYears[0] || new Date().getFullYear() - 1}</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm bg-red-100 dark:bg-red-500/20" colSpan={3}>{availableYears[availableYears.length - 1] || new Date().getFullYear()}</th>
                     <th className="min-w-[90px] px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm" rowSpan={2}>Variación</th>
                   </tr>
                   <tr className="border-b border-slate-200 dark:border-slate-700/70">
@@ -1162,8 +1162,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                 </thead>
                 <tbody>
                   {monthNames.map((monthName, index) => {
-                    const year1 = availableYears[0] || 2024;
-                    const year2 = availableYears[availableYears.length - 1] || 2025;
+                    const year1 = availableYears[0] || new Date().getFullYear() - 1;
+                    const year2 = availableYears[availableYears.length - 1] || new Date().getFullYear();
                     const monthYear1 = monthlyData.find(d => d.year === year1 && d.month === index + 1);
                     const monthYear2 = monthlyData.find(d => d.year === year2 && d.month === index + 1);
 

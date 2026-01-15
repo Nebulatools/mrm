@@ -890,28 +890,60 @@ export class KPICalculator {
   }
 
   // Función para calcular bajas por motivo y mes desde plantilla pre-filtrada
-  getBajasPorMotivoYMesFromPlantilla(plantilla: PlantillaRecord[], year: number): any[] {
+  // NOTA: Consulta motivos_baja y filtra por numero_empleado de la plantilla
+  async getBajasPorMotivoYMesFromPlantilla(plantilla: PlantillaRecord[], year: number, client?: any): Promise<any[]> {
     try {
       console.log(`🚦 Calculating bajas por motivo from filtered plantilla for year: ${year}`);
+      const effectiveClient = client || supabase;
 
-      // Filtrar bajas del año especificado
-      const bajasDelAño = plantilla.filter(emp => {
+      // Obtener numero_empleado de empleados con fecha_baja en el año
+      const empleadosConBaja = plantilla.filter(emp => {
         if (!emp.fecha_baja) return false;
         const fechaBaja = new Date(emp.fecha_baja);
         return fechaBaja.getFullYear() === year;
       });
 
-      if (bajasDelAño.length === 0) {
+      if (empleadosConBaja.length === 0) {
         console.log('No bajas found in filtered plantilla for year:', year);
         return [];
       }
 
+      // Obtener los numero_empleado para filtrar
+      const numerosEmpleado = empleadosConBaja.map(emp => emp.numero_empleado);
+      console.log(`📋 Found ${numerosEmpleado.length} employees with bajas in ${year}`);
+
+      // Consultar motivos_baja de Supabase para estos empleados y año
+      const { data: motivosBaja, error } = await effectiveClient
+        .from('motivos_baja')
+        .select('*')
+        .gte('fecha_baja', `${year}-01-01`)
+        .lte('fecha_baja', `${year}-12-31`)
+        .in('numero_empleado', numerosEmpleado);
+
+      if (error) {
+        console.error('Error fetching motivos_baja:', error);
+        return [];
+      }
+
+      if (!motivosBaja || motivosBaja.length === 0) {
+        console.log('No motivos_baja data found for filtered employees in year:', year);
+        return [];
+      }
+
+      console.log(`📊 Found ${motivosBaja.length} motivos_baja records for filtered employees`);
+
       // Agrupar por motivo y mes
       const heatmapData: { [motivo: string]: { [mes: string]: number } } = {};
 
-      bajasDelAño.forEach(emp => {
-        const fechaBaja = new Date(emp.fecha_baja!);
-        const raw = emp.motivo_baja || 'Otra razón';
+      const isGeneric = (s?: string | null) => {
+        if (!s) return true;
+        const v = String(s).trim().toLowerCase();
+        return v === '' || v === 'baja' || v === 'sin motivo' || v === 'otra' || v === 'otro' || v === 'n/a' || v === 'na';
+      };
+
+      motivosBaja.forEach((baja: any) => {
+        const fechaBaja = new Date(baja.fecha_baja);
+        const raw = isGeneric(baja.descripcion) ? baja.motivo : baja.descripcion || baja.motivo || 'Otra razón';
         const motivo = prettyMotivo(raw);
         const mes = fechaBaja.getMonth(); // 0-11
 
@@ -939,7 +971,7 @@ export class KPICalculator {
         ...meses
       }));
 
-      console.log(`📊 Found ${result.length} motivos with data from filtered plantilla for ${year}`);
+      console.log(`📊 Found ${result.length} unique motivos with data from filtered plantilla for ${year}`);
       return result;
 
     } catch (error) {

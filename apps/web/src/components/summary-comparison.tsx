@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import type { CSSProperties } from 'react';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,7 +19,6 @@ type TooltipPayload = {
   dataKey?: string | number;
   payload?: any;
 };
-import { cn } from '@/lib/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
 import {
   calculateActivosPromedio,
@@ -29,6 +29,7 @@ import {
 } from '@/lib/utils/kpi-helpers';
 import { VisualizationContainer } from '@/components/visualization-container';
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
+import { createSmartLabelRenderer } from '@/lib/chart-label-collision';
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { KPICard } from '@/components/kpi-card';
 import { useTheme } from '@/components/theme-provider';
@@ -112,9 +113,8 @@ type IncidenciaWithDescription = IncidenciaRecord & { incidencia?: string | null
 
 const formatMonthLabel = (date: Date) => {
   const monthLabel = date.toLocaleDateString('es-MX', { month: 'short' });
-  const cleanedLabel = monthLabel.replace('.', '').trim();
-  const monthWithCase = `${cleanedLabel.charAt(0).toUpperCase()}${cleanedLabel.slice(1)}`;
-  return `${monthWithCase} ${date.getFullYear().toString().slice(-2)}`;
+  const cleanedLabel = monthLabel.replace('.', '').trim().toLowerCase();
+  return cleanedLabel;
 };
 
 const NEGOCIO_COLOR_PALETTE = CHART_COLORS.modernSeries;
@@ -286,6 +286,14 @@ export function SummaryComparison({
     filteredConfigs.sort((a, b) => a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }));
     return filteredConfigs;
   }, [plantillaRotacion, plantilla]);
+
+  // Label renderers inteligentes - AHORA UNO POR CADA LÍNEA
+  // Necesario porque Recharts no pasa el dataKey correctamente
+  const allSeriesKeys = useMemo(() => ubicacionSeriesConfig.map(c => c.key), [ubicacionSeriesConfig]);
+
+  const createLabelRendererForKey = useCallback((dataKey: string, config?: any) => {
+    return createSmartLabelRenderer(allSeriesKeys, dataKey, config);
+  }, [allSeriesKeys]);
 
   const [motivoFilterType, setMotivoFilterType] = useState<'all' | 'involuntaria' | 'voluntaria'>('voluntaria');
   const { theme } = useTheme();
@@ -1285,6 +1293,7 @@ export function SummaryComparison({
                           strokeWidth={2.5}
                           dot={{ fill: color, r: 3.5 }}
                           name={config.label}
+                          label={createLabelRendererForKey(config.key, { valueThreshold: 2, format: 'percent', decimals: 1 })}
                         />
                       );
                     })}
@@ -1351,6 +1360,7 @@ export function SummaryComparison({
                           strokeWidth={2.5}
                           dot={{ fill: color, r: 3.5 }}
                           name={config.label}
+                          label={createLabelRendererForKey(config.key, { valueThreshold: 3, format: 'percent', decimals: 1 })}
                         />
                       );
                     })}
@@ -1417,6 +1427,7 @@ export function SummaryComparison({
                           strokeWidth={2.5}
                           dot={{ fill: color, r: 3.5 }}
                           name={config.label}
+                          label={createLabelRendererForKey(config.key, { valueThreshold: 2, format: 'percent', decimals: 1 })}
                         />
                       );
                     })}
@@ -1486,6 +1497,7 @@ export function SummaryComparison({
                           strokeWidth={2.5}
                           dot={{ fill: color, r: 3.5 }}
                           name={config.label}
+                          label={createLabelRendererForKey(config.key, { valueThreshold: 1.5, format: 'percent', decimals: 1 })}
                         />
                       );
                     })}
@@ -1552,6 +1564,7 @@ export function SummaryComparison({
                           strokeWidth={2.5}
                           dot={{ fill: color, r: 3.5 }}
                           name={config.label}
+                          label={createLabelRendererForKey(config.key, { valueThreshold: 1.5, format: 'percent', decimals: 1 })}
                         />
                       );
                     })}

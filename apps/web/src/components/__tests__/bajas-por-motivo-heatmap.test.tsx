@@ -63,7 +63,7 @@ describe('Bajas por Motivo Heatmap - Tab 3: Rotación', () => {
     renderWithProviders(<BajasPorMotivoHeatmap data={mockHeatmapData} />);
 
     // Check for month labels
-    const monthLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const monthLabels = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
     monthLabels.forEach((month) => {
       const monthElement = screen.queryByText(month);

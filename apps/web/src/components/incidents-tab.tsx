@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode, CSSProperties } from "react";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +18,7 @@ import { calculateVariancePercentage, countActivosEnFecha } from "@/lib/utils/kp
 import { KPICard, KPICardSkeleton } from "./kpi-card";
 import { Users, AlertCircle, Activity, ClipboardCheck } from "lucide-react";
 import { getModernColor, withOpacity } from "@/lib/chart-colors";
+import { createSmartLabelRenderer } from "@/lib/chart-label-collision";
 import { useTheme } from "@/components/theme-provider";
 import { AbsenteeismTable } from "@/components/absenteeism-table";
 import { getTitleWithYear } from "@/lib/filters/year-display";
@@ -47,6 +49,9 @@ type EnrichedIncidencia = IncidenciaCSVRecord & {
   departamento?: string | null;
   area?: string | null;
   puesto?: string | null;
+  unidad?: string | null;  // Centro de costo (cc)
+  ubicacion?: string | null;
+  fecha_ingreso?: string | null;
 };
 
 // ✅ NUEVA CATEGORIZACIÓN: 4 grupos (Faltas, Salud, Permisos, Vacaciones)
@@ -76,7 +81,7 @@ const WEEKDAY_LABELS: Record<number, string> = {
   5: 'Viernes',
   6: 'Sábado'
 };
-const MONTH_LABELS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const MONTH_LABELS_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const PIE_LEGEND_STYLE: CSSProperties = { paddingTop: 8 };
 const PIE_TOOLTIP_STYLE: CSSProperties = {
   borderRadius: 12,
@@ -230,6 +235,21 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
     ),
     [isDark]
   );
+
+  // Label renderers inteligentes para gráfica de Ausentismo - UNO POR CADA SERIE
+  // Necesario porque Recharts no pasa el dataKey correctamente
+  const allAusentismoKeys = useMemo(() => ['faltas', 'salud', 'permisos', 'vacaciones'], []);
+
+  const createAusentismoLabelForKey = useCallback((dataKey: string) => {
+    return createSmartLabelRenderer(allAusentismoKeys, dataKey, {
+      valueThreshold: 2,
+      fontSize: 14,  // Aumentado para visibilidad
+      yOffset: 18,   // Más separación del punto
+      format: metricType === 'percent' ? 'percent' : 'number',
+      decimals: 1
+    });
+  }, [allAusentismoKeys, metricType]);
+
   const [incidencias, setIncidencias] = useState<IncidenciaCSVRecord[]>(initialIncidencias ?? []);
   const [showTable, setShowTable] = useState(false); // false = mostrar 10, true = mostrar todo
   const [loadingIncidencias, setLoadingIncidencias] = useState(!(initialIncidencias && initialIncidencias.length > 0));
@@ -393,6 +413,9 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
           departamento: rawDepto ? normalizeDepartamento(rawDepto) : null,
           area: rawArea ? normalizeArea(rawArea) : null,
           puesto: rawPuesto ? normalizePuesto(rawPuesto) : null,
+          unidad: emp?.cc ?? null,  // Centro de costo
+          ubicacion: emp?.ubicacion ?? null,
+          fecha_ingreso: emp?.fecha_ingreso ?? null,
         };
       });
 
@@ -954,10 +977,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
   const monthlyTrendsData = useMemo(() => {
     const selectedYear = typeof currentYear === "number" ? currentYear : null;
     const now = new Date();
-    const months = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
     const dataPoints = months.map((monthName, index) => {
       const year = selectedYear || now.getFullYear();
@@ -1217,7 +1237,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
             ))}
       </div>
       <p className="text-xs text-gray-500">
-        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones). <strong>Grupos:</strong> Vacaciones (VAC) · Faltas (FI, SUSP) · Salud (ENFE, MAT3, MAT1) · Permisos (PSIN, PCON, FEST, PATER, JUST)
+        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Incidencias:</strong> Faltas + Salud (FI, SUSP, ENFE, MAT3, MAT1). <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones). <strong>Grupos:</strong> Vacaciones (VAC) · Faltas (FI, SUSP) · Salud (ENFE, MAT3, MAT1) · Permisos (PSIN, PCON, FEST, PATER, JUST)
       </p>
 
       {/* Gráfica de Tendencia Mensual - 4 Categorías */}
@@ -1285,6 +1305,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           dot={{ fill: getModernColor(0), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name={metricType === "percent" ? "Faltas (%)" : "# Faltas"}
+                          label={createAusentismoLabelForKey('faltas')}
                         />
                         <Line
                           type="monotone"
@@ -1294,6 +1315,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           dot={{ fill: getModernColor(1), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name={metricType === "percent" ? "Salud (%)" : "# Salud"}
+                          label={createAusentismoLabelForKey('salud')}
                         />
                         <Line
                           type="monotone"
@@ -1303,6 +1325,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           dot={{ fill: getModernColor(2), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name={metricType === "percent" ? "Permisos (%)" : "# Permisos"}
+                          label={createAusentismoLabelForKey('permisos')}
                         />
                         <Line
                           type="monotone"
@@ -1312,6 +1335,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           dot={{ fill: getModernColor(3), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name={metricType === "percent" ? "Vacaciones (%)" : "# Vacaciones"}
+                          label={createAusentismoLabelForKey('vacaciones')}
                         />
                       </LineChart>
                     </ResponsiveContainer>
@@ -1365,7 +1389,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           labelStyle={LINE_TOOLTIP_LABEL_STYLE}
                           formatter={(value: number) => metricType === "percent" ? `${value}%` : value}
                         />
-                        <Bar dataKey="empleados" fill={getModernColor(0)} />
+                        <Bar dataKey="empleados" fill={getModernColor(0)}>
+                          <LabelList
+                            dataKey="empleados"
+                            position="top"
+                            formatter={(value: number) => metricType === "percent" ? `${Math.round(value)}%` : value}
+                            style={{ fill: '#374151', fontWeight: 600, fontSize: 11 }}
+                          />
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1754,37 +1785,41 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
             className="w-full"
             filename="tabla-incidencias"
           >
-            {() => (
+            {(isFullscreen) => (
               loadingIncidencias ? (
                 <ChartLoadingPlaceholder height={360} />
               ) : (
-                <div className="overflow-x-auto">
-                  <Table className="table-corporate">
+                <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
+                  <Table className={cn("table-corporate", isFullscreen ? "text-sm" : "text-xs")}>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Motivo</TableHead>
-                        <TableHead>Días</TableHead>
-                        <TableHead>Empresa</TableHead>
-                        <TableHead>Departamento</TableHead>
-                        <TableHead>Área</TableHead>
-                        <TableHead>Puesto</TableHead>
+                        <TableHead className={isFullscreen ? "px-4" : "w-16 px-2"}># Nómina</TableHead>
+                        <TableHead className={isFullscreen ? "px-4" : "max-w-[100px] px-2"}>Puesto</TableHead>
+                        <TableHead className={isFullscreen ? "px-4" : "w-20 px-2"}>Unidad</TableHead>
+                        <TableHead className={isFullscreen ? "px-4" : "w-16 px-2"}>Emp</TableHead>
+                        <TableHead className={isFullscreen ? "px-4" : "w-20 px-2"}>Ubicación</TableHead>
+                        <TableHead className={isFullscreen ? "px-4" : "max-w-[80px] px-2"}>Depto</TableHead>
+                        <TableHead className={isFullscreen ? "px-4" : "w-20 px-2"}>Área</TableHead>
+                        <TableHead className={isFullscreen ? "px-4" : "w-20 px-2"}>F. Ingreso</TableHead>
+                        <TableHead className={isFullscreen ? "px-4" : "w-20 px-2"}>F. Falta</TableHead>
+                        <TableHead className={isFullscreen ? "px-4" : "max-w-[120px] px-2"}>Motivo Falta</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {(showTable ? enrichedPeriodo : enrichedPeriodo.slice(0, 10)).map((i) => (
                         <TableRow key={i.id}>
-                          <TableCell>{i.id}</TableCell>
-                          <TableCell>{formatToDDMMYYYY(i.fecha)}</TableCell>
-                          <TableCell className="font-medium">{normalizeIncidenciaCode(i.inci) || '—'}</TableCell>
-                          <TableCell>{i.incidencia || labelForIncidencia(i.inci) || '—'}</TableCell>
-                          <TableCell>1</TableCell>
-                          <TableCell>{i.empresa || '—'}</TableCell>
-                          <TableCell>{i.departamento || '—'}</TableCell>
-                          <TableCell>{i.area || '—'}</TableCell>
-                          <TableCell>{i.puesto || '—'}</TableCell>
+                          <TableCell className={cn("font-mono", isFullscreen ? "text-xs px-4" : "text-[10px] px-2")}>{i.emp}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[100px] truncate px-2")} title={i.puesto}>{i.puesto || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={i.unidad}>{i.unidad || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "w-16 truncate px-2")} title={i.empresa}>{i.empresa || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={i.ubicacion}>{i.ubicacion || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[80px] truncate px-2")} title={i.departamento}>{i.departamento || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={i.area}>{i.area || '—'}</TableCell>
+                          <TableCell className={cn("whitespace-nowrap", isFullscreen ? "px-4" : "w-20 px-2")}>{formatToDDMMYYYY(i.fecha_ingreso)}</TableCell>
+                          <TableCell className={cn("whitespace-nowrap", isFullscreen ? "px-4" : "w-20 px-2")}>{formatToDDMMYYYY(i.fecha)}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[120px] truncate px-2")} title={`${normalizeIncidenciaCode(i.inci) || ''}: ${i.incidencia || labelForIncidencia(i.inci) || ''}`}>
+                            {normalizeIncidenciaCode(i.inci) || '—'} - {i.incidencia || labelForIncidencia(i.inci) || '—'}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

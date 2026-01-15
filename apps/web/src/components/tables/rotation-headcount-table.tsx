@@ -174,8 +174,8 @@ export function RotationHeadcountTable({
           className="w-full"
           filename="headcount-ubicacion"
         >
-          {() => (
-            <div className="overflow-x-auto">
+          {(isFullscreen) => (
+            <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
               <Table
                 className={cn(
                   "text-sm",

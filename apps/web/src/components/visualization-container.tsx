@@ -411,12 +411,15 @@ export function VisualizationContainer({
       </div>
 
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-        <DialogContent className="max-w-6xl w-[95vw]">
+        <DialogContent className={cn(
+          "w-[95vw]",
+          type === "table" ? "max-w-[1400px]" : "max-w-6xl"
+        )}>
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
           </DialogHeader>
           <div className="relative mt-4">
-            <div className="absolute right-3 top-3 flex gap-2">
+            <div className="absolute right-3 top-3 flex gap-2 z-10">
               {renderControls(false)}
             </div>
             <div
@@ -426,7 +429,7 @@ export function VisualizationContainer({
                 type === "chart" && "flex w-full items-center justify-center"
               )}
               style={{
-                minWidth: type === "chart" ? "min(960px, 100%)" : "520px",
+                minWidth: type === "chart" ? "min(960px, 100%)" : undefined,
                 minHeight: type === "chart" ? "360px" : undefined,
               }}
             >

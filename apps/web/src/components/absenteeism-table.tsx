@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { differenceInCalendarDays } from "date-fns";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MetricToggle } from "@/components/ui/metric-toggle";
@@ -56,6 +58,16 @@ export function AbsenteeismTable({
     });
   }, [incidencias, plantilla, currentYear, filters]);
 
+  // ✅ Función para calcular días activos de un empleado (igual que incidents-tab.tsx)
+  const calcularDiasActivo = (emp: PlantillaRecord, start: Date, end: Date): number => {
+    const ingreso = new Date(emp.fecha_ingreso);
+    const baja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+    const effectiveStart = ingreso > start ? ingreso : start;
+    const effectiveEnd = baja && baja < end ? baja : end;
+    if (effectiveEnd < effectiveStart) return 0;
+    return differenceInCalendarDays(effectiveEnd, effectiveStart) + 1;
+  };
+
   // Calcular datos por mes
   const tableData = useMemo(() => {
     const plantillaFiltered = filters
@@ -64,22 +76,15 @@ export function AbsenteeismTable({
 
     const year = currentYear || new Date().getFullYear();
 
-    // Calcular DÍAS LABORADOS por mes (Activos / 7 × 6)
+    // ✅ CORRECCIÓN: Calcular DÍAS LABORADOS sumando días activos de CADA empleado
     const diasLaboradosPorMes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(month => {
       const start = new Date(year, month - 1, 1);
       const end = new Date(year, month, 0);
 
-      // Contar empleados activos en el mes
-      const activosEnMes = plantillaFiltered.filter(emp => {
-        const ingreso = new Date(emp.fecha_ingreso);
-        const baja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
-
-        // Empleado está activo si: ingresó antes del fin del mes Y (no tiene baja O baja después del inicio del mes)
-        return ingreso <= end && (!baja || baja >= start);
-      }).length;
-
-      // Fórmula: (Activos / 7) × 6
-      return Math.round((activosEnMes / 7) * 6);
+      // Sumar días activos de cada empleado en el mes
+      return plantillaFiltered.reduce((acc, emp) => {
+        return acc + calcularDiasActivo(emp, start, end);
+      }, 0);
     });
 
     // Agrupar incidencias por motivo y mes (4 grupos)
@@ -146,7 +151,7 @@ export function AbsenteeismTable({
             {getTitleWithYear('Tabla de Ausentismo por Mes', selectedYears)}
           </CardTitle>
           <p className="text-sm text-gray-600">
-            Jornadas: (Activos / 7) × 6 | Desglose por motivo
+            Jornadas: Suma de días activos de todos los empleados | Desglose por motivo
           </p>
         </div>
         <MetricToggle value={metricType} onChange={setMetricType} size="sm" />
@@ -158,9 +163,9 @@ export function AbsenteeismTable({
           className="w-full"
           filename="tabla-ausentismo-mensual"
         >
-          {() => (
-            <div className="overflow-x-auto">
-              <Table className="table-corporate">
+          {(isFullscreen) => (
+            <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
+              <Table className={cn("table-corporate", isFullscreen ? "text-base" : "text-sm")}>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[140px] font-bold">Motivo</TableHead>

@@ -79,8 +79,8 @@ export function RetentionTable({ kpis, previousPeriodKpis }: RetentionTableProps
           className="w-full"
           filename="tabla-rotacion-comparativa"
         >
-          {() => (
-          <div className="overflow-x-auto">
+          {(isFullscreen) => (
+          <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">

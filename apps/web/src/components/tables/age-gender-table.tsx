@@ -142,9 +142,9 @@ export function AgeGenderTable({
           className="w-full"
           filename="edad-por-genero"
         >
-          {() => (
-            <div className="overflow-x-auto">
-              <Table className="table-corporate">
+          {(isFullscreen) => (
+            <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
+              <Table className={cn("table-corporate", isFullscreen ? "text-base" : "text-sm")}>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Edad</TableHead>

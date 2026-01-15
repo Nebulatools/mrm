@@ -36,8 +36,8 @@ const MESES = [
 ]
 
 const MESES_LABELS = [
-  'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+  'jul', 'ago', 'sep', 'oct', 'nov', 'dic'
 ]
 
 export function BajasPorMotivoHeatmap({ data, selectedYears = [], motivoFilter = 'all' }: BajasPorMotivoHeatmapProps) {
@@ -155,7 +155,7 @@ export function BajasPorMotivoHeatmap({ data, selectedYears = [], motivoFilter =
           className="w-full"
           filename={`bajas-por-motivo${selectedYears.length > 0 ? `-${selectedYears.join('-')}` : ''}`}
         >
-          {() => (
+          {(isFullscreen) => (
             <div className="overflow-x-auto rounded-2xl border border-brand-border/40 bg-card shadow-sm dark:bg-brand-surface/70">
               <table className="w-full border-collapse text-sm">
             <thead>

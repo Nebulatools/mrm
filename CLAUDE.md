@@ -6,12 +6,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Before making any changes to this codebase, follow these rules:
 
-1. First think through the problem, read the codebase for relevant files.
-2. Before you make any major changes, check in with me and I will verify the plan.
-3. Please every step of the way just give me a high level explanation of what changes you made.
-4. Make every task and code change you do as simple as possible. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
-5. Maintain a documentation file that describes how the architecture of the app works inside and out.
-6. Never speculate about code you have not opened. If the user references a specific file, you MUST read the file before answering. Make sure to investigate and read relevant files BEFORE answering questions about the codebase. Never make any claims about code before investigating unless you are certain of the correct answer - give grounded and hallucination-free answers.
+1. **ANTES DE CUALQUIER COSA**: Usa el MCP de Supabase (`mcp__supabase__*`) para analizar la estructura actual de la base de datos, tablas, datos y relaciones. Esto asegura que trabajes con información actualizada y no con documentación potencialmente desactualizada.
+2. First think through the problem, read the codebase for relevant files.
+3. Before you make any major changes, check in with me and I will verify the plan.
+4. Please every step of the way just give me a high level explanation of what changes you made.
+5. Make every task and code change you do as simple as possible. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
+6. Maintain a documentation file that describes how the architecture of the app works inside and out.
+7. Never speculate about code you have not opened. If the user references a specific file, you MUST read the file before answering. Make sure to investigate and read relevant files BEFORE answering questions about the codebase. Never make any claims about code before investigating unless you are certain of the correct answer - give grounded and hallucination-free answers.
+
+### Supabase MCP Commands (usar frecuentemente)
+```bash
+# Project ID: ufdlwhdrrvktthcxwpzt
+
+# Comandos útiles:
+mcp__supabase__list_tables        # Ver todas las tablas y columnas
+mcp__supabase__execute_sql        # Ejecutar queries de análisis
+mcp__supabase__list_migrations    # Ver historial de migraciones
+mcp__supabase__get_logs           # Ver logs de servicios
+mcp__supabase__get_advisors       # Verificar seguridad/performance
+```
 
 ## Project Overview
 
@@ -73,10 +86,13 @@ npm test -- age-gender         # Run tests matching pattern
 ### Key Architectural Patterns
 
 **Data Layer:**
-- SFTP Source Tables: `empleados_sftp`, `motivos_baja`, `asistencia_diaria`, `incidencias` (direct SFTP import)
+- SFTP Source Tables: `empleados_sftp`, `motivos_baja`, `incidencias` (direct SFTP import)
+- Support Tables: `prenomina_horizontal`, `user_profiles`, `user_empresa_access`, `sync_settings`
+- Audit Tables: `sftp_file_structure`, `sftp_import_log`, `sftp_file_versions`, `sftp_record_diffs`
 - KPI calculation engine in `apps/web/src/lib/kpi-calculator.ts`
 - Supabase client configuration in `apps/web/src/lib/supabase.ts`
 - Shared retention filters in `apps/web/src/lib/filters/retention.ts`
+- **NOTA**: La tabla `asistencia_diaria` fue ELIMINADA (migración `drop_asistencia_diaria`)
 
 **Frontend Organization:**
 - App Router structure in `apps/web/src/app/`
@@ -92,18 +108,19 @@ The system implements HR-specific formulas with accurate calculations:
 - **Activos**: Count(empleados activos) - Uses empleados_sftp table for headcount
 - **Activos Promedio**: (Empleados_Inicio_Período + Empleados_Fin_Período) / 2 - Correct average for rotation calculations
 - **Rotación Mensual**: (Bajas_del_Período / Activos_Promedio) × 100 - Standard HR rotation formula using motivos_baja
-- **Días**: Count(DISTINCT fechas from asistencia_diaria table) - Unique activity days
+- **Días**: Count(DISTINCT fechas from incidencias table) - Unique activity days
 - **Bajas**: Count(empleados with fecha_baja in period) - Terminations from motivos_baja table
-- **Incidencias**: Count(incidencia records from asistencia_diaria) - Total incidents from attendance data
+- **Incidencias**: Count(incidencia records from incidencias table) - Total incidents (8,880+ records)
 - **Inc prom x empleado**: Incidencias / Activos_Promedio - Incidents per employee
 - **Días Laborados**: (Activos / 7) × 6 - Estimated work days (6 days/week)
 - **%incidencias**: (Incidencias / Días_Laborados) × 100 - Incident percentage
+- **Horas Ordinarias/Extras**: Calculated from prenomina_horizontal (374 records)
 
 **SFTP Tables Architecture:**
-- empleados_sftp: Master employee data with all HR information
-- motivos_baja: Termination records with dates and reasons
-- asistencia_diaria: Daily attendance with incident tracking
-- incidencias: Detailed incident records with codes, timestamps, and locations
+- empleados_sftp: Master employee data (1,051 records) - 33 columnas completas
+- motivos_baja: Termination records (676 records) with dates and reasons
+- incidencias: Detailed incident records (8,880 records) with codes, timestamps, locations
+- prenomina_horizontal: Weekly payroll data (374 records) with hours breakdown per day
 
 **Realistic Value Ranges:**
 - Activos Promedio: 70-85 employees (not 6)
@@ -137,80 +154,255 @@ The system implements HR-specific formulas with accurate calculations:
 - `retroactive-adjustment.tsx` - KPI adjustment with audit trail
 - `filter-panel.tsx` - Dashboard filtering system
 
-### Database Schema - SFTP Tables
+### Database Schema - Tablas Actuales (Verificadas con MCP Supabase)
 
-**SFTP Source Tables (Supabase PostgreSQL):**
+**Última verificación:** Enero 2026 | **Project ID:** `ufdlwhdrrvktthcxwpzt`
 
-**1. empleados_sftp (Master Employee Data)**
+---
+
+#### TABLAS PRINCIPALES DE DATOS (SFTP)
+
+**1. empleados_sftp (1,051 registros) - Master Employee Data**
 ```sql
+-- Identificación
 id: SERIAL PRIMARY KEY
-numero_empleado: INTEGER UNIQUE NOT NULL
-apellidos: VARCHAR(200) NOT NULL
-nombres: VARCHAR(200) NOT NULL
-nombre_completo: VARCHAR(400)
-departamento: VARCHAR(100)
-puesto: VARCHAR(100)
-area: VARCHAR(100)
+numero_empleado: INTEGER UNIQUE NOT NULL  -- Número único de empleado
+apellidos: VARCHAR NOT NULL
+nombres: VARCHAR NOT NULL
+nombre_completo: VARCHAR
+gafete: VARCHAR
+
+-- Datos Personales
+genero: VARCHAR
+imss: VARCHAR
+fecha_nacimiento: DATE
+estado: VARCHAR
+
+-- Fechas Laborales
 fecha_ingreso: DATE NOT NULL
+fecha_antiguedad: DATE
 fecha_baja: DATE
-activo: BOOLEAN NOT NULL DEFAULT true
-empresa: VARCHAR(200)
-fecha_creacion: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+activo: BOOLEAN DEFAULT true  -- Estado actual del empleado
+
+-- Organización
+empresa: VARCHAR
+registro_patronal: VARCHAR
+codigo_puesto: VARCHAR
+puesto: VARCHAR
+codigo_depto: VARCHAR
+departamento: VARCHAR
+codigo_cc: VARCHAR
+cc: VARCHAR
+subcuenta_cc: VARCHAR
+clasificacion: VARCHAR
+codigo_area: VARCHAR
+area: VARCHAR
+ubicacion: VARCHAR
+
+-- Nómina
+tipo_nomina: VARCHAR
+turno: VARCHAR
+prestacion_ley: VARCHAR
+paquete_prestaciones: VARCHAR
+
+-- Metadata
+fecha_creacion: TIMESTAMPTZ DEFAULT NOW()
+fecha_actualizacion: TIMESTAMPTZ DEFAULT NOW()
 ```
 
-**2. motivos_baja (Termination Records)**
+**2. motivos_baja (676 registros) - Termination Records**
 ```sql
 id: SERIAL PRIMARY KEY
-numero_empleado: INTEGER NOT NULL
+numero_empleado: INTEGER NOT NULL  -- FK a empleados_sftp.numero_empleado
 fecha_baja: DATE NOT NULL
-tipo: VARCHAR(100) NOT NULL
-motivo: VARCHAR(200) NOT NULL
+tipo: VARCHAR NOT NULL  -- Clasificación del tipo de baja
+motivo: VARCHAR NOT NULL  -- Motivo específico de la terminación
 descripcion: TEXT
-fecha_creacion: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+observaciones: TEXT  -- Campo adicional para notas
+fecha_creacion: TIMESTAMPTZ DEFAULT NOW()
 ```
 
-**3. asistencia_diaria (Daily Attendance)**
+**3. incidencias (8,880 registros) - Incident Details**
 ```sql
 id: SERIAL PRIMARY KEY
-numero_empleado: INTEGER NOT NULL
-fecha: DATE NOT NULL
-horas_trabajadas: DECIMAL(4,2) DEFAULT 8.0
-horas_incidencia: DECIMAL(4,2) DEFAULT 0.0
-presente: BOOLEAN DEFAULT true
-fecha_creacion: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-UNIQUE(numero_empleado, fecha)
-```
-
-**4. incidencias (Incident Details)**
-```sql
-id: SERIAL PRIMARY KEY
-emp: INTEGER NOT NULL -- Número de empleado
+emp: INTEGER NOT NULL  -- Número de empleado
 nombre: TEXT
 fecha: DATE NOT NULL
 turno: SMALLINT
-horario: TEXT -- Formato: 0830_1700
-incidencia: TEXT -- Descripción de la incidencia
-entra: TIME -- Hora de entrada
-sale: TIME -- Hora de salida
-ordinarias: NUMERIC DEFAULT 0 -- Horas ordinarias
+horario: TEXT  -- Formato: 0830_1700
+incidencia: TEXT  -- Descripción de la incidencia
+entra: TIME  -- Hora de entrada
+sale: TIME  -- Hora de salida
+ordinarias: NUMERIC DEFAULT 0  -- Horas ordinarias
 numero: INTEGER
-inci: VARCHAR -- Código de incidencia (VAC, INC, FJ, FI, etc.)
-status: SMALLINT -- Status numérico de la incidencia
-ubicacion2: TEXT -- Ubicación calculada desde CSV
-fecha_creacion: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+inci: VARCHAR  -- Código de incidencia (VAC, INC, FJ, FI, etc.)
+status: SMALLINT  -- Status numérico
+ubicacion2: TEXT  -- Ubicación calculada desde CSV
+fecha_creacion: TIMESTAMPTZ DEFAULT NOW()
 ```
-**Incident Codes (inci):**
-- VAC: Vacaciones
-- INC: Incapacidad
-- FJ: Falta Justificada
-- FI: Falta Injustificada
-- RET: Retardo
-- PERM: Permiso
 
-**Data Flow:**
-- SFTP Files → empleados_sftp, motivos_baja, asistencia_diaria, incidencias
-- KPI calculations use these 4 tables directly
-- The `incidencias` table provides detailed incident tracking with timestamps and classifications
+**Códigos de Incidencia (inci):**
+| Código | Descripción |
+|--------|-------------|
+| VAC | Vacaciones |
+| INC | Incapacidad |
+| FJ | Falta Justificada |
+| FI | Falta Injustificada |
+| SUSP | Suspensión |
+| ENFE | Enfermedad |
+| MAT1/MAT3 | Maternidad |
+| PSIN | Permiso Sin Goce |
+| PCON | Permiso Con Goce |
+| FEST | Día Festivo |
+| PATER | Permiso Paternidad |
+| JUST | Justificación |
+
+**4. prenomina_horizontal (374 registros) - Weekly Payroll**
+```sql
+id: SERIAL PRIMARY KEY
+numero_empleado: INTEGER NOT NULL
+nombre: VARCHAR NOT NULL
+semana_inicio: DATE NOT NULL  -- Lunes de la semana
+semana_fin: DATE NOT NULL  -- Domingo de la semana
+
+-- Por cada día (lun, mar, mie, jue, vie, sab, dom):
+{dia}_fecha: DATE
+{dia}_horas_ord: NUMERIC DEFAULT 0  -- Horas ordinarias
+{dia}_horas_te: NUMERIC DEFAULT 0  -- Horas extras
+{dia}_incidencia: VARCHAR  -- Código de incidencia
+
+-- Totales (columnas generadas automáticamente)
+total_horas_ord: NUMERIC GENERATED  -- Suma automática de horas ordinarias
+total_horas_te: NUMERIC GENERATED  -- Suma automática de horas extras
+total_horas_semana: NUMERIC GENERATED CHECK (>=0 AND <=168)
+
+fecha_creacion: TIMESTAMPTZ DEFAULT NOW()
+fecha_actualizacion: TIMESTAMPTZ DEFAULT NOW()
+```
+
+---
+
+#### TABLAS DE USUARIOS Y ACCESO
+
+**5. user_profiles (1 registro) - User Accounts**
+```sql
+id: UUID PRIMARY KEY  -- FK a auth.users.id
+email: TEXT UNIQUE NOT NULL
+empresa: TEXT
+role: TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user'))
+created_at: TIMESTAMPTZ DEFAULT NOW()
+updated_at: TIMESTAMPTZ DEFAULT NOW()
+```
+
+**6. user_empresa_access (0 registros) - Multi-Company Access**
+```sql
+user_id: UUID  -- FK a auth.users.id
+empresa: TEXT
+is_primary: BOOLEAN DEFAULT false
+created_at: TIMESTAMPTZ DEFAULT NOW()
+updated_at: TIMESTAMPTZ DEFAULT NOW()
+PRIMARY KEY (user_id, empresa)
+```
+
+**7. sync_settings (1 registro) - Sync Configuration**
+```sql
+singleton: BOOLEAN PRIMARY KEY DEFAULT true
+frequency: TEXT DEFAULT 'weekly' CHECK (IN ('manual', 'daily', 'weekly', 'monthly'))
+day_of_week: TEXT DEFAULT 'monday'
+run_time: TIME DEFAULT '02:00:00'
+last_run: TIMESTAMPTZ
+next_run: TIMESTAMPTZ
+created_at: TIMESTAMPTZ DEFAULT NOW()
+updated_at: TIMESTAMPTZ DEFAULT NOW()
+```
+
+---
+
+#### TABLAS DE AUDITORÍA SFTP (Bitácora)
+
+**8. sftp_file_structure (18 registros) - Structure History**
+```sql
+id: SERIAL PRIMARY KEY
+filename: VARCHAR NOT NULL
+file_type: VARCHAR NOT NULL
+columns_json: JSONB NOT NULL  -- Array de nombres de columnas
+row_count: INTEGER
+checksum: VARCHAR(64)
+imported_at: TIMESTAMPTZ DEFAULT NOW()
+```
+
+**9. sftp_import_log (0 registros) - Import Audit Log**
+```sql
+id: SERIAL PRIMARY KEY
+trigger_type: VARCHAR DEFAULT 'manual'
+status: VARCHAR DEFAULT 'pending'
+structure_changes: JSONB DEFAULT '{"added": [], "removed": [], "renamed": []}'
+has_structure_changes: BOOLEAN DEFAULT false
+results: JSONB DEFAULT '{}'
+requires_approval: BOOLEAN DEFAULT false
+approved_by: TEXT
+approved_at: TIMESTAMPTZ
+rejection_reason: TEXT
+started_at: TIMESTAMPTZ DEFAULT NOW()
+completed_at: TIMESTAMPTZ
+created_at: TIMESTAMPTZ DEFAULT NOW()
+```
+
+**10. sftp_file_versions (15 registros) - File Version History**
+```sql
+id: SERIAL PRIMARY KEY
+original_filename: VARCHAR NOT NULL
+versioned_filename: VARCHAR NOT NULL  -- Formato: archivo_2026_01_09_14_30_00.xlsx
+file_type: VARCHAR NOT NULL
+file_date: DATE DEFAULT CURRENT_DATE
+file_timestamp: TIMESTAMPTZ DEFAULT NOW()
+file_size_bytes: INTEGER
+row_count: INTEGER
+column_count: INTEGER
+columns_json: JSONB
+checksum_sha256: VARCHAR  -- Hash SHA256 para integridad
+storage_path: TEXT
+import_log_id: INTEGER  -- FK a sftp_import_log.id
+created_at: TIMESTAMPTZ DEFAULT NOW()
+```
+
+**11. sftp_record_diffs (0 registros) - Record-Level Changes**
+```sql
+id: SERIAL PRIMARY KEY
+import_log_id: INTEGER  -- FK a sftp_import_log.id
+file_version_id: INTEGER  -- FK a sftp_file_versions.id
+table_name: VARCHAR NOT NULL
+record_key: VARCHAR NOT NULL
+row_hash_previous: VARCHAR
+row_hash_current: VARCHAR  -- SHA256 de todos los campos
+change_type: VARCHAR CHECK (IN ('insert', 'update', 'delete', 'no_change'))
+fields_changed: JSONB  -- Array de campos modificados
+old_values: JSONB
+new_values: JSONB
+detected_at: TIMESTAMPTZ DEFAULT NOW()
+```
+
+**12. labs (0 registros) - Laboratory Reference**
+```sql
+id: UUID PRIMARY KEY DEFAULT gen_random_uuid()
+name: TEXT UNIQUE NOT NULL
+contact: TEXT
+convenio_url: TEXT
+created_at: TIMESTAMPTZ DEFAULT NOW()
+```
+
+---
+
+#### ⚠️ TABLA ELIMINADA
+**asistencia_diaria** - Fue eliminada en migración `drop_asistencia_diaria` (2026-01-09).
+Los datos de asistencia ahora se obtienen de `incidencias` y `prenomina_horizontal`.
+
+---
+
+**Data Flow Actualizado:**
+- SFTP Files → `empleados_sftp`, `motivos_baja`, `incidencias`, `prenomina_horizontal`
+- KPI calculations usan estas 4 tablas directamente
+- `sftp_file_versions` + `sftp_record_diffs` proveen auditoría granular
 
 ## SFTP Admin Workflow
 
@@ -252,36 +444,10 @@ The system automatically detects structural changes (column additions/removals) 
 - `apps/web/src/app/api/sftp/approve/route.ts` - Approval endpoint
 - `apps/web/src/app/api/import-sftp-real-data/route.ts` - Main import with structure check
 
-**Database Tables (Bitácora):**
-
-**4. sftp_file_structure (Structure History)**
-```sql
-id: SERIAL PRIMARY KEY
-filename: VARCHAR(500) NOT NULL
-file_type: VARCHAR(50) NOT NULL
-columns_json: JSONB NOT NULL
-row_count: INTEGER
-checksum: VARCHAR(64)
-imported_at: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-```
-
-**5. sftp_import_log (Import Audit Log)**
-```sql
-id: SERIAL PRIMARY KEY
-trigger_type: VARCHAR(50) NOT NULL DEFAULT 'manual'
-status: VARCHAR(50) NOT NULL DEFAULT 'pending'
-structure_changes: JSONB DEFAULT '{"added": [], "removed": []}'
-has_structure_changes: BOOLEAN DEFAULT FALSE
-results: JSONB DEFAULT '{}'
-requires_approval: BOOLEAN DEFAULT FALSE
-approved_by: TEXT
-approved_at: TIMESTAMP WITH TIME ZONE
-started_at: TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-completed_at: TIMESTAMP WITH TIME ZONE
-```
-
 **Principle:**
 > "Solo pausar cuando cambia la ESTRUCTURA del archivo. Los datos (registros) fluyen automáticamente."
+
+*(Ver sección "Database Schema - Tablas Actuales" para detalles completos de sftp_file_structure y sftp_import_log)*
 
 ### Type System
 
@@ -330,7 +496,7 @@ SFTP_DIRECTORY=ReportesRH
 - Chart components with Recharts integration
 
 **Data Flow:**
-1. SFTP → API routes → `empleados_sftp`, `motivos_baja`, `asistencia_diaria`, `incidencias`
+1. SFTP → API routes → `empleados_sftp`, `motivos_baja`, `incidencias`, `prenomina_horizontal`
 2. Tables → KPI Calculator → Dashboard
 3. KPI data → AI Analyzer → Insights
 4. User interactions → Filters → Real-time updates
@@ -400,9 +566,10 @@ npm run type-check          # No TypeScript errors
 ### Mock Data
 
 Use centralized mock data from `src/test/mockData.ts`:
-- `mockPlantilla` - Sample employee data
+- `mockPlantilla` - Sample employee data (empleados_sftp)
 - `mockMotivosBaja` - Sample termination data
-- `mockAsistenciaDiaria` - Sample attendance data
+- `mockIncidencias` - Sample incident data (reemplaza mockAsistenciaDiaria)
+- `mockPrenomina` - Sample weekly payroll data
 - `createMockEmpleado()` - Helper to create custom test employees
 
 ### CI/CD
@@ -426,8 +593,49 @@ npm run lint       # ESLint (Next config)
 npm run type-check # TypeScript check (apps/web)
 ```
 
+## Clasificación de Códigos de Incidencia
 
- - Vacaciones: VAC (separado)
-  - Faltas: FI, SUSP
-  - Salud: ENFE, MAT3, MAT1
-  - Permisos: PSIN, PCON, FEST, PATER, JUST (SIN VAC)
+| Categoría | Códigos | Descripción |
+|-----------|---------|-------------|
+| Vacaciones | VAC | Vacaciones (separado) |
+| Faltas | FI, SUSP | Falta Injustificada, Suspensión |
+| Salud | ENFE, MAT1, MAT3, INC | Enfermedad, Maternidad, Incapacidad |
+| Permisos | PSIN, PCON, FEST, PATER, JUST, FJ | Permisos varios (sin VAC) |
+
+## Clasificación de Motivos de Baja (Actualizado Enero 2026)
+
+**Fuente:** `apps/web/src/lib/normalizers.ts` → `MOTIVOS_REALES` (21 motivos únicos)
+
+**Rotación Involuntaria (isMotivoClave = true):**
+| Motivo | Casos | Descripción |
+|--------|-------|-------------|
+| Rescisión por desempeño | 12 | Terminación por bajo rendimiento |
+| Rescisión por disciplina | 8 | Terminación por faltas disciplinarias |
+| Término del contrato | 36 | Fin de contrato temporal |
+
+**Rotación Voluntaria (isMotivoClave = false):**
+| Motivo | Casos | Descripción |
+|--------|-------|-------------|
+| Baja Voluntaria | 421 | Renuncia genérica |
+| Otra razón | 67 | Motivo no especificado |
+| Abandono / No regresó | 46 | Abandono de trabajo |
+| Regreso a la escuela | 15 | Retorno a estudios |
+| Otro trabajo mejor compensado | 8 | Mejor oferta laboral |
+| Trabajo muy difícil | 8 | Condiciones de trabajo |
+| Cambio de domicilio | 4 | Mudanza |
+| Falta quien cuide hijos | 4 | Cuidado de dependientes |
+| No le gustó el tipo de trabajo | 4 | Desagrado por funciones |
+| Problema de transporte | 4 | Dificultad de acceso |
+| Ausentismo | 3 | Faltas recurrentes |
+| Falta de oportunidades | 2 | Sin crecimiento |
+| Cambio de ciudad | 1 | Mudanza mayor |
+| Jubilación | 1 | Retiro |
+| Motivos de salud | 1 | Problemas de salud |
+| No le gustó el ambiente | 1 | Ambiente laboral |
+| No le gustaron las instalaciones | 1 | Infraestructura |
+| Poco salario y prestaciones | 1 | Compensación insuficiente |
+| Problemas con jefe inmediato | 1 | Conflicto con supervisor |
+
+**Funciones de normalizers.ts:**
+- `normalizeMotivo(raw)`: Limpia encoding UTF-8 corrupto y mapea a nombres legibles
+- `isMotivoClave(raw)`: Retorna `true` para motivos involuntarios (rescisión/término)
