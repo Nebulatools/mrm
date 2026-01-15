@@ -844,15 +844,11 @@ export class KPICalculator {
       // Agrupar por motivo y mes
       const heatmapData: { [motivo: string]: { [mes: string]: number } } = {};
 
-      const isGeneric = (s?: string | null) => {
-        if (!s) return true;
-        const v = String(s).trim().toLowerCase();
-        return v === '' || v === 'baja' || v === 'sin motivo' || v === 'otra' || v === 'otro' || v === 'n/a' || v === 'na';
-      };
-
       motivosBaja.forEach((baja: any) => {
         const fechaBaja = new Date(baja.fecha_baja);
-        const raw = isGeneric(baja.descripcion) ? baja.motivo : baja.descripcion || baja.motivo || 'Otra razón';
+        // SIEMPRE usar 'motivo' - es el campo específico (ej: "Rescisión por desempeño")
+        // 'descripcion' es genérico y agrupa varios motivos (ej: "Rescisión de contrato")
+        const raw = baja.motivo || baja.descripcion || 'Otra razón';
         const motivo = prettyMotivo(raw);
         const mes = fechaBaja.getMonth(); // 0-11
 
@@ -935,15 +931,11 @@ export class KPICalculator {
       // Agrupar por motivo y mes
       const heatmapData: { [motivo: string]: { [mes: string]: number } } = {};
 
-      const isGeneric = (s?: string | null) => {
-        if (!s) return true;
-        const v = String(s).trim().toLowerCase();
-        return v === '' || v === 'baja' || v === 'sin motivo' || v === 'otra' || v === 'otro' || v === 'n/a' || v === 'na';
-      };
-
       motivosBaja.forEach((baja: any) => {
         const fechaBaja = new Date(baja.fecha_baja);
-        const raw = isGeneric(baja.descripcion) ? baja.motivo : baja.descripcion || baja.motivo || 'Otra razón';
+        // SIEMPRE usar 'motivo' - es el campo específico (ej: "Rescisión por desempeño")
+        // 'descripcion' es genérico y agrupa varios motivos (ej: "Rescisión de contrato")
+        const raw = baja.motivo || baja.descripcion || 'Otra razón';
         const motivo = prettyMotivo(raw);
         const mes = fechaBaja.getMonth(); // 0-11
 

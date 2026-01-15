@@ -31,7 +31,7 @@ interface MetricData {
   ubicacion: string;
   metrica: string;
   months: Record<string, string | number | null>;
-  avg: string | number;
+  total: string | number;
 }
 
 const MONTHS = [
@@ -189,14 +189,16 @@ export function RotationCombinedTable({
       UBICACIONES.forEach(ubicacion => {
         const metricData = metricsByUbicacion[ubicacion][metrica.key];
 
-        let avg: string | number = 0;
+        let total: string | number = 0;
         if (metrica.key === 'porcentaje') {
-          avg = metricData.values.length > 0
-            ? (metricData.values.reduce((sum: number, v: number) => sum + v, 0) / metricData.values.length).toFixed(1) + '%'
+          // Para porcentaje, suma todos los valores mensuales
+          total = metricData.values.length > 0
+            ? metricData.values.reduce((sum: number, v: number) => sum + v, 0).toFixed(1) + '%'
             : '';
         } else {
-          avg = metricData.values.length > 0
-            ? Math.round(metricData.values.reduce((sum: number, v: number) => sum + v, 0) / metricData.values.length)
+          // Para conteos (activos, voluntarias, involuntarias), suma todos los meses
+          total = metricData.values.length > 0
+            ? metricData.values.reduce((sum: number, v: number) => sum + v, 0)
             : 0;
         }
 
@@ -204,7 +206,7 @@ export function RotationCombinedTable({
           ubicacion,
           metrica: metrica.label,
           months: metricData.months,
-          avg,
+          total,
         });
       });
     });
@@ -245,24 +247,24 @@ export function RotationCombinedTable({
         }
       });
 
-      // Calculate average
-      const avgValues: number[] = [];
+      // Calculate total (sum)
+      const totalValues: number[] = [];
       Object.values(totals[metrica.key]).forEach(val => {
         if (typeof val === 'number') {
-          avgValues.push(val);
+          totalValues.push(val);
         } else if (typeof val === 'string' && val) {
           const num = parseFloat(val.replace('%', ''));
-          if (!isNaN(num)) avgValues.push(num);
+          if (!isNaN(num)) totalValues.push(num);
         }
       });
 
       if (metrica.key === 'porcentaje') {
-        totals[metrica.key].avg = avgValues.length > 0
-          ? (avgValues.reduce((sum, v) => sum + v, 0) / avgValues.length).toFixed(1) + '%'
+        totals[metrica.key].total = totalValues.length > 0
+          ? totalValues.reduce((sum, v) => sum + v, 0).toFixed(1) + '%'
           : '';
       } else {
-        totals[metrica.key].avg = avgValues.length > 0
-          ? Math.round(avgValues.reduce((sum, v) => sum + v, 0) / avgValues.length)
+        totals[metrica.key].total = totalValues.length > 0
+          ? totalValues.reduce((sum, v) => sum + v, 0)
           : 0;
       }
     });
@@ -322,7 +324,7 @@ export function RotationCombinedTable({
                         {month.label}
                       </TableHead>
                     ))}
-                    <TableHead className="text-right font-bold">PROMEDIO</TableHead>
+                    <TableHead className="text-right font-bold">TOTAL</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -361,7 +363,7 @@ export function RotationCombinedTable({
                                 </TableCell>
                               ))}
                               <TableCell className="text-right font-semibold">
-                                {row.avg}
+                                {row.total}
                               </TableCell>
                             </TableRow>
                           );
@@ -379,7 +381,7 @@ export function RotationCombinedTable({
                           </TableCell>
                         ))}
                         <TableCell className="text-right font-bold">
-                          {monthlyTotals[metrica.key].avg}
+                          {monthlyTotals[metrica.key].total}
                         </TableCell>
                       </TableRow>
                     </>
