@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, TrendingDown, AlertCircle, TrendingUp, Clipboard } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 import type { TooltipProps } from 'recharts';
 import { isMotivoClave, normalizeIncidenciaCode, normalizeCCToUbicacion } from '@/lib/normalizers';
 
@@ -29,7 +29,6 @@ import {
 } from '@/lib/utils/kpi-helpers';
 import { VisualizationContainer } from '@/components/visualization-container';
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
-import { createSmartLabelRenderer } from '@/lib/chart-label-collision';
 import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { KPICard } from '@/components/kpi-card';
 import { useTheme } from '@/components/theme-provider';
@@ -288,13 +287,6 @@ export function SummaryComparison({
   }, [plantillaRotacion, plantilla]);
 
   // Label renderers inteligentes - AHORA UNO POR CADA LÍNEA
-  // Necesario porque Recharts no pasa el dataKey correctamente
-  const allSeriesKeys = useMemo(() => ubicacionSeriesConfig.map(c => c.key), [ubicacionSeriesConfig]);
-
-  const createLabelRendererForKey = useCallback((dataKey: string, config?: any) => {
-    return createSmartLabelRenderer(allSeriesKeys, dataKey, config);
-  }, [allSeriesKeys]);
-
   const [motivoFilterType, setMotivoFilterType] = useState<'all' | 'involuntaria' | 'voluntaria'>('voluntaria');
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -1293,8 +1285,14 @@ export function SummaryComparison({
                           strokeWidth={2.5}
                           dot={{ fill: color, r: 3.5 }}
                           name={config.label}
-                          label={createLabelRendererForKey(config.key, { valueThreshold: 2, format: 'percent', decimals: 1 })}
-                        />
+                        >
+                          <LabelList
+                            dataKey={config.key}
+                            position="top"
+                            formatter={(value: number) => `${value.toFixed(0)}%`}
+                            style={{ fontSize: 10, fill: '#374151' }}
+                          />
+                        </Line>
                       );
                     })}
                   </LineChart>
@@ -1360,8 +1358,14 @@ export function SummaryComparison({
                           strokeWidth={2.5}
                           dot={{ fill: color, r: 3.5 }}
                           name={config.label}
-                          label={createLabelRendererForKey(config.key, { valueThreshold: 3, format: 'percent', decimals: 1 })}
-                        />
+                        >
+                          <LabelList
+                            dataKey={config.key}
+                            position="top"
+                            formatter={(value: number) => `${value.toFixed(0)}%`}
+                            style={{ fontSize: 10, fill: '#374151' }}
+                          />
+                        </Line>
                       );
                     })}
                   </LineChart>
@@ -1427,8 +1431,14 @@ export function SummaryComparison({
                           strokeWidth={2.5}
                           dot={{ fill: color, r: 3.5 }}
                           name={config.label}
-                          label={createLabelRendererForKey(config.key, { valueThreshold: 2, format: 'percent', decimals: 1 })}
-                        />
+                        >
+                          <LabelList
+                            dataKey={config.key}
+                            position="top"
+                            formatter={(value: number) => `${value.toFixed(0)}%`}
+                            style={{ fontSize: 10, fill: '#374151' }}
+                          />
+                        </Line>
                       );
                     })}
                   </LineChart>
@@ -1497,8 +1507,14 @@ export function SummaryComparison({
                           strokeWidth={2.5}
                           dot={{ fill: color, r: 3.5 }}
                           name={config.label}
-                          label={createLabelRendererForKey(config.key, { valueThreshold: 1.5, format: 'percent', decimals: 1 })}
-                        />
+                        >
+                          <LabelList
+                            dataKey={config.key}
+                            position="top"
+                            formatter={(value: number) => `${value.toFixed(0)}%`}
+                            style={{ fontSize: 10, fill: '#374151' }}
+                          />
+                        </Line>
                       );
                     })}
                   </LineChart>
@@ -1564,8 +1580,14 @@ export function SummaryComparison({
                           strokeWidth={2.5}
                           dot={{ fill: color, r: 3.5 }}
                           name={config.label}
-                          label={createLabelRendererForKey(config.key, { valueThreshold: 1.5, format: 'percent', decimals: 1 })}
-                        />
+                        >
+                          <LabelList
+                            dataKey={config.key}
+                            position="top"
+                            formatter={(value: number) => `${value.toFixed(0)}%`}
+                            style={{ fontSize: 10, fill: '#374151' }}
+                          />
+                        </Line>
                       );
                     })}
                   </LineChart>

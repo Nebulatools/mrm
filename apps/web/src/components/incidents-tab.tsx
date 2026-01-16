@@ -18,7 +18,6 @@ import { calculateVariancePercentage, countActivosEnFecha } from "@/lib/utils/kp
 import { KPICard, KPICardSkeleton } from "./kpi-card";
 import { Users, AlertCircle, Activity, ClipboardCheck } from "lucide-react";
 import { getModernColor, withOpacity } from "@/lib/chart-colors";
-import { createSmartLabelRenderer } from "@/lib/chart-label-collision";
 import { useTheme } from "@/components/theme-provider";
 import { AbsenteeismTable } from "@/components/absenteeism-table";
 import { getTitleWithYear } from "@/lib/filters/year-display";
@@ -238,18 +237,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
 
   // Label renderers inteligentes para gráfica de Ausentismo - UNO POR CADA SERIE
   // Necesario porque Recharts no pasa el dataKey correctamente
-  const allAusentismoKeys = useMemo(() => ['faltas', 'salud', 'permisos', 'vacaciones'], []);
-
-  const createAusentismoLabelForKey = useCallback((dataKey: string) => {
-    return createSmartLabelRenderer(allAusentismoKeys, dataKey, {
-      valueThreshold: 2,
-      fontSize: 14,  // Aumentado para visibilidad
-      yOffset: 18,   // Más separación del punto
-      format: metricType === 'percent' ? 'percent' : 'number',
-      decimals: 1
-    });
-  }, [allAusentismoKeys, metricType]);
-
   const [incidencias, setIncidencias] = useState<IncidenciaCSVRecord[]>(initialIncidencias ?? []);
   const [showTable, setShowTable] = useState(false); // false = mostrar 10, true = mostrar todo
   const [loadingIncidencias, setLoadingIncidencias] = useState(!(initialIncidencias && initialIncidencias.length > 0));
@@ -1305,8 +1292,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           dot={{ fill: getModernColor(0), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name={metricType === "percent" ? "Faltas (%)" : "# Faltas"}
-                          label={createAusentismoLabelForKey('faltas')}
-                        />
+                        >
+                          <LabelList
+                            dataKey="faltas"
+                            position="top"
+                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
+                            style={{ fontSize: 10, fill: '#374151' }}
+                          />
+                        </Line>
                         <Line
                           type="monotone"
                           dataKey="salud"
@@ -1315,8 +1308,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           dot={{ fill: getModernColor(1), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name={metricType === "percent" ? "Salud (%)" : "# Salud"}
-                          label={createAusentismoLabelForKey('salud')}
-                        />
+                        >
+                          <LabelList
+                            dataKey="salud"
+                            position="top"
+                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
+                            style={{ fontSize: 10, fill: '#374151' }}
+                          />
+                        </Line>
                         <Line
                           type="monotone"
                           dataKey="permisos"
@@ -1325,8 +1324,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           dot={{ fill: getModernColor(2), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name={metricType === "percent" ? "Permisos (%)" : "# Permisos"}
-                          label={createAusentismoLabelForKey('permisos')}
-                        />
+                        >
+                          <LabelList
+                            dataKey="permisos"
+                            position="top"
+                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
+                            style={{ fontSize: 10, fill: '#374151' }}
+                          />
+                        </Line>
                         <Line
                           type="monotone"
                           dataKey="vacaciones"
@@ -1335,8 +1340,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           dot={{ fill: getModernColor(3), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
                           name={metricType === "percent" ? "Vacaciones (%)" : "# Vacaciones"}
-                          label={createAusentismoLabelForKey('vacaciones')}
-                        />
+                        >
+                          <LabelList
+                            dataKey="vacaciones"
+                            position="top"
+                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
+                            style={{ fontSize: 10, fill: '#374151' }}
+                          />
+                        </Line>
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
