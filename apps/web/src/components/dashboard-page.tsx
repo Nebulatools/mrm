@@ -1268,7 +1268,7 @@ export function DashboardPage() {
               title="Narrativa IA · Personal"
             />
             {/* 5 KPIs solicitados */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5 items-stretch">
               {refreshEnabled && data.loading ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <KPICardSkeleton key={`headcount-skeleton-${index}`} refreshEnabled />
@@ -1635,7 +1635,7 @@ export function DashboardPage() {
             />
 
             {/* 5 KPIs Principales de Retención con filtros aplicados */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 items-stretch">
               {refreshEnabled && data.loading ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <KPICardSkeleton key={`retention-skeleton-${index}`} refreshEnabled />

@@ -117,14 +117,14 @@ export function KPICard({
   return (
     <Card
       className={cn(
-        "relative overflow-hidden border border-border bg-white dark:bg-gray-900",
+        "relative overflow-hidden border border-border bg-white dark:bg-gray-900 h-full flex flex-col",
         refreshEnabled &&
           "rounded-2xl border-brand-border/70 bg-white/90 shadow-brand backdrop-blur-sm transition-shadow dark:border-brand-border/40 dark:bg-gray-900/80"
       )}
     >
-      <CardHeader className={cn("pb-2", refreshEnabled && "pb-4")}>
-        <div className={cn("flex items-center justify-between", refreshEnabled && "gap-4")}>
-          <div className="flex items-center gap-2">
+      <CardHeader className={cn("pb-2 min-h-[60px]", refreshEnabled && "pb-4 min-h-[68px]")}>
+        <div className={cn("flex items-start justify-between", refreshEnabled && "gap-4")}>
+          <div className="flex items-start gap-2">
             {icon && (
               <div className={cn("text-gray-500", refreshEnabled && "text-brand-ink/70")}>
                 {icon}
@@ -144,7 +144,7 @@ export function KPICard({
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col">
         <div className={cn("flex items-center justify-between", refreshEnabled && "mt-2")}>
           <div
             className={cn(
@@ -203,8 +203,8 @@ export function KPICard({
           </div>
         )}
 
-        {/* Target and Previous Value */}
-        <div className={cn("mt-2 space-y-1", refreshEnabled && "mt-4 space-y-2 text-sm")}>
+        {/* Target and Previous Value - pushed to bottom with mt-auto */}
+        <div className={cn("mt-auto pt-2 space-y-1", refreshEnabled && "pt-4 space-y-2 text-sm")}>
           {kpi.target && (
             <div className={cn("flex items-center justify-between text-xs text-gray-500", refreshEnabled && "text-brand-ink/60")}>
               <span>Meta:</span>
