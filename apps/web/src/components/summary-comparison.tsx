@@ -1290,7 +1290,7 @@ export function SummaryComparison({
                             dataKey={config.key}
                             position="top"
                             formatter={(value: number) => `${value.toFixed(0)}%`}
-                            style={{ fontSize: 10, fill: '#374151' }}
+                            style={{ fontSize: 10, fill: axisColor }}
                           />
                         </Line>
                       );
@@ -1363,7 +1363,7 @@ export function SummaryComparison({
                             dataKey={config.key}
                             position="top"
                             formatter={(value: number) => `${value.toFixed(0)}%`}
-                            style={{ fontSize: 10, fill: '#374151' }}
+                            style={{ fontSize: 10, fill: axisColor }}
                           />
                         </Line>
                       );
@@ -1436,7 +1436,7 @@ export function SummaryComparison({
                             dataKey={config.key}
                             position="top"
                             formatter={(value: number) => `${value.toFixed(0)}%`}
-                            style={{ fontSize: 10, fill: '#374151' }}
+                            style={{ fontSize: 10, fill: axisColor }}
                           />
                         </Line>
                       );
@@ -1512,7 +1512,7 @@ export function SummaryComparison({
                             dataKey={config.key}
                             position="top"
                             formatter={(value: number) => `${value.toFixed(0)}%`}
-                            style={{ fontSize: 10, fill: '#374151' }}
+                            style={{ fontSize: 10, fill: axisColor }}
                           />
                         </Line>
                       );
@@ -1585,7 +1585,7 @@ export function SummaryComparison({
                             dataKey={config.key}
                             position="top"
                             formatter={(value: number) => `${value.toFixed(0)}%`}
-                            style={{ fontSize: 10, fill: '#374151' }}
+                            style={{ fontSize: 10, fill: axisColor }}
                           />
                         </Line>
                       );

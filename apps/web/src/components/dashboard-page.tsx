@@ -1286,9 +1286,9 @@ export function DashboardPage() {
               )}
             </div>
 
-            {/* Gráficas intermedias: Clasificación, Edad (scatter) */}
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Card className={cn(elevatedCardClass)}>
+            {/* Gráficas intermedias: Clasificación (1/3), Edad (2/3) */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <Card className={cn(elevatedCardClass, "lg:col-span-1")}>
                 <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
                   <CardTitle className={cn("text-base", elevatedTitleClass)}>Clasificación</CardTitle>
                   <p className={cn("text-sm text-muted-foreground", elevatedSubtleTextClass)}>
@@ -1299,7 +1299,7 @@ export function DashboardPage() {
                   <VisualizationContainer
                     title="Clasificación del personal"
                     type="chart"
-                    className="h-[340px] w-full"
+                    className="h-[280px] w-full"
                     filename="clasificacion-personal"
                   >
                     {(fullscreen) => (
@@ -1307,7 +1307,7 @@ export function DashboardPage() {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart
                             data={classCounts}
-                            margin={{ top: 32, right: 32, bottom: 40, left: 16 }}
+                            margin={{ top: 32, right: 20, bottom: 50, left: 20 }}
                           >
                             <CartesianGrid
                               strokeDasharray="4 8"
@@ -1319,9 +1319,10 @@ export function DashboardPage() {
                               dataKey="name"
                               axisLine={false}
                               tickLine={false}
-                              tick={{ fontSize: 12, fill: chartAxisColor }}
+                              tick={{ fontSize: 11, fill: chartAxisColor }}
                               interval={0}
-                              tickMargin={12}
+                              tickMargin={10}
+                              height={60}
                             />
                             <YAxis
                               type="number"
@@ -1343,9 +1344,10 @@ export function DashboardPage() {
                               formatter={(value: number) => value.toLocaleString("es-MX")}
                             />
                             <defs>
-                              <linearGradient id="classificationGradient" x1="0" x2="1" y1="0" y2="0">
-                                <stop offset="0%" stopColor="#0ea5e9" />
-                                <stop offset="100%" stopColor="#6366f1" />
+                              <linearGradient id="classificationGradient" x1="0" x2="0" y1="0" y2="1">
+                                <stop offset="0%" stopColor="#fdba74" />
+                                <stop offset="50%" stopColor="#fb923c" />
+                                <stop offset="100%" stopColor="#f97316" />
                               </linearGradient>
                             </defs>
                             <Bar
@@ -1370,7 +1372,7 @@ export function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card className={cn(elevatedCardClass)}>
+              <Card className={cn(elevatedCardClass, "lg:col-span-2")}>
                 <CardHeader className={cn("pb-3", elevatedCardHeaderClass)}>
                   <CardTitle className={cn("text-base", elevatedTitleClass)}>
                     Distribución por Edad
@@ -1383,13 +1385,13 @@ export function DashboardPage() {
                   <VisualizationContainer
                     title="Distribución por edad"
                     type="chart"
-                    className="h-[300px] w-full"
+                    className="h-[280px] w-full"
                     filename="distribucion-edad"
                   >
                     {(fullscreen) => (
-                      <div style={{ width: '100%', height: fullscreen ? 340 : 280 }}>
+                      <div style={{ width: '100%', height: fullscreen ? 340 : 240 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                      <ScatterChart margin={{ left: 24, right: 16, top: 16, bottom: 40 }}>
+                      <ScatterChart margin={{ left: 16, right: 12, top: 12, bottom: 32 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                         <XAxis
                           dataKey="age"

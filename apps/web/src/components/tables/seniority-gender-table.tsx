@@ -170,7 +170,7 @@ export function SeniorityGenderTable({
                       <TableCell className="text-right">{row.percentage.toFixed(0)}%</TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="bg-gray-200 font-bold border-t-2 border-corporate-red/60">
+                  <TableRow className="bg-gray-200 dark:bg-slate-700 font-bold border-t-2 border-corporate-red/60 dark:border-orange-500/60">
                     <TableCell className="font-bold">{seniorityGenderData.totals.range}</TableCell>
                     <TableCell className="text-right font-bold">{seniorityGenderData.totals.femenino}</TableCell>
                     <TableCell className="text-right font-bold">{seniorityGenderData.totals.masculino}</TableCell>

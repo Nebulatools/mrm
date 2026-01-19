@@ -223,7 +223,7 @@ export function RotationByMotiveMonthTable({
                     </TableRow>
                   ))}
                   {/* Totals row */}
-                  <TableRow className="bg-gray-200 font-bold border-t-2 border-corporate-red/60">
+                  <TableRow className="bg-gray-200 dark:bg-slate-700 font-bold border-t-2 border-corporate-red/60 dark:border-orange-500/60">
                     <TableCell className="font-bold">Total general</TableCell>
                     {MONTHS.map(month => (
                       <TableCell key={month.key} className="text-right font-bold">

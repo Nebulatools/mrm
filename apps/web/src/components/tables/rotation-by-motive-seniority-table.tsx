@@ -185,7 +185,7 @@ export function RotationByMotiveSeniorityTable({
                     </TableRow>
                   ))}
                   {/* Totals row */}
-                  <TableRow className="bg-gray-200 font-bold border-t-2 border-corporate-red/60">
+                  <TableRow className="bg-gray-200 dark:bg-slate-700 font-bold border-t-2 border-corporate-red/60 dark:border-orange-500/60">
                     <TableCell className="font-bold">Total</TableCell>
                     {SENIORITY_BUCKETS.map(bucket => (
                       <TableCell key={bucket.key} className="text-right font-bold">
@@ -195,7 +195,7 @@ export function RotationByMotiveSeniorityTable({
                     <TableCell className="text-right font-bold">{grandTotal}</TableCell>
                   </TableRow>
                   {/* Percentage row */}
-                  <TableRow className="bg-gray-100 font-semibold text-xs">
+                  <TableRow className="bg-gray-100 dark:bg-slate-800 font-semibold text-xs">
                     <TableCell className="font-bold">%</TableCell>
                     {SENIORITY_BUCKETS.map(bucket => {
                       const pct = grandTotal > 0 ? ((columnTotals[bucket.key] || 0) / grandTotal * 100) : 0;

@@ -829,6 +829,49 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
     { name: 'Vacaciones', value: totalVacaciones },
   ]), [totalFaltas, totalSalud, totalPermisosOnly, totalVacaciones]);
 
+  // ✅ Resumen por CATEGORÍA (4 grupos: Faltas, Salud, Permisos, Vacaciones)
+  const resumenPorCategoria = useMemo(() => {
+    const categorias = ['Faltas', 'Salud', 'Permisos', 'Vacaciones'] as const;
+    const codeSets: Record<string, Set<string>> = {
+      'Faltas': FALTAS_CODES,
+      'Salud': SALUD_CODES,
+      'Permisos': PERMISOS_CODES,
+      'Vacaciones': VACACIONES_CODES,
+    };
+
+    // Agrupar incidencias por categoría
+    const byCategoria = new Map<string, IncidenciaCSVRecord[]>();
+    categorias.forEach(cat => byCategoria.set(cat, []));
+
+    enrichedPeriodo.forEach(inc => {
+      const code = normalizeIncidenciaCode(inc.inci);
+      if (!code) return;
+      for (const cat of categorias) {
+        if (codeSets[cat].has(code)) {
+          byCategoria.get(cat)!.push(inc);
+          break;
+        }
+      }
+    });
+
+    // Calcular totales para porcentajes
+    const totalDias = enrichedPeriodo.length;
+    const totalEmpleadosUnicos = new Set(enrichedPeriodo.map(i => i.emp)).size;
+
+    return categorias.map(cat => {
+      const arr = byCategoria.get(cat) || [];
+      const diasCount = arr.length;
+      const empleadosTipo = new Set(arr.map(a => a.emp)).size;
+
+      if (metricType === "percent") {
+        const diasPct = totalDias > 0 ? (diasCount / totalDias * 100).toFixed(1) + '%' : '0%';
+        const empleadosPct = totalEmpleadosUnicos > 0 ? (empleadosTipo / totalEmpleadosUnicos * 100).toFixed(1) + '%' : '0%';
+        return { categoria: cat, dias: diasPct, empleados: empleadosPct };
+      }
+      return { categoria: cat, dias: diasCount, empleados: empleadosTipo };
+    });
+  }, [enrichedPeriodo, metricType]);
+
   const incidenciasPorDia = useMemo(() => {
     const baseCounts = WEEKDAY_ORDER.map(day => ({
       dia: WEEKDAY_LABELS[day],
@@ -1224,7 +1267,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
             ))}
       </div>
       <p className="text-xs text-gray-500">
-        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Incidencias:</strong> Faltas + Salud (FI, SUSP, ENFE, MAT3, MAT1). <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones). <strong>Grupos:</strong> Vacaciones (VAC) · Faltas (FI, SUSP) · Salud (ENFE, MAT3, MAT1) · Permisos (PSIN, PCON, FEST, PATER, JUST)
+        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Incidencias:</strong> Faltas (FI, SUSP) + Salud (incluye incapacidades). <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones).
       </p>
 
       {/* Gráfica de Tendencia Mensual - 4 Categorías */}
@@ -1260,12 +1303,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           tick={{ fontSize: 11 }}
                         />
                         <YAxis
-                          label={{
-                            value: metricType === "percent" ? 'Porcentaje (%)' : 'Cantidad',
-                            angle: -90,
-                            position: 'insideLeft',
-                            offset: 10
-                          }}
                           tick={{ fontSize: 12 }}
                           domain={monthlyTrendsData.domainMax !== null ? [0, monthlyTrendsData.domainMax] : undefined}
                         />
@@ -1291,11 +1328,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           strokeWidth={3}
                           dot={{ fill: getModernColor(0), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
-                          name={metricType === "percent" ? "Faltas (%)" : "# Faltas"}
+                          name="Faltas"
                         >
                           <LabelList
                             dataKey="faltas"
                             position="top"
+                            offset={8}
                             formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
                             style={{ fontSize: 10, fill: '#374151' }}
                           />
@@ -1307,11 +1345,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           strokeWidth={3}
                           dot={{ fill: getModernColor(1), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
-                          name={metricType === "percent" ? "Salud (%)" : "# Salud"}
+                          name="Salud"
                         >
                           <LabelList
                             dataKey="salud"
                             position="top"
+                            offset={8}
                             formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
                             style={{ fontSize: 10, fill: '#374151' }}
                           />
@@ -1323,11 +1362,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           strokeWidth={3}
                           dot={{ fill: getModernColor(2), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
-                          name={metricType === "percent" ? "Permisos (%)" : "# Permisos"}
+                          name="Permisos"
                         >
                           <LabelList
                             dataKey="permisos"
                             position="top"
+                            offset={8}
                             formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
                             style={{ fontSize: 10, fill: '#374151' }}
                           />
@@ -1339,11 +1379,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           strokeWidth={3}
                           dot={{ fill: getModernColor(3), strokeWidth: 2, r: 5 }}
                           activeDot={{ r: 8 }}
-                          name={metricType === "percent" ? "Vacaciones (%)" : "# Vacaciones"}
+                          name="Vacaciones"
                         >
                           <LabelList
                             dataKey="vacaciones"
                             position="top"
+                            offset={8}
                             formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
                             style={{ fontSize: 10, fill: '#374151' }}
                           />
@@ -1364,9 +1405,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Faltas por empleado</CardTitle>
-            <p className="text-sm text-gray-600">
-              X: # Faltas • Y: {metricType === "percent" ? "% Empleados" : "# Empleados"}
-            </p>
           </CardHeader>
           <CardContent className="flex-1">
             {loadingIncidencias ? (
@@ -1405,7 +1443,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                             dataKey="empleados"
                             position="top"
                             formatter={(value: number) => metricType === "percent" ? `${Math.round(value)}%` : value}
-                            style={{ fill: '#374151', fontWeight: 600, fontSize: 11 }}
+                            style={{ fill: axisMutedColor, fontWeight: 600, fontSize: 11 }}
                           />
                         </Bar>
                       </BarChart>
@@ -1417,15 +1455,15 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
           </CardContent>
         </Card>
 
-        {/* Resumen por tipo - Solo Faltas + Salud */}
+        {/* Resumen por categoría - 4 grupos: Faltas, Salud, Permisos, Vacaciones */}
         <Card className="h-[420px] flex flex-col">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Incidencias por tipo</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Ausentismo por Motivo</CardTitle></CardHeader>
           <CardContent className="flex-1 overflow-hidden pt-2 pb-4">
             <VisualizationContainer
-              title="Tabla de incidencias por tipo"
+              title="Ausentismo por Motivo"
               type="table"
               className="h-full w-full"
-              filename="incidencias-por-tipo"
+              filename="ausentismo-por-motivo"
             >
               {() => (
                 loadingIncidencias ? (
@@ -1433,9 +1471,9 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                 ) : (
                   <div className="h-full overflow-y-auto overflow-x-hidden pr-2">
                     <Table className="table-corporate">
-                      <TableHeader className="sticky top-0 z-10 bg-gray-100">
+                      <TableHeader className="sticky top-0 z-10 bg-gray-100 dark:bg-slate-800">
                         <TableRow>
-                          <TableHead className="w-1/2">Tipo</TableHead>
+                          <TableHead className="w-1/2">Motivo</TableHead>
                           <TableHead className="w-1/4 text-center">
                             {metricType === "percent" ? "% días" : "# días"}
                           </TableHead>
@@ -1445,11 +1483,11 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {resumenPorTipo.filter(r => FALTAS_CODES.has(r.tipo) || SALUD_CODES.has(r.tipo)).map(r => (
-                          <TableRow key={r.tipo}>
-                            <TableCell className="py-2 font-medium">{labelForIncidencia(r.tipo)}</TableCell>
-                            <TableCell className="py-2 text-center">{r.dias.toLocaleString()}</TableCell>
-                            <TableCell className="py-2 text-center">{r.empleados.toLocaleString()}</TableCell>
+                        {resumenPorCategoria.map(r => (
+                          <TableRow key={r.categoria}>
+                            <TableCell className="py-2 font-medium">{r.categoria}</TableCell>
+                            <TableCell className="py-2 text-center">{typeof r.dias === 'number' ? r.dias.toLocaleString() : r.dias}</TableCell>
+                            <TableCell className="py-2 text-center">{typeof r.empleados === 'number' ? r.empleados.toLocaleString() : r.empleados}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1465,9 +1503,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
         <Card className="h-[420px] flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Distribución de Ausentismos</CardTitle>
-            <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-gray-600'}`}>
-              Faltas, Salud, Permisos y Vacaciones
-            </p>
           </CardHeader>
           <CardContent className="flex-1">
             {loadingIncidencias ? (
@@ -1499,14 +1534,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                               name
                             ];
                           }}
-                        />
-                        <Legend
-                          wrapperStyle={{ ...PIE_LEGEND_STYLE, fontSize: '13px' }}
-                          iconType="circle"
-                          iconSize={12}
-                          formatter={legendFormatter}
-                          layout="horizontal"
-                          align="center"
                         />
                         <Pie
                           data={pieData}
@@ -1576,8 +1603,22 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           }}
                         />
                         <Legend wrapperStyle={PIE_LEGEND_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                        <Bar dataKey="ausentismos" name="Ausentismos" fill={AUSENTISMO_COLOR} radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="permisos" name="Permisos" fill={PERMISO_COLOR} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="ausentismos" name="Ausentismos" fill={AUSENTISMO_COLOR} radius={[4, 4, 0, 0]}>
+                          <LabelList
+                            dataKey="ausentismos"
+                            position="top"
+                            formatter={(value: number) => metricType === "percent" ? `${Math.round(value)}%` : value}
+                            style={{ fill: axisMutedColor, fontWeight: 600, fontSize: 11 }}
+                          />
+                        </Bar>
+                        <Bar dataKey="permisos" name="Permisos" fill={PERMISO_COLOR} radius={[4, 4, 0, 0]}>
+                          <LabelList
+                            dataKey="permisos"
+                            position="top"
+                            formatter={(value: number) => metricType === "percent" ? `${Math.round(value)}%` : value}
+                            style={{ fill: axisMutedColor, fontWeight: 600, fontSize: 11 }}
+                          />
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

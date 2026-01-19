@@ -206,13 +206,15 @@ export function KPICard({
         {/* Target and Previous Value */}
         <div className={cn("mt-2 space-y-1", refreshEnabled && "mt-4 space-y-2 text-sm")}>
           {kpi.target && (
-            <div className={cn("text-xs text-gray-500", refreshEnabled && "text-brand-ink/60")}>
-              Meta: {formatValue(kpi.target, kpi.category)}
+            <div className={cn("flex items-center justify-between text-xs text-gray-500", refreshEnabled && "text-brand-ink/60")}>
+              <span>Meta:</span>
+              <span className="text-right tabular-nums">{formatValue(kpi.target, kpi.category)}</span>
             </div>
           )}
           {!hidePreviousValue && kpi.previous_value !== undefined && kpi.previous_value > 0 && (
-            <div className={cn("text-xs text-gray-500", refreshEnabled && "text-brand-ink/60")}>
-              Anterior: {formatValue(kpi.previous_value, kpi.category)}
+            <div className={cn("flex items-center justify-between text-xs text-gray-500", refreshEnabled && "text-brand-ink/60")}>
+              <span>Anterior:</span>
+              <span className="text-right tabular-nums">{formatValue(kpi.previous_value, kpi.category)}</span>
             </div>
           )}
         </div>

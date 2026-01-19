@@ -412,11 +412,11 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
     const abs = Math.abs(correlation)
     if (correlation > 0.7) return 'bg-red-600 text-white' // Correlación positiva fuerte
     if (correlation > 0.5) return 'bg-red-400 text-white'
-    if (correlation > 0.3) return 'bg-red-200 text-gray-800'
-    if (correlation > 0.1) return 'bg-red-100 text-gray-700'
-    if (correlation > -0.1) return 'bg-gray-100 text-gray-600' // Sin correlación
-    if (correlation > -0.3) return 'bg-blue-100 text-gray-700'
-    if (correlation > -0.5) return 'bg-blue-200 text-gray-800'
+    if (correlation > 0.3) return 'bg-red-200 dark:bg-red-900/60 text-gray-800 dark:text-red-100'
+    if (correlation > 0.1) return 'bg-red-100 dark:bg-red-950/50 text-gray-700 dark:text-red-200'
+    if (correlation > -0.1) return 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-200' // Sin correlación
+    if (correlation > -0.3) return 'bg-blue-100 dark:bg-blue-950/50 text-gray-700 dark:text-blue-200'
+    if (correlation > -0.5) return 'bg-blue-200 dark:bg-blue-900/60 text-gray-800 dark:text-blue-100'
     if (correlation > -0.7) return 'bg-blue-400 text-white'
     return 'bg-blue-600 text-white' // Correlación negativa fuerte
   }
@@ -426,13 +426,13 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
       <div className="inline-block min-w-full">
         {/* Header row - MÁS ALTO PARA QUE SE VEA EL TEXTO */}
         <div className="flex">
-          <div className="w-32 h-20 flex items-center justify-center bg-gray-200 border font-semibold text-xs">
+          <div className="w-32 h-20 flex items-center justify-center bg-gray-200 dark:bg-slate-700 border dark:border-slate-600 font-semibold text-xs">
             Variables
           </div>
           {matrixData.labels.map((label, index) => (
             <div
               key={index}
-              className="w-24 h-20 flex items-center justify-center bg-gray-200 border font-bold text-xs px-1"
+              className="w-24 h-20 flex items-center justify-center bg-gray-200 dark:bg-slate-700 border dark:border-slate-600 font-bold text-xs px-1"
               style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
               title={label}
             >
@@ -444,7 +444,7 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
         {/* Data rows */}
         {matrixData.matrix.map((row, rowIndex) => (
           <div key={rowIndex} className="flex">
-            <div className="w-32 h-16 flex items-center justify-center bg-gray-200 border font-bold text-xs px-1">
+            <div className="w-32 h-16 flex items-center justify-center bg-gray-200 dark:bg-slate-700 border dark:border-slate-600 font-bold text-xs px-1">
               {matrixData.labels[rowIndex]}
             </div>
             {row.map((correlation, colIndex) => (
@@ -461,26 +461,26 @@ export function CorrelationMatrix({ year = 2025 }: CorrelationMatrixProps) {
       </div>
 
       {/* Leyenda mejorada */}
-      <div className="mt-8 bg-gray-50 p-4 rounded-lg">
+      <div className="mt-8 bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
         <h4 className="font-bold text-sm mb-3 text-center">🎨 Guía de Colores</h4>
         <div className="grid grid-cols-3 gap-4 text-xs">
           <div className="text-center">
             <div className="w-6 h-6 bg-red-600 rounded mx-auto mb-1"></div>
             <div className="font-semibold">Positiva Fuerte</div>
-            <div className="text-gray-600">+0.7 a +1.0</div>
+            <div className="text-gray-600 dark:text-slate-400">+0.7 a +1.0</div>
           </div>
           <div className="text-center">
-            <div className="w-6 h-6 bg-gray-300 rounded mx-auto mb-1"></div>
+            <div className="w-6 h-6 bg-gray-300 dark:bg-slate-600 rounded mx-auto mb-1"></div>
             <div className="font-semibold">Sin Correlación</div>
-            <div className="text-gray-600">-0.1 a +0.1</div>
+            <div className="text-gray-600 dark:text-slate-400">-0.1 a +0.1</div>
           </div>
           <div className="text-center">
             <div className="w-6 h-6 bg-blue-600 rounded mx-auto mb-1"></div>
             <div className="font-semibold">Negativa Fuerte</div>
-            <div className="text-gray-600">-1.0 a -0.7</div>
+            <div className="text-gray-600 dark:text-slate-400">-1.0 a -0.7</div>
           </div>
         </div>
-        <div className="text-xs text-gray-500 text-center mt-3">
+        <div className="text-xs text-gray-500 dark:text-slate-400 text-center mt-3">
           💡 Pasa el mouse sobre cada celda para ver detalles
         </div>
       </div>

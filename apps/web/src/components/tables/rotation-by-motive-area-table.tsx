@@ -181,7 +181,7 @@ export function RotationByMotiveAreaTable({
                     </TableRow>
                   ))}
                   {/* Totals row */}
-                  <TableRow className="bg-gray-200 font-bold border-t-2 border-corporate-red/60">
+                  <TableRow className="bg-gray-200 dark:bg-slate-700 font-bold border-t-2 border-corporate-red/60 dark:border-orange-500/60">
                     <TableCell className="font-bold">TOTAL</TableCell>
                     {topMotivos.map(motivo => (
                       <TableCell key={motivo} className="text-right font-bold">
@@ -191,7 +191,7 @@ export function RotationByMotiveAreaTable({
                     <TableCell className="text-right font-bold">{grandTotal}</TableCell>
                   </TableRow>
                   {/* Percentage row */}
-                  <TableRow className="bg-gray-100 font-semibold text-xs">
+                  <TableRow className="bg-gray-100 dark:bg-slate-800 font-semibold text-xs">
                     <TableCell className="font-bold">%</TableCell>
                     {topMotivos.map(motivo => {
                       const pct = grandTotal > 0 ? ((motivoTotals[motivo] || 0) / grandTotal * 100) : 0;

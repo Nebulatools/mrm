@@ -148,7 +148,7 @@ export function AbsenteeismTable({
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-base">
-            {getTitleWithYear('Tabla de Ausentismo por Mes', selectedYears)}
+            {getTitleWithYear('Ausentismos por motivo', selectedYears)}
           </CardTitle>
           <p className="text-sm text-gray-600">
             Jornadas: Suma de días activos de todos los empleados | Desglose por motivo

@@ -76,8 +76,8 @@ const TEMPORALITY_COLORS = [
   '#f97316'  // +12m
 ];
 
-// Helper function para mostrar labels arriba de las barras SIN decimal
-const renderBarLabel = (props: any) => {
+// Helper functions para bar labels (ahora aceptan color como parámetro)
+const createBarLabelRenderer = (fillColor: string) => (props: any) => {
   const { x, y, width, value } = props;
   if (value === null || value === undefined || value === 0) return null;
 
@@ -85,7 +85,7 @@ const renderBarLabel = (props: any) => {
     <text
       x={Number(x) + Number(width) / 2}
       y={Number(y) - 4}
-      fill="#475569"
+      fill={fillColor}
       textAnchor="middle"
       fontSize={10}
       fontWeight={600}
@@ -95,8 +95,7 @@ const renderBarLabel = (props: any) => {
   );
 };
 
-// Helper function para mostrar labels con símbolo % (para gráficas de rotación)
-const renderBarLabelPercent = (props: any) => {
+const createBarLabelPercentRenderer = (fillColor: string) => (props: any) => {
   const { x, y, width, value } = props;
   if (value === null || value === undefined || value === 0) return null;
 
@@ -104,7 +103,7 @@ const renderBarLabelPercent = (props: any) => {
     <text
       x={Number(x) + Number(width) / 2}
       y={Number(y) - 4}
-      fill="#475569"
+      fill={fillColor}
       textAnchor="middle"
       fontSize={10}
       fontWeight={600}
@@ -149,6 +148,10 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
   const tooltipLabelColor = isDark ? "#E2E8F0" : "#0f172a";
   const tooltipTextColor = isDark ? "#CBD5F5" : "#475569";
   const tooltipShadow = isDark ? "0 16px 45px -20px rgba(8, 14, 26, 0.65)" : "0 10px 35px -15px rgba(15, 23, 42, 0.35)";
+
+  // Create bar label renderers with theme-aware colors
+  const renderBarLabel = createBarLabelRenderer(axisMutedColor);
+  const renderBarLabelPercent = createBarLabelPercentRenderer(axisMutedColor);
 
   useEffect(() => {
     loadMonthlyRetentionData();
@@ -540,6 +543,13 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       return null;
     }
 
+    // Detectar si es el gráfico de Rotación por Temporalidad (stacked bars)
+    const temporalityDataKeys = ['bajasMenor3m', 'bajas3a6m', 'bajas6a12m', 'bajasMas12m'];
+    const isTemporalityChart = payload.some(e => temporalityDataKeys.includes(e.dataKey));
+    const temporalityTotal = isTemporalityChart
+      ? payload.reduce((sum, e) => sum + (Number(e.value) || 0), 0)
+      : 0;
+
     return (
       <div
         className="rounded-xl border px-3 py-2 shadow-lg"
@@ -570,6 +580,21 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               </span>
             </div>
           ))}
+          {/* Total para gráfico de Temporalidad */}
+          {isTemporalityChart && (
+            <div
+              className="flex items-center gap-2 text-[11px] pt-1 mt-1 border-t"
+              style={{ color: tooltipTextColor, borderColor: tooltipBorder }}
+            >
+              <span className="h-2 w-2 shrink-0" />
+              <span className="font-bold" style={{ color: tooltipLabelColor }}>
+                Total
+              </span>
+              <span className="ml-auto font-bold">
+                {temporalityTotal.toLocaleString('es-MX')}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -692,25 +717,21 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         return d.year === previousYearForMonthly && d.month === monthIndex && fecha <= now;
       });
 
-      if (!currentEntry && !previousEntry) {
-        return null;
-      }
-
+      // ✅ SIEMPRE INCLUIR EL MES - no filtrar meses sin datos
       return {
         mes: monthName,  // Usar solo monthName para no mostrar el año en eje X
         rotacionActual: currentEntry?.rotacionPorcentaje ?? null,
         rotacionAnterior: previousEntry?.rotacionPorcentaje ?? null
       };
-    })
-    .filter((row): row is { mes: string; rotacionActual: number | null; rotacionAnterior: number | null } => row !== null);
+    });
 
   // ✅ Dataset para gráfico de 12M Móviles con eje X dinámico
-  // Muestra los últimos 12 meses reales (ej: "Feb 24", "Mar 24"... "Ene 25")
+  // Muestra los últimos 12 meses reales (ej: "ene", "feb"... "dic")
   const rolling12MChartData = (() => {
+    const windowStart = subMonths(currentDate, 11);
     const last12Months = monthlyData
       .filter(d => {
         const dataDate = new Date(d.year, d.month - 1, 1);
-        const windowStart = subMonths(currentDate, 11);
         return dataDate >= startOfMonth(windowStart) && dataDate <= endOfMonth(currentDate);
       })
       .sort((a, b) => {
@@ -720,16 +741,26 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       })
       .slice(-12);
 
-    return last12Months.map(d => {
-      const monthLabel = monthNames[d.month - 1];
-      // ✅ CORREGIDO: Solo mostrar mes sin año (eje X más limpio)
-      return {
+    // ✅ ASEGURAR QUE SIEMPRE HAYA 12 MESES - llenar con null si faltan
+    const result: Array<{ mes: string; rotacionAcumulada: number | null; year: number; month: number }> = [];
+
+    for (let offset = 11; offset >= 0; offset--) {
+      const targetDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - offset, 1);
+      const targetMonth = targetDate.getMonth() + 1;
+      const targetYear = targetDate.getFullYear();
+      const monthLabel = monthNames[targetDate.getMonth()];
+
+      const existingData = last12Months.find(d => d.year === targetYear && d.month === targetMonth);
+
+      result.push({
         mes: monthLabel,
-        rotacionAcumulada: d.rotacionAcumulada12m ?? 0,
-        year: d.year,
-        month: d.month
-      };
-    });
+        rotacionAcumulada: existingData?.rotacionAcumulada12m ?? null,
+        year: targetYear,
+        month: targetMonth
+      });
+    }
+
+    return result;
   })();
 
   // Dataset para comparación año anterior en 12M móviles
@@ -797,6 +828,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       angle={-35}
                       textAnchor="end"
                       height={50}
+                      interval={0}
                     />
                     <YAxis
                       tick={{ fontSize: 11, fill: axisMutedColor }}
@@ -815,7 +847,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       dot={false}
                       activeDot={{ r: 3, fill: '#94a3b8' }}
                       legendType="none"
-                      connectNulls
+                      connectNulls={true}
                     />
                     <Bar
                       dataKey="rotacionAcumulada"
@@ -852,6 +884,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     <XAxis
                       dataKey="mes"
                       tick={{ fontSize: 11, fill: axisSecondaryColor }}
+                      interval={0}
                     />
                     <YAxis
                       tick={{ fontSize: 11, fill: axisMutedColor }}
@@ -871,6 +904,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                         dot={false}
                         activeDot={{ r: 3, fill: '#94a3b8' }}
                         legendType="none"
+                        connectNulls={true}
                       />
                     )}
                     {selectedYearForCharts && (
@@ -911,6 +945,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       angle={0}
                       tickMargin={10}
                       height={38}
+                      interval={0}
                       tickFormatter={(value: string) => {
                         // Quitar año del mes (ej: "ene 25" → "ene")
                         return value.replace(/\s*\d{2,4}\s*$/, '').trim();
@@ -937,6 +972,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                         dot={false}
                         activeDot={{ r: 3, fill: '#94a3b8' }}
                         legendType="none"
+                        connectNulls={true}
                       />
                     )}
                     <Bar

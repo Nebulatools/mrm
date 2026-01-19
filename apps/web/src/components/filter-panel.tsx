@@ -300,18 +300,20 @@ export function RetentionFilterPanel({
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   // Componente para multi-select con checkboxes en dropdown
-  const MultiSelectDropdown = ({ 
-    label, 
-    options, 
-    selectedValues, 
+  const MultiSelectDropdown = ({
+    label,
+    options,
+    selectedValues,
     onSelectionChange,
-    renderOption 
+    renderOption,
+    singleSelect = false
   }: {
     label: string;
     options: (string | number)[];
     selectedValues: (string | number)[];
     onSelectionChange: (values: string[]) => void;
     renderOption: (option: string | number) => string;
+    singleSelect?: boolean;
   }) => {
     const isOpen = openDropdown === label;
     const [searchTerm, setSearchTerm] = useState("");
@@ -325,6 +327,16 @@ export function RetentionFilterPanel({
 
     const toggleOption = (option: string | number) => {
       const stringValue = option.toString();
+
+      // Single-select mode: solo permite un valor seleccionado a la vez
+      if (singleSelect) {
+        const isCurrentlySelected = selectedValues.includes(option);
+        const newValues = isCurrentlySelected ? [] : [stringValue];
+        onSelectionChange(newValues);
+        return;
+      }
+
+      // Multi-select mode: comportamiento original
       const newValues = selectedValues.includes(option)
         ? selectedValues.filter(v => v !== option).map(v => v.toString())
         : [...selectedValues.map(v => v.toString()), stringValue];
@@ -606,6 +618,7 @@ export function RetentionFilterPanel({
                 selectedValues={filters.months}
                 onSelectionChange={(values) => handleMultiSelectChange("months", values)}
                 renderOption={(option) => monthNames[parseInt(option.toString()) - 1]}
+                singleSelect={true}
               />
 
              <MultiSelectDropdown

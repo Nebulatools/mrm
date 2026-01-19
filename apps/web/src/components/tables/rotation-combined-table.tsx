@@ -343,7 +343,7 @@ export function RotationCombinedTable({
                               {isFirstLocation && (
                                 <TableCell
                                   rowSpan={4}
-                                  className="font-bold text-xs align-middle bg-gray-100"
+                                  className="font-bold text-xs align-middle bg-gray-100 dark:bg-slate-800"
                                 >
                                   {row.metrica}
                                 </TableCell>
@@ -372,7 +372,7 @@ export function RotationCombinedTable({
                       {/* Total row for this metric */}
                       <TableRow
                         key={`total-${metrica.key}`}
-                        className="bg-gray-200 font-bold border-t-2 border-b-2 border-corporate-red/60"
+                        className="bg-gray-200 dark:bg-slate-700 font-bold border-t-2 border-b-2 border-corporate-red/60 dark:border-orange-500/60"
                       >
                         <TableCell className="font-bold text-xs">TOTAL</TableCell>
                         {MONTHS.map(month => (
