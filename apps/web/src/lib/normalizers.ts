@@ -365,7 +365,7 @@ export function isMotivoClave(raw?: string | null): boolean {
 // -------------------- Incidencias (códigos CSV: inci) --------------------
 
 // Códigos REALES del CSV + variantes comunes
-export const INCIDENT_CANONICAL_CODES = ['FI', 'SUSP', 'PSIN', 'ENFE', 'ACCI'] as const;
+export const INCIDENT_CANONICAL_CODES = ['FI', 'SUSP', 'PSIN', 'ENFE', 'ACCI', 'INCA'] as const;
 export const PERMISO_CANONICAL_CODES = ['PCON', 'VAC', 'MAT3', 'MAT1', 'JUST', 'PAT', 'FEST'] as const;
 export const INCIDENT_CANONICAL_SET = new Set<string>(INCIDENT_CANONICAL_CODES);
 export const PERMISO_CANONICAL_SET = new Set<string>(PERMISO_CANONICAL_CODES);
@@ -384,6 +384,7 @@ const INCI_LABELS: Record<string, string> = {
   '0': 'Sin incidencia',
   '9': 'Otra incidencia',
   ACCI: 'Accidente laboral',
+  INCA: 'Incapacidad',
 
   // Códigos adicionales comunes (para compatibilidad)
   ENFE: 'Enfermedad',
@@ -413,6 +414,7 @@ export function normalizeIncidenciaCode(raw?: string | null): string {
   if (c === 'JUST') return 'JUST';
   if (c === 'FEST') return 'FEST';
   if (c === 'ACCI') return 'ACCI';
+  if (c === 'INCA') return 'INCA';
   if (c === 'PAT') return 'PAT';
   if (c === 'FI') return 'FI';
   if (c === '1') return '1';
@@ -425,6 +427,7 @@ export function normalizeIncidenciaCode(raw?: string | null): string {
   if (c === 'PCG') return 'PCON';
   if (c === 'SUS' || c === 'SUSP') return 'SUSP';
   if (c === 'ACC' || c === 'ACCI.') return 'ACCI';
+  if (c === 'INC') return 'INCA'; // INC -> INCA (incapacidad)
   if (c === 'PATER' || c.replace(/\s+/g, '') === 'PATERNO') return 'PAT';
   if (c.replace(/\s+/g, '') === 'MAT3') return 'MAT3';
   if (c.replace(/\s+/g, '') === 'MAT1') return 'MAT1';

@@ -23,7 +23,7 @@ interface AbsenteeismTableProps {
 
 // ✅ AGRUPACIÓN CORRECTA (igual a incidents-tab.tsx líneas 46-49)
 const FALTAS_CODES = new Set(["FI", "SUSP"]); // Faltas + Suspensiones
-const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1"]); // Enfermedad + Maternales
+const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1", "ACCI", "INCA"]); // Enfermedad + Maternales + Accidente + Incapacidad
 const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]); // Todos los permisos (sin VAC)
 const VACACIONES_CODES = new Set(["VAC"]); // Vacaciones
 
@@ -112,13 +112,16 @@ export function AbsenteeismTable({
       }
     });
 
-    // Calcular totales
+    // Calcular totales de incidencias por mes
     const totales = new Array(12).fill(0);
     Object.keys(dataByMotivo).forEach(motivo => {
       dataByMotivo[motivo].forEach((value, idx) => {
         totales[idx] += value;
       });
     });
+
+    // ✅ JORNADAS NETAS = Días activos - Total incidencias
+    const jornadasNetas = diasLaboradosPorMes.map((dias, idx) => dias - totales[idx]);
 
     // Convertir a porcentajes si es necesario
     const finalData: Record<string, (number | string)[]> = {};
@@ -140,7 +143,7 @@ export function AbsenteeismTable({
       return count;
     });
 
-    return { dataByMotivo: finalData, diasLaboradosPorMes, year };
+    return { dataByMotivo: finalData, diasLaboradosPorMes, jornadasNetas, year };
   }, [filteredIncidencias, plantilla, currentYear, metricType, filters]);
 
   return (
@@ -151,7 +154,7 @@ export function AbsenteeismTable({
             {getTitleWithYear('Ausentismos por motivo', selectedYears)}
           </CardTitle>
           <p className="text-sm text-gray-600">
-            Jornadas: Suma de días activos de todos los empleados | Desglose por motivo
+            Días activos: Suma de días de todos los empleados | Desglose por motivo
           </p>
         </div>
         <MetricToggle value={metricType} onChange={setMetricType} size="sm" />
@@ -177,9 +180,9 @@ export function AbsenteeismTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* Fila de JORNADAS */}
+                  {/* Fila de DÍAS ACTIVOS */}
                   <TableRow className="bg-blue-100 dark:bg-blue-900/30 font-semibold">
-                    <TableCell className="font-bold">JORNADAS</TableCell>
+                    <TableCell className="font-bold">DÍAS ACTIVOS</TableCell>
                     {tableData.diasLaboradosPorMes.map((dias, idx) => (
                       <TableCell key={idx} className="text-center">
                         {dias.toLocaleString()}

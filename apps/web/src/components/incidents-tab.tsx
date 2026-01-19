@@ -755,12 +755,11 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       bins.set(count, (bins.get(count) || 0) + 1);
     });
 
-    const totalEmpleadosConIncidencias = byEmp.size;
-
+    // ✅ CORRECCIÓN: Dividir entre total de empleados activos, no solo los que tienen faltas
     const dataPoints = Array.from(bins.entries()).sort((a,b)=>a[0]-b[0]).map(([incidencias, empleados]) => ({
       incidencias,
-      empleados: metricType === "percent" && totalEmpleadosConIncidencias > 0
-        ? Number(((empleados / totalEmpleadosConIncidencias) * 100).toFixed(1))
+      empleados: metricType === "percent" && activosCount > 0
+        ? Number(((empleados / activosCount) * 100).toFixed(1))
         : empleados
     }));
 
@@ -770,7 +769,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       : null;
 
     return { data: dataPoints, domainMax };
-  }, [enrichedPeriodo, metricType]);
+  }, [enrichedPeriodo, metricType, activosCount]);
 
   // Resumen por tipo: #días (≈ registros) y #empleados únicos por tipo
   const tiposUnicos = useMemo(() => {
@@ -1267,7 +1266,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
             ))}
       </div>
       <p className="text-xs text-gray-500">
-        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Incidencias:</strong> Faltas (FI, SUSP) + Salud (incluye incapacidades). <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones).
+        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Incidencias:</strong> Faltas (FI, SUSP) + Salud (ENFE, MAT1, MAT3, ACCI, INCA). <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones).
       </p>
 
       {/* Gráfica de Tendencia Mensual - 4 Categorías */}
@@ -1815,9 +1814,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       </div>
 
       {/* Tabla de Ausentismo por Mes */}
+      {/* ✅ CORRECCIÓN: Usar empleadosAnuales (sin filtro de mes) porque la tabla muestra todos los meses en columnas */}
       <AbsenteeismTable
         incidencias={incidencias}
-        plantilla={empleadosPeriodo}
+        plantilla={empleadosAnuales}
         currentYear={currentYear}
         selectedYears={selectedYears}
       />
