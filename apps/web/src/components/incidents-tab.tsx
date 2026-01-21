@@ -16,6 +16,7 @@ import { differenceInCalendarDays, format } from "date-fns";
 import { VisualizationContainer } from "@/components/visualization-container";
 import { calculateVariancePercentage, countActivosEnFecha } from "@/lib/utils/kpi-helpers";
 import { KPICard, KPICardSkeleton } from "./kpi-card";
+import { IncidentsPermitsKPIs } from "./incidents-permits-kpis";
 import { Users, AlertCircle, Activity, ClipboardCheck } from "lucide-react";
 import { getModernColor, withOpacity } from "@/lib/chart-colors";
 import { useTheme } from "@/components/theme-provider";
@@ -1261,9 +1262,24 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
           ? Array.from({ length: 4 }).map((_, index) => (
               <KPICardSkeleton key={`incidents-kpi-skeleton-${index}`} />
             ))
-          : incidentsKpiCards.map(({ kpi, icon, secondaryRows }, index) => (
-              <KPICard key={`incidents-kpi-${index}`} kpi={kpi} icon={icon} secondaryRows={secondaryRows} />
-            ))}
+          : (
+              <>
+                {/* Primeros 2 cards: # de activos y Empleados con incidencias */}
+                {incidentsKpiCards.slice(0, 2).map(({ kpi, icon, secondaryRows }, index) => (
+                  <KPICard key={`incidents-kpi-${index}`} kpi={kpi} icon={icon} secondaryRows={secondaryRows} />
+                ))}
+                {/* ✅ Cards 3 y 4: Componente compartido para Incidencias y Permisos */}
+                <IncidentsPermitsKPIs
+                  incidencias={enrichedPeriodo}
+                  incidenciasAnterior={enrichedAnterior}
+                  diasLaborablesActual={diasLaborablesActual}
+                  diasLaborablesPrev={diasLaborablesPrev}
+                  currentReferenceDate={currentReferenceDate}
+                  metricType={metricType}
+                  showTotal={true}
+                />
+              </>
+            )}
       </div>
       <p className="text-xs text-gray-500">
         * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Incidencias:</strong> Faltas (FI, SUSP) + Salud (ENFE, MAT1, MAT3, ACCI, INCA). <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones).

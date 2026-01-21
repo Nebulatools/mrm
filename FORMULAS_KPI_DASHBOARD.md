@@ -1,6 +1,7 @@
 # FÓRMULAS KPI DASHBOARD HR
 
-**Documento Ejecutivo Completo** | Última actualización: Enero 2025
+**Documento Ejecutivo Completo** | Última actualización: Enero 2026
+**Base de Datos:** 1,051 empleados históricos | 8,880 incidencias 2025 | 676 bajas registradas
 
 ---
 
@@ -12,6 +13,8 @@
 | Incidencias | 4 | 6 | 2 |
 | Rotación | 4 | 4 | 6 |
 
+**Datos de Ejemplo:** Diciembre 2025
+
 ---
 
 # TAB 1: RESUMEN
@@ -20,9 +23,14 @@
 
 ### 1. Empleados Activos
 ```
-Activos = COUNT(empleados WHERE activo = TRUE en fecha)
+Activos = COUNT(empleados WHERE fecha_ingreso ≤ fecha_fin
+          AND (fecha_baja IS NULL OR fecha_baja > fecha_fin))
 ```
 **Comparación:** vs mes anterior
+
+**Ejemplo Real (Dic 2025):**
+- **361 activos** (vs 367 en nov = -6 empleados, -1.6%)
+- Fuente: `empleados_sftp` tabla
 
 ---
 
@@ -34,7 +42,10 @@ Activos Promedio = (Activos inicio mes + Activos fin mes) ÷ 2
 ```
 **Default:** Muestra VOLUNTARIA | **Toggle:** Total, Involuntaria, Voluntaria
 
-**Ejemplo:** 6 bajas ÷ 82 activos prom × 100 = **7.3%**
+**Ejemplo Real (Dic 2025):**
+- **10 bajas voluntarias** ÷ 363.5 activos prom × 100 = **2.75%**
+- (366 inicio + 361 fin) ÷ 2 = 363.5 activos promedio
+- Archivo: `kpi-helpers.ts` → `calculateActivosPromedio()`
 
 ---
 
@@ -42,9 +53,12 @@ Activos Promedio = (Activos inicio mes + Activos fin mes) ÷ 2
 ```
 Rotación 12M % = (Bajas últimos 12 meses ÷ Activos Promedio 12M) × 100
 ```
-**Período:** Desde hace 11 meses hasta fin del mes actual
+**Período:** Ventana rodante de 12 meses (Dic 2024 - Dic 2025)
 
-**Ejemplo:** 50 bajas 12M ÷ 80 activos prom × 100 = **62.5%**
+**Ejemplo Real (Dic 2025):**
+- **177 bajas voluntarias** ÷ 344.5 activos prom × 100 = **51.38%**
+- Ventana: 1 Dic 2024 al 31 Dic 2025
+- Archivo: `kpi-helpers.ts` → `calcularRotacionAcumulada12mConDesglose()`
 
 ---
 
@@ -52,9 +66,12 @@ Rotación 12M % = (Bajas últimos 12 meses ÷ Activos Promedio 12M) × 100
 ```
 Rotación YTD % = (Bajas desde 1-Ene ÷ Activos Promedio YTD) × 100
 ```
-**Período:** 1 de enero hasta fin del mes actual
+**Período:** 1 de enero hasta fin del mes actual (1 Ene - 31 Dic 2025)
 
-**Ejemplo:** 25 bajas YTD ÷ 85 activos prom × 100 = **29.4%**
+**Ejemplo Real (Ene-Dic 2025):**
+- **159 bajas voluntarias** ÷ 341 activos prom × 100 = **46.63%**
+- (321 inicio año + 361 fin año) ÷ 2 = 341 activos promedio
+- Archivo: `kpi-helpers.ts` → `calcularRotacionYTDConDesglose()`
 
 ---
 
@@ -62,9 +79,14 @@ Rotación YTD % = (Bajas desde 1-Ene ÷ Activos Promedio YTD) × 100
 ```
 % Incidencias = (Total Incidencias ÷ Días Laborados) × 100
 
-Días Laborados = Empleados Activos × Días Laborables (L-S)
+Días Laborados = Activos × Días del mes
 ```
-**Códigos:** FI, SUSP, ENFE, MAT3, MAT1
+**Códigos:** FI, SUSP, ENFE, MAT1, MAT3, ACCI, INCA
+
+**Ejemplo Real (Dic 2025):**
+- **148 incidencias** ÷ 11,191 días laborados × 100 = **1.32%**
+- Días laborados = 361 activos × 31 días = 11,191
+- Desglose: 107 Faltas + 41 Salud = 148 total
 
 ---
 
@@ -73,6 +95,10 @@ Días Laborados = Empleados Activos × Días Laborables (L-S)
 % Permisos = (Total Permisos ÷ Días Laborados) × 100
 ```
 **Códigos:** PSIN, PCON, FEST, PATER, JUST (SIN Vacaciones)
+
+**Ejemplo Real (Dic 2025):**
+- **117 permisos** ÷ 11,191 días laborados × 100 = **1.05%**
+- Vacaciones (VAC) se reportan por separado: 637 registros = 5.69%
 
 ---
 
@@ -157,36 +183,61 @@ Rotación YTD % = Bajas acumuladas ubicación desde Ene ÷ Activos Prom ubicaci�
 ```
 Activos = COUNT(empleados activos en fecha)
 ```
+**Ejemplo Real (Dic 2025):** 361 activos
+
+---
 
 ### 2. Empleados con Incidencias
 ```
 % = (Empleados únicos con incidencias ÷ Activos) × 100
 ```
-**Códigos:** FI, SUSP, ENFE, MAT3, MAT1
+**Códigos:** FI, SUSP, ENFE, MAT1, MAT3, ACCI, INCA
 
-### 3. Incidencias
-```
-% = (Total incidencias ÷ Días Laborables) × 100
-
-Días Laborables = Activos × Días laborables del mes (L-S)
-```
-
-### 4. Permisos
-```
-% = (Total permisos ÷ Días Laborables) × 100
-```
-**Códigos:** PSIN, PCON, FEST, PATER, JUST (SIN VAC)
+**Ejemplo Real (Dic 2025):**
+- **54 empleados únicos** con incidencias
+- 54 ÷ 361 × 100 = **15.0%**
+- Archivo: `incidents-tab.tsx` → Usa `COUNT(DISTINCT emp)`
 
 ---
 
-## Códigos de Incidencias
+### 3. Incidencias
+```
+% = (Total incidencias ÷ Días Laborados) × 100
 
-| Grupo | Códigos | Descripción |
-|-------|---------|-------------|
-| **Faltas** | FI, SUSP | Falta Injustificada, Suspensión |
-| **Salud** | ENFE, MAT3, MAT1 | Enfermedad, Maternidad |
-| **Permisos** | PSIN, PCON, FEST, PATER, JUST | Permisos autorizados |
-| **Vacaciones** | VAC | Vacaciones (separado) |
+Días Laborados = Activos × Días del mes
+```
+
+**Ejemplo Real (Dic 2025):**
+- **148 incidencias** (107 Faltas + 41 Salud)
+- 148 ÷ 11,191 × 100 = **1.32%**
+- Archivo: `incidents-tab.tsx` → Suma de categorías Faltas + Salud
+
+---
+
+### 4. Permisos
+```
+% = (Total permisos ÷ Días Laborados) × 100
+```
+**Códigos:** PSIN, PCON, FEST, PATER, JUST (SIN VAC)
+
+**Ejemplo Real (Dic 2025):**
+- **117 permisos** ÷ 11,191 × 100 = **1.05%**
+- Vacaciones (VAC = 637) se excluyen y reportan por separado
+- Archivo: `incidents-tab.tsx` → Filtro: `inci NOT IN ('VAC')`
+
+---
+
+## Códigos de Incidencias (ACTUALIZADO Ene 2026)
+
+| Grupo | Códigos | Descripción | Ej. Real Dic 2025 |
+|-------|---------|-------------|-------------------|
+| **Faltas** | FI, SUSP | Falta Injustificada, Suspensión | 107 registros (0.96%) |
+| **Salud** | ENFE, MAT1, MAT3, ACCI, INCA | Enfermedad, Maternidad, Accidente, Incapacidad | 41 registros (0.37%) |
+| **Permisos** | PSIN, PCON, FEST, PATER, JUST | Permisos autorizados | 117 registros (1.05%) |
+| **Vacaciones** | VAC | Vacaciones (separado) | 637 registros (5.69%) |
+
+**Fuente de Datos:** Tabla `incidencias` (8,880 registros en 2025)
+**Normalización:** `normalizers.ts` → `normalizeIncidenciaCode()`
 
 ---
 
@@ -247,11 +298,48 @@ Frecuencia = COUNT(incidencias por código)
 
 ## Tablas Tab Incidencias (2)
 
-### Tabla 1: Detalle de Incidencias
+### Tabla 1: Ausentismos por Motivo (Mensual)
+**Archivo:** `absenteeism-table.tsx`
+| Motivo | ENE | FEB | MAR | ... | DIC |
+|--------|-----|-----|-----|-----|-----|
+| **DÍAS ACTIVOS** | 10,108 | 9,399 | 10,725 | ... | 11,193 |
+| VACACIONES | 4% | 3% | 3% | ... | 6% |
+| FALTAS | 1% | 1% | 1% | ... | 1% |
+| SALUD | 1% | 1% | 1% | ... | 0% |
+| PERMISOS | (calculado) | (calculado) | (calculado) | ... | (calculado) |
+| **TOTAL** | (suma) | (suma) | (suma) | ... | (suma) |
+
+```
+DÍAS ACTIVOS = Σ(días activos de cada empleado en el mes)
+  Para cada empleado:
+    días = MIN(fecha_baja o fin_mes) - MAX(fecha_ingreso o inicio_mes) + 1
+
+% Categoría = (COUNT(incidencias categoría) ÷ DÍAS ACTIVOS) × 100
+
+Ejemplo Diciembre 2025:
+  DÍAS ACTIVOS: 11,193 días
+  VAC: 637 incidencias ÷ 11,193 = 5.7%
+  FALTAS: 107 ÷ 11,193 = 1.0%
+  SALUD: 41 ÷ 11,193 = 0.4%
+```
+
+**IMPORTANTE:** Esta tabla usa scope `'year-only'` (sin filtro de mes) porque muestra todos los meses en columnas.
+**Corrección aplicada:** Línea 1820 de `incidents-tab.tsx` → Usa `empleadosAnuales` en lugar de `empleadosPeriodo`
+
+---
+
+### Tabla 2: Detalle de Incidencias
 | Empleado | Fecha | Código | Descripción | Ubicación | Departamento |
 
-### Tabla 2: Resumen por Código
+**Fuente:** Tabla `incidencias` con JOIN a `empleados_sftp` para enriquecer datos
+**Paginación:** Muestra 10 por defecto, botón "Mostrar todo"
+
+---
+
+### Tabla 3: Resumen por Código
 | Código | Descripción | Cantidad | % del Total |
+
+**Archivo:** `incidents-tab.tsx` → Agrupación por `inci` con conteo
 
 ---
 
@@ -263,6 +351,11 @@ Frecuencia = COUNT(incidencias por código)
 ```
 Activos Promedio = (Activos Inicio + Activos Fin) ÷ 2
 ```
+**Ejemplo Real (Dic 2025):**
+- (366 inicio + 361 fin) ÷ 2 = **363.5 activos promedio**
+- Archivo: `kpi-helpers.ts` → `calculateActivosPromedio()`
+
+---
 
 ### 2. Rotación Mensual
 ```
@@ -270,26 +363,49 @@ Activos Promedio = (Activos Inicio + Activos Fin) ÷ 2
 ```
 **Toggle:** Total, Voluntaria (default), Involuntaria
 
+**Ejemplo Real (Dic 2025):**
+- **Voluntaria:** 10 ÷ 363.5 × 100 = **2.75%**
+- **Involuntaria:** 7 ÷ 363.5 × 100 = **1.93%**
+- **Total:** 17 ÷ 363.5 × 100 = **4.68%**
+- Motivo más común: "Abandono / No regresó"
+
+---
+
 ### 3. Rotación 12M Móviles
 ```
 % = (Bajas 12M ÷ Activos Promedio 12M) × 100
 ```
-**Período:** Últimos 12 meses hasta mes actual
+**Período:** Últimos 12 meses hasta mes actual (Dic 2024 - Dic 2025)
+
+**Ejemplo Real (Dic 2025):**
+- **Voluntaria:** 177 ÷ 344.5 × 100 = **51.38%**
+- Ventana completa de 12 meses rodantes
+- Archivo: `kpi-helpers.ts` → `calcularRotacionAcumulada12mConDesglose()`
+
+---
 
 ### 4. Rotación YTD
 ```
 % = (Bajas YTD ÷ Activos Promedio YTD) × 100
 ```
-**Período:** 1-Ene hasta mes actual
+**Período:** 1-Ene hasta mes actual (Ene-Dic 2025)
+
+**Ejemplo Real (Ene-Dic 2025):**
+- **Voluntaria:** 159 ÷ 341 × 100 = **46.63%**
+- Acumulado desde inicio de año
+- Archivo: `kpi-helpers.ts` → `calcularRotacionYTDConDesglose()`
 
 ---
 
-## Clasificación de Bajas
+## Clasificación de Bajas (ACTUALIZADO Ene 2026)
 
-| Tipo | Motivos |
-|------|---------|
-| **INVOLUNTARIA** | Rescisión por desempeño, Rescisión por disciplina, Término del contrato |
-| **VOLUNTARIA** | Renuncia, Abandono, Otras razones |
+| Tipo | Motivos | Función | Ej. Real 2025 |
+|------|---------|---------|---------------|
+| **INVOLUNTARIA** | Rescisión por desempeño<br>Rescisión por disciplina<br>Término del contrato | `isMotivoClave() = true` | 77 bajas (32%) |
+| **VOLUNTARIA** | Baja Voluntaria<br>Abandono / No regresó<br>Otra razón<br>Otros 18 motivos | `isMotivoClave() = false` | 159 bajas (68%) |
+
+**Fuente:** Tabla `motivos_baja` (676 registros) + `empleados_sftp.fecha_baja`
+**Lógica:** `normalizers.ts` → `isMotivoClave(motivo)`
 
 ---
 
@@ -520,18 +636,93 @@ else: '+12 meses'
 
 # NOTAS IMPORTANTES
 
-1. **Toggle por defecto:** Las gráficas muestran **VOLUNTARIA** por defecto
-2. **Vacaciones separadas:** VAC NO se incluye en "Permisos" de los KPI cards
-3. **12M Móviles:** Siempre calcula ventana de 12 meses hacia atrás desde la fecha actual
-4. **Activos Promedio:** Es el denominador para TODAS las rotaciones
-5. **Variación %:** Compara año actual vs año anterior
-6. **Comparación KPIs:**
-   - Rotación Mensual: vs mismo mes del año anterior
-   - Rotación 12M y YTD: vs mismo punto del año anterior
-   - Incidencias/Permisos: vs mes anterior
-7. **Días laborables:** Lunes a Sábado (6 días por semana)
-8. **Filtros aplicables:** Ubicación, Departamento, Área, Año, Mes
+## Configuración de Filtros por Scope
+
+**Archivo:** `filters/filters.ts` → `applyFiltersWithScope()`
+
+| Scope | Años | Meses | Uso |
+|-------|------|-------|-----|
+| **`'specific'`** | ✅ | ✅ | Default para mayoría de componentes |
+| **`'year-only'`** | ✅ | ❌ | Tablas mensuales (Ausentismos, Rotación por Mes) |
+| **`'general'`** | ❌ | ❌ | Comparativos históricos sin restricción temporal |
+
+**Componentes con scope especial:**
+- `AbsenteeismTable` → `'year-only'` (muestra 12 meses en columnas)
+- `RotationByMotiveMonthTable` → `'year-only'` (muestra 12 meses en columnas)
+- Comparativos año anterior → `'general'` (necesita datos históricos sin filtro)
 
 ---
 
-*Documento generado para referencia ejecutiva del Dashboard HR MRM*
+## Reglas de Negocio
+
+1. **Toggle por defecto:** Las gráficas de rotación muestran **VOLUNTARIA** por defecto
+2. **Vacaciones separadas:** VAC NO se incluye en "Permisos" de los KPI cards
+3. **12M Móviles:** Ventana rodante de 12 meses hacia atrás desde mes actual
+4. **Activos Promedio:** Es el denominador universal para TODAS las rotaciones
+5. **Variación %:** Compara año actual vs año anterior (mismo período)
+6. **Días activos:** Suma de días calendario de TODOS los empleados (considerando ingresos/bajas parciales)
+7. **Códigos actualizados:** ACCI e INCA agregados a categoría SALUD (Enero 2026)
+
+---
+
+## Comparaciones en KPIs
+
+| KPI | Comparación vs |
+|-----|----------------|
+| Rotación Mensual | Mismo mes año anterior |
+| Rotación 12M | Mismo punto año anterior (ventana 12M) |
+| Rotación YTD | Mismo punto año anterior (YTD) |
+| Incidencias | Mes anterior |
+| Permisos | Mes anterior |
+| Activos | Mes anterior |
+
+---
+
+## Filtros Aplicables
+
+**Filtros disponibles:**
+- Año(s): Selección múltiple
+- Mes(es): Selección múltiple (NO aplica a tablas mensuales)
+- Empresa: MOTO REPUESTOS MONTERREY, MOTO TOTAL, REPUESTOS Y MOTOCICLETAS DEL NORTE
+- Ubicación (Incidencias): CAD, CORPORATIVO, FILIALES
+- Departamento: Múltiples opciones
+- Área: Múltiples opciones
+- Puesto: Múltiples opciones
+- Clasificación: Múltiples opciones
+
+**Default:** Sin filtros aplicados = muestra todos los datos disponibles
+
+---
+
+## Base de Datos (Enero 2026)
+
+| Tabla | Registros | Período | Descripción |
+|-------|-----------|---------|-------------|
+| `empleados_sftp` | 1,051 | 2001-2026 | Master de empleados (364 activos, 687 con baja) |
+| `motivos_baja` | 676 | 2023-2026 | Registros de bajas con motivo |
+| `incidencias` | 8,880 | 2025 | Incidencias diarias (516 empleados únicos) |
+| `prenomina_horizontal` | 374 | 2025 | Nómina semanal con horas |
+
+---
+
+## Correcciones Aplicadas (Enero 2026)
+
+1. **Tabla Ausentismos (incidents-tab.tsx línea 1820):**
+   - ❌ ANTES: `plantilla={empleadosPeriodo}` (scope `'specific'` con filtro de mes)
+   - ✅ AHORA: `plantilla={empleadosAnuales}` (scope `'year-only'` sin filtro de mes)
+   - **Motivo:** La tabla muestra 12 meses en columnas, necesita datos de todo el año
+
+2. **Códigos de Salud actualizados:**
+   - Agregados: ACCI (Accidente, 54 registros), INCA (Incapacidad, 1 registro)
+   - Archivo: `normalizers.ts` + `absenteeism-table.tsx` + `CLAUDE.md`
+   - Leyenda actualizada en `incidents-tab.tsx` línea 1269
+
+3. **Histograma "Faltas por empleado":**
+   - ❌ ANTES: Dividía entre empleados CON incidencias
+   - ✅ AHORA: Divide entre TODOS los empleados activos (`activosCount`)
+   - **Resultado:** Porcentajes más realistas y representativos
+
+---
+
+*Documento actualizado con datos reales de Diciembre 2025 y verificado contra base de datos Supabase*
+*Última revisión: Enero 2026 | Dashboard HR MRM v2.0*

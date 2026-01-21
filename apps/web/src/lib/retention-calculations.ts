@@ -58,7 +58,9 @@ export function bajaMatchesMotivo(
   motive: 'involuntaria' | 'voluntaria' | 'all' = 'all',
   overrideMotivo?: string
 ): boolean {
-  if (!emp.fecha_baja && !overrideMotivo) {
+  // ✅ CORREGIDO: Solo validar fecha_baja si NO hay overrideMotivo
+  // Si tenemos overrideMotivo (datos de motivos_baja), confiar en él
+  if (!overrideMotivo && !emp.fecha_baja) {
     return false;
   }
 
@@ -112,29 +114,65 @@ export const calculateMonthlyRetention = async (
     const buildEventos = (rangeStartInner: Date, rangeEndInner: Date): EventoDetallado[] => {
       const eventosMap = new Map<string, EventoDetallado>();
 
-      // SOURCE: empleados_sftp (plantilla) - fecha_baja and motivo_baja
-      plantillaFiltered.forEach(emp => {
-        const fechaBajaParsed = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
-        if (!fechaBajaParsed) return;
-        if (fechaBajaParsed < rangeStartInner || fechaBajaParsed > rangeEndInner) return;
+      // ✅ CORREGIDO: Usar tabla motivos_baja como fuente principal
+      // Si bajaEventos está disponible (datos de motivos_baja), usarlo primero
+      if (bajaEventos && bajaEventos.length > 0) {
+        bajaEventos.forEach(evento => {
+          const fechaBajaParsed = parseSupabaseDate(evento.fecha_baja);
+          if (!fechaBajaParsed) return;
+          if (fechaBajaParsed < rangeStartInner || fechaBajaParsed > rangeEndInner) return;
 
-        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
-        if (!Number.isFinite(numero)) return;
+          const numero = evento.numero_empleado;
+          if (!Number.isFinite(numero)) return;
 
-        const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
+          // ✅ CORREGIDO: Intentar obtener el empleado, pero NO rechazar la baja si no existe
+          // Esto permite contar bajas aunque el empleado haya sido filtrado
+          const empleado = empleadosMap.get(numero);
 
-        if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
+          // ✅ Asegurar que siempre haya un motivo válido
+          const motivoNormalizado = evento.motivo_normalizado || 'Otra razón';
 
-        const key = `${numero}-${fechaBajaParsed.toISOString().slice(0, 10)}`;
-        if (!eventosMap.has(key)) {
-          eventosMap.set(key, {
-            numero_empleado: numero,
-            fecha: fechaBajaParsed,
-            motivo: motivoNormalizado,
-            empleado: emp
-          });
-        }
-      });
+          // Solo validar motivo si tenemos el empleado
+          if (empleado && !bajaMatchesMotivo(empleado, motive, motivoNormalizado)) return;
+
+          // Si NO tenemos empleado pero el motive es 'all', incluir la baja de todas formas
+          if (!empleado && motive !== 'all') return;
+
+          const key = `${numero}-${fechaBajaParsed.toISOString().slice(0, 10)}`;
+          if (!eventosMap.has(key)) {
+            eventosMap.set(key, {
+              numero_empleado: numero,
+              fecha: fechaBajaParsed,
+              motivo: motivoNormalizado,
+              empleado: empleado || ({} as PlantillaRecord) // placeholder si no hay empleado
+            });
+          }
+        });
+      } else {
+        // FALLBACK: Si no hay bajaEventos, usar empleados_sftp (comportamiento anterior)
+        plantillaFiltered.forEach(emp => {
+          const fechaBajaParsed = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
+          if (!fechaBajaParsed) return;
+          if (fechaBajaParsed < rangeStartInner || fechaBajaParsed > rangeEndInner) return;
+
+          const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
+          if (!Number.isFinite(numero)) return;
+
+          const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
+
+          if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
+
+          const key = `${numero}-${fechaBajaParsed.toISOString().slice(0, 10)}`;
+          if (!eventosMap.has(key)) {
+            eventosMap.set(key, {
+              numero_empleado: numero,
+              fecha: fechaBajaParsed,
+              motivo: motivoNormalizado,
+              empleado: emp
+            });
+          }
+        });
+      }
 
       return Array.from(eventosMap.values());
     };

@@ -470,24 +470,29 @@ export function categoriaIncidencia(raw?: string | null): 'incidencia' | 'permis
 
 /**
  * Normaliza el campo cc (Centro de Costo) a ubicacion2
- * Basado en análisis de 361 empleados activos:
- * - CAD → CAD (168 empleados - 46.5%)
- * - *MRM* o DIRE* → CORPORATIVO (159 empleados - 44.0%)
- * - SM*, DF, TORREON, CHIHUAHUA, YAMAHA, TERRAPARK, MOTOSTAFF → FILIALES (26 empleados - 7.2%)
+ * Basado en análisis de 1,051 empleados totales (364 activos):
+ * - CAD → CAD (693 empleados - 65.9%)
+ * - *MRM* o DIRE* → CORPORATIVO (230 empleados - 21.9%)
+ *   Incluye: RH MRM, ADMIN MRM, VENTAS MRM, TIC MRM, MERCADOTECNIA MRM, COMPRAS MRM,
+ *   PLANEACION MRM, G OPERACIONES MRM, DIRECCION GRAL MRM, DIRE TESORERIA, D EJECUTIVA MRM
+ * - SM*, DF, TORREON, CHIHUAHUA, YAMAHA, TERRAPARK, MOTOSTAFF → FILIALES (126 empleados - 12.0%)
+ *   Incluye: SMMTY, MOTOSTAFF, SMMOV, DF, SMRC, YAMAHA, TORREON MT, SMSLP, TERRAPARK,
+ *   CHIHUAHUA CANAL, SMLEÓN
+ * - OTROS → Servicios externos/consultores (2 empleados - 0.2%)
  */
 export function normalizeCCToUbicacion(cc: string | null | undefined): string {
   if (!cc) return 'SIN UBICACIÓN';
 
   const upper = cc.toUpperCase().trim();
 
-  // CAD = Centro de Distribución (168 empleados)
+  // CAD = Centro de Distribución (693 empleados)
   if (upper === 'CAD') return 'CAD';
 
-  // Corporativo = *MRM*, DIRECCION, TESORERIA (159 empleados)
+  // Corporativo = *MRM*, DIRECCION, TESORERIA (230 empleados)
   if (upper.includes('MRM') || upper.includes('DIRECCION') || upper.includes('DIRE') || upper.includes('TESORERIA'))
     return 'CORPORATIVO';
 
-  // Filiales = SM*, DF, TORREON, CHIHUAHUA, YAMAHA, TERRAPARK, MOTOSTAFF (26 empleados)
+  // Filiales = SM*, DF, TORREON, CHIHUAHUA, YAMAHA, TERRAPARK, MOTOSTAFF (126 empleados)
   if (
     upper.startsWith('SM') ||
     upper === 'DF' ||
@@ -499,6 +504,7 @@ export function normalizeCCToUbicacion(cc: string | null | undefined): string {
   )
     return 'FILIALES';
 
+  // Otros = Servicios externos/consultores (2 empleados)
   return 'OTROS';
 }
 

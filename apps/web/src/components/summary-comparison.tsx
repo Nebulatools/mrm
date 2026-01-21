@@ -29,9 +29,10 @@ import {
 } from '@/lib/utils/kpi-helpers';
 import { VisualizationContainer } from '@/components/visualization-container';
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
-import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
+import { differenceInCalendarDays, endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { KPICard } from '@/components/kpi-card';
 import { useTheme } from '@/components/theme-provider';
+import { IncidentsPermitsKPIs } from '@/components/incidents-permits-kpis';
 
 // ✅ CATEGORIZACIÓN DE INCIDENCIAS: 4 grupos
 const FALTAS_CODES = new Set(["FI", "SUSP"]);
@@ -228,6 +229,16 @@ export function SummaryComparison({
   const plantillaRotacion = plantillaGeneral && plantillaGeneral.length > 0
     ? plantillaGeneral
     : (plantillaYearScope && plantillaYearScope.length > 0 ? plantillaYearScope : plantilla);
+
+  // ✅ Función para calcular días activos de un empleado en un periodo (método preciso)
+  const calcularDiasActivo = useCallback((emp: PlantillaRecord, start: Date, end: Date) => {
+    const ingreso = new Date(emp.fecha_ingreso);
+    const baja = emp.fecha_baja ? new Date(emp.fecha_baja) : null;
+    const effectiveStart = ingreso > start ? ingreso : start;
+    const effectiveEnd = baja && baja < end ? baja : end;
+    if (effectiveEnd < effectiveStart) return 0;
+    return differenceInCalendarDays(effectiveEnd, effectiveStart) + 1;
+  }, []);
 
   const ubicacionSeriesConfig = useMemo<UbicacionSeriesConfig[]>(() => {
     const entries = new Map<string, { label: string; empleadosRotacion: PlantillaRecord[]; empleadoIds: Set<number> }>();
@@ -794,6 +805,42 @@ export function SummaryComparison({
     const kpisPrevMonth = calcularKPIsDelMes(plantilla, plantillaRotacion, subMonths(referenceDate, 1));
     const kpisPrevYear = calcularKPIsDelMes(plantilla, plantillaRotacion, subMonths(referenceDate, 12));
 
+    // ✅ Preparar datos para componente compartido IncidentsPermitsKPIs
+    const currentMonthStartCalc = startOfMonth(referenceDate);
+    const currentMonthEndCalc = endOfMonth(referenceDate);
+    const prevMonthStartCalc = startOfMonth(subMonths(referenceDate, 1));
+    const prevMonthEndCalc = endOfMonth(subMonths(referenceDate, 1));
+
+    const empleadosIds = new Set(
+      plantilla.map(e => {
+        const numero = Number(e.numero_empleado ?? e.emp_id);
+        return Number.isNaN(numero) ? null : numero;
+      }).filter((v): v is number => v !== null)
+    );
+
+    const incidenciasCurrentMonth = incidencias.filter(inc => {
+      if (!empleadosIds.has(inc.emp)) return false;
+      const fechaInc = new Date(inc.fecha);
+      if (Number.isNaN(fechaInc.getTime())) return false;
+      return fechaInc >= currentMonthStartCalc && fechaInc <= currentMonthEndCalc;
+    });
+
+    const incidenciasPrevMonth = incidencias.filter(inc => {
+      if (!empleadosIds.has(inc.emp)) return false;
+      const fechaInc = new Date(inc.fecha);
+      if (Number.isNaN(fechaInc.getTime())) return false;
+      return fechaInc >= prevMonthStartCalc && fechaInc <= prevMonthEndCalc;
+    });
+
+    // ✅ MÉTODO PRECISO: Sumar días individuales considerando ingresos/bajas durante el mes
+    const diasLaboradosActual = plantilla.reduce((acc, emp) => {
+      return acc + calcularDiasActivo(emp, currentMonthStartCalc, currentMonthEndCalc);
+    }, 0);
+
+    const diasLaboradosPrev = plantilla.reduce((acc, emp) => {
+      return acc + calcularDiasActivo(emp, prevMonthStartCalc, prevMonthEndCalc);
+    }, 0);
+
     if (retentionKPIsOverride) {
       kpisPrevMonth.rotacionMensual = retentionKPIsOverride.rotacionMensualAnterior;
       kpisPrevYear.rotacionMensual = retentionKPIsOverride.rotacionMensualSameMonthPrevYear;
@@ -1080,88 +1127,99 @@ export function SummaryComparison({
               : "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
           )}
         >
-          {summaryCardItems.map(({ key, kpi, icon, secondaryLabel, secondaryValue, secondaryIsPercent, secondaryRows, hidePreviousValue }) => (
-            <KPICard
-              key={key}
-              refreshEnabled={refreshEnabled}
-              kpi={kpi}
-              icon={icon}
-              secondaryLabel={secondaryLabel}
-              secondaryValue={secondaryValue}
-              secondaryIsPercent={secondaryIsPercent}
-              secondaryRows={secondaryRows}
-              hidePreviousValue={hidePreviousValue}
-            />
-          ))}
+          {summaryCardItems
+            .filter(({ key }) => key !== 'incidencias' && key !== 'permisos')
+            .map(({ key, kpi, icon, secondaryLabel, secondaryValue, secondaryIsPercent, secondaryRows, hidePreviousValue }) => (
+              <KPICard
+                key={key}
+                refreshEnabled={refreshEnabled}
+                kpi={kpi}
+                icon={icon}
+                secondaryLabel={secondaryLabel}
+                secondaryValue={secondaryValue}
+                secondaryIsPercent={secondaryIsPercent}
+                secondaryRows={secondaryRows}
+                hidePreviousValue={hidePreviousValue}
+              />
+            ))}
+          {/* ✅ Componente compartido para Incidencias y Permisos */}
+          <IncidentsPermitsKPIs
+            incidencias={incidenciasCurrentMonth}
+            incidenciasAnterior={incidenciasPrevMonth}
+            diasLaborablesActual={diasLaboradosActual}
+            diasLaborablesPrev={diasLaboradosPrev}
+            currentReferenceDate={referenceDate}
+            refreshEnabled={refreshEnabled}
+          />
         </div>
 
         {/* 1. ACTIVOS POR ANTIGÜEDAD - DISEÑO MEJORADO */}
         <Card
-          className={cn(
-            refreshEnabled &&
-              "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
-          )}
-        >
-          <CardHeader className={cn("pb-3", refreshEnabled && "pb-4")}>
-            <CardTitle className={cn("flex items-center gap-2 text-base", refreshEnabled && "font-heading text-brand-ink")}>
-              <Users className="h-4 w-4" />
-              Empleados Activos por Antigüedad
-            </CardTitle>
-          </CardHeader>
-          <CardContent className={cn(refreshEnabled && "pt-0")}>
-            <VisualizationContainer
-              title="Empleados activos por antigüedad"
-              type="chart"
-              className="h-[360px] w-full"
-              filename="activos-por-antiguedad"
-            >
-              {(fullscreen) => (
-                <div style={{ height: fullscreen ? 420 : 350 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={datosActivos}
-                margin={{ top: 5, right: 20, left: 10, bottom: 40 }}
-                barSize={datosActivos.length > 5 ? undefined : 80}
+            className={cn(
+              refreshEnabled &&
+                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+            )}
+          >
+            <CardHeader className={cn("pb-3", refreshEnabled && "pb-4")}>
+              <CardTitle className={cn("flex items-center gap-2 text-base", refreshEnabled && "font-heading text-brand-ink")}>
+                <Users className="h-4 w-4" />
+                Empleados Activos por Antigüedad
+              </CardTitle>
+            </CardHeader>
+            <CardContent className={cn(refreshEnabled && "pt-0")}>
+              <VisualizationContainer
+                title="Empleados activos por antigüedad"
+                type="chart"
+                className="h-[360px] w-full"
+                filename="activos-por-antiguedad"
               >
-                <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
-                <XAxis
-                  dataKey="nombre"
-                  angle={0}
-                  textAnchor="middle"
-                  height={40}
-                  interval={0}
-                  tick={{ fontSize: 11, fill: axisColor }}
-                />
-                <YAxis tick={{ fontSize: 11, fill: axisColor }} />
-                <Tooltip
-                  cursor={{ fill: withOpacity(getModernColor(0), 0.12) }}
-                  wrapperStyle={TOOLTIP_WRAPPER_STYLE}
-                  contentStyle={tooltipContentStyle}
-                  labelStyle={tooltipLabelStyle}
-                  formatter={(value: any, name: string, props: any) => {
-                    const total = props.payload.total || 0;
-                    const percentage = total > 0 ? ((Number(value) / total) * 100).toFixed(1) : '0.0';
-                    return [`${value} (${percentage}%)`, name];
-                  }}
-                  labelFormatter={(label: string, payload: any) => {
-                    if (payload && payload.length > 0 && payload[0].payload.nombreCompleto) {
-                      return `${payload[0].payload.nombreCompleto} · Total ${payload[0].payload.total || 0}`;
-                    }
-                    return label;
-                  }}
-                />
-                <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} layout="horizontal" />
-                <Bar dataKey="0-3 meses" stackId="a" fill={TENURE_COLORS[0]} />
-                <Bar dataKey="3-6 meses" stackId="a" fill={TENURE_COLORS[1]} />
-                <Bar dataKey="6-12 meses" stackId="a" fill={TENURE_COLORS[2]} />
-                <Bar dataKey="1-3 años" stackId="a" fill={TENURE_COLORS[3]} />
-                <Bar dataKey="+3 años" stackId="a" fill={TENURE_COLORS[4]} radius={[4, 4, 0, 0]} />
-              </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </VisualizationContainer>
-          </CardContent>
+                {(fullscreen) => (
+                  <div style={{ height: fullscreen ? 420 : 350 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={datosActivos}
+                  margin={{ top: 5, right: 20, left: 10, bottom: 40 }}
+                  barSize={datosActivos.length > 5 ? undefined : 80}
+                >
+                  <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
+                  <XAxis
+                    dataKey="nombre"
+                    angle={0}
+                    textAnchor="middle"
+                    height={40}
+                    interval={0}
+                    tick={{ fontSize: 11, fill: axisColor }}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: axisColor }} />
+                  <Tooltip
+                    cursor={{ fill: withOpacity(getModernColor(0), 0.12) }}
+                    wrapperStyle={TOOLTIP_WRAPPER_STYLE}
+                    contentStyle={tooltipContentStyle}
+                    labelStyle={tooltipLabelStyle}
+                    formatter={(value: any, name: string, props: any) => {
+                      const total = props.payload.total || 0;
+                      const percentage = total > 0 ? ((Number(value) / total) * 100).toFixed(1) : '0.0';
+                      return [`${value} (${percentage}%)`, name];
+                    }}
+                    labelFormatter={(label: string, payload: any) => {
+                      if (payload && payload.length > 0 && payload[0].payload.nombreCompleto) {
+                        return `${payload[0].payload.nombreCompleto} · Total ${payload[0].payload.total || 0}`;
+                      }
+                      return label;
+                    }}
+                  />
+                  <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} layout="horizontal" />
+                  <Bar dataKey="0-3 meses" stackId="a" fill={TENURE_COLORS[0]} />
+                  <Bar dataKey="3-6 meses" stackId="a" fill={TENURE_COLORS[1]} />
+                  <Bar dataKey="6-12 meses" stackId="a" fill={TENURE_COLORS[2]} />
+                  <Bar dataKey="1-3 años" stackId="a" fill={TENURE_COLORS[3]} />
+                  <Bar dataKey="+3 años" stackId="a" fill={TENURE_COLORS[4]} radius={[4, 4, 0, 0]} />
+                </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </VisualizationContainer>
+            </CardContent>
         </Card>
 
         {/* Toggle para rotación */}
@@ -1230,11 +1288,11 @@ export function SummaryComparison({
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Rotación Mensual */}
           <Card
-            className={cn(
-              refreshEnabled &&
-                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
-            )}
-          >
+              className={cn(
+                refreshEnabled &&
+                  "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+              )}
+            >
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
@@ -1379,11 +1437,11 @@ export function SummaryComparison({
 
           {/* Rotación Año Actual (YTD) */}
           <Card
-            className={cn(
-              refreshEnabled &&
-                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
-            )}
-          >
+              className={cn(
+                refreshEnabled &&
+                  "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+              )}
+            >
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <TrendingDown className="h-4 w-4" />
@@ -1454,11 +1512,11 @@ export function SummaryComparison({
         {/* 2.b Incidencias y Permisos 12 Meses */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card
-            className={cn(
-              refreshEnabled &&
-                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
-            )}
-          >
+              className={cn(
+                refreshEnabled &&
+                  "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+              )}
+            >
             <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
               <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
                 <AlertCircle className="h-4 w-4" />
@@ -1527,17 +1585,17 @@ export function SummaryComparison({
           </Card>
 
           <Card
-            className={cn(
-              refreshEnabled &&
-                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
-            )}
-          >
-            <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
-              <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
-                <TrendingUp className="h-4 w-4" />
-                Permisos - Últimos 12 meses
-              </CardTitle>
-            </CardHeader>
+              className={cn(
+                refreshEnabled &&
+                  "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+              )}
+            >
+              <CardHeader className={cn("pb-3", refreshEnabled && "pb-6")}>
+                <CardTitle className={cn("text-base flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
+                  <TrendingUp className="h-4 w-4" />
+                  Permisos - Últimos 12 meses
+                </CardTitle>
+              </CardHeader>
             <CardContent className={cn(refreshEnabled && "pt-0")}>
               {!hasPermisosSeries ? (
                 <div className="flex h-[300px] items-center justify-center">
@@ -1602,11 +1660,11 @@ export function SummaryComparison({
 
         {/* 3. AUSENTISMO */}
         <Card
-          className={cn(
-            refreshEnabled &&
-              "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
-          )}
-        >
+            className={cn(
+              refreshEnabled &&
+                "rounded-2xl border border-brand-border/60 bg-card shadow-brand transition-shadow dark:border-brand-border/40 dark:bg-brand-surface-accent/70"
+            )}
+          >
           <CardHeader className={cn(refreshEnabled && "pb-6")}>
             <CardTitle className={cn("flex items-center gap-2", refreshEnabled && "font-heading text-brand-ink")}>
               <AlertCircle className="h-5 w-5" />

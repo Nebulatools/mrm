@@ -1664,7 +1664,7 @@ export function DashboardPage() {
                     refreshEnabled={refreshEnabled}
                     kpi={{
                       name: 'Bajas Voluntarias',
-                      category: 'retention',
+                      category: 'headcount',
                       value: filteredRetentionKPIs.bajasVoluntarias,
                       previous_value: filteredRetentionKPIs.bajasVoluntariasAnterior,
                       variance_percentage: filteredRetentionKPIs.bajasVoluntariasVariacion,

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { countActiveFilters, getFilterSummary, sanitizeFilterValue } from "@/lib/filters/summary";
+import { normalizeCCToUbicacion } from "@/lib/normalizers";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { endOfMonth, subMonths } from "date-fns";
@@ -92,7 +93,7 @@ export function RetentionFilterPanel({
       // Get empleados_sftp data
       const { data: empleadosSFTP } = await supabase
         .from('empleados_sftp')
-        .select('fecha_baja, departamento, puesto, clasificacion, ubicacion, empresa, area');
+        .select('fecha_baja, departamento, puesto, clasificacion, ubicacion, empresa, area, cc');
 
       // Extract all dates from fecha_baja
       const allDates = [];
@@ -177,16 +178,15 @@ export function RetentionFilterPanel({
       const puestos = Array.from(puestosSet).sort();
       const clasificaciones = Array.from(clasificacionesSet).sort();
       const ubicaciones = Array.from(ubicacionesSet).sort();
-      // Distintos ubicacion2 desde incidencias
-      const { data: incidencias } = await supabase
-        .from('incidencias')
-        .select('ubicacion2')
-        .not('ubicacion2', 'is', null)
-        .limit(2000);
-      incidencias?.forEach((row: any) => {
-        const u = row?.ubicacion2;
-        if (u && typeof u === 'string' && u.trim()) {
-          ubicacionesIncSet.add(u.trim());
+      // ✅ CORREGIDO: Usar empleados_sftp.cc con normalizer normalizeCCToUbicacion
+      // El normalizer mapea: CAD, CORPORATIVO (MRM/DIRE), FILIALES (SM*/DF/TORREON/etc), OTROS
+      empleadosSFTP?.forEach(emp => {
+        const cc = (emp as any).cc as string | undefined;
+        if (cc) {
+          const ubicacionNormalizada = normalizeCCToUbicacion(cc);
+          if (ubicacionNormalizada !== 'SIN UBICACIÓN') {
+            ubicacionesIncSet.add(ubicacionNormalizada);
+          }
         }
       });
       const ubicacionesIncidencias = Array.from(ubicacionesIncSet).sort();
@@ -658,14 +658,6 @@ export function RetentionFilterPanel({
                 options={availableOptions.clasificaciones}
                 selectedValues={filters.clasificaciones || []}
                 onSelectionChange={(values) => handleMultiSelectChange("clasificaciones", values)}
-                renderOption={(option) => sanitizeFilterValue(option)}
-              />
-
-              <MultiSelectDropdown
-                label="Centro de trabajo"
-                options={availableOptions.ubicaciones}
-                selectedValues={filters.ubicaciones || []}
-                onSelectionChange={(values) => handleMultiSelectChange("ubicaciones", values)}
                 renderOption={(option) => sanitizeFilterValue(option)}
               />
 

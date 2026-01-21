@@ -400,21 +400,51 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       const endDate12m = endOfMonth(currentMonthDate);
 
       // Contar todas las bajas en el período de 12 meses
-      // SOURCE: empleados_sftp (plantilla) - fecha_baja and motivo_baja
+      // SOURCE: motivos_baja (bajaEventos) - fecha_baja and motivo
       const eventosSet = new Set<string>();
-      plantilla.forEach(emp => {
-        const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
-        if (!fechaBaja) return;
-        if (fechaBaja < startDate12m || fechaBaja > endDate12m) return;
 
-        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
-        if (!Number.isFinite(numero)) return;
+      // ✅ CORRECTO: Usar bajaEventos (motivos_baja) como fuente principal
+      if (bajaEventos && bajaEventos.length > 0) {
+        bajaEventos.forEach(evento => {
+          const fechaBajaParsed = parseSupabaseDate(evento.fecha_baja);
+          if (!fechaBajaParsed) return;
+          if (fechaBajaParsed < startDate12m || fechaBajaParsed > endDate12m) return;
 
-        const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
+          const numero = evento.numero_empleado;
+          if (!Number.isFinite(numero)) return;
 
-        if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
-        eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
-      });
+          const empleado = plantilla.find(emp => {
+            const empNumero = Number((emp as any).numero_empleado ?? emp.emp_id);
+            return empNumero === numero;
+          });
+
+          const motivoNormalizado = evento.motivo_normalizado || 'Otra razón';
+
+          // Solo validar motivo si tenemos el empleado
+          if (empleado && !bajaMatchesMotivo(empleado, motive, motivoNormalizado)) return;
+          // Si NO tenemos empleado pero el motive es 'all', incluir la baja de todas formas
+          if (!empleado && motive !== 'all') return;
+
+          const key = `${numero}-${fechaBajaParsed.toISOString().slice(0, 10)}`;
+          eventosSet.add(key);
+        });
+      } else {
+        // FALLBACK: Si no hay bajaEventos, usar empleados_sftp (comportamiento anterior)
+        plantilla.forEach(emp => {
+          const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
+          if (!fechaBaja) return;
+          if (fechaBaja < startDate12m || fechaBaja > endDate12m) return;
+
+          const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
+          if (!Number.isFinite(numero)) return;
+
+          const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
+
+          if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
+          eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
+        });
+      }
+
       const bajasEn12Meses = eventosSet.size;
 
       // Calcular promedio de empleados activos en el período de 12 meses
@@ -463,21 +493,51 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       const endDateYTD = endOfMonth(currentMonthDate);
 
       // Contar todas las bajas en el período YTD
-      // SOURCE: empleados_sftp (plantilla) - fecha_baja and motivo_baja
+      // SOURCE: motivos_baja (bajaEventos) - fecha_baja and motivo
       const eventosSet = new Set<string>();
-      plantilla.forEach(emp => {
-        const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
-        if (!fechaBaja) return;
-        if (fechaBaja < startDateYTD || fechaBaja > endDateYTD) return;
 
-        const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
-        if (!Number.isFinite(numero)) return;
+      // ✅ CORRECTO: Usar bajaEventos (motivos_baja) como fuente principal
+      if (bajaEventos && bajaEventos.length > 0) {
+        bajaEventos.forEach(evento => {
+          const fechaBajaParsed = parseSupabaseDate(evento.fecha_baja);
+          if (!fechaBajaParsed) return;
+          if (fechaBajaParsed < startDateYTD || fechaBajaParsed > endDateYTD) return;
 
-        const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
+          const numero = evento.numero_empleado;
+          if (!Number.isFinite(numero)) return;
 
-        if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
-        eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
-      });
+          const empleado = plantilla.find(emp => {
+            const empNumero = Number((emp as any).numero_empleado ?? emp.emp_id);
+            return empNumero === numero;
+          });
+
+          const motivoNormalizado = evento.motivo_normalizado || 'Otra razón';
+
+          // Solo validar motivo si tenemos el empleado
+          if (empleado && !bajaMatchesMotivo(empleado, motive, motivoNormalizado)) return;
+          // Si NO tenemos empleado pero el motive es 'all', incluir la baja de todas formas
+          if (!empleado && motive !== 'all') return;
+
+          const key = `${numero}-${fechaBajaParsed.toISOString().slice(0, 10)}`;
+          eventosSet.add(key);
+        });
+      } else {
+        // FALLBACK: Si no hay bajaEventos, usar empleados_sftp (comportamiento anterior)
+        plantilla.forEach(emp => {
+          const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
+          if (!fechaBaja) return;
+          if (fechaBaja < startDateYTD || fechaBaja > endDateYTD) return;
+
+          const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
+          if (!Number.isFinite(numero)) return;
+
+          const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
+
+          if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
+          eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
+        });
+      }
+
       const bajasYTD = eventosSet.size;
 
       // Calcular promedio de empleados activos en el período YTD

@@ -1,0 +1,128 @@
+
+============================================================================================================================================
+                    REPORTE COMPARATIVO ANUAL - SUPABASE vs EXCEL
+                              AÑO 2025 - Proyecto mrm_simple
+                         Fecha: 21/1/2026, 11:22:42 a.m.
+============================================================================================================================================
+
+
+¿CÓMO SE CALCULARON LOS NÚMEROS?
+==================================
+
+📌 INGRESOS (ALTAS):
+--------------------
+  SUPABASE → Contar empleados de la tabla "empleados_sftp" donde "fecha_ingreso" = 2025
+  EXCEL    → Contar empleados del archivo "Validacion Alta empleados.xlsb" donde columna "Fecha Ingreso" = 2025
+
+  Total 2025:  Supabase: 272  |  Excel: 271
+
+📌 BAJAS:
+---------
+  SUPABASE → Contar registros de la tabla "motivos_baja" donde "fecha_baja" = 2025
+  EXCEL    → Contar registros del archivo "Motivos Bajas (8).xls" donde columna "Fecha" = 2025
+
+  Total 2025:  Supabase: 236  |  Excel: 236  ✅
+
+📌 DIFERENCIAS:
+---------------
+  (+) = Excel tiene MÁS    |    (-) = Supabase tiene MÁS    |    (0) = IDÉNTICO ✅
+
+
+============================================================================================================================================
+
+
+RESUMEN GENERAL:
+================
+  • Total Empleados (General):   Supabase: 1,051   |   Excel: 1,054   |   Diferencia: +3
+  • Ingresos 2025:                Supabase: 272     |   Excel: 271     |   Diferencia: -1
+  • Bajas 2025:                   Supabase: 236     |   Excel: 236     |   Diferencia:  0  ✅
+
+
+============================================================================================================================================
+
+
+TABLA COMPARATIVA MENSUAL - AÑO 2025
+=====================================
+
+┌──────────────┬─────────────────────────────────────┬─────────────────────────────────────┬──────────┐
+│     MES      │         INGRESOS (ALTAS)            │           BAJAS                     │  ESTADO  │
+│              ├───────────┬───────────┬─────────────┼───────────┬───────────┬─────────────┤          │
+│              │ SUPABASE  │   EXCEL   │  DIFERENCIA │ SUPABASE  │   EXCEL   │  DIFERENCIA │          │
+├──────────────┼───────────┼───────────┼─────────────┼───────────┼───────────┼─────────────┼──────────┤
+│ Enero        │     22    │     22    │      +0     │     17    │     17    │      +0     │    ✅    │
+│ Febrero      │     40    │     40    │      +0     │     22    │     22    │      +0     │    ✅    │
+│ Marzo        │     22    │     24    │      +2     │     24    │     25    │      +1     │    ⚠️    │
+│ Abril        │     24    │     22    │      -2     │     14    │     13    │      -1     │    ⚠️    │
+│ Mayo         │     19    │     19    │      +0     │     29    │     29    │      +0     │    ✅    │
+│ Junio        │     28    │     28    │      +0     │     21    │     23    │      +2     │    ⚠️    │
+│ Julio        │     21    │     21    │      +0     │     27    │     25    │      -2     │    ⚠️    │
+│ Agosto       │     40    │     43    │      +3     │     19    │     19    │      +0     │    ⚠️    │
+│ Septiembre   │     13    │     10    │      -3     │     18    │     19    │      +1     │    ⚠️    │
+│ Octubre      │     14    │     13    │      -1     │     16    │     16    │      +0     │    ⚠️    │
+│ Noviembre    │     18    │     19    │      +1     │     12    │     13    │      +1     │    ⚠️    │
+│ Diciembre    │     11    │     10    │      -1     │     17    │     15    │      -2     │    ⚠️    │
+├──────────────┼───────────┼───────────┼─────────────┼───────────┼───────────┼─────────────┼──────────┤
+│ TOTALES 2025 │    272    │    271    │     -1     │    236    │    236    │     +0     │    ✅   │
+└──────────────┴───────────┴───────────┴─────────────┴───────────┴───────────┴─────────────┴──────────┘
+
+
+LEYENDA:
+========
+  ✅  = Datos coinciden perfectamente (diferencia = 0)
+  ⚠️   = Diferencia encontrada (requiere revisión)
+
+
+HALLAZGOS CLAVE:
+================
+  ✅ BAJAS 2025: Los 236 registros coinciden PERFECTAMENTE (100% sincronizado)
+
+  ⚠️  INGRESOS 2025: Diferencia de 1 registro
+      → Supabase: 272 ingresos (tabla empleados_sftp, columna fecha_ingreso)
+      → Excel: 271 ingresos (archivo Validacion Alta empleados, columna "Fecha Ingreso")
+      → Supabase tiene 1 ingreso más que Excel
+
+  ⚠️  BASE GENERAL: Diferencia de 3 empleados
+      → Supabase: 1,051 empleados totales
+      → Excel: 1,054 empleados totales
+      → Excel tiene 3 empleados más que Supabase
+
+
+MESES CON DIFERENCIAS:
+======================
+
+  Marzo:
+    • Ingresos: 2 de diferencia (Excel tiene más)
+    • Bajas: 1 de diferencia (Excel tiene más)
+
+  Abril:
+    • Ingresos: 2 de diferencia (Supabase tiene más)
+    • Bajas: 1 de diferencia (Supabase tiene más)
+
+  Junio:
+    • Bajas: 2 de diferencia (Excel tiene más)
+
+  Julio:
+    • Bajas: 2 de diferencia (Supabase tiene más)
+
+  Agosto:
+    • Ingresos: 3 de diferencia (Excel tiene más)
+
+  Septiembre:
+    • Ingresos: 3 de diferencia (Supabase tiene más)
+    • Bajas: 1 de diferencia (Excel tiene más)
+
+  Octubre:
+    • Ingresos: 1 de diferencia (Supabase tiene más)
+
+  Noviembre:
+    • Ingresos: 1 de diferencia (Excel tiene más)
+    • Bajas: 1 de diferencia (Excel tiene más)
+
+  Diciembre:
+    • Ingresos: 1 de diferencia (Supabase tiene más)
+    • Bajas: 2 de diferencia (Supabase tiene más)
+
+
+============================================================================================================================================
+                                  FIN DEL REPORTE
+============================================================================================================================================
