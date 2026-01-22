@@ -1,0 +1,101 @@
+=============================================================================
+COMPARACIÓN: Archivo SFTP vs Tabla empleados_sftp
+=============================================================================
+
+COLUMNAS EN EL ARCHIVO SFTP (28 columnas):
+-------------------------------------------
+1.  Número
+2.  Gafete
+3.  Género
+4.  IMSS
+5.  Fecha de Nacimiento
+6.  Estado
+7.  Fecha Ingreso
+8.  Fecha Antigüedad
+9.  Empresa
+10. No. Registro Patronal
+11. CodigoPuesto
+12. Puesto
+13. Código Depto
+14. Departamento
+15. Código de CC
+16. CC
+17. Subcuenta CC
+18. Clasificación
+19. Codigo Area
+20. Area
+21. Ubicación
+22. Tipo de Nómina
+23. Turno
+24. Prestación de Ley
+25. Paquete de Prestaciones
+26. Fecha Baja
+27. Activo
+28. Ubicacion2 ✅ (recién detectada)
+
+COLUMNAS EN LA TABLA SUPABASE (30 datos + 3 metadata):
+-------------------------------------------------------
+1.  id (auto)
+2.  numero_empleado ← Número ✅
+3.  apellidos ❌ NO EXISTE EN SFTP
+4.  nombres ❌ NO EXISTE EN SFTP
+5.  nombre_completo ❌ NO EXISTE EN SFTP
+6.  gafete ← Gafete ✅
+7.  genero ← Género ✅
+8.  imss ← IMSS ✅
+9.  fecha_nacimiento ← Fecha de Nacimiento ✅
+10. estado ← Estado ✅
+11. fecha_ingreso ← Fecha Ingreso ✅
+12. fecha_antiguedad ← Fecha Antigüedad ✅
+13. empresa ← Empresa ✅
+14. registro_patronal ← No. Registro Patronal ✅
+15. codigo_puesto ← CodigoPuesto ✅
+16. puesto ← Puesto ✅
+17. codigo_depto ← Código Depto ✅
+18. departamento ← Departamento ✅
+19. codigo_cc ← Código de CC ✅
+20. cc ← CC ✅
+21. subcuenta_cc ← Subcuenta CC ✅
+22. clasificacion ← Clasificación ✅
+23. codigo_area ← Codigo Area ✅
+24. area ← Area ✅
+25. ubicacion ← Ubicación ✅
+26. ubicacion2 ← Ubicacion2 ✅
+27. tipo_nomina ← Tipo de Nómina ✅
+28. turno ← Turno ✅
+29. prestacion_ley ← Prestación de Ley ✅
+30. paquete_prestaciones ← Paquete de Prestaciones ✅
+31. fecha_baja ← Fecha Baja ✅
+32. activo ← Activo ✅
+33. fecha_creacion (auto)
+34. fecha_actualizacion (auto)
+
+=============================================================================
+PROBLEMA DETECTADO:
+=============================================================================
+
+❌ El archivo SFTP NO TIENE las columnas:
+   - Apellidos
+   - Nombres
+   - Nombre Completo
+
+Pero el código de importación ESPERA estas columnas (líneas 406-408):
+   apellidos: String(record['Apellidos'] || 'Apellido'),
+   nombres: String(record['Nombres'] || 'Nombre'),
+   nombre_completo: String(record['Nombre Completo'] || ...),
+
+SOLUCIÓN POSIBLE:
+-----------------
+1. Si el archivo SFTP tiene estas columnas con OTROS NOMBRES:
+   → Necesitamos saber cuáles son para mapearlas correctamente
+
+2. Si el archivo SFTP NO tiene estas columnas:
+   → Opción A: Eliminar estas columnas de la tabla Supabase
+   → Opción B: Dejar las columnas NULL y llenarlas después manualmente
+   → Opción C: Usar valores por defecto (lo que hace actualmente)
+
+✅ COLUMNAS QUE SÍ COINCIDEN: 25/28 columnas
+❌ COLUMNAS FALTANTES EN SFTP: 3 (apellidos, nombres, nombre_completo)
+✅ NUEVA COLUMNA DETECTADA: ubicacion2
+
+=============================================================================

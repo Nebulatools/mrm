@@ -80,6 +80,7 @@ interface EmpleadoSFTP {
   codigo_area?: string;
   area?: string;
   ubicacion?: string;
+  ubicacion2?: string;
   tipo_nomina?: string;
   turno?: string;
   prestacion_ley?: string;
@@ -426,6 +427,7 @@ export async function POST(request: NextRequest) {
               codigo_area: String(record['Codigo Area'] || ''),
               area: String(record['Area'] || 'Sin Area'),
               ubicacion: pickField(record as Record<string, unknown>, ['Ubicación', 'Ubicaci?n', 'Ubicacion'], 'ubica'),
+              ubicacion2: pickField(record as Record<string, unknown>, ['Ubicacion2', 'Ubicación2', 'Ubicacion 2'], 'ubicacion2'),
               tipo_nomina: String(record['Tipo de Nómina'] || ''),
               turno: String(record['Turno'] || ''),
               prestacion_ley: String(record['Prestación de Ley'] || ''),

@@ -62,10 +62,28 @@ interface SFTPFile {
   size: number;
 }
 
+interface ColumnStats {
+  nonEmpty: number;
+  sample: string;
+}
+
 interface PreviewData {
   data: Record<string, unknown>[];
   filename: string;
   previewRows: number;
+  totalRows: number;
+  totalUnfiltered: number;
+  columns: string[];
+  columnStats: Record<string, ColumnStats>;
+  appliedFilters?: {
+    month: string | null;
+    year: string | null;
+  };
+}
+
+interface PreviewFilters {
+  month: string;
+  year: string;
 }
 
 type SyncFrequency = 'manual' | 'daily' | 'weekly' | 'monthly';
@@ -111,6 +129,7 @@ export function SFTPImportAdmin() {
   const [previewData, setPreviewData] = useState<Record<string, PreviewData>>({});
   const [loadingPreviews, setLoadingPreviews] = useState<Record<string, boolean>>({});
   const [expandedPreviews, setExpandedPreviews] = useState<Record<string, boolean>>({});
+  const [previewFilters, setPreviewFilters] = useState<Record<string, PreviewFilters>>({});
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
   const [schedule, setSchedule] = useState<SyncSchedule>(DEFAULT_SCHEDULE);
@@ -356,10 +375,20 @@ export function SFTPImportAdmin() {
     console.log('❌ Importación rechazada por el usuario');
   };
 
-  const loadFilePreview = async (filename: string) => {
+  const loadFilePreview = async (filename: string, filters?: PreviewFilters) => {
     setLoadingPreviews(prev => ({ ...prev, [filename]: true }));
     try {
-      const response = await fetch(`/api/sftp?action=preview&filename=${encodeURIComponent(filename)}`);
+      const currentFilters = filters || previewFilters[filename] || { month: '', year: '' };
+      let url = `/api/sftp?action=preview&filename=${encodeURIComponent(filename)}`;
+
+      if (currentFilters.month) {
+        url += `&month=${currentFilters.month}`;
+      }
+      if (currentFilters.year) {
+        url += `&year=${currentFilters.year}`;
+      }
+
+      const response = await fetch(url);
       const result = await response.json();
 
       if (result.data) {
@@ -368,7 +397,12 @@ export function SFTPImportAdmin() {
           [filename]: {
             data: result.data,
             filename: result.filename,
-            previewRows: result.previewRows
+            previewRows: result.previewRows,
+            totalRows: result.totalRows || result.previewRows,
+            totalUnfiltered: result.totalUnfiltered || result.previewRows,
+            columns: result.columns || (result.data.length > 0 ? Object.keys(result.data[0]) : []),
+            columnStats: result.columnStats || {},
+            appliedFilters: result.appliedFilters
           }
         }));
         setExpandedPreviews(prev => ({ ...prev, [filename]: true }));
@@ -378,6 +412,29 @@ export function SFTPImportAdmin() {
     } finally {
       setLoadingPreviews(prev => ({ ...prev, [filename]: false }));
     }
+  };
+
+  const updatePreviewFilter = (filename: string, field: 'month' | 'year', value: string) => {
+    setPreviewFilters(prev => ({
+      ...prev,
+      [filename]: {
+        ...prev[filename] || { month: '', year: '' },
+        [field]: value
+      }
+    }));
+  };
+
+  const applyPreviewFilters = (filename: string) => {
+    const filters = previewFilters[filename];
+    loadFilePreview(filename, filters);
+  };
+
+  const clearPreviewFilters = (filename: string) => {
+    setPreviewFilters(prev => ({
+      ...prev,
+      [filename]: { month: '', year: '' }
+    }));
+    loadFilePreview(filename, { month: '', year: '' });
   };
 
   const togglePreview = (filename: string) => {
@@ -660,110 +717,149 @@ export function SFTPImportAdmin() {
                     </div>
                   </div>
 
-                  {/* Vista Previa */}
+                  {/* Vista Previa Mejorada */}
                   {expandedPreviews[file.name] && previewData[file.name] && (
                     <div className="border-t bg-gray-50 p-4">
-                      <div className="mb-3">
+                      {/* Encabezado con totales */}
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                         <h4 className="text-sm font-medium text-gray-700">
-                          {file.name.endsWith('.pdf') ? (
-                            <>📄 Vista Previa PDF - Estructura detectada ({previewData[file.name].previewRows} elementos)</>
-                          ) : (
-                            <>📊 Vista Previa - {previewData[file.name].previewRows} de ? registros</>
-                          )}
+                          📊 Vista Previa - {previewData[file.name].columns?.length || 0} columnas
                         </h4>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                            {previewData[file.name].previewRows.toLocaleString()} mostrando
+                          </Badge>
+                          <Badge variant="secondary" className="font-bold">
+                            {previewData[file.name].totalRows?.toLocaleString() || '?'} filtrados
+                          </Badge>
+                          <Badge variant="default" className="bg-green-600">
+                            {previewData[file.name].totalUnfiltered?.toLocaleString() || '?'} total
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Filtros de Mes y Año */}
+                      <div className="mb-4 p-3 bg-white border rounded-lg">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="text-xs font-medium text-gray-600">Filtrar por:</span>
+                          <Select
+                            value={previewFilters[file.name]?.year || 'all'}
+                            onValueChange={(value) => updatePreviewFilter(file.name, 'year', value === 'all' ? '' : value)}
+                          >
+                            <SelectTrigger className="w-[100px] h-8 text-xs">
+                              <SelectValue placeholder="Año" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Todos</SelectItem>
+                              {[2026, 2025, 2024, 2023].map((y) => (
+                                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={previewFilters[file.name]?.month || 'all'}
+                            onValueChange={(value) => updatePreviewFilter(file.name, 'month', value === 'all' ? '' : value)}
+                          >
+                            <SelectTrigger className="w-[120px] h-8 text-xs">
+                              <SelectValue placeholder="Mes" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Todos</SelectItem>
+                              {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((m, i) => (
+                                <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            onClick={() => applyPreviewFilters(file.name)}
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            disabled={loadingPreviews[file.name]}
+                          >
+                            {loadingPreviews[file.name] ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              'Aplicar'
+                            )}
+                          </Button>
+                          {(previewFilters[file.name]?.month || previewFilters[file.name]?.year) && (
+                            <Button
+                              onClick={() => clearPreviewFilters(file.name)}
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 text-xs text-gray-500"
+                            >
+                              Limpiar
+                            </Button>
+                          )}
+                        </div>
+                        {previewData[file.name].appliedFilters?.month || previewData[file.name].appliedFilters?.year ? (
+                          <div className="mt-2 text-xs text-gray-500">
+                            Filtro activo: {previewData[file.name].appliedFilters?.year || 'Todos los años'} / {previewData[file.name].appliedFilters?.month ? `Mes ${previewData[file.name].appliedFilters?.month}` : 'Todos los meses'}
+                          </div>
+                        ) : null}
                       </div>
 
                       {previewData[file.name].data.length > 0 ? (
-                        file.name.endsWith('.pdf') ? (
-                          // Vista tabular para PDFs si vienen campos normalizados
-                          (() => {
-                            const first = previewData[file.name].data[0] as any;
-                            const isStructured = first && (
-                              'numero_empleado' in first || 'tipo_incidencia' in first || 'fecha' in first
-                            );
-                            if (isStructured) {
-                              const columns = ['numero_empleado', 'fecha', 'tipo_incidencia', 'dias_aplicados', 'descripcion_tipo', 'observaciones'] as const;
-                              return (
-                                <div className="overflow-x-auto">
-                                  <table className="min-w-full text-xs border border-gray-200">
-                                    <thead className="bg-gray-100">
-                                      <tr>
-                                        {columns.map((c) => (
-                                          <th key={c} className="px-2 py-1 text-left border-b font-medium text-gray-600">
-                                            {c}
-                                          </th>
-                                        ))}
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {previewData[file.name].data.slice(0, 10).map((row, i) => (
-                                        <tr key={i} className="hover:bg-gray-50">
-                                          {columns.map((c) => (
-                                            <td key={c} className="px-2 py-1 border-b text-gray-700">
-                                              {String((row as any)[c] ?? '').slice(0, 50)}
-                                              {String((row as any)[c] ?? '').length > 50 && '...'}
-                                            </td>
-                                          ))}
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              );
-                            }
-                            // Fallback a vista de líneas si no es estructurado
-                            return (
-                              <div className="space-y-2">
-                                {previewData[file.name].data.map((row, i) => (
-                                  <div key={i} className="p-2 bg-white border rounded text-xs">
-                                    <div className="text-gray-600 bg-gray-50 p-1 rounded text-[10px] font-mono">
-                                      {String((row as any).raw_text || (row as any).content || '').slice(0, 200)}
-                                      {String((row as any).raw_text || (row as any).content || '').length > 200 && '...'}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })()
-                        ) : (
-                          // Vista normal para CSV/Excel
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full text-xs border border-gray-200">
-                              <thead className="bg-gray-100">
+                        <>
+                          {/* Tabla con TODAS las columnas */}
+                          <div className="overflow-x-auto max-h-[500px] border rounded">
+                            <table className="min-w-full text-xs border-collapse">
+                              <thead className="bg-gray-100 sticky top-0">
                                 <tr>
-                                  {Object.keys(previewData[file.name].data[0]).slice(0, 6).map((header) => (
-                                    <th key={header} className="px-2 py-1 text-left border-b font-medium text-gray-600">
+                                  <th className="px-2 py-2 text-left border-b font-medium text-gray-500 bg-gray-200">#</th>
+                                  {previewData[file.name].columns.map((header) => (
+                                    <th key={header} className="px-2 py-2 text-left border-b font-medium text-gray-600 whitespace-nowrap">
                                       {header}
                                     </th>
                                   ))}
-                                  {Object.keys(previewData[file.name].data[0]).length > 6 && (
-                                    <th className="px-2 py-1 text-left border-b font-medium text-gray-500">
-                                      +{Object.keys(previewData[file.name].data[0]).length - 6} más...
-                                    </th>
-                                  )}
                                 </tr>
                               </thead>
                               <tbody>
-                                {previewData[file.name].data.slice(0, 10).map((row, i) => (
-                                  <tr key={i} className="hover:bg-gray-50">
-                                    {Object.keys(previewData[file.name].data[0]).slice(0, 6).map((header) => (
-                                      <td key={header} className="px-2 py-1 border-b text-gray-700">
-                                        {String(row[header] || '').slice(0, 30)}
-                                        {String(row[header] || '').length > 30 && '...'}
+                                {previewData[file.name].data.map((row, i) => (
+                                  <tr key={i} className="hover:bg-blue-50 even:bg-gray-50">
+                                    <td className="px-2 py-1 border-b text-gray-400 font-mono">{i + 1}</td>
+                                    {previewData[file.name].columns.map((header) => (
+                                      <td key={header} className="px-2 py-1 border-b text-gray-700 whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis">
+                                        {String(row[header] ?? '')}
                                       </td>
                                     ))}
-                                    {Object.keys(previewData[file.name].data[0]).length > 6 && (
-                                      <td className="px-2 py-1 border-b text-gray-400">...</td>
-                                    )}
                                   </tr>
                                 ))}
                               </tbody>
+                              {/* Fila de totales */}
+                              <tfoot className="bg-gray-200 sticky bottom-0">
+                                <tr>
+                                  <td className="px-2 py-2 font-bold text-gray-700 border-t">Total</td>
+                                  {previewData[file.name].columns.map((header) => (
+                                    <td key={header} className="px-2 py-2 border-t font-medium text-gray-600">
+                                      <span className="text-[10px] text-gray-500">
+                                        {previewData[file.name].columnStats[header]?.nonEmpty?.toLocaleString() || 0} valores
+                                      </span>
+                                    </td>
+                                  ))}
+                                </tr>
+                              </tfoot>
                             </table>
                           </div>
-                        )
+
+                          {/* Resumen de columnas */}
+                          <div className="mt-4 p-3 bg-white border rounded-lg">
+                            <h5 className="text-xs font-medium text-gray-700 mb-2">📋 Resumen de Columnas ({previewData[file.name].columns.length})</h5>
+                            <div className="flex flex-wrap gap-2">
+                              {previewData[file.name].columns.map((col) => (
+                                <Badge key={col} variant="outline" className="text-[10px] py-0.5">
+                                  {col}: {previewData[file.name].columnStats[col]?.nonEmpty?.toLocaleString() || 0}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </>
                       ) : (
-                        <div className="text-center py-4 text-gray-500">
-                          No hay datos disponibles para vista previa
+                        <div className="text-center py-8 text-gray-500">
+                          <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          No hay datos disponibles para este filtro
                         </div>
                       )}
                     </div>

@@ -1,0 +1,72 @@
+================================================================================
+  REPORTE DE COLUMNA UBICACION2 EN TABLA INCIDENCIAS
+  Proyecto: mrm_simple (ufdlwhdrrvktthcxwpzt)
+  Fecha: 2026-01-22
+================================================================================
+
+RESUMEN EJECUTIVO:
+------------------
+Total de registros en incidencias: 8,880
+Registros con ubicacion2 poblada: 0 (0.00%)
+Registros con ubicacion2 vacía: 8,880 (100.00%)
+
+⚠️ HALLAZGO CRÍTICO: La columna ubicacion2 está completamente vacía en TODOS
+los registros de la tabla incidencias durante todo el año 2025.
+
+================================================================================
+ANÁLISIS MENSUAL - REGISTROS CON UBICACION2
+================================================================================
+
+Mes         | Total Registros | Con Ubicacion2 | Sin Ubicacion2 | % Poblado
+------------|-----------------|----------------|----------------|----------
+2025-01     |      803        |       0        |      803       |  0.00%
+2025-02     |      600        |       0        |      600       |  0.00%
+2025-03     |      669        |       0        |      669       |  0.00%
+2025-04     |      790        |       0        |      790       |  0.00%
+2025-05     |      838        |       0        |      838       |  0.00%
+2025-06     |      844        |       0        |      844       |  0.00%
+2025-07     |      775        |       0        |      775       |  0.00%
+2025-08     |      814        |       0        |      814       |  0.00%
+2025-09     |      645        |       0        |      645       |  0.00%
+2025-10     |      598        |       0        |      598       |  0.00%
+2025-11     |      602        |       0        |      602       |  0.00%
+2025-12     |      902        |       0        |      902       |  0.00%
+------------|-----------------|----------------|----------------|----------
+TOTALES     |     8,880       |       0        |     8,880      |  0.00%
+
+================================================================================
+DISTRIBUCIÓN DE REGISTROS POR MES
+================================================================================
+
+Mes más activo:  Diciembre 2025 (902 registros)
+Mes menos activo: Octubre 2025 (598 registros)
+Promedio mensual: 740 registros
+
+================================================================================
+RECOMENDACIONES
+================================================================================
+
+1. VALIDAR ORIGEN DE DATOS: Verificar si los archivos SFTP originales incluyen
+   la columna ubicacion2 o si debe ser calculada/importada desde otra fuente.
+
+2. REVISAR PROCESO DE IMPORTACIÓN: Confirmar si el script de importación SFTP
+   está mapeando correctamente esta columna desde los archivos Excel/CSV.
+
+3. CONSIDERAR ELIMINACIÓN: Si la columna no se usa y no tiene datos, evaluar
+   eliminarla del schema para reducir complejidad.
+
+4. DOCUMENTAR: Si la columna es necesaria para el futuro, documentar el plan
+   de población de datos.
+
+================================================================================
+QUERY UTILIZADA:
+SELECT
+  TO_CHAR(fecha, 'YYYY-MM') as mes,
+  COUNT(*) as total_registros,
+  COUNT(ubicacion2) as con_ubicacion2,
+  COUNT(*) - COUNT(ubicacion2) as sin_ubicacion2,
+  ROUND(COUNT(ubicacion2)::numeric / COUNT(*)::numeric * 100, 2) as porcentaje_poblado
+FROM incidencias
+GROUP BY TO_CHAR(fecha, 'YYYY-MM')
+ORDER BY mes;
+================================================================================

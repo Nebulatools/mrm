@@ -36,7 +36,7 @@ import { IncidentsPermitsKPIs } from '@/components/incidents-permits-kpis';
 
 // ✅ CATEGORIZACIÓN DE INCIDENCIAS: 4 grupos
 const FALTAS_CODES = new Set(["FI", "SUSP"]);
-const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1"]);
+const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1", "ACCI", "INCA"]); // ✅ +ACCI, +INCA según especificación
 const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]);
 const VACACIONES_CODES = new Set(["VAC"]);
 
@@ -224,6 +224,10 @@ export function SummaryComparison({
   incidentsKPIsOverride
 }: SummaryComparisonProps) {
 
+  // ✅ FASE 3: Estado para vista activa (ubicacion, negocio, area, departamento)
+  const [vistaActiva, setVistaActiva] = useState<'ubicacion' | 'negocio' | 'area' | 'departamento'>('ubicacion');
+  const [showAllSeries, setShowAllSeries] = useState(false); // Para top 5 vs todas las series
+
   // ✅ FIX: Usar plantillaGeneral (sin filtros de año/mes) para cálculos de rotación
   // Esto permite que rolling 12M incluya bajas históricas (ej: bajas 2024 para enero 2025)
   const plantillaRotacion = plantillaGeneral && plantillaGeneral.length > 0
@@ -240,13 +244,30 @@ export function SummaryComparison({
     return differenceInCalendarDays(effectiveEnd, effectiveStart) + 1;
   }, []);
 
-  const ubicacionSeriesConfig = useMemo<UbicacionSeriesConfig[]>(() => {
+  // ✅ FASE 3: Función genérica para crear configuración de series según dimensión
+  const createSeriesConfig = useCallback((dimension: 'ubicacion' | 'negocio' | 'area' | 'departamento'): UbicacionSeriesConfig[] => {
     const entries = new Map<string, { label: string; empleadosRotacion: PlantillaRecord[]; empleadoIds: Set<number> }>();
+
+    // Función para extraer el valor de la dimensión de un empleado
+    const getDimensionValue = (emp: PlantillaRecord): string => {
+      switch (dimension) {
+        case 'ubicacion':
+          const cc = (emp as any).cc;
+          return normalizeCCToUbicacion(cc);
+        case 'negocio':
+          return (emp as any).empresa || 'SIN NEGOCIO';
+        case 'area':
+          return (emp as any).area || 'SIN ÁREA';
+        case 'departamento':
+          return (emp as any).departamento || 'SIN DEPTO';
+        default:
+          return 'SIN CLASIFICAR';
+      }
+    };
 
     const register = (emp: PlantillaRecord | undefined, includeInRotacion: boolean) => {
       if (!emp) return;
-      const cc = (emp as any).cc;
-      const rawLabel = normalizeCCToUbicacion(cc);
+      const rawLabel = getDimensionValue(emp);
       let entry = entries.get(rawLabel);
       if (!entry) {
         entry = { label: rawLabel, empleadosRotacion: [], empleadoIds: new Set<number>() };
@@ -265,19 +286,21 @@ export function SummaryComparison({
     (plantilla || []).forEach(emp => register(emp, false));
 
     if (entries.size === 0) {
-      entries.set('SIN UBICACIÓN', { label: 'SIN UBICACIÓN', empleadosRotacion: [], empleadoIds: new Set<number>() });
+      const fallbackLabel = dimension === 'ubicacion' ? 'SIN UBICACIÓN' : `SIN ${dimension.toUpperCase()}`;
+      entries.set(fallbackLabel, { label: fallbackLabel, empleadosRotacion: [], empleadoIds: new Set<number>() });
     }
 
     const configs: UbicacionSeriesConfig[] = Array.from(entries.values()).map((entry, index) => {
-      const keyBase = sanitizeSeriesKey(entry.label || `Ubicacion ${index + 1}`);
+      const keyBase = sanitizeSeriesKey(entry.label || `${dimension}_${index + 1}`);
       return {
-        label: entry.label || `Ubicacion ${index + 1}`,
-        key: keyBase || `ubicacion_${index}`,
+        label: entry.label || `${dimension}_${index + 1}`,
+        key: keyBase || `${dimension}_${index}`,
         empleadosRotacion: entry.empleadosRotacion,
         empleadoIds: entry.empleadoIds
       };
     });
 
+    // Asegurar keys únicas
     const seenKeys = new Set<string>();
     configs.forEach((config, index) => {
       let keyCandidate = config.key;
@@ -288,14 +311,38 @@ export function SummaryComparison({
       seenKeys.add(keyCandidate);
     });
 
-    // Filtrar 'OTROS' y 'SIN UBICACIÓN' para que solo aparezcan CAD, CORPORATIVO, FILIALES
-    const filteredConfigs = configs.filter(config =>
-      config.label !== 'OTROS' && config.label !== 'SIN UBICACIÓN'
-    );
+    // Para ubicación: filtrar 'OTROS' y 'SIN UBICACIÓN'
+    let filteredConfigs = configs;
+    if (dimension === 'ubicacion') {
+      filteredConfigs = configs.filter(config =>
+        config.label !== 'OTROS' && config.label !== 'SIN UBICACIÓN'
+      );
+    }
 
-    filteredConfigs.sort((a, b) => a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }));
+    // Ordenar por número de empleados (mayor a menor) para facilitar top 5
+    filteredConfigs.sort((a, b) => b.empleadosRotacion.length - a.empleadosRotacion.length);
+
     return filteredConfigs;
   }, [plantillaRotacion, plantilla]);
+
+  // ✅ FASE 3: Series config dinámica basada en la vista activa
+  const dynamicSeriesConfig = useMemo<UbicacionSeriesConfig[]>(() => {
+    const allConfigs = createSeriesConfig(vistaActiva);
+
+    // Para área/departamento: limitar a top 5 en vista normal, todas en fullscreen
+    const needsLimit = (vistaActiva === 'area' || vistaActiva === 'departamento') && !showAllSeries;
+    if (needsLimit && allConfigs.length > 5) {
+      return allConfigs.slice(0, 5);
+    }
+
+    return allConfigs;
+  }, [vistaActiva, showAllSeries, createSeriesConfig]);
+
+  // ✅ COMPATIBILIDAD: Mantener ubicacionSeriesConfig para código de tablas de sección
+  const ubicacionSeriesConfig = useMemo(() =>
+    createSeriesConfig('ubicacion'),
+    [createSeriesConfig]
+  );
 
   // Label renderers inteligentes - AHORA UNO POR CADA LÍNEA
   const [motivoFilterType, setMotivoFilterType] = useState<'all' | 'involuntaria' | 'voluntaria'>('voluntaria');
@@ -358,7 +405,7 @@ export function SummaryComparison({
         ytd: ReturnType<typeof calcularRotacionYTDConDesglose>;
       }> = {};
 
-      ubicacionSeriesConfig.forEach(({ key, empleadosRotacion }) => {
+      dynamicSeriesConfig.forEach(({ key, empleadosRotacion }) => {
         const plantillaNegocio = empleadosRotacion.length > 0 ? empleadosRotacion : [];
         const mensual = calcularRotacionConDesglose(plantillaNegocio, startDate, endDate);
         const rolling = calcularRotacionAcumulada12mConDesglose(plantillaNegocio, endDate);
@@ -376,17 +423,17 @@ export function SummaryComparison({
     }
 
     return points;
-  }, [ubicacionSeriesConfig, referenceDate]);
+  }, [dynamicSeriesConfig, referenceDate]);
 
   const empleadoUbicacionMap = useMemo(() => {
     const map = new Map<number, string>();
-    ubicacionSeriesConfig.forEach(({ key, empleadoIds }) => {
+    dynamicSeriesConfig.forEach(({ key, empleadoIds }) => {
       empleadoIds.forEach(id => {
         map.set(id, key);
       });
     });
     return map;
-  }, [ubicacionSeriesConfig]);
+  }, [dynamicSeriesConfig]);
 
   const incidenciasPermisosSeries = useMemo(() => {
     if (!incidencias || incidencias.length === 0) {
@@ -412,13 +459,13 @@ export function SummaryComparison({
       const endDate = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59, 999);
 
       const ubicacionesCounts: Record<string, { incidencias: number; permisos: number; incidenciasPct: number; permisosPct: number }> = {};
-      ubicacionSeriesConfig.forEach(({ key }) => {
+      dynamicSeriesConfig.forEach(({ key }) => {
         ubicacionesCounts[key] = { incidencias: 0, permisos: 0, incidenciasPct: 0, permisosPct: 0 };
       });
 
       // Count active employees per ubicacion for this month
       const activosPerUbicacion: Record<string, number> = {};
-      ubicacionSeriesConfig.forEach(({ key }) => {
+      dynamicSeriesConfig.forEach(({ key }) => {
         activosPerUbicacion[key] = 0;
       });
 
@@ -440,7 +487,7 @@ export function SummaryComparison({
       // Track unique employees with incidents/permisos per ubicacion
       const empleadosConIncidencias: Record<string, Set<number>> = {};
       const empleadosConPermisos: Record<string, Set<number>> = {};
-      ubicacionSeriesConfig.forEach(({ key }) => {
+      dynamicSeriesConfig.forEach(({ key }) => {
         empleadosConIncidencias[key] = new Set();
         empleadosConPermisos[key] = new Set();
       });
@@ -465,7 +512,7 @@ export function SummaryComparison({
       });
 
       // Calculate percentages: (unique employees with incidents / total active employees) * 100
-      ubicacionSeriesConfig.forEach(({ key }) => {
+      dynamicSeriesConfig.forEach(({ key }) => {
         const activos = activosPerUbicacion[key] || 1; // Avoid division by zero
         ubicacionesCounts[key].incidenciasPct = (empleadosConIncidencias[key].size / activos) * 100;
         ubicacionesCounts[key].permisosPct = (empleadosConPermisos[key].size / activos) * 100;
@@ -480,7 +527,7 @@ export function SummaryComparison({
     }
 
     return series;
-  }, [incidencias, plantilla, empleadoUbicacionMap, ubicacionSeriesConfig, referenceDate]);
+  }, [incidencias, plantilla, empleadoUbicacionMap, dynamicSeriesConfig, referenceDate]);
 
   // ✅ ACTUALIZADO: Calcular antigüedad en meses y categorizar según nuevas especificaciones
   const getAntiguedadMeses = (fechaIngreso: string): number => {
@@ -1029,7 +1076,7 @@ export function SummaryComparison({
     const monthlyChartData = monthlySeries.map(point => {
       const monthLabel = monthNamesFixed[point.month - 1];
       const row: Record<string, number | string> = { mes: monthLabel };
-      ubicacionSeriesConfig.forEach(({ key }) => {
+      dynamicSeriesConfig.forEach(({ key }) => {
         const value = getRotationValue(point.negocios[key]?.mensual);
         row[key] = Number(value.toFixed(2));
       });
@@ -1039,7 +1086,7 @@ export function SummaryComparison({
     // ✅ Rotación 12M Móviles: Eje X DINÁMICO (Feb 24, Mar 24... Ene 25)
     const rollingChartData = rotationSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.label };
-      ubicacionSeriesConfig.forEach(({ key }) => {
+      dynamicSeriesConfig.forEach(({ key }) => {
         const value = getRotationValue(point.negocios[key]?.rolling);
         row[key] = Number(value.toFixed(2));
       });
@@ -1055,7 +1102,7 @@ export function SummaryComparison({
     const ytdChartData = ytdSeries.map(point => {
       const monthLabel = monthNamesFixed[point.month - 1];
       const row: Record<string, number | string> = { mes: monthLabel };
-      ubicacionSeriesConfig.forEach(({ key }) => {
+      dynamicSeriesConfig.forEach(({ key }) => {
         const value = getRotationValue(point.negocios[key]?.ytd);
         row[key] = Number(value.toFixed(2));
       });
@@ -1063,7 +1110,7 @@ export function SummaryComparison({
     });
 
     const hasSeriesData = (data: Array<Record<string, any>>) =>
-      data.some(row => ubicacionSeriesConfig.some(({ key }) => (Number(row[key]) || 0) > 0));
+      data.some(row => dynamicSeriesConfig.some(({ key }) => (Number(row[key]) || 0) > 0));
 
     const hasMonthlyData = hasSeriesData(monthlyChartData);
     const hasRollingData = hasSeriesData(rollingChartData);
@@ -1071,7 +1118,7 @@ export function SummaryComparison({
 
     const incidenciasChartData = incidenciasPermisosSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.mes };
-      ubicacionSeriesConfig.forEach(({ key }) => {
+      dynamicSeriesConfig.forEach(({ key }) => {
         const value = point.negocios[key]?.incidenciasPct ?? 0;
         row[key] = Number(value.toFixed(2));
       });
@@ -1080,7 +1127,7 @@ export function SummaryComparison({
 
     const permisosChartData = incidenciasPermisosSeries.map(point => {
       const row: Record<string, number | string> = { mes: point.mes };
-      ubicacionSeriesConfig.forEach(({ key }) => {
+      dynamicSeriesConfig.forEach(({ key }) => {
         const value = point.negocios[key]?.permisosPct ?? 0;
         row[key] = Number(value.toFixed(2));
       });
@@ -1208,7 +1255,15 @@ export function SummaryComparison({
                       return label;
                     }}
                   />
-                  <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} layout="horizontal" />
+                  <Legend
+                    wrapperStyle={{ paddingTop: 8, fontSize: '10px' }}
+                    iconType="circle"
+                    iconSize={8}
+                    formatter={legendFormatter}
+                    layout="horizontal"
+                    align="center"
+                    verticalAlign="bottom"
+                  />
                   <Bar dataKey="0-3 meses" stackId="a" fill={TENURE_COLORS[0]} />
                   <Bar dataKey="3-6 meses" stackId="a" fill={TENURE_COLORS[1]} />
                   <Bar dataKey="6-12 meses" stackId="a" fill={TENURE_COLORS[2]} />
@@ -1332,7 +1387,7 @@ export function SummaryComparison({
                       wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {ubicacionSeriesConfig.map((config, index) => {
+                    {dynamicSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
                         <Line
@@ -1405,7 +1460,7 @@ export function SummaryComparison({
                       wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {ubicacionSeriesConfig.map((config, index) => {
+                    {dynamicSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
                         <Line
@@ -1478,7 +1533,7 @@ export function SummaryComparison({
                       wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {ubicacionSeriesConfig.map((config, index) => {
+                    {dynamicSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
                         <Line
@@ -1554,7 +1609,7 @@ export function SummaryComparison({
                       wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {ubicacionSeriesConfig.map((config, index) => {
+                    {dynamicSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
                         <Line
@@ -1627,7 +1682,7 @@ export function SummaryComparison({
                       wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                     />
                     <Legend wrapperStyle={LEGEND_WRAPPER_STYLE} iconType="circle" iconSize={10} formatter={legendFormatter} />
-                    {ubicacionSeriesConfig.map((config, index) => {
+                    {dynamicSeriesConfig.map((config, index) => {
                       const color = NEGOCIO_COLOR_PALETTE[index % NEGOCIO_COLOR_PALETTE.length];
                       return (
                         <Line
@@ -1740,7 +1795,7 @@ export function SummaryComparison({
         <h2 className={cn("text-2xl font-bold", refreshEnabled && "font-heading text-3xl text-brand-ink")}>📊 Resumen Comparativo</h2>
       </div>
 
-      <Tabs defaultValue="ubicacion" className="w-full">
+      <Tabs defaultValue="ubicacion" className="w-full" onValueChange={(value) => setVistaActiva(value as any)}>
         <TabsList
           className={cn(
             "grid w-full grid-cols-4",

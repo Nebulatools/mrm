@@ -282,12 +282,105 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: 'Filename is required for preview' }, { status: 400 });
         }
         console.log(`Preview requested for: ${filename}`);
-        const previewData = await sftpService.downloadFile(filename, 10); // Limit to 10 rows
+
+        // Parámetros de filtro opcionales
+        const filterMonth = searchParams.get('month'); // 1-12
+        const filterYear = searchParams.get('year');   // ej: 2025
+        const showAll = searchParams.get('showAll') === 'true';
+
+        // Descargar todos los datos para poder filtrar y contar
+        const allData = await sftpService.downloadFile(filename);
+
+        // Detectar columnas de fecha dinámicamente (buscar cualquier columna que contenga "fecha")
+        const allColumns = allData.length > 0 ? Object.keys(allData[0]) : [];
+        const dateColumns = allColumns.filter(col =>
+          col.toLowerCase().includes('fecha') ||
+          col.toLowerCase().includes('date') ||
+          col.toLowerCase() === 'semana_inicio' ||
+          col.toLowerCase() === 'semana_fin'
+        );
+
+        console.log(`Columnas detectadas para filtro de fecha: ${dateColumns.join(', ')}`);
+
+        let filteredData = allData;
+
+        if (filterMonth || filterYear) {
+          filteredData = allData.filter(row => {
+            // Buscar en cualquier columna de fecha detectada
+            for (const col of dateColumns) {
+              const dateValue = row[col];
+              if (dateValue && typeof dateValue === 'string') {
+                // Limpiar el valor
+                const cleanDate = dateValue.trim();
+
+                // Intentar varios formatos de fecha
+                const dateParts = cleanDate.split(/[-/]/);
+                if (dateParts.length >= 3) {
+                  let year: string, month: string;
+
+                  // Formato: YYYY-MM-DD o YYYY/MM/DD
+                  if (dateParts[0].length === 4) {
+                    year = dateParts[0];
+                    month = dateParts[1];
+                  }
+                  // Formato: DD/MM/YYYY o DD-MM-YYYY
+                  else if (dateParts[2].length === 4) {
+                    year = dateParts[2];
+                    month = dateParts[1];
+                  }
+                  // Formato: MM/DD/YYYY (menos común)
+                  else {
+                    year = dateParts[2].length === 2 ? '20' + dateParts[2] : dateParts[2];
+                    month = dateParts[0];
+                  }
+
+                  const matchYear = !filterYear || year === filterYear;
+                  const matchMonth = !filterMonth || parseInt(month) === parseInt(filterMonth);
+
+                  if (matchYear && matchMonth) return true;
+                }
+              }
+            }
+            return false;
+          });
+
+          console.log(`Filtro aplicado: año=${filterYear}, mes=${filterMonth}. Resultados: ${filteredData.length}/${allData.length}`);
+        }
+
+        // Obtener columnas (usar las originales si el filtro no devuelve resultados)
+        const columns = allColumns;
+        const columnStats: Record<string, { nonEmpty: number; sample: string }> = {};
+
+        columns.forEach(col => {
+          const nonEmptyCount = filteredData.filter(row => {
+            const val = row[col];
+            return val !== null && val !== undefined && val !== '';
+          }).length;
+
+          const sampleVal = filteredData.find(row => row[col] !== null && row[col] !== undefined && row[col] !== '');
+          columnStats[col] = {
+            nonEmpty: nonEmptyCount,
+            sample: sampleVal ? String(sampleVal[col]).slice(0, 50) : ''
+          };
+        });
+
+        // Limitar filas para la respuesta (pero ya tenemos las estadísticas completas)
+        const previewLimit = showAll ? filteredData.length : Math.min(100, filteredData.length);
+        const previewData = filteredData.slice(0, previewLimit);
+
         return NextResponse.json({
           data: previewData,
           isPreview: true,
           previewRows: previewData.length,
-          filename: filename
+          totalRows: filteredData.length,
+          totalUnfiltered: allData.length,
+          columns,
+          columnStats,
+          filename: filename,
+          appliedFilters: {
+            month: filterMonth,
+            year: filterYear
+          }
         });
 
       default:

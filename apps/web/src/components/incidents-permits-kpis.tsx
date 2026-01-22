@@ -2,16 +2,16 @@
 
 import { useMemo } from "react";
 import { KPICard } from "@/components/kpi-card";
-import { AlertCircle, Clipboard } from "lucide-react";
+import { AlertCircle, Heart } from "lucide-react";
 import { calculateVariancePercentage } from "@/lib/utils/kpi-helpers";
 import { normalizeIncidenciaCode } from "@/lib/normalizers";
 import { format } from "date-fns";
 
-// ✅ CATEGORIZACIÓN DE INCIDENCIAS (importado desde constants)
+// ✅ CATEGORIZACIÓN según especificación del usuario (Enero 2026):
+// - Faltas: FI (Falta Injustificada), SUSP (Suspensión)
+// - Salud: ENFE (Enfermedad), MAT1/MAT3 (Maternidad), ACCI (Accidente), INCA (Incapacidad)
 const FALTAS_CODES = new Set(["FI", "SUSP"]);
-const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1"]);
-const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]);
-const INCIDENT_CODES = new Set([...FALTAS_CODES, ...SALUD_CODES]);
+const SALUD_CODES = new Set(["ENFE", "MAT1", "MAT3", "ACCI", "INCA"]);
 
 interface IncidenciaRecord {
   emp: number;
@@ -45,103 +45,103 @@ export function IncidentsPermitsKPIs({
   showTotal = false
 }: IncidentsPermitsKPIsProps) {
 
-  // ✅ Calcular totales actuales
-  const { totalIncidencias, totalPermisos } = useMemo(() => {
-    let countIncidencias = 0;
-    let countPermisos = 0;
+  // ✅ Calcular totales actuales: Faltas + Salud (según nueva especificación)
+  const { totalFaltas, totalSalud } = useMemo(() => {
+    let countFaltas = 0;
+    let countSalud = 0;
 
     incidencias.forEach(inc => {
       const code = normalizeIncidenciaCode(inc.inci);
       if (!code) return;
 
-      if (INCIDENT_CODES.has(code)) {
-        countIncidencias++;
-      } else if (PERMISOS_CODES.has(code)) {
-        countPermisos++;
+      if (FALTAS_CODES.has(code)) {
+        countFaltas++;
+      } else if (SALUD_CODES.has(code)) {
+        countSalud++;
       }
     });
 
-    return { totalIncidencias: countIncidencias, totalPermisos: countPermisos };
+    return { totalFaltas: countFaltas, totalSalud: countSalud };
   }, [incidencias]);
 
-  // ✅ Calcular totales anteriores
-  const { totalIncidenciasAnterior, totalPermisosAnterior } = useMemo(() => {
-    let countIncidencias = 0;
-    let countPermisos = 0;
+  // ✅ Calcular totales anteriores: Faltas + Salud
+  const { totalFaltasAnterior, totalSaludAnterior } = useMemo(() => {
+    let countFaltas = 0;
+    let countSalud = 0;
 
     incidenciasAnterior.forEach(inc => {
       const code = normalizeIncidenciaCode(inc.inci);
       if (!code) return;
 
-      if (INCIDENT_CODES.has(code)) {
-        countIncidencias++;
-      } else if (PERMISOS_CODES.has(code)) {
-        countPermisos++;
+      if (FALTAS_CODES.has(code)) {
+        countFaltas++;
+      } else if (SALUD_CODES.has(code)) {
+        countSalud++;
       }
     });
 
-    return { totalIncidenciasAnterior: countIncidencias, totalPermisosAnterior: countPermisos };
+    return { totalFaltasAnterior: countFaltas, totalSaludAnterior: countSalud };
   }, [incidenciasAnterior]);
 
   // ✅ Calcular porcentajes
-  const incidenciasPct = diasLaborablesActual > 0 ? (totalIncidencias / diasLaborablesActual) * 100 : 0;
-  const incidenciasPctAnterior = diasLaborablesPrev > 0 ? (totalIncidenciasAnterior / diasLaborablesPrev) * 100 : 0;
-  const permisosPct = diasLaborablesActual > 0 ? (totalPermisos / diasLaborablesActual) * 100 : 0;
-  const permisosPctAnterior = diasLaborablesPrev > 0 ? (totalPermisosAnterior / diasLaborablesPrev) * 100 : 0;
+  const faltasPct = diasLaborablesActual > 0 ? (totalFaltas / diasLaborablesActual) * 100 : 0;
+  const faltasPctAnterior = diasLaborablesPrev > 0 ? (totalFaltasAnterior / diasLaborablesPrev) * 100 : 0;
+  const saludPct = diasLaborablesActual > 0 ? (totalSalud / diasLaborablesActual) * 100 : 0;
+  const saludPctAnterior = diasLaborablesPrev > 0 ? (totalSaludAnterior / diasLaborablesPrev) * 100 : 0;
 
   const toISODate = (date: Date) => format(date, 'yyyy-MM-dd');
 
   // ✅ Valores según el tipo de métrica
   const isPercent = metricType === 'percent';
-  const incidenciasValue = isPercent ? Number(incidenciasPct.toFixed(1)) : totalIncidencias;
-  const incidenciasAnteriorValue = isPercent ? Number(incidenciasPctAnterior.toFixed(1)) : totalIncidenciasAnterior;
-  const permisosValue = isPercent ? Number(permisosPct.toFixed(1)) : totalPermisos;
-  const permisosAnteriorValue = isPercent ? Number(permisosPctAnterior.toFixed(1)) : totalPermisosAnterior;
+  const faltasValue = isPercent ? Number(faltasPct.toFixed(1)) : totalFaltas;
+  const faltasAnteriorValue = isPercent ? Number(faltasPctAnterior.toFixed(1)) : totalFaltasAnterior;
+  const saludValue = isPercent ? Number(saludPct.toFixed(1)) : totalSalud;
+  const saludAnteriorValue = isPercent ? Number(saludPctAnterior.toFixed(1)) : totalSaludAnterior;
 
   return (
     <>
       <KPICard
         refreshEnabled={refreshEnabled}
         kpi={{
-          name: isPercent ? 'Incidencias (%)' : 'Incidencias (#)',
+          name: isPercent ? 'Faltas (%)' : 'Faltas (#)',
           category: isPercent ? 'retention' : 'incidents',
-          value: incidenciasValue,
-          previous_value: incidenciasAnteriorValue,
+          value: faltasValue,
+          previous_value: faltasAnteriorValue,
           variance_percentage: isPercent
-            ? calculateVariancePercentage(incidenciasPct, incidenciasPctAnterior)
-            : calculateVariancePercentage(totalIncidencias, totalIncidenciasAnterior),
+            ? calculateVariancePercentage(faltasPct, faltasPctAnterior)
+            : calculateVariancePercentage(totalFaltas, totalFaltasAnterior),
           period_start: toISODate(currentReferenceDate),
           period_end: toISODate(currentReferenceDate)
         }}
         icon={<AlertCircle className="h-6 w-6" />}
         secondaryLabel="vs mes anterior"
-        secondaryValue={incidenciasAnteriorValue}
+        secondaryValue={faltasAnteriorValue}
         secondaryIsPercent={isPercent}
         hidePreviousValue={true}
         secondaryRows={isPercent && showTotal ? [
-          { label: 'Total', value: totalIncidencias, showColon: true }
+          { label: 'Total', value: totalFaltas, showColon: true }
         ] : undefined}
       />
       <KPICard
         refreshEnabled={refreshEnabled}
         kpi={{
-          name: isPercent ? 'Permisos (%)' : 'Permisos (#)',
+          name: isPercent ? 'Salud (%)' : 'Salud (#)',
           category: isPercent ? 'retention' : 'headcount',
-          value: permisosValue,
-          previous_value: permisosAnteriorValue,
+          value: saludValue,
+          previous_value: saludAnteriorValue,
           variance_percentage: isPercent
-            ? calculateVariancePercentage(permisosPct, permisosPctAnterior)
-            : calculateVariancePercentage(totalPermisos, totalPermisosAnterior),
+            ? calculateVariancePercentage(saludPct, saludPctAnterior)
+            : calculateVariancePercentage(totalSalud, totalSaludAnterior),
           period_start: toISODate(currentReferenceDate),
           period_end: toISODate(currentReferenceDate)
         }}
-        icon={<Clipboard className="h-6 w-6" />}
+        icon={<Heart className="h-6 w-6" />}
         secondaryLabel="vs mes anterior"
-        secondaryValue={permisosAnteriorValue}
+        secondaryValue={saludAnteriorValue}
         secondaryIsPercent={isPercent}
         hidePreviousValue={true}
         secondaryRows={isPercent && showTotal ? [
-          { label: 'Total', value: totalPermisos, showColon: true }
+          { label: 'Total', value: totalSalud, showColon: true }
         ] : undefined}
       />
     </>

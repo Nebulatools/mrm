@@ -886,13 +886,15 @@ export class KPICalculator {
   }
 
   // Función para calcular bajas por motivo y mes desde plantilla pre-filtrada
-  // NOTA: Consulta motivos_baja y filtra por numero_empleado de la plantilla
+  // ✅ CORREGIDO (Fase 5): Usar empleados_sftp.fecha_baja como fuente principal
+  // y motivos_baja solo para obtener el motivo específico. Esto asegura consistencia
+  // con la tabla comparativa de rotación.
   async getBajasPorMotivoYMesFromPlantilla(plantilla: PlantillaRecord[], year: number, client?: any): Promise<any[]> {
     try {
       console.log(`🚦 Calculating bajas por motivo from filtered plantilla for year: ${year}`);
       const effectiveClient = client || supabase;
 
-      // Obtener numero_empleado de empleados con fecha_baja en el año
+      // ✅ SOURCE PRINCIPAL: empleados_sftp.fecha_baja (igual que tabla comparativa)
       const empleadosConBaja = plantilla.filter(emp => {
         if (!emp.fecha_baja) return false;
         const fechaBaja = new Date(emp.fecha_baja);
@@ -904,40 +906,42 @@ export class KPICalculator {
         return [];
       }
 
-      // Obtener los numero_empleado para filtrar
       const numerosEmpleado = empleadosConBaja.map(emp => emp.numero_empleado);
-      console.log(`📋 Found ${numerosEmpleado.length} employees with bajas in ${year}`);
+      console.log(`📋 Found ${numerosEmpleado.length} employees with bajas in ${year} (from empleados_sftp)`);
 
-      // Consultar motivos_baja de Supabase para estos empleados y año
+      // ✅ Consultar motivos_baja para LOOKUP de motivos (no como fuente de conteo)
       const { data: motivosBaja, error } = await effectiveClient
         .from('motivos_baja')
-        .select('*')
-        .gte('fecha_baja', `${year}-01-01`)
-        .lte('fecha_baja', `${year}-12-31`)
+        .select('numero_empleado, motivo, descripcion')
         .in('numero_empleado', numerosEmpleado);
 
       if (error) {
         console.error('Error fetching motivos_baja:', error);
-        return [];
       }
 
-      if (!motivosBaja || motivosBaja.length === 0) {
-        console.log('No motivos_baja data found for filtered employees in year:', year);
-        return [];
+      // Crear mapa de lookup: numero_empleado -> motivo
+      const motivosMap = new Map<number, string>();
+      if (motivosBaja && motivosBaja.length > 0) {
+        motivosBaja.forEach((baja: any) => {
+          const raw = baja.motivo || baja.descripcion || 'Otra razón';
+          motivosMap.set(baja.numero_empleado, prettyMotivo(raw));
+        });
       }
+      console.log(`📊 Found ${motivosMap.size} motivos_baja records for lookup`);
 
-      console.log(`📊 Found ${motivosBaja.length} motivos_baja records for filtered employees`);
-
-      // Agrupar por motivo y mes
+      // ✅ Agrupar bajas de empleados_sftp por motivo (de lookup) y mes
       const heatmapData: { [motivo: string]: { [mes: string]: number } } = {};
+      const meses = [
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+      ];
 
-      motivosBaja.forEach((baja: any) => {
-        const fechaBaja = new Date(baja.fecha_baja);
-        // SIEMPRE usar 'motivo' - es el campo específico (ej: "Rescisión por desempeño")
-        // 'descripcion' es genérico y agrupa varios motivos (ej: "Rescisión de contrato")
-        const raw = baja.motivo || baja.descripcion || 'Otra razón';
-        const motivo = prettyMotivo(raw);
+      empleadosConBaja.forEach(emp => {
+        const fechaBaja = new Date(emp.fecha_baja!);
         const mes = fechaBaja.getMonth(); // 0-11
+
+        // Obtener motivo del lookup, o "Otra razón" si no tiene registro en motivos_baja
+        const motivo = motivosMap.get(emp.numero_empleado) || 'Otra razón';
 
         // Inicializar motivo si no existe
         if (!heatmapData[motivo]) {
@@ -948,12 +952,6 @@ export class KPICalculator {
           };
         }
 
-        // Mapear número de mes a nombre
-        const meses = [
-          'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-          'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-        ];
-
         heatmapData[motivo][meses[mes]]++;
       });
 
@@ -963,7 +961,7 @@ export class KPICalculator {
         ...meses
       }));
 
-      console.log(`📊 Found ${result.length} unique motivos with data from filtered plantilla for ${year}`);
+      console.log(`📊 Found ${result.length} unique motivos, total bajas: ${empleadosConBaja.length} for ${year}`);
       return result;
 
     } catch (error) {

@@ -1,0 +1,121 @@
+================================================================================
+  REPORTE DE CENTROS DE COSTO (CC)
+  Tabla: empleados_sftp
+  Proyecto: mrm_simple (ufdlwhdrrvktthcxwpzt)
+  Fecha: 2026-01-22
+================================================================================
+
+RESUMEN EJECUTIVO:
+------------------
+Total de Centros de Costo: 25
+Total de Empleados: 1,051
+Promedio de empleados por CC: 42
+
+================================================================================
+LISTADO COMPLETO DE CENTROS DE COSTO
+================================================================================
+
+#  | Centro de Costo              | Total Empleados | % del Total
+---|------------------------------|-----------------|-------------
+1  | CAD                          |      693        |   65.94%
+2  | RH MRM                       |       41        |    3.90%
+3  | ADMIN MRM                    |       39        |    3.71%
+4  | VENTAS MRM                   |       32        |    3.05%
+5  | SMMTY                        |       30        |    2.85%
+6  | TIC MRM                      |       28        |    2.66%
+7  | MOTOSTAFF                    |       24        |    2.28%
+8  | MERCADOTECNIA MRM            |       24        |    2.28%
+9  | COMPRAS MRM                  |       22        |    2.09%
+10 | PLANEACION MRM               |       16        |    1.52%
+11 | SMMOV                        |       15        |    1.43%
+12 | G OPERACIONES MRM            |       12        |    1.14%
+13 | DF                           |       10        |    0.95%
+14 | SMRC                         |        9        |    0.86%
+15 | DIRECCION GRAL MRM           |        8        |    0.76%
+16 | TORREON MT                   |        8        |    0.76%
+17 | YAMAHA                       |        8        |    0.76%
+18 | DIRE TESORERIA               |        7        |    0.67%
+19 | SMSLP                        |        7        |    0.67%
+20 | TERRAPARK                    |        7        |    0.67%
+21 | CHIHUAHUA CANAL              |        5        |    0.48%
+22 | SMLEÓN                       |        3        |    0.29%
+23 | D EJECUTIVA MRM              |        1        |    0.10%
+24 | ENERGÍA S Y R                |        1        |    0.10%
+25 | SERVICIOS Y ASESORÍA EXTE    |        1        |    0.10%
+---|------------------------------|-----------------|-------------
+   | TOTAL                        |    1,051        |  100.00%
+
+================================================================================
+ANÁLISIS POR CATEGORÍA
+================================================================================
+
+CENTROS DE COSTO GRANDES (>50 empleados):
+------------------------------------------
+1. CAD - 693 empleados (65.94% de la empresa)
+
+CENTROS DE COSTO MEDIANOS (20-50 empleados):
+--------------------------------------------
+2. RH MRM - 41 empleados
+3. ADMIN MRM - 39 empleados
+4. VENTAS MRM - 32 empleados
+5. SMMTY - 30 empleados
+6. TIC MRM - 28 empleados
+7. MOTOSTAFF - 24 empleados
+8. MERCADOTECNIA MRM - 24 empleados
+9. COMPRAS MRM - 22 empleados
+
+CENTROS DE COSTO PEQUEÑOS (10-19 empleados):
+--------------------------------------------
+10. PLANEACION MRM - 16 empleados
+11. SMMOV - 15 empleados
+12. G OPERACIONES MRM - 12 empleados
+13. DF - 10 empleados
+
+CENTROS DE COSTO MUY PEQUEÑOS (<10 empleados):
+----------------------------------------------
+14-25. 12 centros con 1-9 empleados (47 empleados en total)
+
+================================================================================
+DISTRIBUCIÓN POR TIPO DE CENTRO
+================================================================================
+
+Operaciones (CAD, SMMTY, MOTOSTAFF, etc.):     779 empleados (74.12%)
+Administrativos (RH, ADMIN, TIC, etc.):        185 empleados (17.60%)
+Dirección (DIRECCION GRAL, G OPERACIONES):      20 empleados (1.90%)
+Comercial (VENTAS, MERCADOTECNIA):              56 empleados (5.33%)
+Otros:                                          11 empleados (1.05%)
+
+================================================================================
+OBSERVACIONES
+================================================================================
+
+1. CONCENTRACIÓN: El 66% de los empleados está en un solo centro de costo (CAD),
+   lo que sugiere una estructura altamente centralizada en operaciones.
+
+2. SUCURSALES: Se identifican sucursales por ciudad:
+   - Monterrey (SMMTY)
+   - San Luis Potosí (SMSLP)
+   - Movimiento (SMMOV)
+   - Ramos Arizpe (SMRC)
+   - León (SMLEÓN)
+
+3. ENCODINGS: Se detectaron problemas de encoding UTF-8 en algunos nombres:
+   - "ENERG?A S Y R" (debería ser "ENERGÍA S Y R")
+   - "SERVICIOS Y ASESOR?A EXTE" (debería ser "ASESORÍA")
+   - "SMLE?N" (debería ser "SMLEÓN")
+
+4. ABREVIACIONES: Se usan abreviaturas inconsistentes:
+   - MRM aparece en varios centros (parece ser la empresa matriz)
+   - SM* parece indicar sucursales/operaciones
+
+================================================================================
+QUERY UTILIZADA:
+SELECT DISTINCT
+  cc,
+  COUNT(DISTINCT numero_empleado) as total_empleados,
+  STRING_AGG(DISTINCT nombre_completo, ', ' ORDER BY nombre_completo) as nombres_ejemplo
+FROM empleados_sftp
+WHERE cc IS NOT NULL AND cc != ''
+GROUP BY cc
+ORDER BY cc;
+================================================================================

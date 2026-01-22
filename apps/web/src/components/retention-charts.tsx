@@ -853,10 +853,11 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     rotacionAnterior: rolling12MPreviousYearData.get(d.month) ?? null
   }));
 
-  // Calcular el año anterior para la leyenda del gráfico de 12M
-  const rolling12MYearAnterior = rolling12MChartData.length > 0
-    ? rolling12MChartData[0].year - 1
-    : currentDate.getFullYear() - 1;
+  // Calcular los años para la leyenda del gráfico de 12M
+  const rolling12MYearActual = rolling12MChartData.length > 0
+    ? rolling12MChartData[rolling12MChartData.length - 1].year
+    : currentDate.getFullYear();
+  const rolling12MYearAnterior = rolling12MYearActual - 1;
   
   return (
     <div className="space-y-6">
@@ -911,7 +912,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                     />
                     <Bar
                       dataKey="rotacionAcumulada"
-                      name={`${new Date().getFullYear()}`}
+                      name={`${rolling12MYearActual}`}
                       fill={getModernColor(0)}
                       radius={[4, 4, 0, 0]}
                       maxBarSize={18}
