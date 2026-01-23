@@ -89,7 +89,7 @@ export const calculateMonthlyRetention = async (
 ): Promise<MonthlyRetentionData> => {
   try {
     const rangeStart = startOfDay(startDate);
-    const rangeEnd = new Date(endDate.getTime());
+    const rangeEnd = startOfDay(endDate); // ✅ Normalizar rangeEnd también
 
     const plantillaFiltered = plantilla.filter(emp => {
       const fechaIngreso = (emp as any)._fecha_ingreso ?? parseSupabaseDate(emp.fecha_ingreso);
@@ -118,9 +118,23 @@ export const calculateMonthlyRetention = async (
       // Si bajaEventos está disponible (datos de motivos_baja), usarlo primero
       if (bajaEventos && bajaEventos.length > 0) {
         bajaEventos.forEach(evento => {
-          const fechaBajaParsed = parseSupabaseDate(evento.fecha_baja);
-          if (!fechaBajaParsed) return;
-          if (fechaBajaParsed < rangeStartInner || fechaBajaParsed > rangeEndInner) return;
+          // ✅ Usar el mismo método que getBajasPorMotivoYMesFromPlantilla (sin parseSupabaseDate)
+          const fechaBajaParsed = new Date(evento.fecha_baja);
+          if (isNaN(fechaBajaParsed.getTime())) return;
+
+          // Comparar año y mes directamente (sin zona horaria)
+          const fechaYear = fechaBajaParsed.getFullYear();
+          const fechaMonth = fechaBajaParsed.getMonth();
+          const rangeStartYear = rangeStartInner.getFullYear();
+          const rangeStartMonth = rangeStartInner.getMonth();
+          const rangeEndYear = rangeEndInner.getFullYear();
+          const rangeEndMonth = rangeEndInner.getMonth();
+
+          // Verificar si está en el rango (año + mes)
+          const afterStart = fechaYear > rangeStartYear || (fechaYear === rangeStartYear && fechaMonth >= rangeStartMonth);
+          const beforeEnd = fechaYear < rangeEndYear || (fechaYear === rangeEndYear && fechaMonth <= rangeEndMonth);
+
+          if (!afterStart || !beforeEnd) return;
 
           const numero = evento.numero_empleado;
           if (!Number.isFinite(numero)) return;
@@ -151,9 +165,26 @@ export const calculateMonthlyRetention = async (
       } else {
         // FALLBACK: Si no hay bajaEventos, usar empleados_sftp (comportamiento anterior)
         plantillaFiltered.forEach(emp => {
-          const fechaBajaParsed = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
-          if (!fechaBajaParsed) return;
-          if (fechaBajaParsed < rangeStartInner || fechaBajaParsed > rangeEndInner) return;
+          const fechaBajaRaw = (emp as any)._fecha_baja ?? emp.fecha_baja;
+          if (!fechaBajaRaw) return;
+
+          // ✅ Usar el mismo método que getBajasPorMotivoYMesFromPlantilla
+          const fechaBajaParsed = new Date(fechaBajaRaw);
+          if (isNaN(fechaBajaParsed.getTime())) return;
+
+          // Comparar año y mes directamente (sin zona horaria)
+          const fechaYear = fechaBajaParsed.getFullYear();
+          const fechaMonth = fechaBajaParsed.getMonth();
+          const rangeStartYear = rangeStartInner.getFullYear();
+          const rangeStartMonth = rangeStartInner.getMonth();
+          const rangeEndYear = rangeEndInner.getFullYear();
+          const rangeEndMonth = rangeEndInner.getMonth();
+
+          // Verificar si está en el rango (año + mes)
+          const afterStart = fechaYear > rangeStartYear || (fechaYear === rangeStartYear && fechaMonth >= rangeStartMonth);
+          const beforeEnd = fechaYear < rangeEndYear || (fechaYear === rangeEndYear && fechaMonth <= rangeEndMonth);
+
+          if (!afterStart || !beforeEnd) return;
 
           const numero = Number((emp as any).numero_empleado ?? emp.emp_id);
           if (!Number.isFinite(numero)) return;

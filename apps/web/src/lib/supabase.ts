@@ -104,6 +104,7 @@ export const db = {
   },
 
   // EMPLEADOS_SFTP operations (new main employee table)
+  // ✅ FASE 5: Usar motivos_baja como fuente de verdad para bajas
   async getEmpleadosSFTP(client = supabase) {
     console.log('🗄️ Fetching empleados_sftp data...');
     console.log('🔍 DEBUGGING: getEmpleadosSFTP called at', new Date().toISOString());
@@ -116,7 +117,27 @@ export const db = {
       tiene_sesion: !!session
     });
 
-    // Obtener empleados con TODOS los campos incluyendo clasificacion
+    // ✅ PASO 1: Cargar motivos_baja PRIMERO (fuente de verdad para bajas)
+    const { data: motivos, error: motivosError } = await client
+      .from('v_motivos_baja_unicos')
+      .select('*');
+
+    if (motivosError) {
+      console.error('❌ Error fetching v_motivos_baja_unicos:', motivosError);
+      throw motivosError;
+    }
+    console.log('✅ motivos_baja data loaded (FUENTE DE VERDAD):', motivos?.length, 'records');
+
+    // Crear un mapa de motivos por número de empleado
+    const motivosMap = new Map();
+    (motivos || []).forEach(motivo => {
+      if (!motivosMap.has(motivo.numero_empleado)) {
+        motivosMap.set(motivo.numero_empleado, []);
+      }
+      motivosMap.get(motivo.numero_empleado).push(motivo);
+    });
+
+    // ✅ PASO 2: Cargar empleados_sftp
     const pageSize = 1000;
     let from = 0;
     let hasMore = true;
@@ -145,64 +166,36 @@ export const db = {
       }
     }
 
-    // Obtener motivos de baja deduplicados desde la vista (sin fallback, flujo único y consistente)
-    const { data: motivos, error: motivosError } = await client
-      .from('v_motivos_baja_unicos')
-      .select('*');
-
-    if (motivosError) {
-      console.error('❌ Error fetching v_motivos_baja_unicos:', motivosError);
-      throw motivosError;
-    }
-    console.log('✅ motivos_baja data loaded desde vista v_motivos_baja_unicos:', motivos?.length, 'records');
-    
-    // Crear un mapa de motivos por número de empleado
-    const motivosMap = new Map();
-    (motivos || []).forEach(motivo => {
-      if (!motivosMap.has(motivo.numero_empleado)) {
-        motivosMap.set(motivo.numero_empleado, []);
-      }
-      motivosMap.get(motivo.numero_empleado).push(motivo);
-    });
-    
-    // Transform to PlantillaRecord format for compatibility
+    // ✅ PASO 3: Sincronizar automáticamente fecha_baja desde motivos_baja
+    // Transform to PlantillaRecord format usando motivos_baja como fuente de verdad
     const transformed = empleados.map(emp => {
       const motivosEmpleado = motivosMap.get(emp.numero_empleado) || [];
       // Ordenar por fecha_baja desc para tomar el último motivo real
       motivosEmpleado.sort((a: any, b: any) => new Date(b.fecha_baja).getTime() - new Date(a.fecha_baja).getTime());
       const ultimoMotivo = motivosEmpleado.length > 0 ? motivosEmpleado[0] : null;
-      
-      const activo = emp.activo === true || emp.activo === 'true' || emp.activo === 1;
-      const fechaBajaSupabase = emp.fecha_baja || null;
-      const motivoNormalizado = normalizeMotivo(emp.motivo_baja || ultimoMotivo?.descripcion || ultimoMotivo?.motivo || 'No especificado');
 
-      const fechaBajaFinal = fechaBajaSupabase
-        ? fechaBajaSupabase
-        : !activo
-          ? ultimoMotivo?.fecha_baja || null
-          : null;
+      // ✅ SINCRONIZACIÓN: Usar motivos_baja como fuente primaria
+      const fechaBajaMotivos = ultimoMotivo?.fecha_baja || null;
+      const motivoMotivos = ultimoMotivo ? normalizeMotivo(ultimoMotivo.descripcion || ultimoMotivo.motivo || 'No especificado') : null;
 
-      const motivoFinal = fechaBajaSupabase
-        ? motivoNormalizado
-        : !activo
-          ? normalizeMotivo(ultimoMotivo?.descripcion || ultimoMotivo?.motivo || 'No especificado')
-          : null;
+      // Validar activo basado en si tiene fecha_baja en motivos_baja
+      const activoFinal = fechaBajaMotivos === null;
 
       return {
         id: emp.id,
         emp_id: String(emp.numero_empleado),
-        numero_empleado: emp.numero_empleado, // Agregar campo numero_empleado
+        numero_empleado: emp.numero_empleado,
         nombre: emp.nombre_completo || `${emp.nombres || ''} ${emp.apellidos || ''}`.trim() || 'Sin Nombre',
         departamento: normalizeDepartamento(emp.departamento) || 'Sin Departamento',
-        activo,
+        activo: activoFinal, // ✅ Auto-calculado desde motivos_baja
         fecha_ingreso: emp.fecha_ingreso || emp.fecha_antiguedad || emp.fecha_creacion || new Date().toISOString(),
-        fecha_baja: fechaBajaFinal,
+        fecha_baja: fechaBajaMotivos, // ✅ FUENTE: motivos_baja
         puesto: emp.puesto || 'Sin Puesto',
-        motivo_baja: motivoFinal,
+        motivo_baja: motivoMotivos, // ✅ FUENTE: motivos_baja
         area: normalizeArea(emp.area) || 'Sin Área',
         clasificacion: emp.clasificacion || 'Sin Clasificación',
         ubicacion: (emp as any).ubicacion || null,
-        cc: emp.cc || null, // Centro de Costo
+        cc: emp.cc || null,
         empresa: (emp as any).empresa || null,
         genero: emp.genero || null,
         fecha_nacimiento: emp.fecha_nacimiento || null,
@@ -211,14 +204,19 @@ export const db = {
         updated_at: emp.fecha_actualizacion || new Date().toISOString()
       };
     });
-    
+
     console.log('✅ empleados_sftp data loaded:', transformed.length, 'records');
     console.log('✅ motivos_baja data loaded:', motivos?.length, 'records');
 
-    // DEBUG: Diagnóstico de bajas
-    console.log('🔍 MOTIVOS DEBUG:', {
-      totalMotivos: motivos?.length,
-      empleadosConBaja: transformed.filter(e => e.fecha_baja !== null).length,
+    // ✅ DIAGNÓSTICO: Verificar sincronización
+    const bajasMotivos = motivos?.length || 0;
+    const bajasTransformed = transformed.filter(e => e.fecha_baja !== null).length;
+
+    console.log('🔍 SINCRONIZACIÓN VERIFICADA:', {
+      totalMotivos: bajasMotivos,
+      empleadosConBaja: bajasTransformed,
+      coinciden: bajasMotivos === bajasTransformed ? '✅' : '❌',
+      diferencia: bajasMotivos - bajasTransformed,
       empleadosInactivos: transformed.filter(e => e.activo === false).length,
       primerosConBaja: transformed.filter(e => e.fecha_baja !== null).slice(0, 3).map(e => ({
         numero: e.numero_empleado,
@@ -237,13 +235,13 @@ export const db = {
       puesto: emp.puesto,
       clasificacion: emp.clasificacion
     })));
-    
+
     const puestosUnicos = Array.from(new Set(transformed.map(emp => emp.puesto).filter(p => p && p !== 'Sin Puesto')));
     const clasificacionesUnicas = Array.from(new Set(transformed.map(emp => emp.clasificacion).filter(c => c && c !== 'Sin Clasificación')));
-    
+
     console.log('🔍 Puestos únicos encontrados:', puestosUnicos);
     console.log('🔍 Clasificaciones únicas encontradas:', clasificacionesUnicas);
-    
+
     return transformed as PlantillaRecord[];
   },
 

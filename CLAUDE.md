@@ -118,7 +118,10 @@ The system implements HR-specific formulas with accurate calculations:
 
 **SFTP Tables Architecture:**
 - empleados_sftp: Master employee data (1,051 records) - 33 columnas completas
-- motivos_baja: Termination records (676 records) with dates and reasons
+- motivos_baja: **FUENTE DE VERDAD** para bajas - Termination records (676 records) with dates and reasons
+  - **ARQUITECTURA CRÍTICA**: `motivos_baja` es la fuente primaria para calcular bajas
+  - `getEmpleadosSFTP()` sincroniza automáticamente `fecha_baja` desde `motivos_baja` durante el load
+  - Garantiza coincidencia 100% con archivo SFTP original (236 bajas en 2025)
 - incidencias: Detailed incident records (8,880 records) with codes, timestamps, locations
 - prenomina_horizontal: Weekly payroll data (374 records) with hours breakdown per day
 
@@ -399,9 +402,25 @@ Los datos de asistencia ahora se obtienen de `incidencias` y `prenomina_horizont
 
 ---
 
-**Data Flow Actualizado:**
-- SFTP Files → `empleados_sftp`, `motivos_baja`, `incidencias`, `prenomina_horizontal`
-- KPI calculations usan estas 4 tablas directamente
+**Data Flow Actualizado (Enero 2026):**
+```
+SFTP Files → Base de Datos Supabase
+    ↓
+empleados_sftp (1,051 registros)
+motivos_baja (676 registros) ← FUENTE DE VERDAD para bajas
+incidencias (8,880 registros)
+prenomina_horizontal (374 registros)
+    ↓
+getEmpleadosSFTP() sincroniza automáticamente:
+  - Carga motivos_baja PRIMERO
+  - Sincroniza fecha_baja → PlantillaRecord[]
+  - Garantiza coincidencia 100% (236 bajas en 2025)
+    ↓
+KPI Calculator usa PlantillaRecord[] sincronizado
+    ↓
+Dashboard muestra datos correctos
+```
+
 - `sftp_file_versions` + `sftp_record_diffs` proveen auditoría granular
 
 ## SFTP Admin Workflow
