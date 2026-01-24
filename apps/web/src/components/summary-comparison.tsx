@@ -1231,9 +1231,9 @@ export function SummaryComparison({
                   <CartesianGrid strokeDasharray="4 8" stroke={gridColor} />
                   <XAxis
                     dataKey="nombre"
-                    angle={0}
-                    textAnchor="middle"
-                    height={40}
+                    angle={-45}
+                    textAnchor="end"
+                    height={70}
                     interval={0}
                     tick={{ fontSize: 11, fill: axisColor }}
                   />

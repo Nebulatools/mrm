@@ -23,6 +23,7 @@ import {
   type ImportSummary,
   type StructureChange,
 } from '@/lib/email-notifier';
+import { normalizeMotivo } from '@/lib/normalizers';
 
 const normalizeKey = (key: unknown): string =>
   typeof key === 'string'
@@ -381,8 +382,15 @@ export async function POST(request: NextRequest) {
       permisos: null as number | null,
       prenomina: null as number | null,
       errors: [] as string[],
-      // Detalle de archivos procesados
-      archivos: [] as { nombre: string; tipo: string; registros: number; detalles?: string }[]
+      // Detalle de archivos procesados con nuevos vs totales
+      archivos: [] as {
+        nombre: string;
+        tipo: string;
+        registros: number;
+        nuevos?: number;
+        totales?: number;
+        detalles?: string
+      }[]
     };
 
     // 2. Procesar archivo de empleados (Validacion Alta de empleados.xls)
@@ -439,31 +447,72 @@ export async function POST(request: NextRequest) {
           
           console.log(`🔄 Empleados transformados: ${empleadosTransformados.length}`);
           console.log('Sample empleado:', empleadosTransformados[0]);
-          
-          // Insertar en lotes de 50 usando upsert para no eliminar historial previo
+
+          // Contar cuántos empleados existen ANTES de importar
+          const { count: empleadosAntesCount } = await supabaseAdmin
+            .from('empleados_sftp')
+            .select('*', { count: 'exact', head: true });
+
+          const empleadosAntes = empleadosAntesCount || 0;
+
+          // Insertar en lotes de 50 preservando ubicacion2 si ya tiene valor válido
           const batchSize = 50;
           for (let i = 0; i < empleadosTransformados.length; i += batchSize) {
             const batch = empleadosTransformados.slice(i, i + batchSize);
-            
+
+            // Obtener ubicacion2 existente para este lote
+            const { data: existingEmpleados } = await supabaseAdmin
+              .from('empleados_sftp')
+              .select('numero_empleado, ubicacion2')
+              .in('numero_empleado', batch.map(e => e.numero_empleado));
+
+            const existingMap = new Map(
+              existingEmpleados?.map(e => [e.numero_empleado, e.ubicacion2]) || []
+            );
+
+            // Preservar ubicacion2 si ya tiene valor válido (no "Desconocido")
+            const batchToInsert = batch.map(empleado => {
+              const existingUbicacion2 = existingMap.get(empleado.numero_empleado);
+              if (existingUbicacion2 &&
+                  existingUbicacion2 !== 'Desconocido' &&
+                  existingUbicacion2.trim() !== '') {
+                // Preservar ubicacion2 existente, no sobreescribir
+                const { ubicacion2, ...empleadoSinUbicacion2 } = empleado;
+                return empleadoSinUbicacion2;
+              }
+              return empleado;
+            });
+
             const { error } = await supabaseAdmin
               .from('empleados_sftp')
-              .upsert(batch, { onConflict: 'numero_empleado' });
-              
+              .upsert(batchToInsert, { onConflict: 'numero_empleado' });
+
             if (error) {
               console.error(`Error insertando lote ${Math.floor(i / batchSize) + 1}:`, error);
               results.errors.push(`Error lote empleados ${Math.floor(i / batchSize) + 1}: ${error.message}`);
             } else {
-              console.log(`✅ Lote ${Math.floor(i / batchSize) + 1} insertado correctamente`);
+              const preservados = batch.length - batchToInsert.filter(e => 'ubicacion2' in e).length;
+              console.log(`✅ Lote ${Math.floor(i / batchSize) + 1} insertado correctamente (${preservados} ubicacion2 preservados)`);
             }
           }
-          
+
+          // Contar cuántos empleados hay DESPUÉS de importar
+          const { count: empleadosDespuesCount } = await supabaseAdmin
+            .from('empleados_sftp')
+            .select('*', { count: 'exact', head: true });
+
+          const empleadosDespues = empleadosDespuesCount || 0;
+          const nuevosEmpleados = empleadosDespues - empleadosAntes;
+
           results.empleados = empleadosTransformados.length;
 
-          // Agregar info del archivo procesado
+          // Agregar info del archivo procesado con desglose nuevos/totales DE SUPABASE
           results.archivos.push({
             nombre: empleadosFile.name,
             tipo: 'empleados',
-            registros: empleadosTransformados.length
+            registros: empleadosTransformados.length,
+            nuevos: nuevosEmpleados,
+            totales: empleadosDespues
           });
         }
 
@@ -485,78 +534,140 @@ export async function POST(request: NextRequest) {
         
         if (bajasData.length > 0) {
           // Mapear datos del SFTP a estructura de BD
-          const bajasTransformadas: MotivoBaja[] = bajasData.map((record: Record<string, unknown>) => {
-            const fechaBaja = parseDate(record['Fecha']) ?? '2024-01-01';
-            
-            return {
-              numero_empleado: parseInt(String(record['#'] || record['Numero'] || 1)),
-              fecha_baja: fechaBaja,
-              tipo: String(record['Tipo'] || 'Baja'),
-              motivo: String(record['Motivo'] || 'No especificado'),
-              descripcion: String(record['Descripción'] || record['Descripcion'] || ''),
-              observaciones: String(record['Observaciones'] || '')
-            };
-          });
+          const bajasTransformadas: MotivoBaja[] = bajasData
+            .map((record: Record<string, unknown>) => {
+              // ✅ FIX: Probar múltiples variaciones de columna para fecha
+              const fechaBaja = parseDate(
+                record['Fecha Baja'] ||
+                record['Fecha baja'] ||
+                record['FECHA BAJA'] ||
+                record['Fecha'] ||
+                record['fecha_baja']
+              );
+
+              // ✅ FIX: Probar múltiples variaciones de columna para número de empleado
+              const numeroEmpleado = parseInt(
+                String(
+                  record['#'] ||
+                  record['Numero'] ||
+                  record['No.'] ||
+                  record['numero_empleado'] ||
+                  record['Num'] ||
+                  ''
+                )
+              );
+
+              // ✅ VALIDACIÓN: Si datos críticos son inválidos, SKIP el registro (no usar fallback)
+              if (!fechaBaja || !Number.isFinite(numeroEmpleado) || numeroEmpleado <= 0) {
+                console.warn(`⚠️ Registro de baja inválido (skipping):`, {
+                  fecha: record['Fecha Baja'] || record['Fecha'],
+                  numero: record['#'] || record['Numero'],
+                  columnas_disponibles: Object.keys(record)
+                });
+                return null;
+              }
+
+              return {
+                numero_empleado: numeroEmpleado,
+                fecha_baja: fechaBaja,
+                tipo: String(record['Tipo'] || 'Baja'),
+                motivo: String(record['Motivo'] || 'No especificado'),
+                descripcion: String(record['Descripción'] || record['Descripcion'] || ''),
+                observaciones: String(record['Observaciones'] || '')
+              };
+            })
+            .filter((baja): baja is MotivoBaja => baja !== null); // Remover nulls
           
           console.log(`🔄 Bajas transformadas: ${bajasTransformadas.length}`);
           console.log('Sample baja:', bajasTransformadas[0]);
-          
+
+          // Verificar cuáles bajas ya existen (APPEND-ONLY: solo insertar nuevas)
           const uniqueEmployeeNumbers = Array.from(new Set(
             bajasTransformadas
               .map((baja) => baja.numero_empleado)
               .filter((num) => Number.isFinite(num))
           ));
 
-          let idsToDelete: number[] = [];
+          let nuevasBajas: MotivoBaja[] = [];
 
           if (uniqueEmployeeNumbers.length > 0) {
             const { data: existingRows, error: fetchExistingError } = await supabaseAdmin
               .from('motivos_baja')
-              .select('id, numero_empleado, fecha_baja, motivo')
+              .select('numero_empleado, fecha_baja, motivo')
               .in('numero_empleado', uniqueEmployeeNumbers);
 
             if (fetchExistingError) {
               console.error('Error obteniendo motivos existentes:', fetchExistingError);
+              nuevasBajas = bajasTransformadas; // Si hay error, insertar todas
             } else if (existingRows) {
-              const incomingKeys = new Set(
-                bajasTransformadas.map(
-                  (baja) => `${baja.numero_empleado}|${baja.fecha_baja}|${baja.motivo}`
+              console.log(`🔍 Bajas existentes encontradas: ${existingRows.length}`);
+
+              // Función para normalizar clave (extraer solo fecha YYYY-MM-DD, normalizar motivo)
+              const normalizeKey = (emp: number, fecha: string, motivo: string) => {
+                const fechaSolo = fecha.split('T')[0]; // Solo YYYY-MM-DD
+                const motivoNorm = normalizeMotivo(motivo || ''); // Usa normalización robusta para manejar encoding corrupto
+                return `${emp}|${fechaSolo}|${motivoNorm}`;
+              };
+
+              // Crear set de claves existentes NORMALIZADAS
+              const existingKeys = new Set(
+                existingRows.map(
+                  (row) => normalizeKey(row.numero_empleado, row.fecha_baja, row.motivo)
                 )
               );
 
-              idsToDelete = existingRows
-                .filter((row) => incomingKeys.has(`${row.numero_empleado}|${row.fecha_baja}|${row.motivo}`))
-                .map((row) => row.id as number)
-                .filter((id) => typeof id === 'number');
+              console.log(`🔑 Claves existentes (primeras 3):`, Array.from(existingKeys).slice(0, 3));
+
+              // Filtrar solo las bajas que NO existen
+              nuevasBajas = bajasTransformadas.filter((baja) => {
+                const key = normalizeKey(baja.numero_empleado, baja.fecha_baja, baja.motivo);
+                const exists = existingKeys.has(key);
+                if (exists) {
+                  console.log(`⏭️ Baja duplicada (skipping): ${key}`);
+                }
+                return !exists;
+              });
+
+              console.log(`📊 Bajas después de filtrado: ${nuevasBajas.length} nuevas de ${bajasTransformadas.length} totales`);
+            } else {
+              nuevasBajas = bajasTransformadas;
             }
-          }
-
-          if (idsToDelete.length > 0) {
-            console.log(`🧹 Eliminando ${idsToDelete.length} motivos_baja existentes que serán reemplazados`);
-            await supabaseAdmin
-              .from('motivos_baja')
-              .delete()
-              .in('id', idsToDelete);
-          }
-
-          const { error } = await supabaseAdmin
-            .from('motivos_baja')
-            .insert(bajasTransformadas);
-            
-          if (error) {
-            console.error('Error insertando bajas:', error);
-            results.errors.push(`Error bajas: ${error.message}`);
           } else {
-            console.log('✅ Bajas insertadas correctamente');
-            results.bajas = bajasTransformadas.length;
-
-            // Agregar info del archivo procesado
-            results.archivos.push({
-              nombre: bajasFile.name,
-              tipo: 'bajas',
-              registros: bajasTransformadas.length
-            });
+            nuevasBajas = bajasTransformadas;
           }
+
+          // INSERT solo las nuevas (preserva histórico)
+          if (nuevasBajas.length > 0) {
+            const { error } = await supabaseAdmin
+              .from('motivos_baja')
+              .insert(nuevasBajas);
+
+            if (error) {
+              console.error('Error insertando bajas:', error);
+              results.errors.push(`Error bajas: ${error.message}`);
+            } else {
+              const yaExistian = bajasTransformadas.length - nuevasBajas.length;
+              console.log(`✅ ${nuevasBajas.length} nuevas bajas insertadas (${yaExistian} ya existían - preservadas)`);
+              results.bajas = nuevasBajas.length;
+            }
+          } else {
+            console.log(`ℹ️ 0 nuevas bajas (todas ya existían en BD)`);
+            results.bajas = 0;
+          }
+
+          // Contar total en Supabase DESPUÉS de importar
+          const { count: totalBajasSupabase } = await supabaseAdmin
+            .from('motivos_baja')
+            .select('*', { count: 'exact', head: true });
+
+          // Agregar info del archivo procesado con desglose nuevos/totales DE SUPABASE
+          results.archivos.push({
+            nombre: bajasFile.name,
+            tipo: 'bajas',
+            registros: nuevasBajas.length,
+            nuevos: nuevasBajas.length,
+            totales: totalBajasSupabase || 0
+          });
         }
 
       } catch (error) {
@@ -584,26 +695,39 @@ export async function POST(request: NextRequest) {
             console.log(`🔄 Incidencias transformadas: ${incidenciasTransformadas.length}`);
             console.log('Sample incidencia:', incidenciasTransformadas[0]);
 
+            // APPEND-ONLY: Verificar cuáles incidencias ya existen
             const fechas = incidenciasTransformadas
               .map((inc) => new Date(inc.fecha))
               .filter((date) => !Number.isNaN(date.getTime()))
               .sort((a, b) => a.getTime() - b.getTime());
 
-            if (fechas.length > 0) {
-              const periodStart = fechas[0].toISOString().split('T')[0];
-              const periodEnd = fechas[fechas.length - 1].toISOString().split('T')[0];
-              console.log(`🧹 Eliminando incidencias existentes en rango ${periodStart} -> ${periodEnd}`);
+            const periodStart = fechas[0]?.toISOString().split('T')[0];
+            const periodEnd = fechas[fechas.length - 1]?.toISOString().split('T')[0];
+            console.log(`🔍 Verificando incidencias existentes en rango ${periodStart} -> ${periodEnd}`);
 
-              await supabaseAdmin
-                .from('incidencias')
-                .delete()
-                .gte('fecha', periodStart)
-                .lte('fecha', periodEnd);
-            }
+            // Obtener incidencias existentes en el rango
+            const { data: existingIncidencias } = await supabaseAdmin
+              .from('incidencias')
+              .select('emp, fecha, inci')
+              .gte('fecha', periodStart)
+              .lte('fecha', periodEnd);
 
+            // Crear set de claves existentes
+            const existingKeys = new Set(
+              existingIncidencias?.map((inc) => `${inc.emp}|${inc.fecha}|${inc.inci}`) || []
+            );
+
+            // Filtrar solo incidencias nuevas
+            const nuevasIncidencias = incidenciasTransformadas.filter((inc) =>
+              !existingKeys.has(`${inc.emp}|${inc.fecha}|${inc.inci}`)
+            );
+
+            console.log(`📊 ${nuevasIncidencias.length} nuevas incidencias (${incidenciasTransformadas.length - nuevasIncidencias.length} ya existían)`);
+
+            // INSERT solo las nuevas (en lotes)
             const batchSize = 200;
-            for (let i = 0; i < incidenciasTransformadas.length; i += batchSize) {
-              const batch = incidenciasTransformadas.slice(i, i + batchSize);
+            for (let i = 0; i < nuevasIncidencias.length; i += batchSize) {
+              const batch = nuevasIncidencias.slice(i, i + batchSize);
               const { error } = await supabaseAdmin
                 .from('incidencias')
                 .insert(batch);
@@ -616,20 +740,29 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            const totalIncidencias = incidenciasTransformadas.filter((inc) => inc.inci && INCIDENT_CODES.has(inc.inci)).length;
-            const totalPermisos = incidenciasTransformadas.filter((inc) => inc.inci && PERMISO_CODES.has(inc.inci)).length;
+            const totalIncidencias = nuevasIncidencias.filter((inc) => inc.inci && INCIDENT_CODES.has(inc.inci)).length;
+            const totalPermisos = nuevasIncidencias.filter((inc) => inc.inci && PERMISO_CODES.has(inc.inci)).length;
+            const totalIncidenciasArchivo = incidenciasTransformadas.filter((inc) => inc.inci && INCIDENT_CODES.has(inc.inci)).length;
+            const totalPermisosArchivo = incidenciasTransformadas.filter((inc) => inc.inci && PERMISO_CODES.has(inc.inci)).length;
 
-            console.log(`📈 Totales incidencias/permisos - Incidencias: ${totalIncidencias}, Permisos: ${totalPermisos}`);
+            console.log(`📈 Nuevas incidencias/permisos - Incidencias: ${totalIncidencias}, Permisos: ${totalPermisos}`);
 
             results.incidencias = totalIncidencias;
             results.permisos = totalPermisos;
 
-            // Agregar info del archivo procesado
+            // Contar total en Supabase DESPUÉS de importar
+            const { count: totalIncidenciasSupabase } = await supabaseAdmin
+              .from('incidencias')
+              .select('*', { count: 'exact', head: true });
+
+            // Agregar info del archivo procesado con desglose nuevos/totales DE SUPABASE
             results.archivos.push({
               nombre: incidenciasFile.name,
               tipo: 'incidencias',
               registros: incidenciasTransformadas.length,
-              detalles: `${totalIncidencias} incidencias + ${totalPermisos} permisos`
+              nuevos: nuevasIncidencias.length,
+              totales: totalIncidenciasSupabase || 0,
+              detalles: `${totalIncidencias} nuevas de ${totalIncidenciasArchivo} incidencias + ${totalPermisos} nuevos de ${totalPermisosArchivo} permisos`
             });
           }
         }
@@ -659,21 +792,32 @@ export async function POST(request: NextRequest) {
             console.log(`🔄 Registros de prenomina transformados: ${prenominaTransformadas.length}`);
             console.log('Sample prenomina:', prenominaTransformadas[0]);
 
-            // Determinar semana para eliminar registros existentes
+            // APPEND-ONLY: Determinar semanas para verificar duplicados
             const semanasUnicas = [...new Set(prenominaTransformadas.map(p => p.semana_inicio))];
-            console.log(`🧹 Eliminando registros de prenomina para semanas: ${semanasUnicas.join(', ')}`);
+            console.log(`🔍 Verificando prenominas existentes para semanas: ${semanasUnicas.join(', ')}`);
 
-            for (const semana of semanasUnicas) {
-              await supabaseAdmin
-                .from('prenomina_horizontal')
-                .delete()
-                .eq('semana_inicio', semana);
-            }
+            // Obtener prenominas existentes para estas semanas
+            const { data: existingPrenominas } = await supabaseAdmin
+              .from('prenomina_horizontal')
+              .select('numero_empleado, semana_inicio')
+              .in('semana_inicio', semanasUnicas);
 
-            // Insertar en lotes
+            // Crear set de claves existentes
+            const existingKeys = new Set(
+              existingPrenominas?.map((p) => `${p.numero_empleado}|${p.semana_inicio}`) || []
+            );
+
+            // Filtrar solo prenominas nuevas
+            const nuevasPrenominas = prenominaTransformadas.filter((p) =>
+              !existingKeys.has(`${p.numero_empleado}|${p.semana_inicio}`)
+            );
+
+            console.log(`📊 ${nuevasPrenominas.length} nuevas prenominas (${prenominaTransformadas.length - nuevasPrenominas.length} ya existían)`);
+
+            // INSERT solo las nuevas (en lotes)
             const batchSize = 100;
-            for (let i = 0; i < prenominaTransformadas.length; i += batchSize) {
-              const batch = prenominaTransformadas.slice(i, i + batchSize);
+            for (let i = 0; i < nuevasPrenominas.length; i += batchSize) {
+              const batch = nuevasPrenominas.slice(i, i + batchSize);
               const { error } = await supabaseAdmin
                 .from('prenomina_horizontal')
                 .insert(batch);
@@ -686,14 +830,21 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            results.prenomina = prenominaTransformadas.length;
+            results.prenomina = nuevasPrenominas.length;
 
-            // Agregar info del archivo procesado
+            // Contar total en Supabase DESPUÉS de importar
+            const { count: totalPrenominaSupabase } = await supabaseAdmin
+              .from('prenomina_horizontal')
+              .select('*', { count: 'exact', head: true });
+
+            // Agregar info del archivo procesado con desglose nuevos/totales DE SUPABASE
             results.archivos.push({
               nombre: prenominaFile.name,
               tipo: 'prenomina',
               registros: prenominaTransformadas.length,
-              detalles: `Semana ${semanasUnicas[0] || 'N/A'}`
+              nuevos: nuevasPrenominas.length,
+              totales: totalPrenominaSupabase || 0,
+              detalles: `Semana ${semanasUnicas[0] || 'N/A'} - ${nuevasPrenominas.length} nuevos de ${prenominaTransformadas.length} en archivo`
             });
           }
         }

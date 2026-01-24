@@ -29,6 +29,8 @@ interface ArchivoProcesado {
   nombre: string;
   tipo: string;
   registros: number;
+  nuevos?: number;
+  totales?: number;
   detalles?: string;
 }
 
@@ -1042,21 +1044,33 @@ export function SFTPImportAdmin() {
             {importResults.archivos && importResults.archivos.length > 0 ? (
               <div className="space-y-2 mb-4">
                 {importResults.archivos.map((archivo, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+                  <div key={index} className="p-4 bg-slate-50 rounded-lg border space-y-3">
                     <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-slate-600" />
+                      <FileText className="h-5 w-5 text-slate-600 flex-shrink-0" />
                       <span className="font-mono text-sm font-medium">{archivo.nombre}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant="secondary" className="text-sm font-bold">
-                        {archivo.registros.toLocaleString()} registros
-                      </Badge>
-                      {archivo.detalles && (
-                        <span className="text-sm text-muted-foreground">
-                          ({archivo.detalles})
-                        </span>
+                    <div className="flex items-center gap-3 ml-8">
+                      {archivo.nuevos !== undefined && archivo.totales !== undefined ? (
+                        <>
+                          <Badge variant="default" className="text-sm font-bold bg-green-600 px-3 py-1">
+                            {archivo.nuevos.toLocaleString()} nuevos
+                          </Badge>
+                          <span className="text-sm text-muted-foreground font-medium">de</span>
+                          <Badge variant="secondary" className="text-sm font-bold px-3 py-1">
+                            {archivo.totales.toLocaleString()} totales
+                          </Badge>
+                        </>
+                      ) : (
+                        <Badge variant="secondary" className="text-sm font-bold px-3 py-1">
+                          {archivo.registros.toLocaleString()} registros
+                        </Badge>
                       )}
                     </div>
+                    {archivo.detalles && (
+                      <div className="ml-8 text-sm text-muted-foreground bg-slate-100 rounded px-3 py-2 border border-slate-200">
+                        {archivo.detalles}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

@@ -658,3 +658,59 @@ npm run type-check # TypeScript check (apps/web)
 **Funciones de normalizers.ts:**
 - `normalizeMotivo(raw)`: Limpia encoding UTF-8 corrupto y mapea a nombres legibles
 - `isMotivoClave(raw)`: Retorna `true` para motivos involuntarios (rescisión/término)
+
+---
+
+## Historial de Cambios y Mejoras
+
+### Enero 2026 - Integración de columna `ubicacion2` en empleados_sftp
+
+**Contexto:**
+La tabla `empleados_sftp` no tenía la columna `ubicacion2` que existe en el archivo SFTP "Validacion Alta de empleados.xls". Esta columna proporciona información adicional de ubicación organizacional (CAD, CORPORATIVO, FILIALES) complementaria a la columna `ubicacion` existente.
+
+**Problema Inicial:**
+- Archivo SFTP contenía columna "Ubicacion2" con valores mayormente "Desconocido" (63.92%)
+- Archivo local de mejor calidad (`Validacion Alta de empleados (42).xlsb`) tenía datos limpios sin "Desconocido"
+- La tabla Supabase no tenía la columna
+
+**Solución Implementada:**
+
+1. **Migración de Base de Datos** (`add_ubicacion2_to_empleados_sftp`)
+   - Agregada columna `ubicacion2 VARCHAR` a tabla `empleados_sftp`
+   - Permite valores NULL para compatibilidad
+
+2. **Actualización del Código de Importación**
+   - Archivo: `apps/web/src/app/api/import-sftp-real-data/route.ts`
+   - Interfaz `EmpleadoSFTP` actualizada con campo `ubicacion2?: string`
+   - Captura mediante `pickField()` con múltiples variaciones de encoding
+   - Línea 430: `ubicacion2: pickField(record, ['Ubicacion2', 'Ubicación2', 'Ubicacion 2'], 'ubicacion2')`
+
+3. **Actualización Masiva desde Archivo Local**
+   - Script: `apps/web/update-ubicacion2-from-local.mjs`
+   - Leyó 1,031 empleados del archivo local de mejor calidad
+   - Ejecutó UPDATE por `numero_empleado` (clave única)
+   - Resultado: 100% tasa de éxito, 0 errores
+
+**Resultado Final:**
+
+| Valor | Cantidad | Porcentaje | Mejora |
+|-------|----------|------------|--------|
+| CAD | 740 | 70.08% | ✅ De 209 a 740 (+531) |
+| CORPORATIVO | 222 | 21.02% | ✅ De 135 a 222 (+87) |
+| FILIALES | 94 | 8.90% | ✅ De 37 a 94 (+57) |
+| Desconocido | 0 | 0% | ✅ De 675 a 0 (-675) |
+
+**Casos Verificados:**
+- Empleado #3 (CAD): "Desconocido" → "CAD" ✅
+- Empleado #4 (DIRECCION GRAL MRM): "Desconocido" → "CORPORATIVO" ✅
+- Empleado #921 (SERVICIOS Y ASESORÍA EXTE): "CORPORATIVO" → "CORPORATIVO" ✅ (mantenido)
+
+**Impacto:**
+- 675 empleados con datos corregidos (65% de la base de datos)
+- 100% de cobertura con datos de calidad
+- Lista para análisis y reportes organizacionales por ubicación
+
+**Archivos Modificados:**
+- `apps/web/src/app/api/import-sftp-real-data/route.ts` - Captura de ubicacion2
+- Migración Supabase: `add_ubicacion2_to_empleados_sftp`
+- Script de actualización: `apps/web/update-ubicacion2-from-local.mjs` (one-time use)
