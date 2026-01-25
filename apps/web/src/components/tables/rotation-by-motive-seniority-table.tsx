@@ -20,6 +20,7 @@ import { differenceInMonths } from "date-fns";
 interface RotationByMotiveSeniorityTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
+  selectedYears?: number[];
   refreshEnabled?: boolean;
 }
 
@@ -43,19 +44,34 @@ const SENIORITY_BUCKETS = [
 export function RotationByMotiveSeniorityTable({
   plantilla,
   motivosBaja,
+  selectedYears,
   refreshEnabled = false,
 }: RotationByMotiveSeniorityTableProps) {
 
   const { data, grandTotal } = useMemo(() => {
-    // This table shows all-time data (no year filter) - seniority patterns are historical
-    // Create lookup map: numero_empleado -> motivo from motivos_baja table
+    // Filter motivosBaja by selected years
+    const motivosFiltered = selectedYears && selectedYears.length > 0
+      ? motivosBaja.filter(baja => {
+          const year = new Date(baja.fecha_baja).getFullYear();
+          return selectedYears.includes(year);
+        })
+      : motivosBaja;
+
+    // Create lookup map: numero_empleado -> motivo from filtered motivos_baja
     const motivosMap = new Map<number, string>();
-    motivosBaja.forEach(baja => {
+    motivosFiltered.forEach(baja => {
       motivosMap.set(baja.numero_empleado, baja.motivo);
     });
 
-    // SOURCE: empleados_sftp (plantilla) - filter only employees with fecha_baja
-    const bajasAll = plantilla.filter(emp => emp.fecha_baja && emp.fecha_ingreso);
+    // SOURCE: empleados_sftp (plantilla) - filter by fecha_baja and selected years
+    const bajasAll = plantilla.filter(emp => {
+      if (!emp.fecha_baja || !emp.fecha_ingreso) return false;
+      if (selectedYears && selectedYears.length > 0) {
+        const year = new Date(emp.fecha_baja).getFullYear();
+        return selectedYears.includes(year);
+      }
+      return true;
+    });
 
     // Group bajas by motivo and seniority at termination
     const motivoSeniorityMap = new Map<string, Record<string, number>>();
@@ -103,7 +119,7 @@ export function RotationByMotiveSeniorityTable({
     const grandTotal = bajasAll.length;
 
     return { data, grandTotal };
-  }, [plantilla, motivosBaja]);
+  }, [plantilla, motivosBaja, selectedYears]);
 
   // Calculate column totals
   const columnTotals = useMemo(() => {

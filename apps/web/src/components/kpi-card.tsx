@@ -23,6 +23,7 @@ interface KPICardProps {
   secondaryIsPercent?: boolean;
   secondaryRows?: KPISecondaryRow[];
   hidePreviousValue?: boolean;
+  hideMainValue?: boolean;
 }
 
 export function KPICard({
@@ -34,6 +35,7 @@ export function KPICard({
   secondaryIsPercent,
   secondaryRows,
   hidePreviousValue = false,
+  hideMainValue = false,
 }: KPICardProps) {
   const formatValue = (value: number | undefined | null, category: string): string => {
     // ✅ Protección contra valores undefined/null

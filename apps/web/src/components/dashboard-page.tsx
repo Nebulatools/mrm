@@ -912,7 +912,7 @@ export function DashboardPage() {
       icon: <UserMinus className="h-6 w-6" />,
       kpi: {
         name: 'Bajas (Mes)',
-        category: 'retention',
+        category: 'headcount',
         value: bajasTotalesMes,
         previous_value: bajasTotalesMesAnterior,
         variance_percentage: calculateVariancePercentage(bajasTotalesMes, bajasTotalesMesAnterior),
@@ -1855,6 +1855,7 @@ export function DashboardPage() {
               <RotationByMotiveSeniorityTable
                 plantilla={data.plantilla || []}
                 motivosBaja={bajasData}
+                selectedYears={retentionFilters.years}
                 refreshEnabled={refreshEnabled}
               />
               <RotationByMotiveMonthTable
