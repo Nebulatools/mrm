@@ -6,6 +6,7 @@ import type { KPIResult } from '@/lib/kpi-calculator';
  */
 export const mockPlantilla: PlantillaRecord[] = [
   {
+    id: 1,
     emp_id: '1',
     numero_empleado: 1001,
     nombre: 'Juan Pérez García',
@@ -23,6 +24,7 @@ export const mockPlantilla: PlantillaRecord[] = [
     updated_at: '2024-01-01T00:00:00Z',
   },
   {
+    id: 2,
     emp_id: '2',
     numero_empleado: 1002,
     nombre: 'María García López',
@@ -40,6 +42,7 @@ export const mockPlantilla: PlantillaRecord[] = [
     updated_at: '2024-01-01T00:00:00Z',
   },
   {
+    id: 3,
     emp_id: '3',
     numero_empleado: 1003,
     nombre: 'Pedro López Martínez',
@@ -57,6 +60,7 @@ export const mockPlantilla: PlantillaRecord[] = [
     updated_at: '2023-12-31T00:00:00Z',
   },
   {
+    id: 4,
     emp_id: '4',
     numero_empleado: 1004,
     nombre: 'Ana Rodríguez Sánchez',
@@ -74,6 +78,7 @@ export const mockPlantilla: PlantillaRecord[] = [
     updated_at: '2024-01-01T00:00:00Z',
   },
   {
+    id: 5,
     emp_id: '5',
     numero_empleado: 1005,
     nombre: 'Carlos Hernández Ruiz',
@@ -123,7 +128,8 @@ export const mockAsistenciaDiaria: AsistenciaDiariaRecord[] = [
   {
     id: 1,
     numero_empleado: 1001,
-    fecha: new Date('2024-01-15'),
+    fecha: '2024-01-15',
+    dia_semana: 'Lunes',
     horas_trabajadas: 8.0,
     horas_incidencia: 0.0,
     presente: true,
@@ -132,7 +138,8 @@ export const mockAsistenciaDiaria: AsistenciaDiariaRecord[] = [
   {
     id: 2,
     numero_empleado: 1002,
-    fecha: new Date('2024-01-15'),
+    fecha: '2024-01-15',
+    dia_semana: 'Lunes',
     horas_trabajadas: 6.0,
     horas_incidencia: 2.0,
     presente: true,
@@ -141,7 +148,8 @@ export const mockAsistenciaDiaria: AsistenciaDiariaRecord[] = [
   {
     id: 3,
     numero_empleado: 1004,
-    fecha: new Date('2024-01-15'),
+    fecha: '2024-01-15',
+    dia_semana: 'Lunes',
     horas_trabajadas: 0.0,
     horas_incidencia: 8.0,
     presente: false,
@@ -252,6 +260,7 @@ export function createMockEmpleado(
   overrides: Partial<PlantillaRecord> = {}
 ): PlantillaRecord {
   return {
+    id: 999,
     emp_id: '999',
     numero_empleado: 9999,
     nombre: 'Test Employee',
@@ -278,7 +287,8 @@ export function createMockAsistencia(
   return {
     id: 999,
     numero_empleado: 9999,
-    fecha: new Date('2024-01-01'),
+    fecha: '2024-01-01',
+    dia_semana: 'Lunes',
     horas_trabajadas: 8.0,
     horas_incidencia: 0.0,
     presente: true,

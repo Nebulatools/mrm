@@ -650,9 +650,9 @@ export class KPICalculator {
 
     try {
       // Fetch data from Supabase - SOLO empleados_sftp tiene TODO lo que necesitamos
-      const [empleados, asistencia] = await Promise.all([
+      const [empleados, incidencias] = await Promise.all([
         db.getEmpleadosSFTP(effectiveClient),
-        db.getAsistenciaDiaria(format(previousStartDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd'), effectiveClient)
+        db.getIncidenciasCSV(format(previousStartDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd'), effectiveClient)
       ]);
 
       // Normalizar plantilla garantizando campos obligatorios
@@ -688,32 +688,27 @@ export class KPICalculator {
         };
       });
 
-      // Filter asistencia for current period
-      const currentAsistencia = asistencia.filter(a =>
-        isWithinInterval(new Date(a.fecha), { start: startDate, end: endDate })
+      // Filter incidencias for current period
+      const currentIncidencias = incidencias.filter(i =>
+        isWithinInterval(new Date(i.fecha), { start: startDate, end: endDate })
       );
-      
-      // Get incidencias (records with horas_incidencia > 0)
-      const currentIncidencias = currentAsistencia.filter(a => (a.horas_incidencia || 0) > 0);
 
-      // Filter asistencia for previous period
-      const previousAsistencia = asistencia.filter(a =>
-        isWithinInterval(new Date(a.fecha), { start: previousStartDate, end: previousEndDate })
+      // Filter incidencias for previous period
+      const previousIncidencias = incidencias.filter(i =>
+        isWithinInterval(new Date(i.fecha), { start: previousStartDate, end: previousEndDate })
       );
-      
-      // Get previous incidencias
-      const previousIncidencias = previousAsistencia.filter(a => (a.horas_incidencia || 0) > 0);
 
-      console.log(`📊 Database data loaded: ${plantillaWithDates.length} employees, ${currentIncidencias.length} current incidents, ${currentAsistencia.length} current attendance records`);
+      console.log(`📊 Database data loaded: ${plantillaWithDates.length} employees, ${currentIncidencias.length} current incidents`);
 
-      // Use the same calculation logic with asistencia data
+      // Use the same calculation logic with incidencias data
+      // Note: Since asistencia_diaria was removed, we pass incidencias for both parameters
       return this.calculateKPIsFromData(
         plantillaWithDates,
-        currentIncidencias,
-        currentAsistencia,
+        currentIncidencias as any, // Cast needed for legacy signature compatibility
+        currentIncidencias as any,
         plantillaWithDates, // Same plantilla for previous period
-        previousIncidencias,
-        previousAsistencia,
+        previousIncidencias as any,
+        previousIncidencias as any,
         startDate,
         endDate
       );

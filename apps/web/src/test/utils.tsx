@@ -1,5 +1,6 @@
 import { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
+import { expect } from 'vitest';
 import { ThemeProvider } from '@/components/theme-provider';
 
 /**
@@ -7,7 +8,7 @@ import { ThemeProvider } from '@/components/theme-provider';
  */
 function AllTheProviders({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+    <ThemeProvider defaultTheme="light" storageKey="ui-theme">
       {children}
     </ThemeProvider>
   );
@@ -55,8 +56,8 @@ export async function waitForLoadingToFinish() {
  * Helper para verificar accesibilidad
  */
 export async function checkAccessibility(container: HTMLElement) {
-  const { axe } = await import('axe-core');
-  const results = await axe(container);
+  const axe = (await import('axe-core')).default;
+  const results = await axe.run(container);
   return results;
 }
 

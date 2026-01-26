@@ -46,19 +46,19 @@ describe('Abandonos-Otros Summary - Tab 3: Rotación', () => {
   });
 
   it('T3.11.4: Renderiza componente', () => {
-    renderWithProviders(<AbandonosOtrosSummary plantilla={mockPlantilla} />);
+    renderWithProviders(<AbandonosOtrosSummary referenceDate={new Date('2024-01-31')} />);
     expect(document.body).toBeInTheDocument();
   });
 
-  it('T3.11.5: Acepta año específico', () => {
+  it('T3.11.5: Acepta fecha específica', () => {
     renderWithProviders(
-      <AbandonosOtrosSummary plantilla={mockPlantilla} year={2024} />
+      <AbandonosOtrosSummary referenceDate={new Date('2024-12-31')} />
     );
     expect(document.body).toBeInTheDocument();
   });
 
-  it('T3.11.6: Maneja plantilla vacía', () => {
-    renderWithProviders(<AbandonosOtrosSummary plantilla={[]} />);
+  it('T3.11.6: Maneja diferentes meses', () => {
+    renderWithProviders(<AbandonosOtrosSummary referenceDate={new Date('2024-06-30')} />);
     expect(document.body).toBeInTheDocument();
   });
 });

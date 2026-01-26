@@ -17,6 +17,7 @@ import {
   calcularRotacionYTDConDesglose,
   validatePlantilla,
 } from '../kpi-helpers';
+import { isMotivoClave } from '@/lib/normalizers';
 import { createMockEmpleado } from '@/test/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
 

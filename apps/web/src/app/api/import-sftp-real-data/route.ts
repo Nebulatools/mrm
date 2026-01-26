@@ -95,8 +95,8 @@ interface MotivoBaja {
   fecha_baja: string;
   tipo: string;
   motivo: string;
-  descripcion?: string;
-  observaciones?: string;
+  descripcion: string;
+  observaciones: string;
 }
 
 interface IncidenciaSFTP {

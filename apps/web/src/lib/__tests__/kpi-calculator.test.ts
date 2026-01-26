@@ -109,11 +109,11 @@ describe('KPICalculator - Tests de Funcionalidad', () => {
     it('T1.2.1: Cuenta días únicos correctamente desde asistencia', () => {
       const asistencia = [
         ...mockAsistenciaDiaria,
-        { ...mockAsistenciaDiaria[0], fecha: new Date('2024-01-16') },
-        { ...mockAsistenciaDiaria[0], fecha: new Date('2024-01-16') }, // Duplicate - should count once
+        { ...mockAsistenciaDiaria[0], fecha: '2024-01-16' },
+        { ...mockAsistenciaDiaria[0], fecha: '2024-01-16' }, // Duplicate - should count once
       ];
 
-      const uniqueDates = new Set(asistencia.map(a => a.fecha.toISOString().split('T')[0]));
+      const uniqueDates = new Set(asistencia.map(a => a.fecha.split('T')[0]));
       expect(uniqueDates.size).toBeGreaterThan(0);
     });
   });
