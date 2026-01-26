@@ -368,7 +368,7 @@ export function RotacionTab({
       {/* New Rotation Analysis Tables */}
       <div className="grid grid-cols-1 gap-6">
         <RotationByMotiveAreaTable
-          plantilla={plantillaFiltered}
+          plantilla={plantillaRotacionYearScope}
           motivosBaja={bajasData}
           selectedYears={retentionFilters.years}
           refreshEnabled={refreshEnabled}

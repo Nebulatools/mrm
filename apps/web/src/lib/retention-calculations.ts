@@ -139,18 +139,21 @@ export const calculateMonthlyRetention = async (
           const numero = evento.numero_empleado;
           if (!Number.isFinite(numero)) return;
 
-          // ✅ CORREGIDO: Intentar obtener el empleado, pero NO rechazar la baja si no existe
-          // Esto permite contar bajas aunque el empleado haya sido filtrado
+          // ✅ CRITICAL FIX: Intentar obtener el empleado, pero NO rechazar la baja si no existe
+          // Esto permite contar bajas aunque el empleado haya sido filtrado por departamento/puesto/etc.
           const empleado = empleadosMap.get(numero);
 
           // ✅ Asegurar que siempre haya un motivo válido
           const motivoNormalizado = evento.motivo_normalizado || 'Otra razón';
 
-          // Solo validar motivo si tenemos el empleado
-          if (empleado && !bajaMatchesMotivo(empleado, motive, motivoNormalizado)) return;
-
-          // Si NO tenemos empleado pero el motive es 'all', incluir la baja de todas formas
-          if (!empleado && motive !== 'all') return;
+          // ✅ CRITICAL FIX: Validar motivo DIRECTAMENTE usando el motivo del evento
+          // NO necesitamos el empleado para saber si es voluntaria/involuntaria
+          if (motive !== 'all') {
+            const esInvoluntaria = isMotivoClave(motivoNormalizado);
+            const matchesFilter = (motive === 'involuntaria' && esInvoluntaria) ||
+                                   (motive === 'voluntaria' && !esInvoluntaria);
+            if (!matchesFilter) return;
+          }
 
           const key = `${numero}-${fechaBajaParsed.toISOString().slice(0, 10)}`;
           if (!eventosMap.has(key)) {

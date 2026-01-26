@@ -46,14 +46,50 @@ export function RotationByMotiveAreaTable({
         })
       : motivosBaja;
 
+    // 🔍 DEBUG: Log data counts for verification
+    console.log('🔍 [RotationByMotiveAreaTable] Debug Data:', {
+      componentName: 'rotation-by-motive-area-table',
+      plantillaTotal: plantilla.length,
+      motivosBajaTotal: motivosBaja.length,
+      filteredMotivosBajaCount: filteredMotivosBaja.length,
+      selectedYears,
+      december2025InMotivosBaja: motivosBaja.filter(b => {
+        if (!b.fecha_baja) return false;
+        const d = new Date(b.fecha_baja);
+        return d.getFullYear() === 2025 && d.getMonth() === 11;
+      }).length,
+    });
+
     // Create lookup map: numero_empleado -> motivo from filtered motivos_baja
     const motivosMap = new Map<number, string>();
     filteredMotivosBaja.forEach(baja => {
       motivosMap.set(baja.numero_empleado, baja.motivo);
     });
 
-    // SOURCE: empleados_sftp (plantilla) - filter only employees with fecha_baja
-    const bajasAll = plantilla.filter(emp => emp.fecha_baja);
+    // SOURCE: empleados_sftp (plantilla) - filter employees with fecha_baja AND by selected years
+    // CRITICAL: Must filter by same years as filteredMotivosBaja to ensure data consistency
+    const bajasAll = plantilla.filter(emp => {
+      if (!emp.fecha_baja) return false;
+
+      // Apply same year filter as motivosBaja for data integrity
+      if (selectedYears.length > 0) {
+        const bajaYear = new Date(emp.fecha_baja).getFullYear();
+        return selectedYears.includes(bajaYear);
+      }
+
+      return true;
+    });
+
+    // 🔍 DEBUG: Log filtered bajas counts
+    console.log('🔍 [RotationByMotiveAreaTable] Filtered Bajas:', {
+      bajasAllCount: bajasAll.length,
+      december2025InBajasAll: bajasAll.filter(emp => {
+        if (!emp.fecha_baja) return false;
+        const d = new Date(emp.fecha_baja);
+        return d.getFullYear() === 2025 && d.getMonth() === 11;
+      }).length,
+      motivosMapSize: filteredMotivosBaja.length,
+    });
 
     // Group bajas by area and motivo
     const areaMotivosMap = new Map<string, Record<string, number>>();

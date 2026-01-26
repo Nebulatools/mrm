@@ -99,19 +99,23 @@ export function usePlantillaFilters({
   }, [plantilla, retentionFilters]);
 
   // Variante 4: Filtrado por año (con inactivos) - para tablas de rotación
+  // ✅ CRITICAL FIX: NO aplicar filtros de departamento/puesto/área/ubicación
+  // Las tablas de rotación deben contar TODAS las bajas del año para ser precisas
+  // Las tablas pueden hacer su propio análisis por área/ubicación sin filtrar los datos de entrada
   const plantillaRotacionYearScope = useMemo(() => {
     if (!plantilla || plantilla.length === 0) return [];
     const scoped = applyFiltersWithScope(
       plantilla,
       {
-        ...retentionFilters,
+        years: retentionFilters.years, // Solo filtrar por año
         includeInactive: true, // Incluir empleados con baja para tablas de rotación
+        // NO incluir: departamentos, puestos, clasificaciones, empresas, areas, ubicaciones
       },
       "year-only"
     );
     console.log("🔄 Plantilla (año, con bajas) para rotación:", scoped.length);
     return scoped;
-  }, [plantilla, retentionFilters]);
+  }, [plantilla, retentionFilters.years]);
 
   // Detalle de bajas del mes seleccionado
   const plantillaDismissalDetail = useMemo(() => {

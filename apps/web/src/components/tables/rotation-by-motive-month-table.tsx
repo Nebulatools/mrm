@@ -70,16 +70,19 @@ export function RotationByMotiveMonthTable({
       motivosMap.set(baja.numero_empleado, baja.motivo);
     });
 
-    // SOURCE: empleados_sftp (plantilla) - filter by fecha_baja
-    const bajasAll = plantilla.filter(emp => emp.fecha_baja);
+    // SOURCE: empleados_sftp (plantilla) - filter by fecha_baja AND selected years in one pass
+    // CRITICAL: Must filter by same years as filteredMotivosBaja to ensure data consistency
+    const bajasYear = plantilla.filter(emp => {
+      if (!emp.fecha_baja) return false;
 
-    // Filter bajas for the selected years (if any)
-    const bajasYear = selectedYears.length > 0
-      ? bajasAll.filter(emp => {
-          const fecha = new Date(emp.fecha_baja!);
-          return selectedYears.includes(fecha.getFullYear());
-        })
-      : bajasAll;
+      // Apply same year filter as motivosBaja for data integrity
+      if (selectedYears.length > 0) {
+        const bajaYear = new Date(emp.fecha_baja).getFullYear();
+        return selectedYears.includes(bajaYear);
+      }
+
+      return true;
+    });
 
     // Group by motivo and month
     const motivoMonthMap = new Map<string, Record<string, number | null>>();

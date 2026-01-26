@@ -110,7 +110,7 @@ export function DashboardPage() {
 
   const filteredRetentionKPIs = useRetentionKPIs({
     plantilla: data.plantilla,
-    plantillaFilteredYearScope,
+    plantillaFilteredYearScope: plantillaRotacionYearScope,
     retentionFilters,
     selectedPeriod,
   });
@@ -425,11 +425,16 @@ export function DashboardPage() {
         console.log("🔥 Loading bajas por motivo for year:", currentYear);
 
         const plantilla = await db.getEmpleadosSFTP(supabase);
+
+        // ✅ CRITICAL FIX: Para el heatmap, NO aplicar filtros de departamento/puesto/etc.
+        // Solo aplicar año e includeInactive para obtener TODAS las bajas del año
+        // Los filtros de departamento/puesto se deben aplicar DENTRO del heatmap si es necesario
         const plantillaFiltrada = applyFiltersWithScope(
           plantilla,
           {
-            ...retentionFilters,
             years: [currentYear],
+            includeInactive: true, // ✅ MUST include bajas for accurate heatmap
+            // NO incluir otros filtros (departamentos, puestos, etc.)
           },
           "year-only"
         );

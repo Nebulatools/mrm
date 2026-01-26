@@ -78,6 +78,21 @@ export function RotationCombinedTable({
         })
       : motivosBaja;
 
+    // 🔍 DEBUG: Log data counts for verification
+    console.log('🔍 [RotationCombinedTable] Debug Data:', {
+      componentName: 'rotation-combined-table',
+      plantillaTotal: plantilla.length,
+      motivosBajaTotal: motivosBaja.length,
+      filteredMotivosBajaCount: filteredMotivosBaja.length,
+      selectedYears,
+      currentYear,
+      december2025InMotivosBaja: motivosBaja.filter(b => {
+        if (!b.fecha_baja) return false;
+        const d = new Date(b.fecha_baja);
+        return d.getFullYear() === 2025 && d.getMonth() === 11;
+      }).length,
+    });
+
     // Create lookup map: numero_empleado -> motivo from filtered motivos_baja table
     const motivosMap = new Map<number, string>();
     filteredMotivosBaja.forEach(baja => {
@@ -90,6 +105,17 @@ export function RotationCombinedTable({
       if (selectedYears.length === 0) return true; // No year filter = show all
       const fecha = new Date(emp.fecha_baja);
       return selectedYears.includes(fecha.getFullYear());
+    });
+
+    // 🔍 DEBUG: Log filtered bajas counts
+    console.log('🔍 [RotationCombinedTable] Filtered Bajas:', {
+      bajasYearCount: bajasYear.length,
+      december2025InBajasYear: bajasYear.filter(emp => {
+        if (!emp.fecha_baja) return false;
+        const d = new Date(emp.fecha_baja);
+        return d.getFullYear() === 2025 && d.getMonth() === 11;
+      }).length,
+      motivosMapSize: filteredMotivosBaja.length,
     });
 
     // First calculate all metrics by ubicacion

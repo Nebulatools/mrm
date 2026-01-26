@@ -241,10 +241,15 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         }
       });
 
+      // ✅ CRITICAL FIX: Incluir TODAS las bajas de motivos_baja, sin filtrar por empleadosMap
+      // Esto asegura que todas las bajas se cuenten, incluso si el empleado fue filtrado
+      // por departamento/puesto/etc. El conteo correcto se hace en calculateMonthlyRetention
       const bajaEventos: BajaEvento[] = motivos
         .filter(evento => {
           const numero = Number(evento.numero_empleado);
-          return Number.isFinite(numero) && empleadosMap.has(numero) && evento.fecha_baja;
+          // Solo validar que el número sea válido y que haya fecha_baja
+          // NO filtrar por empleadosMap.has(numero) - eso excluye bajas válidas
+          return Number.isFinite(numero) && evento.fecha_baja;
         })
         .map(evento => {
           const numero = Number(evento.numero_empleado);
