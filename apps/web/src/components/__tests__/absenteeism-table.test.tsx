@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import { AbsenteeismTable } from '../absenteeism-table';
+import { AbsenteeismTable } from '../incidencias/tables/absenteeism-table';
 import { renderWithProviders, createMockEmpleado } from '@/test/utils';
 
 describe('Absenteeism Table - Tab 2: Incidencias', () => {

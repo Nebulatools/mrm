@@ -19,7 +19,7 @@ import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { applyFiltersWithScope } from "@/lib/filters/filters";
 import { isFutureMonth } from "@/lib/date-utils";
 
-interface RotationBajasVoluntariasTableProps {
+interface RotationBajasInvoluntariasTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
   year?: number;
@@ -50,13 +50,13 @@ const MONTHS = [
 
 const UBICACIONES = ['CAD', 'CORPORATIVO', 'FILIALES', 'OTROS'];
 
-export function RotationBajasVoluntariasTable({
+export function RotationBajasInvoluntariasTable({
   plantilla,
   motivosBaja,
   year,
   refreshEnabled = false,
   filters,
-}: RotationBajasVoluntariasTableProps) {
+}: RotationBajasInvoluntariasTableProps) {
 
   const currentYear = year || new Date().getFullYear();
 
@@ -79,7 +79,7 @@ export function RotationBajasVoluntariasTable({
       ? applyFiltersWithScope(plantilla, filters, 'general')
       : plantilla;
 
-    // SOURCE: empleados_sftp (plantilla) - filter bajas voluntarias
+    // SOURCE: empleados_sftp (plantilla) - filter bajas involuntarias
     const bajasYear = plantillaFiltered.filter(emp => {
       if (!emp.fecha_baja) return false;
       const fecha = new Date(emp.fecha_baja);
@@ -88,8 +88,8 @@ export function RotationBajasVoluntariasTable({
       // JOIN: Get motivo from motivos_baja lookup by numero_empleado
       const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
       const motivo = normalizeMotivo(rawMotivo || '');
-      // Only voluntary bajas (not isMotivoClave)
-      return !isMotivoClave(motivo);
+      // Only involuntary bajas (isMotivoClave)
+      return isMotivoClave(motivo);
     });
 
     // Group by ubicacion and month
@@ -173,7 +173,7 @@ export function RotationBajasVoluntariasTable({
               refreshEnabled && "font-heading text-xl text-brand-ink dark:text-white"
             )}
           >
-            Bajas Voluntarias por Ubicación ({currentYear})
+            Bajas Involuntarias por Ubicación ({currentYear})
           </CardTitle>
           <p
             className={cn(
@@ -181,18 +181,18 @@ export function RotationBajasVoluntariasTable({
               refreshEnabled && "font-body text-sm text-brand-ink/70"
             )}
           >
-            Distribución mensual de bajas voluntarias por ubicación
+            Distribución mensual de bajas involuntarias por ubicación
           </p>
         </div>
       </CardHeader>
       <CardContent className={cn(refreshEnabled && "px-0 pb-0 pt-0")}>
         <VisualizationContainer
-          title="Bajas Voluntarias por Ubicación"
+          title="Bajas Involuntarias por Ubicación"
           type="table"
           className="w-full"
-          filename="bajas-voluntarias-ubicacion"
+          filename="bajas-involuntarias-ubicacion"
         >
-          {(isFullscreen) => (
+          {(isFullscreen: boolean) => (
             <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
               <Table
                 className={cn(

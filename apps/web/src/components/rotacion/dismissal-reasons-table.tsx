@@ -206,7 +206,7 @@ export function DismissalReasonsTable({
             className="w-full"
             filename="detalle-bajas"
           >
-            {(isFullscreen) => (
+            {(isFullscreen: boolean) => (
               <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
                 <Table className={cn("table-corporate", isFullscreen ? "text-sm" : "text-xs")}>
                   <TableHeader>

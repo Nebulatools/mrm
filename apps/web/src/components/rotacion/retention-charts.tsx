@@ -9,7 +9,7 @@ import { endOfMonth, startOfDay, startOfMonth, subMonths } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { applyFiltersWithScope } from '@/lib/filters/filters';
 import { isMotivoClave, normalizeMotivo } from '@/lib/normalizers';
-import { VisualizationContainer } from "./shared/visualization-container";
+import { VisualizationContainer } from "../shared/visualization-container";
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
 import { useTheme } from "@/components/theme-provider";
 import {
@@ -883,7 +883,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             className="h-[280px] w-full"
             filename="rotacion-acumulada-12m"
           >
-            {(fullscreen) => (
+            {(fullscreen: boolean) => (
               <div style={{ height: fullscreen ? 360 : 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={rolling12MCombinedData}>
@@ -942,7 +942,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             className="h-[280px] w-full"
             filename="rotacion-ytd"
           >
-            {(fullscreen) => (
+            {(fullscreen: boolean) => (
               <div style={{ height: fullscreen ? 360 : 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={yearlyComparison}>
@@ -1000,7 +1000,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             className="h-[280px] w-full"
             filename="rotacion-mensual"
           >
-            {(fullscreen) => (
+            {(fullscreen: boolean) => (
               <div style={{ height: fullscreen ? 360 : 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={monthlyChartData}>
@@ -1066,7 +1066,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
             className="h-[280px] w-full"
             filename="rotacion-por-temporalidad"
           >
-            {(fullscreen) => (
+            {(fullscreen: boolean) => (
               <div style={{ height: fullscreen ? 360 : 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyData.filter(d => {
@@ -1157,7 +1157,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               className="w-full"
               filename="tabla-rotacion-acumulada"
             >
-              {(isFullscreen) => (
+              {(isFullscreen: boolean) => (
             <div className="relative w-full overflow-visible rounded-xl border border-slate-200/70 shadow-sm dark:border-slate-700/60">
               <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm whitespace-normal">
                 <thead>
@@ -1243,7 +1243,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               className="w-full"
               filename="tabla-rotacion-mensual"
             >
-              {(isFullscreen) => (
+              {(isFullscreen: boolean) => (
             <div className="relative w-full overflow-visible rounded-xl border border-slate-200/70 shadow-sm dark:border-slate-700/60">
               <table className="w-full table-auto border-separate border-spacing-0 text-xs text-foreground md:text-sm whitespace-normal">
                 <thead>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import { BajasPorMotivoHeatmap } from '../bajas-por-motivo-heatmap';
+import { BajasPorMotivoHeatmap } from '../rotacion/bajas-por-motivo-heatmap';
 import { renderWithProviders } from '@/test/utils';
 
 describe('Bajas por Motivo Heatmap - Tab 3: Rotación', () => {

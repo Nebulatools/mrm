@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import { DismissalReasonsTable } from '../dismissal-reasons-table';
+import { DismissalReasonsTable } from '../rotacion/dismissal-reasons-table';
 import { renderWithProviders, createMockEmpleado } from '@/test/utils';
 
 describe('Dismissal Reasons Table - Tab 3: Rotación', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import { RotationByMotiveAreaTable } from '../rotation-by-motive-area-table';
+import { RotationByMotiveAreaTable } from '../../rotacion/tables/rotation-by-motive-area-table';
 import { renderWithProviders, createMockEmpleado, mockMotivosBaja } from '@/test/utils';
 
 describe('Rotation by Motive-Area Table - Tab 3: Rotación', () => {

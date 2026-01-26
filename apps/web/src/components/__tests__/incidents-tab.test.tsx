@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen } from '@testing-library/react';
-import IncidentsTab from '../incidents-tab';
+import IncidentsTab from '../incidencias/incidents-tab';
 import { renderWithProviders, createMockEmpleado } from '@/test/utils';
 
 // Mock Supabase

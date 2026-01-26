@@ -3,7 +3,7 @@
 import { Fragment, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { isMotivoClave } from '@/lib/normalizers'
-import { VisualizationContainer } from './shared/visualization-container'
+import { VisualizationContainer } from '../shared/visualization-container'
 import { useTheme } from '@/components/theme-provider'
 import { cn } from '@/lib/utils'
 import { getTitleWithYear } from '@/lib/filters/year-display'
@@ -155,7 +155,7 @@ export function BajasPorMotivoHeatmap({ data, selectedYears = [], motivoFilter =
           className="w-full"
           filename={`bajas-por-motivo${selectedYears.length > 0 ? `-${selectedYears.join('-')}` : ''}`}
         >
-          {(isFullscreen) => (
+          {(isFullscreen: boolean) => (
             <div className="overflow-x-auto rounded-2xl border border-brand-border/40 bg-card shadow-sm dark:bg-brand-surface/70">
               <table className="w-full border-collapse text-sm">
             <thead>

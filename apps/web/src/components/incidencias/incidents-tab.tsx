@@ -15,12 +15,12 @@ import type { PieLabelRenderProps } from 'recharts';
 import { differenceInCalendarDays, format } from "date-fns";
 import { VisualizationContainer } from "@/components/shared/visualization-container";
 import { calculateVariancePercentage, countActivosEnFecha } from "@/lib/utils/kpi-helpers";
-import { KPICard, KPICardSkeleton } from "./shared/kpi-card";
-import { IncidentsPermitsKPIs } from "./shared/incidents-permits-kpis";
+import { KPICard, KPICardSkeleton } from "../shared/kpi-card";
+import { IncidentsPermitsKPIs } from "../shared/incidents-permits-kpis";
 import { Users, AlertCircle, Activity, ClipboardCheck } from "lucide-react";
 import { getModernColor, withOpacity } from "@/lib/chart-colors";
 import { useTheme } from "@/components/theme-provider";
-import { AbsenteeismTable } from "@/components/absenteeism-table";
+import { AbsenteeismTable } from "./tables/absenteeism-table";
 import { getTitleWithYear } from "@/lib/filters/year-display";
 
 type Props = {

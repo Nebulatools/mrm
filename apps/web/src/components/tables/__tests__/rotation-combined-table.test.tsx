@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import { RotationCombinedTable } from '../rotation-combined-table';
+import { RotationCombinedTable } from '../../rotacion/tables/rotation-combined-table';
 import { renderWithProviders, createMockEmpleado } from '@/test/utils';
 import { mockMotivosBaja } from '@/test/mockData';
 import type { PlantillaRecord } from '@/lib/supabase';

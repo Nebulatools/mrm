@@ -172,7 +172,7 @@ export function RotationByMotiveSeniorityTable({
           className="w-full"
           filename="rotacion-motivo-antiguedad"
         >
-          {(isFullscreen) => (
+          {(isFullscreen: boolean) => (
             <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
               <Table className={cn("table-corporate", isFullscreen ? "text-base" : "text-sm")}>
                 <TableHeader>

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen } from '@testing-library/react';
-import { RetentionCharts } from '../retention-charts';
+import { RetentionCharts } from '../rotacion/retention-charts';
 import { renderWithProviders, createMockEmpleado } from '@/test/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
 

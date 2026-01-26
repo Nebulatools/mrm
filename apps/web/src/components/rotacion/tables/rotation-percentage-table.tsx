@@ -11,17 +11,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { PlantillaRecord } from "@/lib/supabase";
-import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/shared/visualization-container";
-import { normalizeCCToUbicacion, isMotivoClave, normalizeMotivo } from "@/lib/normalizers";
+import { normalizeCCToUbicacion } from "@/lib/normalizers";
+import { parseSupabaseDate } from "@/lib/retention-calculations";
+import { endOfMonth, startOfMonth } from "date-fns";
+import { isFutureMonth } from "@/lib/date-utils";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { applyFiltersWithScope } from "@/lib/filters/filters";
-import { isFutureMonth } from "@/lib/date-utils";
 
-interface RotationBajasInvoluntariasTableProps {
+interface RotationPercentageTableProps {
   plantilla: PlantillaRecord[];
-  motivosBaja: MotivoBajaRecord[];
   year?: number;
   refreshEnabled?: boolean;
   filters?: RetentionFilterOptions;
@@ -29,8 +29,8 @@ interface RotationBajasInvoluntariasTableProps {
 
 interface LocationMonthData {
   ubicacion: string;
-  months: Record<string, number | null>;
-  total: number;
+  months: Record<string, string | null>; // Percentage as string, null for future months
+  total: string;
 }
 
 const MONTHS = [
@@ -50,106 +50,159 @@ const MONTHS = [
 
 const UBICACIONES = ['CAD', 'CORPORATIVO', 'FILIALES', 'OTROS'];
 
-export function RotationBajasInvoluntariasTable({
+export function RotationPercentageTable({
   plantilla,
-  motivosBaja,
   year,
   refreshEnabled = false,
   filters,
-}: RotationBajasInvoluntariasTableProps) {
+}: RotationPercentageTableProps) {
 
   const currentYear = year || new Date().getFullYear();
 
   const data = useMemo(() => {
-    // Filter motivos_baja by the same year as the bajas being analyzed
-    // This ensures we only use motivos from the matching year
-    const filteredMotivosBaja = motivosBaja.filter(baja => {
-      if (!baja.fecha_baja) return false;
-      const bajaYear = new Date(baja.fecha_baja).getFullYear();
-      return bajaYear === currentYear;
-    });
-
-    // Create lookup map: numero_empleado -> motivo from filtered motivos_baja table
-    const motivosMap = new Map<number, string>();
-    filteredMotivosBaja.forEach(baja => {
-      motivosMap.set(baja.numero_empleado, baja.motivo);
-    });
-
     const plantillaFiltered = filters
       ? applyFiltersWithScope(plantilla, filters, 'general')
       : plantilla;
 
-    // SOURCE: empleados_sftp (plantilla) - filter bajas involuntarias
+    // SOURCE: empleados_sftp (plantilla) - filter bajas for the selected year
     const bajasYear = plantillaFiltered.filter(emp => {
       if (!emp.fecha_baja) return false;
       const fecha = new Date(emp.fecha_baja);
-      if (fecha.getFullYear() !== currentYear) return false;
-
-      // JOIN: Get motivo from motivos_baja lookup by numero_empleado
-      const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
-      const motivo = normalizeMotivo(rawMotivo || '');
-      // Only involuntary bajas (isMotivoClave)
-      return isMotivoClave(motivo);
+      return fecha.getFullYear() === currentYear;
     });
 
-    // Group by ubicacion and month
-    const locationMonthMap = new Map<string, Record<string, number | null>>();
+    // Calculate rotation percentage for each location and month
+    const locationMonthMap = new Map<string, Record<string, string | null>>();
 
     // Initialize all locations
     UBICACIONES.forEach(ubicacion => {
       locationMonthMap.set(ubicacion, {});
     });
 
-    bajasYear.forEach(emp => {
-      const cc = (emp as any).cc || '';
-      const ubicacion = normalizeCCToUbicacion(cc);
-      const fecha = new Date(emp.fecha_baja!);
-      const month = fecha.getMonth() + 1; // 1-12
-
-      const monthKey = MONTHS.find(m => m.num === month)?.key || '';
-      if (!monthKey) return;
-
-      const locationData = locationMonthMap.get(ubicacion);
-      if (locationData) {
-        locationData[monthKey] = ((locationData[monthKey] as number) || 0) + 1;
-      }
-    });
-
-    // Mark future months as null
     MONTHS.forEach(month => {
+      // Skip future months
       if (isFutureMonth(currentYear, month.num)) {
         UBICACIONES.forEach(ub => { locationMonthMap.get(ub)![month.key] = null; });
+        return;
       }
+
+      const monthStart = startOfMonth(new Date(currentYear, month.num - 1, 1));
+      const monthEnd = endOfMonth(monthStart);
+
+      UBICACIONES.forEach(ubicacion => {
+        // Count bajas for this location and month
+        const bajas = bajasYear.filter(emp => {
+          const cc = (emp as any).cc || '';
+          const empUbicacion = normalizeCCToUbicacion(cc);
+          if (empUbicacion !== ubicacion) return false;
+
+          const fecha = new Date(emp.fecha_baja!);
+          const monthNum = fecha.getMonth() + 1;
+          return monthNum === month.num;
+        }).length;
+
+        // Calculate headcount at month start and end
+        const headcountStart = plantillaFiltered.filter(emp => {
+          const cc = (emp as any).cc || '';
+          const empUbicacion = normalizeCCToUbicacion(cc);
+          if (empUbicacion !== ubicacion) return false;
+
+          const fechaIngreso = parseSupabaseDate(emp.fecha_ingreso);
+          if (!fechaIngreso || fechaIngreso > monthStart) return false;
+
+          const fechaBaja = parseSupabaseDate(emp.fecha_baja);
+          return !fechaBaja || fechaBaja > monthStart;
+        }).length;
+
+        const headcountEnd = plantillaFiltered.filter(emp => {
+          const cc = (emp as any).cc || '';
+          const empUbicacion = normalizeCCToUbicacion(cc);
+          if (empUbicacion !== ubicacion) return false;
+
+          const fechaIngreso = parseSupabaseDate(emp.fecha_ingreso);
+          if (!fechaIngreso || fechaIngreso > monthEnd) return false;
+
+          const fechaBaja = parseSupabaseDate(emp.fecha_baja);
+          return !fechaBaja || fechaBaja > monthEnd;
+        }).length;
+
+        // Calculate average headcount
+        const avgHeadcount = (headcountStart + headcountEnd) / 2;
+
+        // Calculate rotation percentage
+        const rotacion = avgHeadcount > 0 ? (bajas / avgHeadcount) * 100 : 0;
+
+        const locationData = locationMonthMap.get(ubicacion)!;
+        locationData[month.key] = rotacion > 0 ? rotacion.toFixed(1) + '%' : '';
+      });
     });
 
     // Build data array
     const result: LocationMonthData[] = UBICACIONES.map(ubicacion => {
       const months = locationMonthMap.get(ubicacion) || {};
-      const validValues = Object.values(months).filter((v): v is number => v !== null);
-      const total = validValues.reduce((sum, count) => sum + count, 0);
+
+      // Calculate total rotation (sum, exclude null values)
+      const values: number[] = [];
+      Object.values(months).forEach(val => {
+        if (val !== null && val) {
+          const num = parseFloat(val.replace('%', ''));
+          if (!isNaN(num)) values.push(num);
+        }
+      });
+      const total = values.length > 0
+        ? values.reduce((sum, val) => sum + val, 0).toFixed(1) + '%'
+        : '';
+
       return { ubicacion, months, total };
     });
 
     return result;
-  }, [plantilla, motivosBaja, currentYear, filters]);
+  }, [plantilla, currentYear, filters]);
 
-  // Calculate monthly totals
-  const monthlyTotals = useMemo(() => {
-    const totals: Record<string, number | null> = {};
+  // Calculate monthly averages
+  const monthlyAverages = useMemo(() => {
+    const averages: Record<string, string | null> = {};
+
     MONTHS.forEach(month => {
+      // Check if any row has null for this month (future month)
       const hasNull = data.some(row => row.months[month.key] === null);
       if (hasNull) {
-        totals[month.key] = null;
+        averages[month.key] = null;
+        return;
+      }
+
+      const values: number[] = [];
+      data.forEach(row => {
+        const val = row.months[month.key];
+        if (val !== null && val) {
+          const num = parseFloat(val.replace('%', ''));
+          if (!isNaN(num)) values.push(num);
+        }
+      });
+
+      if (values.length > 0) {
+        const avg = (values.reduce((sum, val) => sum + val, 0) / values.length).toFixed(1) + '%';
+        averages[month.key] = avg;
       } else {
-        totals[month.key] = data.reduce((sum, row) => sum + ((row.months[month.key] as number) || 0), 0);
+        averages[month.key] = '';
       }
     });
-    return totals;
+
+    return averages;
   }, [data]);
 
-  // Calculate grand total
-  const grandTotal = useMemo(() => {
-    return data.reduce((sum, row) => sum + row.total, 0);
+  // Calculate overall total (sum)
+  const overallTotal = useMemo(() => {
+    const values: number[] = [];
+    data.forEach(row => {
+      if (row.total) {
+        const num = parseFloat(row.total.replace('%', ''));
+        if (!isNaN(num)) values.push(num);
+      }
+    });
+    return values.length > 0
+      ? values.reduce((sum, val) => sum + val, 0).toFixed(1) + '%'
+      : '';
   }, [data]);
 
   return (
@@ -173,7 +226,7 @@ export function RotationBajasInvoluntariasTable({
               refreshEnabled && "font-heading text-xl text-brand-ink dark:text-white"
             )}
           >
-            Bajas Involuntarias por Ubicación ({currentYear})
+            % Rotación por Ubicación ({currentYear})
           </CardTitle>
           <p
             className={cn(
@@ -181,18 +234,18 @@ export function RotationBajasInvoluntariasTable({
               refreshEnabled && "font-body text-sm text-brand-ink/70"
             )}
           >
-            Distribución mensual de bajas involuntarias por ubicación
+            Porcentaje mensual de rotación por ubicación
           </p>
         </div>
       </CardHeader>
       <CardContent className={cn(refreshEnabled && "px-0 pb-0 pt-0")}>
         <VisualizationContainer
-          title="Bajas Involuntarias por Ubicación"
+          title="% Rotación por Ubicación"
           type="table"
           className="w-full"
-          filename="bajas-involuntarias-ubicacion"
+          filename="rotacion-porcentaje-ubicacion"
         >
-          {(isFullscreen) => (
+          {(isFullscreen: boolean) => (
             <div className={isFullscreen ? "w-full" : "overflow-x-auto"}>
               <Table
                 className={cn(
@@ -241,15 +294,15 @@ export function RotationBajasInvoluntariasTable({
                       <TableCell className="text-right font-semibold">{row.total}</TableCell>
                     </TableRow>
                   ))}
-                  {/* Totals row */}
+                  {/* Averages row */}
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell>Total</TableCell>
+                    <TableCell>Promedio</TableCell>
                     {MONTHS.map(month => (
                       <TableCell key={month.key} className="text-right">
-                        {monthlyTotals[month.key] === null ? '-' : (monthlyTotals[month.key] || '')}
+                        {monthlyAverages[month.key] === null ? '-' : (monthlyAverages[month.key] || '')}
                       </TableCell>
                     ))}
-                    <TableCell className="text-right">{grandTotal}</TableCell>
+                    <TableCell className="text-right">{overallTotal}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import { AbandonosOtrosSummary } from '../abandonos-otros-summary';
+import { AbandonosOtrosSummary } from '../rotacion/abandonos-otros-summary';
 import { renderWithProviders, createMockEmpleado } from '@/test/utils';
 
 describe('Abandonos-Otros Summary - Tab 3: Rotación', () => {
