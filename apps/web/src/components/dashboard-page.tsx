@@ -21,7 +21,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SmartNarrative } from "./shared/smart-narrative";
 import { PersonalTab } from "./personal/personal-tab";
 import { RotacionTab } from "./rotacion/rotacion-tab";
-import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters/filters";
+import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters";
 import { kpiCalculator, type KPIResult } from "@/lib/kpi-calculator";
 import { db } from "@/lib/supabase";
 import { format, endOfMonth, startOfDay } from "date-fns";
@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { calculateVariancePercentage } from "@/lib/utils/kpi-helpers";
 import { VisualizationExportProvider } from "@/context/visualization-export-context";
-import { countActiveFilters, getDetailedFilterLines, getFilterSummary } from "@/lib/filters/summary";
+import { countActiveFilters, getDetailedFilterLines, getFilterSummary } from "@/lib/filters";
 
 interface BajasPorMotivoData {
   motivo: string;

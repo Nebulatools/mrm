@@ -6,7 +6,7 @@ import { db, type PlantillaRecord, type IncidenciaCSVRecord } from "@/lib/supaba
 import type { MotivoBajaRecord } from "@/lib/types/records";
 import { createBrowserClient } from "@/lib/supabase-client";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { RetentionFilterOptions } from "@/lib/filters/filters";
+import type { RetentionFilterOptions } from "@/lib/filters";
 
 export interface DashboardData {
   kpis: KPIResult[];

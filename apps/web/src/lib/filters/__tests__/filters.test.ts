@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { applyFiltersWithScope } from '../filters';
+import { applyFiltersWithScope } from '../index';
 import { createMockEmpleado } from '@/test/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
-import type { RetentionFilterOptions } from '../filters';
+import type { RetentionFilterOptions } from '../index';
 
 describe('Filter System - Tab 1: Resumen', () => {
   const mockPlantillaForFilters: PlantillaRecord[] = [

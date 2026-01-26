@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { RetentionFilterOptions } from "@/lib/filters/filters";
+import type { RetentionFilterOptions } from "@/lib/filters";
 
 export interface VisualizationExportContextValue {
   filters: RetentionFilterOptions;

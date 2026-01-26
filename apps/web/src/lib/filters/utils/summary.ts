@@ -1,4 +1,4 @@
-import type { RetentionFilterOptions } from "./filters";
+import type { RetentionFilterOptions } from "../core/filter-engine";
 
 const MONTH_NAMES = [
   "Enero",

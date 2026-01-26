@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters/filters";
+import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters";
 import type { PlantillaRecord, IncidenciaCSVRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
 

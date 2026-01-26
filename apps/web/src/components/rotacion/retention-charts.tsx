@@ -7,7 +7,7 @@ import { db, type PlantillaRecord, type MotivoBajaRecord } from '@/lib/supabase'
 import { createBrowserClient } from '@/lib/supabase-client';
 import { endOfMonth, startOfDay, startOfMonth, subMonths } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { applyFiltersWithScope } from '@/lib/filters/filters';
+import { applyFiltersWithScope } from '@/lib/filters';
 import { isMotivoClave, normalizeMotivo } from '@/lib/normalizers';
 import { VisualizationContainer } from "../shared/visualization-container";
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';

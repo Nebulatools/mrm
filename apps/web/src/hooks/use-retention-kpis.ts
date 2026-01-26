@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters/filters";
+import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters";
 import type { PlantillaRecord } from "@/lib/supabase";
 import {
   calculateActivosPromedio,

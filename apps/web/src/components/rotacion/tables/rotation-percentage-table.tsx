@@ -17,8 +17,8 @@ import { normalizeCCToUbicacion } from "@/lib/normalizers";
 import { parseSupabaseDate } from "@/lib/retention-calculations";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { isFutureMonth } from "@/lib/date-utils";
-import type { RetentionFilterOptions } from "@/lib/filters/filters";
-import { applyFiltersWithScope } from "@/lib/filters/filters";
+import type { RetentionFilterOptions } from "@/lib/filters";
+import { applyFiltersWithScope } from "@/lib/filters";
 
 interface RotationPercentageTableProps {
   plantilla: PlantillaRecord[];

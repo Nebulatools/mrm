@@ -9,8 +9,8 @@ import { MetricToggle } from "@/components/ui/metric-toggle";
 import { VisualizationContainer } from "@/components/shared/visualization-container";
 import { normalizeIncidenciaCode } from "@/lib/normalizers";
 import type { IncidenciaCSVRecord, PlantillaRecord } from "@/lib/supabase";
-import type { RetentionFilterOptions } from "@/lib/filters/filters";
-import { applyFiltersWithScope } from "@/lib/filters/filters";
+import type { RetentionFilterOptions } from "@/lib/filters";
+import { applyFiltersWithScope } from "@/lib/filters";
 import { getTitleWithYear } from "@/lib/filters/year-display";
 
 interface AbsenteeismTableProps {

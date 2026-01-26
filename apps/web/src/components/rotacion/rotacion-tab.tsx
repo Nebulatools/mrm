@@ -16,7 +16,7 @@ import { SmartNarrative } from "@/components/shared/smart-narrative";
 import type { PlantillaRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
 import type { RetentionKPIs } from "@/hooks/use-retention-kpis";
-import type { RetentionFilterOptions } from "@/lib/filters/filters";
+import type { RetentionFilterOptions } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 

@@ -9,8 +9,8 @@ import { Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 //
 import { supabase } from "@/lib/supabase";
-import type { RetentionFilterOptions } from "@/lib/filters/filters";
-import { countActiveFilters, getFilterSummary, sanitizeFilterValue } from "@/lib/filters/summary";
+import type { RetentionFilterOptions } from "@/lib/filters";
+import { countActiveFilters, getFilterSummary, sanitizeFilterValue } from "@/lib/filters";
 // normalizeCCToUbicacion removed - now using ubicacion2 directly
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Bug, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { RetentionFilterOptions } from "@/lib/filters/filters";
+import type { RetentionFilterOptions } from "@/lib/filters";
 import type { PlantillaRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
 
