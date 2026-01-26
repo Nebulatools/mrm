@@ -108,6 +108,7 @@ export function usePlantillaFilters({
       plantilla,
       {
         years: retentionFilters.years, // Solo filtrar por año
+        months: [], // Required by RetentionFilterOptions
         includeInactive: true, // Incluir empleados con baja para tablas de rotación
         // NO incluir: departamentos, puestos, clasificaciones, empresas, areas, ubicaciones
       },

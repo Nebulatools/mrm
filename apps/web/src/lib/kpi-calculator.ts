@@ -936,7 +936,7 @@ export class KPICalculator {
         const mes = fechaBaja.getMonth(); // 0-11
 
         // Obtener motivo del lookup, o "Otra razón" si no tiene registro en motivos_baja
-        const motivo = motivosMap.get(emp.numero_empleado) || 'Otra razón';
+        const motivo = (emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : null) || 'Otra razón';
 
         // Inicializar motivo si no existe
         if (!heatmapData[motivo]) {

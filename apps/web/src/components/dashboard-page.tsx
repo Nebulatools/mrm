@@ -433,6 +433,7 @@ export function DashboardPage() {
           plantilla,
           {
             years: [currentYear],
+            months: [], // Required by RetentionFilterOptions
             includeInactive: true, // ✅ MUST include bajas for accurate heatmap
             // NO incluir otros filtros (departamentos, puestos, etc.)
           },

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
 import { RotationCombinedTable } from '../rotation-combined-table';
 import { renderWithProviders, createMockEmpleado } from '@/test/utils';
+import { mockMotivosBaja } from '@/test/mockData';
 import type { PlantillaRecord } from '@/lib/supabase';
 
 describe('Rotation Combined Table - Tab 3: Rotación', () => {
@@ -43,7 +44,7 @@ describe('Rotation Combined Table - Tab 3: Rotación', () => {
 
   it('T3.10.1: Renderiza título del componente', () => {
     renderWithProviders(
-      <RotationCombinedTable plantilla={mockPlantillaRotacion} year={2024} />
+      <RotationCombinedTable plantilla={mockPlantillaRotacion} motivosBaja={mockMotivosBaja} selectedYears={[2024]} />
     );
 
     // Check for table or component presence
@@ -53,7 +54,7 @@ describe('Rotation Combined Table - Tab 3: Rotación', () => {
 
   it('T3.10.2: Acepta año específico', () => {
     renderWithProviders(
-      <RotationCombinedTable plantilla={mockPlantillaRotacion} year={2023} />
+      <RotationCombinedTable plantilla={mockPlantillaRotacion} motivosBaja={mockMotivosBaja} selectedYears={[2023]} />
     );
 
     expect(document.body).toBeInTheDocument();
@@ -63,7 +64,7 @@ describe('Rotation Combined Table - Tab 3: Rotación', () => {
     renderWithProviders(
       <RotationCombinedTable
         plantilla={mockPlantillaRotacion}
-        year={2024}
+        motivosBaja={mockMotivosBaja} selectedYears={[2024]}
         motivoFilter="voluntaria"
       />
     );
@@ -72,7 +73,7 @@ describe('Rotation Combined Table - Tab 3: Rotación', () => {
   });
 
   it('T3.10.4: Maneja plantilla vacía sin crash', () => {
-    renderWithProviders(<RotationCombinedTable plantilla={[]} year={2024} />);
+    renderWithProviders(<RotationCombinedTable plantilla={[]} motivosBaja={mockMotivosBaja} selectedYears={[2024]} />);
 
     expect(document.body).toBeInTheDocument();
   });
