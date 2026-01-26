@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import { AgeGenderTable } from '../age-gender-table';
+import { AgeGenderTable } from '../../personal/tables/age-gender-table';
 import { renderWithProviders, createMockEmpleado } from '@/test/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
 

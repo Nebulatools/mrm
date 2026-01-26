@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import { SummaryComparison } from '../summary-comparison';
+import { SummaryComparison } from '../resumen/summary-comparison';
 import { renderWithProviders, createMockEmpleado } from '@/test/utils';
 import type { PlantillaRecord } from '@/lib/supabase';
 

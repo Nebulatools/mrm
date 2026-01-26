@@ -19,8 +19,8 @@ import {
 import type { TooltipProps } from "recharts";
 import type { NameType } from "recharts/types/component/DefaultTooltipContent";
 import { KPICard, KPICardSkeleton } from "@/components/shared/kpi-card";
-import { AgeGenderTable } from "@/components/tables/age-gender-table";
-import { SeniorityGenderTable } from "@/components/tables/seniority-gender-table";
+import { AgeGenderTable } from "./tables/age-gender-table";
+import { SeniorityGenderTable } from "./tables/seniority-gender-table";
 import { SmartNarrative } from "@/components/shared/smart-narrative";
 import { VisualizationContainer } from "@/components/shared/visualization-container";
 import type { PlantillaRecord } from "@/lib/supabase";
