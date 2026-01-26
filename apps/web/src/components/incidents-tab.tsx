@@ -56,7 +56,7 @@ type EnrichedIncidencia = IncidenciaCSVRecord & {
 
 // ✅ NUEVA CATEGORIZACIÓN: 4 grupos (Faltas, Salud, Permisos, Vacaciones)
 const FALTAS_CODES = new Set(["FI", "SUSP"]);
-const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1"]);
+const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1", "ACCI", "INCA"]); // ✅ Agregados ACCI (54) e INCA (1) - Total 55 registros adicionales
 const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]);
 const VACACIONES_CODES = new Set(["VAC"]);
 
@@ -303,8 +303,22 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
     console.log('📅 Año filtrado:', currentYear || 'SIN FILTRO (TODO)');
     console.log('📅 Mes filtrado:', selectedMonths && selectedMonths.length ? selectedMonths : 'SIN FILTRO (TODO)');
 
-    // ✅ CAMBIO: NO filtrar por empleadosAnualesMap - mostrar TODAS las incidencias históricas
-    // Esto permite ver incidencias de empleados que se dieron de baja antes del periodo
+    // ✅ VERIFICACIÓN: Validar que plantillaAnual solo incluya empleados activos
+    if (plantillaAnual) {
+      const activos = plantillaAnual.filter(e => e.activo).length;
+      const total = plantillaAnual.length;
+      console.log(`✅ Empleados en plantillaAnual: ${activos} activos de ${total} total`);
+      if (activos !== total) {
+        console.warn(`⚠️ ADVERTENCIA: plantillaAnual incluye ${total - activos} empleados inactivos. Esto puede afectar los cálculos.`);
+      }
+    }
+
+    // ✅ FILTRADO POR EMPLEADOS ACTIVOS:
+    // El prop 'incidencias' ya viene filtrado desde dashboard-page.tsx (línea 532-547)
+    // Solo incluye incidencias de empleados que están en plantillaFiltered
+    // plantillaFiltered usa includeInactive: false (dashboard-page.tsx línea 485), por lo tanto:
+    // - Solo empleados con activo = true
+    // - O empleados sin fecha_baja
     const scopedByEmployee = incidencias;
 
     const scopedByYear = scopedByEmployee.filter(inc => {

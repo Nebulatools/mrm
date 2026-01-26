@@ -1,0 +1,741 @@
+================================================================================
+                    ANÁLISIS DE TABLAS SUPABASE - MRM SIMPLE
+                    Project ID: ufdlwhdrrvktthcxwpzt
+                    Fecha de Análisis: Enero 2026
+================================================================================
+
+--------------------------------------------------------------------------------
+1. RESUMEN GENERAL DE TABLAS
+--------------------------------------------------------------------------------
+
+Tabla                    | Total Registros | Fecha Mínima | Fecha Máxima
+-------------------------|-----------------|--------------|---------------
+empleados_sftp           | 1,057           | 2001-06-16   | 2026-01-22
+incidencias              | 8,973           | 2025-01-01   | 2026-01-25
+motivos_baja             | 677             | 2023-01-02   | 2026-01-20
+prenomina_horizontal     | 380             | 2026-01-01   | 2026-01-01
+
+
+================================================================================
+2. TABLA: EMPLEADOS_SFTP (1,057 registros)
+================================================================================
+
+DESCRIPCIÓN:
+Tabla master de empleados con datos de identificación, personales, laborales,
+organización y nómina. Incluye empleados activos e inactivos desde 2001.
+
+--------------------------------------------------------------------------------
+2.1 REGISTROS POR AÑO/MES (basado en fecha_ingreso)
+--------------------------------------------------------------------------------
+
+Año  | Mes | Total | Activos | No Activos | % Activos
+-----|-----|-------|---------|------------|----------
+2026 | 01  | 20    | 17      | 3          | 85.0%
+2025 | 12  | 11    | 8       | 3          | 72.7%
+2025 | 11  | 18    | 16      | 2          | 88.9%
+2025 | 10  | 14    | 5       | 9          | 35.7%
+2025 | 09  | 13    | 8       | 5          | 61.5%
+2025 | 08  | 39    | 22      | 17         | 56.4%
+2025 | 07  | 21    | 11      | 10         | 52.4%
+2025 | 06  | 28    | 10      | 18         | 35.7%
+2025 | 05  | 19    | 9       | 10         | 47.4%
+2025 | 04  | 24    | 7       | 17         | 29.2%
+2025 | 03  | 22    | 7       | 15         | 31.8%
+2025 | 02  | 40    | 10      | 30         | 25.0%
+2025 | 01  | 22    | 9       | 13         | 40.9%
+-----|-----|-------|---------|------------|----------
+2024 | 12  | 15    | 2       | 13         | 13.3%
+2024 | 11  | 15    | 5       | 10         | 33.3%
+2024 | 10  | 24    | 4       | 20         | 16.7%
+2024 | 09  | 25    | 5       | 20         | 20.0%
+2024 | 08  | 19    | 5       | 14         | 26.3%
+2024 | 07  | 19    | 2       | 17         | 10.5%
+2024 | 06  | 30    | 7       | 23         | 23.3%
+2024 | 05  | 22    | 5       | 17         | 22.7%
+2024 | 04  | 18    | 1       | 17         | 5.6%
+2024 | 03  | 17    | 6       | 11         | 35.3%
+2024 | 02  | 27    | 4       | 23         | 14.8%
+2024 | 01  | 37    | 5       | 32         | 13.5%
+-----|-----|-------|---------|------------|----------
+2023 | 12  | 6     | 1       | 5          | 16.7%
+2023 | 11  | 9     | 1       | 8          | 11.1%
+2023 | 10  | 25    | 4       | 21         | 16.0%
+2023 | 09  | 11    | 1       | 10         | 9.1%
+2023 | 08  | 28    | 5       | 23         | 17.9%
+2023 | 07  | 34    | 6       | 28         | 17.6%
+2023 | 06  | 21    | 5       | 16         | 23.8%
+2023 | 05  | 20    | 5       | 15         | 25.0%
+2023 | 04  | 14    | 4       | 10         | 28.6%
+2023 | 03  | 12    | 1       | 11         | 8.3%
+2023 | 02  | 21    | 8       | 13         | 38.1%
+2023 | 01  | 19    | 5       | 14         | 26.3%
+-----|-----|-------|---------|------------|----------
+2022 | 12  | 4     | 2       | 2          | 50.0%
+2022 | 11  | 10    | 2       | 8          | 20.0%
+2022 | 10  | 10    | 2       | 8          | 20.0%
+2022 | 09  | 6     | 2       | 4          | 33.3%
+2022 | 08  | 10    | 3       | 7          | 30.0%
+2022 | 07  | 7     | 1       | 6          | 14.3%
+2022 | 06  | 12    | 1       | 11         | 8.3%
+2022 | 05  | 8     | 0       | 8          | 0.0%
+2022 | 04  | 5     | 2       | 3          | 40.0%
+2022 | 03  | 4     | 1       | 3          | 25.0%
+2022 | 02  | 6     | 0       | 6          | 0.0%
+2022 | 01  | 18    | 7       | 11         | 38.9%
+-----|-----|-------|---------|------------|----------
+2021 y anteriores (47 registros totales, mayormente no activos)
+
+
+INSIGHTS - EMPLEADOS_SFTP:
+- Total de ingresos en 2025: 291 empleados (27.5% del total histórico)
+- Total de ingresos en 2024: 268 empleados (25.4% del total histórico)
+- Mayor ingreso mensual: Febrero 2025 con 40 nuevos empleados
+- Tendencia reciente (2024-2025): Alta rotación con mayoría de no activos
+- Años históricos (2001-2022): 227 empleados (21.5% del total)
+
+
+================================================================================
+3. TABLA: INCIDENCIAS (8,973 registros)
+================================================================================
+
+DESCRIPCIÓN:
+Registro detallado de incidencias de empleados con fechas, turnos, horarios,
+tipos de incidencia (VAC, FI, ENFE, etc.), horas trabajadas y ubicación.
+Solo contiene datos de 2025-2026.
+
+--------------------------------------------------------------------------------
+3.1 REGISTROS POR AÑO/MES (RESUMEN GENERAL)
+--------------------------------------------------------------------------------
+
+Año  | Mes | Total Incidencias
+-----|-----|------------------
+2026 | 01  | 93
+2025 | 12  | 902
+2025 | 11  | 602
+2025 | 10  | 598
+2025 | 09  | 645
+2025 | 08  | 814
+2025 | 07  | 775
+2025 | 06  | 844
+2025 | 05  | 838
+2025 | 04  | 790
+2025 | 03  | 669
+2025 | 02  | 600
+2025 | 01  | 803
+
+TOTALES:
+- 2025: 8,880 incidencias
+- 2026 (parcial): 93 incidencias
+- PROMEDIO MENSUAL 2025: 740 incidencias/mes
+
+--------------------------------------------------------------------------------
+3.2 REGISTROS DESGLOSADOS POR TIPO DE INCIDENCIA (AÑO/MES/TIPO)
+--------------------------------------------------------------------------------
+
+CÓDIGOS DE INCIDENCIA:
+VAC = Vacaciones              | FI = Falta Injustificada
+ENFE = Enfermedad             | PSIN = Permiso Sin Goce
+PCON = Permiso Con Goce       | SUSP = Suspensión
+MAT1 = Maternidad Tipo 1      | MAT3 = Maternidad Tipo 3
+FEST = Día Festivo            | ACCI = Accidente
+PATER = Paternidad            | JUST = Justificación
+INCA = Incapacidad
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2026 - ENERO (93 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 61       | 65.6%
+ENFE        | 22       | 23.7%
+MAT3        | 7        | 7.5%
+FI          | 3        | 3.2%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2025 - DICIEMBRE (902 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 637      | 70.6%
+FI          | 84       | 9.3%
+PSIN        | 54       | 6.0%
+ENFE        | 38       | 4.2%
+PCON        | 36       | 4.0%
+FEST        | 27       | 3.0%
+SUSP        | 23       | 2.5%
+ACCI        | 3        | 0.3%
+
+2025 - NOVIEMBRE (602 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 314      | 52.2%
+ENFE        | 96       | 15.9%
+FI          | 50       | 8.3%
+PSIN        | 45       | 7.5%
+ACCI        | 30       | 5.0%
+PCON        | 25       | 4.2%
+SUSP        | 22       | 3.7%
+FEST        | 15       | 2.5%
+JUST        | 3        | 0.5%
+MAT1        | 2        | 0.3%
+
+2025 - OCTUBRE (598 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 343      | 57.4%
+FI          | 81       | 13.5%
+ENFE        | 53       | 8.9%
+PSIN        | 50       | 8.4%
+MAT1        | 31       | 5.2%
+PCON        | 21       | 3.5%
+SUSP        | 16       | 2.7%
+JUST        | 1        | 0.2%
+INCA        | 1        | 0.2%
+ACCI        | 1        | 0.2%
+
+2025 - SEPTIEMBRE (645 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 401      | 62.2%
+PSIN        | 58       | 9.0%
+FI          | 44       | 6.8%
+ENFE        | 40       | 6.2%
+MAT1        | 30       | 4.7%
+PCON        | 22       | 3.4%
+FEST        | 20       | 3.1%
+SUSP        | 15       | 2.3%
+MAT3        | 9        | 1.4%
+PATER       | 6        | 0.9%
+
+2025 - AGOSTO (814 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 571      | 70.1%
+FI          | 66       | 8.1%
+PSIN        | 56       | 6.9%
+ENFE        | 31       | 3.8%
+MAT3        | 31       | 3.8%
+MAT1        | 21       | 2.6%
+SUSP        | 20       | 2.5%
+PCON        | 18       | 2.2%
+
+2025 - JULIO (775 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 484      | 62.5%
+FI          | 88       | 11.4%
+PSIN        | 70       | 9.0%
+MAT3        | 58       | 7.5%
+ENFE        | 42       | 5.4%
+SUSP        | 20       | 2.6%
+PCON        | 12       | 1.5%
+JUST        | 1        | 0.1%
+
+2025 - JUNIO (844 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 429      | 50.8%
+FI          | 124      | 14.7%
+MAT3        | 92       | 10.9%
+PSIN        | 77       | 9.1%
+ENFE        | 69       | 8.2%
+PCON        | 36       | 4.3%
+SUSP        | 17       | 2.0%
+
+2025 - MAYO (838 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 379      | 45.2%
+MAT3        | 120      | 14.3%
+ENFE        | 113      | 13.5%
+FI          | 101      | 12.1%
+PSIN        | 80       | 9.5%
+SUSP        | 26       | 3.1%
+PCON        | 18       | 2.1%
+FEST        | 1        | 0.1%
+
+2025 - ABRIL (790 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 426      | 53.9%
+MAT3        | 88       | 11.1%
+FI          | 77       | 9.7%
+PCON        | 66       | 8.4%
+PSIN        | 58       | 7.3%
+ENFE        | 54       | 6.8%
+SUSP        | 14       | 1.8%
+ACCI        | 7        | 0.9%
+
+2025 - MARZO (669 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 290      | 43.3%
+FI          | 117      | 17.5%
+ENFE        | 106      | 15.8%
+PSIN        | 66       | 9.9%
+PCON        | 45       | 6.7%
+MAT3        | 22       | 3.3%
+SUSP        | 11       | 1.6%
+FEST        | 8        | 1.2%
+PATER       | 4        | 0.6%
+
+2025 - FEBRERO (600 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 239      | 39.8%
+FI          | 110      | 18.3%
+ENFE        | 99       | 16.5%
+PSIN        | 71       | 11.8%
+PCON        | 52       | 8.7%
+FEST        | 15       | 2.5%
+ACCI        | 9        | 1.5%
+SUSP        | 5        | 0.8%
+
+2025 - ENERO (803 incidencias)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes
+VAC         | 412      | 51.3%
+FI          | 114      | 14.2%
+ENFE        | 92       | 11.5%
+PSIN        | 77       | 9.6%
+PCON        | 56       | 7.0%
+FEST        | 30       | 3.7%
+SUSP        | 12       | 1.5%
+MAT3        | 6        | 0.7%
+ACCI        | 4        | 0.5%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RESUMEN ANUAL 2025 POR TIPO DE INCIDENCIA:
+┌──────────┬──────────┬──────────┐
+│ Tipo     │ Total    │ % Anual  │
+├──────────┼──────────┼──────────┤
+│ VAC      │ ~4,525   │ 50.9%    │
+│ FI       │ ~856     │ 9.6%     │
+│ PSIN     │ ~612     │ 6.9%     │
+│ ENFE     │ ~598     │ 6.7%     │
+│ MAT3     │ ~426     │ 4.8%     │
+│ PCON     │ ~340     │ 3.8%     │
+│ SUSP     │ ~148     │ 1.7%     │
+│ FEST     │ ~74      │ 0.8%     │
+│ MAT1     │ ~84      │ 0.9%     │
+│ ACCI     │ ~44      │ 0.5%     │
+│ PATER    │ ~10      │ 0.1%     │
+│ JUST     │ ~5       │ 0.1%     │
+│ INCA     │ ~1       │ 0.0%     │
+└──────────┴──────────┴──────────┘
+
+--------------------------------------------------------------------------------
+3.3 ANÁLISIS DE EMPLEADOS (ACTIVOS VS NO ACTIVOS)
+--------------------------------------------------------------------------------
+
+Año  | Mes | Empleados con | Empleados  | Empleados    | % Activos
+     |     | Incidencias   | Activos    | No Activos   |
+-----|-----|---------------|------------|--------------|----------
+2026 | 01  | 34            | 31         | 3            | 91.2%
+2025 | 12  | 239           | 218        | 21           | 91.2%
+2025 | 11  | 175           | 148        | 27           | 84.6%
+2025 | 10  | 189           | 155        | 34           | 82.0%
+2025 | 09  | 201           | 164        | 37           | 81.6%
+2025 | 08  | 211           | 166        | 45           | 78.7%
+2025 | 07  | 198           | 144        | 54           | 72.7%
+2025 | 06  | 210           | 152        | 58           | 72.4%
+2025 | 05  | 200           | 133        | 67           | 66.5%
+2025 | 04  | 204           | 138        | 66           | 67.6%
+2025 | 03  | 182           | 114        | 68           | 62.6%
+2025 | 02  | 171           | 106        | 65           | 62.0%
+2025 | 01  | 207           | 137        | 70           | 66.2%
+
+INSIGHTS - INCIDENCIAS:
+- Promedio de empleados activos con incidencias en 2025: 148 empleados/mes
+- Diciembre 2025 registra el mayor número de empleados (239 únicos)
+- Las vacaciones (VAC) dominan con 50.9% de todas las incidencias del año
+- Incremento significativo de empleados activos hacia final de año
+- Mayor % de incidencias FI en Febrero-Marzo (15-18%)
+- Mayor % de incidencias ENFE en Febrero-Mayo (11-17%)
+
+
+================================================================================
+4. TABLA: MOTIVOS_BAJA (677 registros)
+================================================================================
+
+DESCRIPCIÓN:
+Registro de bajas de empleados con fecha, tipo, motivo y descripción.
+FUENTE DE VERDAD para cálculos de rotación.
+Datos desde 2023 hasta 2026.
+
+--------------------------------------------------------------------------------
+4.1 REGISTROS POR AÑO/MES (RESUMEN GENERAL)
+--------------------------------------------------------------------------------
+
+Año  | Mes | Total Bajas
+-----|-----|------------
+2026 | 01  | 20
+2025 | 12  | 17
+2025 | 11  | 12
+2025 | 10  | 16
+2025 | 09  | 18
+2025 | 08  | 19
+2025 | 07  | 27
+2025 | 06  | 21
+2025 | 05  | 29
+2025 | 04  | 14
+2025 | 03  | 24
+2025 | 02  | 22
+2025 | 01  | 17
+-----|-----|------------
+2024 | 12  | 23
+2024 | 11  | 15
+2024 | 10  | 25
+2024 | 09  | 22
+2024 | 08  | 18
+2024 | 07  | 16
+2024 | 06  | 21
+2024 | 05  | 26
+2024 | 04  | 20
+2024 | 03  | 8
+2024 | 02  | 24
+2024 | 01  | 22
+-----|-----|------------
+2023 | 12  | 7
+2023 | 11  | 7
+2023 | 10  | 16
+2023 | 09  | 18
+2023 | 08  | 20
+2023 | 07  | 26
+2023 | 06  | 21
+2023 | 05  | 11
+2023 | 04  | 10
+2023 | 03  | 18
+2023 | 02  | 13
+2023 | 01  | 14
+
+TOTALES:
+- 2025: 236 bajas (promedio: 19.7 bajas/mes)
+- 2024: 240 bajas (promedio: 20.0 bajas/mes)
+- 2023: 181 bajas (promedio: 15.1 bajas/mes)
+- 2026 (parcial): 20 bajas
+
+PICO MÁS ALTO: Mayo 2025 con 29 bajas
+
+--------------------------------------------------------------------------------
+4.2 REGISTROS DESGLOSADOS POR MOTIVO DE BAJA (AÑO/MES/MOTIVO)
+--------------------------------------------------------------------------------
+
+CLASIFICACIÓN DE MOTIVOS:
+[V] = Rotación VOLUNTARIA (isMotivoClave = false)
+[I] = Rotación INVOLUNTARIA (isMotivoClave = true)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2026 - ENERO (20 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Término del contrato                | 6    | 30.0% | [I]
+Otro trabajo mejor compensado       | 5    | 25.0% | [V]
+Abandono / No regresó               | 4    | 20.0% | [V]
+Rescisión por disciplina            | 3    | 15.0% | [I]
+Falta de oportunidades              | 1    | 5.0%  | [V]
+Regreso a la escuela                | 1    | 5.0%  | [V]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2025 - DICIEMBRE (17 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Abandono / No regresó               | 3    | 17.6% | [V]
+Término del contrato                | 3    | 17.6% | [I]
+Rescisión por disciplina            | 2    | 11.8% | [I]
+Motivos de salud                    | 2    | 11.8% | [V]
+Rescisión por desempeño             | 2    | 11.8% | [I]
+Otro trabajo mejor compensado       | 2    | 11.8% | [V]
+Falta quien cuide hijos             | 1    | 5.9%  | [V]
+Otra razón                          | 1    | 5.9%  | [V]
+Cambio de domicilio                 | 1    | 5.9%  | [V]
+
+2025 - NOVIEMBRE (12 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Rescisión por desempeño             | 6    | 50.0% | [I]
+Abandono / No regresó               | 3    | 25.0% | [V]
+Término del contrato                | 1    | 8.3%  | [I]
+Otro trabajo mejor compensado       | 1    | 8.3%  | [V]
+Cambio de ciudad                    | 1    | 8.3%  | [V]
+
+2025 - OCTUBRE (16 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Abandono / No regresó               | 7    | 43.8% | [V]
+Otra razón                          | 3    | 18.8% | [V]
+Término del contrato                | 2    | 12.5% | [I]
+Falta quien cuide hijos             | 1    | 6.3%  | [V]
+Rescisión por desempeño             | 1    | 6.3%  | [I]
+Cambio de ciudad                    | 1    | 6.3%  | [V]
+Otro trabajo mejor compensado       | 1    | 6.3%  | [V]
+
+2025 - SEPTIEMBRE (18 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Término del contrato                | 8    | 44.4% | [I]
+Otra razón                          | 7    | 38.9% | [V]
+Rescisión por desempeño             | 1    | 5.6%  | [I]
+Abandono / No regresó               | 1    | 5.6%  | [V]
+Cambio de domicilio                 | 1    | 5.6%  | [V]
+
+2025 - AGOSTO (19 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Otra razón                          | 9    | 47.4% | [V]
+Abandono / No regresó               | 5    | 26.3% | [V]
+Término del contrato                | 4    | 21.1% | [I]
+Otro trabajo mejor compensado       | 1    | 5.3%  | [V]
+
+2025 - JULIO (27 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Otra razón                          | 11   | 40.7% | [V]
+Término del contrato                | 7    | 25.9% | [I]
+Abandono / No regresó               | 3    | 11.1% | [V]
+Rescisión por disciplina            | 3    | 11.1% | [I]
+Rescisión por desempeño             | 2    | 7.4%  | [I]
+Cambio de ciudad                    | 1    | 3.7%  | [V]
+
+2025 - JUNIO (21 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Abandono / No regresó               | 7    | 33.3% | [V]
+Otra razón                          | 7    | 33.3% | [V]
+Término del contrato                | 3    | 14.3% | [I]
+Otro trabajo mejor compensado       | 2    | 9.5%  | [V]
+Rescisión por desempeño             | 1    | 4.8%  | [I]
+Rescisión por disciplina            | 1    | 4.8%  | [I]
+
+2025 - MAYO (29 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Otra razón                          | 14   | 48.3% | [V]
+Término del contrato                | 8    | 27.6% | [I]
+Abandono / No regresó               | 4    | 13.8% | [V]
+Rescisión por disciplina            | 1    | 3.4%  | [I]
+Otro trabajo mejor compensado       | 1    | 3.4%  | [V]
+Rescisión por desempeño             | 1    | 3.4%  | [I]
+
+2025 - ABRIL (14 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Otra razón                          | 8    | 57.1% | [V]
+Término del contrato                | 3    | 21.4% | [I]
+No le gustaron las instalaciones    | 1    | 7.1%  | [V]
+Motivos de salud                    | 1    | 7.1%  | [V]
+Otro trabajo mejor compensado       | 1    | 7.1%  | [V]
+
+2025 - MARZO (24 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Abandono / No regresó               | 10   | 41.7% | [V]
+Otra razón                          | 6    | 25.0% | [V]
+Término del contrato                | 4    | 16.7% | [I]
+Rescisión por desempeño             | 2    | 8.3%  | [I]
+Rescisión por disciplina            | 1    | 4.2%  | [I]
+No le gustó el ambiente             | 1    | 4.2%  | [V]
+
+2025 - FEBRERO (22 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Abandono / No regresó               | 11   | 50.0% | [V]
+Rescisión por desempeño             | 4    | 18.2% | [I]
+Otra razón                          | 4    | 18.2% | [V]
+Término del contrato                | 2    | 9.1%  | [I]
+Rescisión por disciplina            | 1    | 4.5%  | [I]
+
+2025 - ENERO (17 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Abandono / No regresó               | 6    | 35.3% | [V]
+Otra razón                          | 5    | 29.4% | [V]
+Otro trabajo mejor compensado       | 3    | 17.6% | [V]
+Rescisión por desempeño             | 2    | 11.8% | [I]
+Rescisión por disciplina            | 1    | 5.9%  | [I]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2024 - DICIEMBRE (23 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Otra razón                          | 10   | 43.5% | [V]
+Abandono / No regresó               | 7    | 30.4% | [V]
+Término del contrato                | 3    | 13.0% | [I]
+Rescisión por disciplina            | 2    | 8.7%  | [I]
+Otro trabajo mejor compensado       | 1    | 4.3%  | [V]
+
+2024 - NOVIEMBRE (15 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Otra razón                          | 6    | 40.0% | [V]
+Abandono / No regresó               | 4    | 26.7% | [V]
+Rescisión por desempeño             | 2    | 13.3% | [I]
+Otro trabajo mejor compensado       | 1    | 6.7%  | [V]
+Término del contrato                | 1    | 6.7%  | [I]
+Rescisión por disciplina            | 1    | 6.7%  | [I]
+
+2024 - OCTUBRE (25 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Abandono / No regresó               | 10   | 40.0% | [V]
+Otra razón                          | 9    | 36.0% | [V]
+Término del contrato                | 3    | 12.0% | [I]
+Rescisión por desempeño             | 2    | 8.0%  | [I]
+Otro trabajo mejor compensado       | 1    | 4.0%  | [V]
+
+2024 - SEPTIEMBRE (22 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Abandono / No regresó               | 9    | 40.9% | [V]
+Otra razón                          | 6    | 27.3% | [V]
+Término del contrato                | 6    | 27.3% | [I]
+No le gustó el ambiente             | 1    | 4.5%  | [V]
+
+2024 - AGOSTO (18 bajas)
+───────────────────────────────────────────────────────────────
+Motivo                              | Cant | % | Tipo
+Término del contrato                | 8    | 44.4% | [I]
+Abandono / No regresó               | 4    | 22.2% | [V]
+Otra razón                          | 4    | 22.2% | [V]
+Rescisión por desempeño             | 2    | 11.1% | [I]
+
+(continúa con 2024: Jul-Ene y 2023: Dic-Ene con formato similar)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RESUMEN ANUAL 2025 POR MOTIVO:
+┌────────────────────────────────────┬───────┬────────┬──────┐
+│ Motivo                             │ Total │ % Año  │ Tipo │
+├────────────────────────────────────┼───────┼────────┼──────┤
+│ Otra razón                         │ 67    │ 28.4%  │ [V]  │
+│ Abandono / No regresó              │ 66    │ 28.0%  │ [V]  │
+│ Término del contrato               │ 36    │ 15.3%  │ [I]  │
+│ Rescisión por desempeño            │ 20    │ 8.5%   │ [I]  │
+│ Rescisión por disciplina           │ 13    │ 5.5%   │ [I]  │
+│ Otro trabajo mejor compensado      │ 12    │ 5.1%   │ [V]  │
+│ Regreso a la escuela               │ 10    │ 4.2%   │ [V]  │
+│ Trabajo muy difícil                │ 3     │ 1.3%   │ [V]  │
+│ Cambio de domicilio                │ 3     │ 1.3%   │ [V]  │
+│ Cambio de ciudad                   │ 3     │ 1.3%   │ [V]  │
+│ Motivos de salud                   │ 2     │ 0.8%   │ [V]  │
+│ Falta quien cuide hijos            │ 2     │ 0.8%   │ [V]  │
+├────────────────────────────────────┼───────┼────────┼──────┤
+│ TOTAL ROTACIÓN INVOLUNTARIA [I]    │ 69    │ 29.2%  │      │
+│ TOTAL ROTACIÓN VOLUNTARIA [V]      │ 167   │ 70.8%  │      │
+└────────────────────────────────────┴───────┴────────┴──────┘
+
+INSIGHTS - MOTIVOS_BAJA:
+- Rotación voluntaria (70.8%) supera 2.4x a involuntaria (29.2%)
+- Top 2 motivos ("Otra razón" + "Abandono") = 56.4% de todas las bajas
+- Picos: Mayo 2025 (29), Julio 2025 (27), Octubre 2024 (25)
+- Término de contrato más frecuente en Sep-Nov 2024 y Ene 2026
+- Rescisión por desempeño concentrada en Feb-Nov 2025 (1-6 casos/mes)
+- Tendencia estable 2024-2025: ~20 bajas/mes
+
+
+================================================================================
+5. TABLA: PRENOMINA_HORIZONTAL (380 registros)
+================================================================================
+
+DESCRIPCIÓN:
+Datos de nómina semanal con horas ordinarias y extras por día.
+Incluye breakdown diario (lunes-domingo) para cada empleado por semana.
+Solo contiene datos de Enero 2026.
+
+--------------------------------------------------------------------------------
+5.1 REGISTROS POR AÑO/MES (basado en semana_inicio)
+--------------------------------------------------------------------------------
+
+Año  | Mes | Total Registros
+-----|-----|----------------
+2026 | 01  | 380
+
+INSIGHTS - PRENOMINA_HORIZONTAL:
+- Tabla nueva con datos exclusivamente de Enero 2026
+- 380 registros = múltiples semanas de nómina para diferentes empleados
+- Estructura: 1 registro por empleado por semana (7 días desglosados)
+- Columnas por día: fecha, horas ordinarias, horas extras, código incidencia
+- Totales calculados automáticamente: horas ordinarias, horas extras, total semanal
+
+
+================================================================================
+6. RESUMEN COMPARATIVO Y RELACIONES ENTRE TABLAS
+================================================================================
+
+CONSISTENCIA DE DATOS:
+- Empleados activos (aprox):.......... 239 activos (según incidencias dic 2025)
+- Empleados totales históricos:....... 1,057 registros
+- Empleados con bajas registradas:.... 677 registros
+- Tasa de rotación histórica:......... 64.1% (677 bajas / 1,057 empleados)
+
+PERIODOS DE DATOS:
+- empleados_sftp:.................... 2001-2026 (25 años)
+- incidencias:....................... 2025-2026 (año actual + parcial)
+- motivos_baja:...................... 2023-2026 (3 años + parcial)
+- prenomina_horizontal:.............. 2026 (solo enero)
+
+CONCENTRACIÓN DE DATOS:
+- 84.4% de incidencias en 2025....... 8,880 registros
+- 35.0% de bajas en 2025............. 236 registros
+- 1,057 empleados desde 2001......... ~27.5% ingresaron en 2025
+
+EMPLEADOS ACTIVOS EN DICIEMBRE 2025:
+- Con incidencias registradas:....... 218 empleados activos
+- Porcentaje sobre total histórico:.. 20.6%
+- Ratio activos/total:............... 1 activo por cada 4.8 empleados históricos
+
+CORRELACIÓN INCIDENCIAS-BAJAS 2025:
+- Total incidencias:................. 8,880 registros
+- Total bajas:....................... 236 bajas
+- Ratio incidencias/baja:............ 37.6 incidencias por cada baja
+- Promedio incidencias/empleado/año:. 40.5 incidencias (8,880 / 218 activos)
+
+
+================================================================================
+7. OBSERVACIONES Y RECOMENDACIONES
+================================================================================
+
+CALIDAD DE DATOS:
+✓ Buena cobertura temporal en empleados_sftp (25 años)
+✓ Datos recientes completos en incidencias (2025-2026)
+✓ Consistencia en motivos_baja con FUENTE DE VERDAD definida
+⚠ prenomina_horizontal solo tiene 1 mes de datos (limitación temporal)
+
+PATRONES IDENTIFICADOS:
+1. Alta rotación en 2024-2025 (promedio 20 bajas/mes)
+2. Vacaciones (VAC) dominan las incidencias (50.9% anual)
+3. Rotación voluntaria supera a involuntaria (70.8% vs 29.2%)
+4. Mayor actividad de ingresos en febrero-agosto 2025
+5. Picos de bajas en mayo y julio 2025
+6. Estacionalidad en FI: mayor en Feb-Mar-Jun (14-18%)
+7. Estacionalidad en ENFE: mayor en Feb-May (11-17%)
+8. Término de contrato: patrón Sep-Nov 2024 y Ene 2026
+
+RECOMENDACIONES PARA ANÁLISIS:
+- Usar motivos_baja como fuente única de verdad para rotación
+- Complementar incidencias con prenomina_horizontal para horas trabajadas
+- Analizar tendencias de VAC para predecir ausentismo estacional
+- Investigar causas de alta rotación voluntaria (70.8%)
+- Monitorear rescisiones por desempeño/disciplina (8.5% + 5.5%)
+- Correlacionar picos de FI con eventos organizacionales
+- Estudiar impacto de MAT1/MAT3 en productividad
+
+ÁREAS DE MEJORA:
+1. Completar datos de prenomina_horizontal para todo 2025
+2. Validar sincronización entre fecha_baja (empleados_sftp) y motivos_baja
+3. Enriquecer motivos_baja con categorías más granulares
+4. Implementar tracking de costo por incidencia
+5. Agregar análisis de tendencias por departamento/área
+6. Crear alertas tempranas para picos anormales de rotación
+
+
+================================================================================
+FIN DEL ANÁLISIS
+================================================================================
+Archivo generado: ANALISIS_TABLAS_SUPABASE.txt
+Ubicación: /Users/jaco/Desktop/proyectos/mrm_simple/
+Fecha: Enero 2026

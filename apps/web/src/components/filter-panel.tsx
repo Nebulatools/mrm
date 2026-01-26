@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { countActiveFilters, getFilterSummary, sanitizeFilterValue } from "@/lib/filters/summary";
-import { normalizeCCToUbicacion } from "@/lib/normalizers";
+// normalizeCCToUbicacion removed - now using ubicacion2 directly
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { endOfMonth, subMonths } from "date-fns";
@@ -93,7 +93,7 @@ export function RetentionFilterPanel({
       // Get empleados_sftp data
       const { data: empleadosSFTP } = await supabase
         .from('empleados_sftp')
-        .select('fecha_baja, departamento, puesto, clasificacion, ubicacion, empresa, area, cc');
+        .select('fecha_baja, departamento, puesto, clasificacion, ubicacion, empresa, area, cc, ubicacion2');
 
       // Extract all dates from fecha_baja
       const allDates = [];
@@ -178,15 +178,12 @@ export function RetentionFilterPanel({
       const puestos = Array.from(puestosSet).sort();
       const clasificaciones = Array.from(clasificacionesSet).sort();
       const ubicaciones = Array.from(ubicacionesSet).sort();
-      // ✅ CORREGIDO: Usar empleados_sftp.cc con normalizer normalizeCCToUbicacion
-      // El normalizer mapea: CAD, CORPORATIVO (MRM/DIRE), FILIALES (SM*/DF/TORREON/etc), OTROS
+      // ✅ CORREGIDO: Usar empleados_sftp.ubicacion2 directamente (datos limpios)
+      // Valores posibles: CAD, CORPORATIVO, FILIALES (sin OTROS)
       empleadosSFTP?.forEach(emp => {
-        const cc = (emp as any).cc as string | undefined;
-        if (cc) {
-          const ubicacionNormalizada = normalizeCCToUbicacion(cc);
-          if (ubicacionNormalizada !== 'SIN UBICACIÓN') {
-            ubicacionesIncSet.add(ubicacionNormalizada);
-          }
+        const ubicacion2 = (emp as any).ubicacion2 as string | undefined;
+        if (ubicacion2 && ubicacion2.trim() !== '') {
+          ubicacionesIncSet.add(ubicacion2.toUpperCase());
         }
       });
       const ubicacionesIncidencias = Array.from(ubicacionesIncSet).sort();

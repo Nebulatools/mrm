@@ -9,7 +9,7 @@
  */
 
 import type { PlantillaRecord } from '@/lib/types/records';
-import { isMotivoClave, normalizeCCToUbicacion } from '@/lib/normalizers';
+import { isMotivoClave } from '@/lib/normalizers';
 
 type Nullable<T> = T | null | undefined;
 
@@ -268,11 +268,10 @@ export function applyRetentionFilters(
       return false;
     }
 
-    // Filtro ubicacionesIncidencias: usa normalizeCCToUbicacion(cc) para obtener CAD/CORPORATIVO/FILIALES
+    // Filtro ubicacionesIncidencias: usa ubicacion2 directamente (datos limpios: CAD/CORPORATIVO/FILIALES)
     if (normalizedFilters.ubicacionesIncidencias.size > 0) {
-      const cc = (emp as any).cc;
-      const ubicacion2Computed = normalizeCCToUbicacion(cc);
-      if (!matchesFilter(ubicacion2Computed, normalizedFilters.ubicacionesIncidencias)) {
+      const ubicacion2 = (emp as any).ubicacion2 || '';
+      if (!matchesFilter(ubicacion2.toUpperCase(), normalizedFilters.ubicacionesIncidencias)) {
         return false;
       }
     }

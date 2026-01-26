@@ -18,6 +18,7 @@ export interface PlantillaRecord {
   area?: string | null
   clasificacion?: string | null
   ubicacion?: string | null
+  ubicacion2?: string | null // CAD, CORPORATIVO, FILIALES
   cc?: string | null // Centro de Costo
   genero?: string | null
   fecha_nacimiento?: string | null
@@ -53,6 +54,7 @@ export interface EmpleadoSFTPRecord {
   codigo_area?: string
   area?: string
   ubicacion?: string | null
+  ubicacion2?: string | null // CAD, CORPORATIVO, FILIALES
   telefono?: string
   correo?: string
   direccion?: string

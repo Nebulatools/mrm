@@ -252,8 +252,7 @@ export function SummaryComparison({
     const getDimensionValue = (emp: PlantillaRecord): string => {
       switch (dimension) {
         case 'ubicacion':
-          const cc = (emp as any).cc;
-          return normalizeCCToUbicacion(cc);
+          return (emp as any).ubicacion2 || 'SIN UBICACIÓN';
         case 'negocio':
           return (emp as any).empresa || 'SIN NEGOCIO';
         case 'area':

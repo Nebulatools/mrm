@@ -195,6 +195,7 @@ export const db = {
         area: normalizeArea(emp.area) || 'Sin Área',
         clasificacion: emp.clasificacion || 'Sin Clasificación',
         ubicacion: (emp as any).ubicacion || null,
+        ubicacion2: (emp as any).ubicacion2 || null, // CAD, CORPORATIVO, FILIALES
         cc: emp.cc || null,
         empresa: (emp as any).empresa || null,
         genero: emp.genero || null,
