@@ -7,3 +7,7 @@ export { SmartNarrative } from './smart-narrative';
 export { VisualizationContainer } from './visualization-container';
 export { RetentionFilterPanel } from './filter-panel';
 export { IncidentsPermitsKPIs } from './incidents-permits-kpis';
+export { ErrorBoundary } from './error-boundary';
+export { ThemeProvider } from './theme-provider';
+export { ThemeToggle } from './theme-toggle';
+export { UserMenu } from './user-menu';

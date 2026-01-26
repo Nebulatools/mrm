@@ -19,7 +19,7 @@ import { KPICard, KPICardSkeleton } from "../shared/kpi-card";
 import { IncidentsPermitsKPIs } from "../shared/incidents-permits-kpis";
 import { Users, AlertCircle, Activity, ClipboardCheck } from "lucide-react";
 import { getModernColor, withOpacity } from "@/lib/chart-colors";
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/components/shared/theme-provider";
 import { AbsenteeismTable } from "./tables/absenteeism-table";
 import { getTitleWithYear } from "@/lib/filters/year-display";
 

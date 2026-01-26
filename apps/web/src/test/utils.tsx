@@ -1,7 +1,7 @@
 import { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { expect } from 'vitest';
-import { ThemeProvider } from '@/components/theme-provider';
+import { ThemeProvider } from '@/components/shared/theme-provider';
 
 /**
  * Custom render function que incluye providers necesarios

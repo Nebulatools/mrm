@@ -31,7 +31,7 @@ import { VisualizationContainer } from '@/components/shared/visualization-contai
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
 import { differenceInCalendarDays, endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { KPICard } from '@/components/shared/kpi-card';
-import { useTheme } from '@/components/theme-provider';
+import { useTheme } from '@/components/shared/theme-provider';
 import { IncidentsPermitsKPIs } from '@/components/shared/incidents-permits-kpis';
 
 // ✅ CATEGORIZACIÓN DE INCIDENCIAS: 4 grupos

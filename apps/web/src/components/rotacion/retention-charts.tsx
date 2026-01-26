@@ -11,7 +11,7 @@ import { applyFiltersWithScope } from '@/lib/filters';
 import { isMotivoClave, normalizeMotivo } from '@/lib/normalizers';
 import { VisualizationContainer } from "../shared/visualization-container";
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/components/shared/theme-provider";
 import {
   calculateMonthlyRetention,
   parseSupabaseDate,

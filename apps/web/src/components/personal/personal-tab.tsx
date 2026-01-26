@@ -26,7 +26,7 @@ import { VisualizationContainer } from "@/components/shared/visualization-contai
 import type { PlantillaRecord } from "@/lib/supabase";
 import type { KPIResult } from "@/lib/kpi-calculator";
 import { cn } from "@/lib/utils";
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/components/shared/theme-provider";
 
 interface HeadcountKPICard {
   icon: ReactNode;

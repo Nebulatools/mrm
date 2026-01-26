@@ -4,7 +4,7 @@ import { Fragment, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { isMotivoClave } from '@/lib/normalizers'
 import { VisualizationContainer } from '../shared/visualization-container'
-import { useTheme } from '@/components/theme-provider'
+import { useTheme } from '@/components/shared/theme-provider'
 import { cn } from '@/lib/utils'
 import { getTitleWithYear } from '@/lib/filters/year-display'
 

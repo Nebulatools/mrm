@@ -18,7 +18,7 @@ import type { MotivoBajaRecord } from "@/lib/types/records";
 import type { RetentionKPIs } from "@/hooks/use-retention-kpis";
 import type { RetentionFilterOptions } from "@/lib/filters";
 import { cn } from "@/lib/utils";
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/components/shared/theme-provider";
 
 interface BajasPorMotivoData {
   motivo: string;

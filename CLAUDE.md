@@ -149,13 +149,38 @@ The system implements HR-specific formulas with accurate calculations:
 
 ### Component Architecture
 
-**Main Dashboard Components:**
-- `dashboard-page.tsx` - Main dashboard with tabs (Personal, Incidencias, Retención, Tendencias)
-- `kpi-card.tsx` - Individual KPI display with variance
-- `kpi-chart.tsx` - Recharts-based visualization component
-- `ai-insights.tsx` - AI-powered insights display
-- `retroactive-adjustment.tsx` - KPI adjustment with audit trail
-- `filter-panel.tsx` - Dashboard filtering system
+**Organized by Functional Domain (January 2026 Refactor):**
+
+```
+src/components/
+├── shared/                         # Componentes compartidos entre tabs
+│   ├── kpi-card.tsx               # Individual KPI display
+│   ├── smart-narrative.tsx        # AI insights component
+│   ├── visualization-container.tsx # Container con fullscreen + export
+│   ├── filter-panel.tsx           # Dashboard filtering UI
+│   └── incidents-permits-kpis.tsx # KPIs de incidencias y permisos
+├── resumen/
+│   └── summary-comparison.tsx     # Comparación de períodos
+├── personal/
+│   ├── personal-tab.tsx           # Tab de análisis demográfico
+│   └── tables/
+│       ├── age-gender-table.tsx
+│       └── seniority-gender-table.tsx
+├── incidencias/
+│   ├── incidents-tab.tsx          # Tab de análisis de asistencia
+│   └── tables/
+│       └── absenteeism-table.tsx
+└── rotacion/
+    ├── rotacion-tab.tsx           # Tab de análisis de retención
+    ├── retention-charts.tsx       # Gráficos de rotación mensual/anual
+    ├── bajas-por-motivo-heatmap.tsx # Heatmap de bajas
+    ├── abandonos-otros-summary.tsx
+    ├── dismissal-reasons-table.tsx
+    └── tables/                    # 8 tablas de rotación
+```
+
+**Main Dashboard:**
+- `dashboard-page.tsx` - Main dashboard container con tabs (Resumen, Personal, Incidencias, Rotación)
 
 ### Database Schema - Tablas Actuales (Verificadas con MCP Supabase)
 
@@ -416,12 +441,30 @@ getEmpleadosSFTP() sincroniza automáticamente:
   - Sincroniza fecha_baja → PlantillaRecord[]
   - Garantiza coincidencia 100% (236 bajas en 2025)
     ↓
+Sistema de Filtros (4 variantes) → Datos filtrados por tab
+    ↓
 KPI Calculator usa PlantillaRecord[] sincronizado
     ↓
 Dashboard muestra datos correctos
 ```
 
 - `sftp_file_versions` + `sftp_record_diffs` proveen auditoría granular
+
+**Sistema de Filtros:**
+```
+lib/filters/
+├── core/filter-engine.ts    # Motor principal de filtrado
+├── utils/summary.ts          # Utilidades de resumen
+└── README.md                 # Documentación completa de 4 variantes
+```
+
+**4 Variantes de Filtrado:**
+1. **specific**: año + mes + estructura (Tabs: Resumen, Personal)
+2. **year**: año + estructura, sin mes (Tab: Incidencias)
+3. **year-only**: SOLO año (Tab: Rotación - todas las bajas del año)
+4. **general**: solo estructura, sin temporales (Históricos)
+
+Ver `apps/web/src/lib/filters/README.md` para documentación completa
 
 ## SFTP Admin Workflow
 

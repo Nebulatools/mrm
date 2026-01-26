@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RotationByMotiveSeniorityTable } from '../../rotacion/tables/rotation-by-motive-seniority-table';
+import { RotationByMotiveSeniorityTable } from '../rotation-by-motive-seniority-table';
 import { renderWithProviders, createMockEmpleado, mockMotivosBaja } from '@/test/utils';
 
 describe('Rotation by Motive-Seniority Table - Tab 3: Rotación', () => {

@@ -13,7 +13,7 @@ import type { RetentionFilterOptions } from "@/lib/filters";
 import { countActiveFilters, getFilterSummary, sanitizeFilterValue } from "@/lib/filters";
 // normalizeCCToUbicacion removed - now using ubicacion2 directly
 import { cn } from "@/lib/utils";
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/components/shared/theme-provider";
 import { endOfMonth, subMonths } from "date-fns";
 
 // Type moved to lib/filters/filters (renamed from retention)

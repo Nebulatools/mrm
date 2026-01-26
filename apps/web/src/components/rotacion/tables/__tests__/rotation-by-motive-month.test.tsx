@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RotationByMotiveMonthTable } from '../../rotacion/tables/rotation-by-motive-month-table';
+import { RotationByMotiveMonthTable } from '../rotation-by-motive-month-table';
 import { renderWithProviders, createMockEmpleado, mockMotivosBaja } from '@/test/utils';
 
 describe('Rotation by Motive-Month Table - Tab 3: Rotación', () => {
