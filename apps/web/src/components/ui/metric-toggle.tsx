@@ -3,8 +3,8 @@
 import { cn } from "@/lib/utils";
 
 interface MetricToggleProps {
-  value: "percent" | "number";
-  onChange: (value: "percent" | "number") => void;
+  value: "percent" | "count";
+  onChange: (value: "percent" | "count") => void;
   size?: "sm" | "md";
 }
 
@@ -29,10 +29,10 @@ export function MetricToggle({ value, onChange, size = "sm" }: MetricToggleProps
         %
       </button>
       <button
-        onClick={() => onChange("number")}
+        onClick={() => onChange("count")}
         className={cn(
           buttonClass,
-          value === "number"
+          value === "count"
             ? "bg-background text-foreground shadow-sm rounded-sm"
             : "text-muted-foreground hover:text-foreground"
         )}

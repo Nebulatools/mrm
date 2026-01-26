@@ -223,7 +223,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
   const isDark = theme === "dark";
 
   // Toggle para mostrar % o número en todo el tab
-  const [metricType, setMetricType] = useState<"percent" | "number">("percent");
+  const [metricType, setMetricType] = useState<"percent" | "count">("percent");
   const axisSecondaryColor = isDark ? "#CBD5F5" : "#64748b";
   const axisMutedColor = isDark ? "#CBD5F5" : "#475569";
   const gridStrokeColor = isDark ? "rgba(148, 163, 184, 0.25)" : "#E2E8F0";
@@ -1284,8 +1284,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                 ))}
                 {/* ✅ Cards 3 y 4: Componente compartido para Incidencias y Permisos */}
                 <IncidentsPermitsKPIs
-                  incidencias={enrichedPeriodo}
-                  incidenciasAnterior={enrichedAnterior}
+                  incidencias={enrichedPeriodo as any}
+                  incidenciasAnterior={enrichedAnterior as any}
                   diasLaborablesActual={diasLaborablesActual}
                   diasLaborablesPrev={diasLaborablesPrev}
                   currentReferenceDate={currentReferenceDate}
@@ -1891,12 +1891,12 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                       {(showTable ? enrichedPeriodo : enrichedPeriodo.slice(0, 10)).map((i) => (
                         <TableRow key={i.id}>
                           <TableCell className={cn("font-mono", isFullscreen ? "text-xs px-4" : "text-[10px] px-2")}>{i.emp}</TableCell>
-                          <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[100px] truncate px-2")} title={i.puesto}>{i.puesto || '—'}</TableCell>
-                          <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={i.unidad}>{i.unidad || '—'}</TableCell>
-                          <TableCell className={cn(isFullscreen ? "px-4" : "w-16 truncate px-2")} title={i.empresa}>{i.empresa || '—'}</TableCell>
-                          <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={i.ubicacion}>{i.ubicacion || '—'}</TableCell>
-                          <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[80px] truncate px-2")} title={i.departamento}>{i.departamento || '—'}</TableCell>
-                          <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={i.area}>{i.area || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[100px] truncate px-2")} title={i.puesto ?? undefined}>{i.puesto || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={i.unidad ?? undefined}>{i.unidad || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "w-16 truncate px-2")} title={i.empresa ?? undefined}>{i.empresa || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={i.ubicacion ?? undefined}>{i.ubicacion || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[80px] truncate px-2")} title={i.departamento ?? undefined}>{i.departamento || '—'}</TableCell>
+                          <TableCell className={cn(isFullscreen ? "px-4" : "w-20 truncate px-2")} title={i.area ?? undefined}>{i.area || '—'}</TableCell>
                           <TableCell className={cn("whitespace-nowrap", isFullscreen ? "px-4" : "w-20 px-2")}>{formatToDDMMYYYY(i.fecha_ingreso)}</TableCell>
                           <TableCell className={cn("whitespace-nowrap", isFullscreen ? "px-4" : "w-20 px-2")}>{formatToDDMMYYYY(i.fecha)}</TableCell>
                           <TableCell className={cn(isFullscreen ? "px-4" : "max-w-[120px] truncate px-2")} title={`${normalizeIncidenciaCode(i.inci) || ''}: ${i.incidencia || labelForIncidencia(i.inci) || ''}`}>

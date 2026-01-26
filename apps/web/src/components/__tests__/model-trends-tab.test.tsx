@@ -30,35 +30,17 @@ describe('Model Trends Tab - Tab 4: Tendencias', () => {
   ];
 
   it('T4.2.1: Renderiza componente correctamente', () => {
-    renderWithProviders(
-      <ModelTrendsTab
-        kpis={mockKPIs}
-        plantilla={mockPlantilla}
-        currentYear={2024}
-      />
-    );
+    renderWithProviders(<ModelTrendsTab />);
     expect(document.body).toBeInTheDocument();
   });
 
-  it('T4.2.2: Acepta KPIs y plantilla', () => {
-    renderWithProviders(
-      <ModelTrendsTab
-        kpis={mockKPIs}
-        plantilla={mockPlantilla}
-        currentYear={2024}
-      />
-    );
+  it('T4.2.2: Self-contained component carga datos', () => {
+    renderWithProviders(<ModelTrendsTab />);
     expect(document.body).toBeInTheDocument();
   });
 
-  it('T4.2.3: Acepta año específico', () => {
-    renderWithProviders(
-      <ModelTrendsTab
-        kpis={mockKPIs}
-        plantilla={mockPlantilla}
-        currentYear={2023}
-      />
-    );
+  it('T4.2.3: Funciona sin props externos', () => {
+    renderWithProviders(<ModelTrendsTab />);
     expect(document.body).toBeInTheDocument();
   });
 

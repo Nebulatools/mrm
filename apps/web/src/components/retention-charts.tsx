@@ -79,7 +79,7 @@ const TEMPORALITY_COLORS = [
 // Helper functions para bar labels (ahora aceptan color como parámetro)
 const createBarLabelRenderer = (fillColor: string) => (props: any) => {
   const { x, y, width, value } = props;
-  if (value === null || value === undefined || value === 0) return null;
+  if (value === null || value === undefined || value === 0) return <></>;
 
   return (
     <text
@@ -97,7 +97,7 @@ const createBarLabelRenderer = (fillColor: string) => (props: any) => {
 
 const createBarLabelPercentRenderer = (fillColor: string) => (props: any) => {
   const { x, y, width, value } = props;
-  if (value === null || value === undefined || value === 0) return null;
+  if (value === null || value === undefined || value === 0) return <></>;
 
   return (
     <text

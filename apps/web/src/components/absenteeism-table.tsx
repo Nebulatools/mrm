@@ -36,7 +36,7 @@ export function AbsenteeismTable({
   selectedYears = [],
   filters
 }: AbsenteeismTableProps) {
-  const [metricType, setMetricType] = useState<"number" | "percent">("percent");
+  const [metricType, setMetricType] = useState<"count" | "percent">("percent");
 
   // Filtrar incidencias según año y empleados de la plantilla filtrada
   const filteredIncidencias = useMemo(() => {

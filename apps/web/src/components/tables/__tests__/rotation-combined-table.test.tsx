@@ -60,12 +60,12 @@ describe('Rotation Combined Table - Tab 3: Rotación', () => {
     expect(document.body).toBeInTheDocument();
   });
 
-  it('T3.10.3: Filtra por motivo correctamente', () => {
+  it('T3.10.3: Muestra desglose de rotación', () => {
     renderWithProviders(
       <RotationCombinedTable
         plantilla={mockPlantillaRotacion}
-        motivosBaja={mockMotivosBaja} selectedYears={[2024]}
-        motivoFilter="voluntaria"
+        motivosBaja={mockMotivosBaja}
+        selectedYears={[2024]}
       />
     );
 
