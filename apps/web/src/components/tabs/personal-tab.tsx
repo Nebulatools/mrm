@@ -18,11 +18,11 @@ import {
 } from "recharts";
 import type { TooltipProps } from "recharts";
 import type { NameType } from "recharts/types/component/DefaultTooltipContent";
-import { KPICard, KPICardSkeleton } from "@/components/kpi-card";
+import { KPICard, KPICardSkeleton } from "@/components/shared/kpi-card";
 import { AgeGenderTable } from "@/components/tables/age-gender-table";
 import { SeniorityGenderTable } from "@/components/tables/seniority-gender-table";
-import { SmartNarrative } from "@/components/smart-narrative";
-import { VisualizationContainer } from "@/components/visualization-container";
+import { SmartNarrative } from "@/components/shared/smart-narrative";
+import { VisualizationContainer } from "@/components/shared/visualization-container";
 import type { PlantillaRecord } from "@/lib/supabase";
 import type { KPIResult } from "@/lib/kpi-calculator";
 import { cn } from "@/lib/utils";

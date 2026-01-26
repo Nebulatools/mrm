@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { KPICard } from "@/components/kpi-card";
+import { KPICard } from "@/components/shared/kpi-card";
 import { AlertCircle, Heart } from "lucide-react";
 import { calculateVariancePercentage } from "@/lib/utils/kpi-helpers";
 import { normalizeIncidenciaCode } from "@/lib/normalizers";

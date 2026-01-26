@@ -13,7 +13,7 @@ import {
 import type { PlantillaRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
-import { VisualizationContainer } from "@/components/visualization-container";
+import { VisualizationContainer } from "@/components/shared/visualization-container";
 import { prettyMotivo } from "@/lib/normalizers";
 import { differenceInMonths } from "date-fns";
 

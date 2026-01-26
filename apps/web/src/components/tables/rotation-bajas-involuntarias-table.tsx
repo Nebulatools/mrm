@@ -13,7 +13,7 @@ import {
 import type { PlantillaRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
-import { VisualizationContainer } from "@/components/visualization-container";
+import { VisualizationContainer } from "@/components/shared/visualization-container";
 import { normalizeCCToUbicacion, isMotivoClave, normalizeMotivo } from "@/lib/normalizers";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";
 import { applyFiltersWithScope } from "@/lib/filters/filters";

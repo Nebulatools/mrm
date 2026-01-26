@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import { KPICard } from '../kpi-card';
+import { KPICard } from '../shared/kpi-card';
 import { renderWithProviders, createMockKPI } from '@/test/utils';
 import { Users } from 'lucide-react';
 

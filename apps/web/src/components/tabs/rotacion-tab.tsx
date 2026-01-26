@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Users, UserMinus, TrendingUp, TrendingDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { KPICard, KPICardSkeleton } from "@/components/kpi-card";
+import { KPICard, KPICardSkeleton } from "@/components/shared/kpi-card";
 import { DismissalReasonsTable } from "@/components/dismissal-reasons-table";
 import { BajasPorMotivoHeatmap } from "@/components/bajas-por-motivo-heatmap";
 import { RetentionCharts } from "@/components/retention-charts";
@@ -12,7 +12,7 @@ import { RotationByMotiveSeniorityTable } from "@/components/tables/rotation-by-
 import { RotationByMotiveMonthTable } from "@/components/tables/rotation-by-motive-month-table";
 import { RotationCombinedTable } from "@/components/tables/rotation-combined-table";
 import { AbandonosOtrosSummary } from "@/components/abandonos-otros-summary";
-import { SmartNarrative } from "@/components/smart-narrative";
+import { SmartNarrative } from "@/components/shared/smart-narrative";
 import type { PlantillaRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
 import type { RetentionKPIs } from "@/hooks/use-retention-kpis";

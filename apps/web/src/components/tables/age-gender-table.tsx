@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import type { PlantillaRecord } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { VisualizationContainer } from "@/components/visualization-container";
+import { VisualizationContainer } from "@/components/shared/visualization-container";
 import { differenceInYears } from "date-fns";
 
 interface AgeGenderTableProps {

@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { VisualizationContainer } from "@/components/visualization-container";
+import { VisualizationContainer } from "@/components/shared/visualization-container";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { type KPIResult } from "@/lib/kpi-calculator";
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SmartNarrative } from '../smart-narrative';
+import { SmartNarrative } from '../shared/smart-narrative';
 import { renderWithProviders, createMockKPI } from '@/test/utils';
 
 describe('Smart Narrative - Tab 4: Tendencias', () => {

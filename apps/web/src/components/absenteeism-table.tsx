@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MetricToggle } from "@/components/ui/metric-toggle";
-import { VisualizationContainer } from "@/components/visualization-container";
+import { VisualizationContainer } from "@/components/shared/visualization-container";
 import { normalizeIncidenciaCode } from "@/lib/normalizers";
 import type { IncidenciaCSVRecord, PlantillaRecord } from "@/lib/supabase";
 import type { RetentionFilterOptions } from "@/lib/filters/filters";

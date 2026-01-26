@@ -17,7 +17,7 @@ import type { PlantillaRecord } from "@/lib/supabase";
 import { prettyMotivo, normalizePuesto, normalizeDepartamento, isMotivoClave } from "@/lib/normalizers";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { VisualizationContainer } from "@/components/visualization-container";
+import { VisualizationContainer } from "@/components/shared/visualization-container";
 
 //
 

@@ -27,12 +27,12 @@ import {
   calcularRotacionAcumulada12mConDesglose,
   calcularRotacionYTDConDesglose
 } from '@/lib/utils/kpi-helpers';
-import { VisualizationContainer } from '@/components/visualization-container';
+import { VisualizationContainer } from '@/components/shared/visualization-container';
 import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
 import { differenceInCalendarDays, endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
-import { KPICard } from '@/components/kpi-card';
+import { KPICard } from '@/components/shared/kpi-card';
 import { useTheme } from '@/components/theme-provider';
-import { IncidentsPermitsKPIs } from '@/components/incidents-permits-kpis';
+import { IncidentsPermitsKPIs } from '@/components/shared/incidents-permits-kpis';
 
 // ✅ CATEGORIZACIÓN DE INCIDENCIAS: 4 grupos
 const FALTAS_CODES = new Set(["FI", "SUSP"]);
