@@ -13,6 +13,7 @@ Before making any changes to this codebase, follow these rules:
 5. Make every task and code change you do as simple as possible. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
 6. Maintain a documentation file that describes how the architecture of the app works inside and out.
 7. Never speculate about code you have not opened. If the user references a specific file, you MUST read the file before answering. Make sure to investigate and read relevant files BEFORE answering questions about the codebase. Never make any claims about code before investigating unless you are certain of the correct answer - give grounded and hallucination-free answers.
+8. **NUNCA hacer commit/push a GitHub sin permiso explícito del usuario**. Solo hacer git commit/push cuando el usuario lo pida directamente.
 
 ### 🔄 CRITICAL: Rebuild Workflow (SIEMPRE después de cambios en lógica core)
 
@@ -50,6 +51,26 @@ npm run dev
 - Cambios puramente visuales (CSS, estilos)
 - Modificaciones en texto/copy de componentes
 - Ajustes de layout sin lógica
+
+### ⚠️ BUG CONOCIDO: Timezone en Fechas (NUNCA usar new Date() para parsear)
+
+**Problema:** `new Date("2025-12-01")` crea fecha en UTC medianoche → en México (UTC-6) = 30 nov 6pm → `getMonth()` retorna 10 (nov) en lugar de 11 (dic).
+
+**Solución CORRECTA:**
+```typescript
+// ❌ INCORRECTO - causa bug de timezone
+const fecha = new Date(registro.fecha_baja);
+const mes = fecha.getMonth(); // PUEDE ESTAR MAL!
+
+// ✅ CORRECTO - parsear string directamente
+const fechaStr = String(registro.fecha_baja); // "2025-12-01"
+const [year, month, day] = fechaStr.split('-');
+const mes = parseInt(month, 10) - 1; // 0-indexed para JS
+// Si necesitas Date object:
+const fecha = new Date(parseInt(year), mes, parseInt(day), 12, 0, 0); // mediodía local
+```
+
+**Archivos afectados:** `kpi-calculator.ts`, `retention-calculations.ts`
 
 ### Supabase MCP Commands (usar frecuentemente)
 ```bash

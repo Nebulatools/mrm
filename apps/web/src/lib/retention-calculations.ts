@@ -118,13 +118,18 @@ export const calculateMonthlyRetention = async (
       // Si bajaEventos está disponible (datos de motivos_baja), usarlo primero
       if (bajaEventos && bajaEventos.length > 0) {
         bajaEventos.forEach(evento => {
-          // ✅ Usar el mismo método que getBajasPorMotivoYMesFromPlantilla (sin parseSupabaseDate)
-          const fechaBajaParsed = new Date(evento.fecha_baja);
-          if (isNaN(fechaBajaParsed.getTime())) return;
+          // ✅ FIX TIMEZONE: Parsear fecha como string para evitar problemas de zona horaria
+          // new Date("2025-12-01") en UTC-6 se convierte en Nov 30, causando que
+          // bajas del día 1 se cuenten en el mes anterior
+          const fechaStr = String(evento.fecha_baja);
+          const [yearStr, monthStr, dayStr] = fechaStr.split('-');
+          const fechaYear = parseInt(yearStr, 10);
+          const fechaMonth = parseInt(monthStr, 10) - 1; // JavaScript months are 0-indexed
 
-          // Comparar año y mes directamente (sin zona horaria)
-          const fechaYear = fechaBajaParsed.getFullYear();
-          const fechaMonth = fechaBajaParsed.getMonth();
+          if (isNaN(fechaYear) || isNaN(fechaMonth)) return;
+
+          // Crear fecha con hora del mediodía para evitar problemas de timezone
+          const fechaBajaParsed = new Date(fechaYear, fechaMonth, parseInt(dayStr, 10) || 1, 12, 0, 0);
           const rangeStartYear = rangeStartInner.getFullYear();
           const rangeStartMonth = rangeStartInner.getMonth();
           const rangeEndYear = rangeEndInner.getFullYear();
@@ -171,13 +176,16 @@ export const calculateMonthlyRetention = async (
           const fechaBajaRaw = (emp as any)._fecha_baja ?? emp.fecha_baja;
           if (!fechaBajaRaw) return;
 
-          // ✅ Usar el mismo método que getBajasPorMotivoYMesFromPlantilla
-          const fechaBajaParsed = new Date(fechaBajaRaw);
-          if (isNaN(fechaBajaParsed.getTime())) return;
+          // ✅ FIX TIMEZONE: Parsear fecha como string para evitar problemas de zona horaria
+          const fechaStr = String(fechaBajaRaw instanceof Date ? fechaBajaRaw.toISOString().slice(0, 10) : fechaBajaRaw);
+          const [yearStr, monthStr, dayStr] = fechaStr.split('-');
+          const fechaYear = parseInt(yearStr, 10);
+          const fechaMonth = parseInt(monthStr, 10) - 1; // JavaScript months are 0-indexed
 
-          // Comparar año y mes directamente (sin zona horaria)
-          const fechaYear = fechaBajaParsed.getFullYear();
-          const fechaMonth = fechaBajaParsed.getMonth();
+          if (isNaN(fechaYear) || isNaN(fechaMonth)) return;
+
+          // Crear fecha con hora del mediodía para evitar problemas de timezone
+          const fechaBajaParsed = new Date(fechaYear, fechaMonth, parseInt(dayStr, 10) || 1, 12, 0, 0);
           const rangeStartYear = rangeStartInner.getFullYear();
           const rangeStartMonth = rangeStartInner.getMonth();
           const rangeEndYear = rangeEndInner.getFullYear();
