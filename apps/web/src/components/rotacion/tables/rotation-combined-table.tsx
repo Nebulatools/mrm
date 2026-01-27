@@ -89,7 +89,10 @@ export function RotationCombinedTable({
     const filteredMotivosBaja = selectedYears.length > 0
       ? motivosBaja.filter(baja => {
           if (!baja.fecha_baja) return false;
-          const bajaYear = new Date(baja.fecha_baja).getFullYear();
+          // ✅ FIX TIMEZONE: Parsear fecha como string
+          const fechaStr = String(baja.fecha_baja);
+          const [yearStr] = fechaStr.split('-');
+          const bajaYear = parseInt(yearStr, 10);
           return selectedYears.includes(bajaYear);
         })
       : motivosBaja;
@@ -104,8 +107,10 @@ export function RotationCombinedTable({
       currentYear,
       december2025InMotivosBaja: motivosBaja.filter(b => {
         if (!b.fecha_baja) return false;
-        const d = new Date(b.fecha_baja);
-        return d.getFullYear() === 2025 && d.getMonth() === 11;
+        // ✅ FIX TIMEZONE: Parsear fecha como string
+        const fechaStr = String(b.fecha_baja);
+        const [yearStr, monthStr] = fechaStr.split('-');
+        return parseInt(yearStr, 10) === 2025 && parseInt(monthStr, 10) === 12;
       }).length,
     });
 
@@ -119,8 +124,11 @@ export function RotationCombinedTable({
     const bajasYear = plantilla.filter(emp => {
       if (!emp.fecha_baja) return false;
       if (selectedYears.length === 0) return true; // No year filter = show all
-      const fecha = new Date(emp.fecha_baja);
-      return selectedYears.includes(fecha.getFullYear());
+      // ✅ FIX TIMEZONE: Parsear fecha como string
+      const fechaStr = String(emp.fecha_baja);
+      const [yearStr] = fechaStr.split('-');
+      const bajaYear = parseInt(yearStr, 10);
+      return selectedYears.includes(bajaYear);
     });
 
     // 🔍 DEBUG: Log filtered bajas counts
@@ -128,8 +136,10 @@ export function RotationCombinedTable({
       bajasYearCount: bajasYear.length,
       december2025InBajasYear: bajasYear.filter(emp => {
         if (!emp.fecha_baja) return false;
-        const d = new Date(emp.fecha_baja);
-        return d.getFullYear() === 2025 && d.getMonth() === 11;
+        // ✅ FIX TIMEZONE: Parsear fecha como string
+        const fechaStr = String(emp.fecha_baja);
+        const [yearStr, monthStr] = fechaStr.split('-');
+        return parseInt(yearStr, 10) === 2025 && parseInt(monthStr, 10) === 12;
       }).length,
       motivosMapSize: filteredMotivosBaja.length,
     });
@@ -194,8 +204,11 @@ export function RotationCombinedTable({
           const empUbicacion = normalizeCCToUbicacion(cc);
           if (empUbicacion !== ubicacion) return false;
 
-          const fecha = new Date(emp.fecha_baja!);
-          const monthNum = fecha.getMonth() + 1;
+          // ✅ FIX TIMEZONE: Parsear fecha como string para evitar que "2025-12-01" UTC
+          // se convierta en Nov 30 en timezone UTC-6 (México)
+          const fechaStr = String(emp.fecha_baja!);
+          const [, monthStr] = fechaStr.split('-');
+          const monthNum = parseInt(monthStr, 10);
           return monthNum === month.num;
         });
 

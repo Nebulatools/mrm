@@ -9,7 +9,7 @@ import { BajasPorMotivoHeatmap } from "./bajas-por-motivo-heatmap";
 import { RetentionCharts } from "./retention-charts";
 import { RotationByMotiveAreaTable } from "./tables/rotation-by-motive-area-table";
 import { RotationByMotiveSeniorityTable } from "./tables/rotation-by-motive-seniority-table";
-import { RotationByMotiveMonthTable } from "./tables/rotation-by-motive-month-table";
+// RotationByMotiveMonthTable removed - data now shown in heatmap
 import { RotationCombinedTable } from "./tables/rotation-combined-table";
 import { AbandonosOtrosSummary } from "./abandonos-otros-summary";
 import { SmartNarrative } from "@/components/shared/smart-narrative";
@@ -387,13 +387,6 @@ export function RotacionTab({
           motivosBaja={bajasData}
           selectedYears={retentionFilters.years}
           selectedMonths={retentionFilters.months}
-          refreshEnabled={refreshEnabled}
-          motivoFilter={motivoFilterType}
-        />
-        <RotationByMotiveMonthTable
-          plantilla={plantillaRotacionYearScope}
-          motivosBaja={bajasData}
-          selectedYears={retentionFilters.years}
           refreshEnabled={refreshEnabled}
           motivoFilter={motivoFilterType}
         />
