@@ -15,7 +15,6 @@ import { useTheme } from "@/components/shared/theme-provider";
 import {
   calculateMonthlyRetention,
   parseSupabaseDate,
-  bajaMatchesMotivo,
   type MonthlyRetentionData,
   type BajaEvento
 } from '@/lib/retention-calculations';
@@ -435,23 +434,21 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
           const numero = evento.numero_empleado;
           if (!Number.isFinite(numero)) return;
 
-          const empleado = plantilla.find(emp => {
-            const empNumero = Number((emp as any).numero_empleado ?? emp.emp_id);
-            return empNumero === numero;
-          });
-
           const motivoNormalizado = evento.motivo_normalizado || 'Otra razón';
 
-          // Solo validar motivo si tenemos el empleado
-          if (empleado && !bajaMatchesMotivo(empleado, motive, motivoNormalizado)) return;
-          // Si NO tenemos empleado pero el motive es 'all', incluir la baja de todas formas
-          if (!empleado && motive !== 'all') return;
+          // ✅ CRITICAL FIX: Validar motivo DIRECTAMENTE usando isMotivoClave
+          if (motive !== 'all') {
+            const esInvoluntaria = isMotivoClave(motivoNormalizado);
+            const matchesFilter = (motive === 'involuntaria' && esInvoluntaria) ||
+                                  (motive === 'voluntaria' && !esInvoluntaria);
+            if (!matchesFilter) return;
+          }
 
           const key = `${numero}-${fechaBajaParsed.toISOString().slice(0, 10)}`;
           eventosSet.add(key);
         });
       } else {
-        // FALLBACK: Si no hay bajaEventos, usar empleados_sftp (comportamiento anterior)
+        // FALLBACK: Si no hay bajaEventos, usar empleados_sftp
         plantilla.forEach(emp => {
           const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
           if (!fechaBaja) return;
@@ -462,7 +459,13 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
           const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
 
-          if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
+          // ✅ Validar motivo directamente
+          if (motive !== 'all') {
+            const esInvoluntaria = isMotivoClave(motivoNormalizado);
+            const matchesFilter = (motive === 'involuntaria' && esInvoluntaria) ||
+                                  (motive === 'voluntaria' && !esInvoluntaria);
+            if (!matchesFilter) return;
+          }
           eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
         });
       }
@@ -528,23 +531,21 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
           const numero = evento.numero_empleado;
           if (!Number.isFinite(numero)) return;
 
-          const empleado = plantilla.find(emp => {
-            const empNumero = Number((emp as any).numero_empleado ?? emp.emp_id);
-            return empNumero === numero;
-          });
-
           const motivoNormalizado = evento.motivo_normalizado || 'Otra razón';
 
-          // Solo validar motivo si tenemos el empleado
-          if (empleado && !bajaMatchesMotivo(empleado, motive, motivoNormalizado)) return;
-          // Si NO tenemos empleado pero el motive es 'all', incluir la baja de todas formas
-          if (!empleado && motive !== 'all') return;
+          // ✅ CRITICAL FIX: Validar motivo DIRECTAMENTE usando isMotivoClave
+          if (motive !== 'all') {
+            const esInvoluntaria = isMotivoClave(motivoNormalizado);
+            const matchesFilter = (motive === 'involuntaria' && esInvoluntaria) ||
+                                  (motive === 'voluntaria' && !esInvoluntaria);
+            if (!matchesFilter) return;
+          }
 
           const key = `${numero}-${fechaBajaParsed.toISOString().slice(0, 10)}`;
           eventosSet.add(key);
         });
       } else {
-        // FALLBACK: Si no hay bajaEventos, usar empleados_sftp (comportamiento anterior)
+        // FALLBACK: Si no hay bajaEventos, usar empleados_sftp
         plantilla.forEach(emp => {
           const fechaBaja = (emp as any)._fecha_baja ?? parseSupabaseDate(emp.fecha_baja);
           if (!fechaBaja) return;
@@ -555,7 +556,13 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
           const motivoNormalizado = (emp as any)._motivo_normalizado ?? normalizeMotivo((emp as any).motivo_baja || '');
 
-          if (!bajaMatchesMotivo(emp, motive, motivoNormalizado)) return;
+          // ✅ Validar motivo directamente
+          if (motive !== 'all') {
+            const esInvoluntaria = isMotivoClave(motivoNormalizado);
+            const matchesFilter = (motive === 'involuntaria' && esInvoluntaria) ||
+                                  (motive === 'voluntaria' && !esInvoluntaria);
+            if (!matchesFilter) return;
+          }
           eventosSet.add(`${numero}-${fechaBaja.toISOString().slice(0, 10)}`);
         });
       }
