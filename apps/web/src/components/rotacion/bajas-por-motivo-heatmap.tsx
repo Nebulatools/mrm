@@ -90,7 +90,13 @@ export function BajasPorMotivoHeatmap({ data, selectedYears = [], motivoFilter =
         rows
       };
     })
-    .filter(section => section.rows.length > 0)
+    .filter(section => {
+      // ✅ Filtrar secciones según motivoFilter
+      if (motivoFilter === 'all') return section.rows.length > 0;
+      if (motivoFilter === 'involuntaria') return section.key === 'involuntaria' && section.rows.length > 0;
+      if (motivoFilter === 'voluntaria') return section.key === 'voluntaria' && section.rows.length > 0;
+      return section.rows.length > 0;
+    })
 
   const allRows = sections.flatMap(section => section.rows)
   const values = allRows.flatMap(row =>

@@ -13,6 +13,9 @@ function cleanText(text: string): string {
   return text
     // Arregla encoding corrupto común
     .replace(/\?/g, '')  // Remueve ? donde deberían estar los acentos
+    // Normaliza acentos a letras base para comparación de patrones
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')  // Remueve diacríticos (acentos)
     .replace(/\s+/g, ' ')  // Normaliza espacios
     .trim()
     .toLowerCase();
@@ -22,7 +25,23 @@ function cleanText(text: string): string {
 // Total: 21 motivos únicos encontrados en motivos_baja (actualizado Enero 2026)
 
 const MOTIVOS_REALES: Record<string, string> = {
-  // Los 21 motivos EXACTOS de la DB (ordenados por frecuencia)
+  // ===================== VERSIONES LIMPIAS (datos de Supabase ya corregidos) =====================
+  // Estos son los motivos como aparecen en la base de datos DESPUÉS de la corrección
+  "Rescisión por desempeño": "Rescisión por desempeño",          // INVOLUNTARIA
+  "Rescisión por disciplina": "Rescisión por disciplina",        // INVOLUNTARIA
+  "Término del contrato": "Término del contrato",                // INVOLUNTARIA
+  "Abandono / No regresó": "Abandono / No regresó",              // Voluntaria
+  "Otra razón": "Otra razón",                                    // Voluntaria
+  "Otro trabajo mejor compensado": "Otro trabajo mejor compensado", // Voluntaria
+  "Trabajo muy difícil": "Trabajo muy difícil",                  // Voluntaria
+  "No le gustó el tipo de trabajo": "No le gustó el tipo de trabajo", // Voluntaria
+  "No le gustó el ambiente": "No le gustó el ambiente",          // Voluntaria
+  "Jubilación": "Jubilación",                                    // Voluntaria
+  "Separación voluntaria": "Separación voluntaria",              // Voluntaria
+  "Baja Voluntaria": "Baja Voluntaria",                          // Voluntaria
+
+  // ===================== VERSIONES CORRUPTAS (encoding legacy) =====================
+  // Estos son los motivos como aparecen en archivos SFTP con encoding corrupto
   "Baja": "Baja Voluntaria",                                      // 421 casos
   "Otra raz?n": "Otra razón",                                     // 67 casos
   "Abandono / No regres?": "Abandono / No regresó",              // 46 casos
@@ -46,7 +65,7 @@ const MOTIVOS_REALES: Record<string, string> = {
   "Poco salario y prestacion": "Poco salario y prestaciones",    // 1 caso
   "Problemas con jefe inmedi": "Problemas con jefe inmediato",   // 1 caso
 
-  // VARIANTES DE ENCODING (mismo motivo, diferentes codificaciones)
+  // VARIANTES DE ENCODING adicionales
   "Rescisi?n de contrat": "Rescisión de contrato",
   "Separaci?n voluntari": "Separación voluntaria",
   "Rescisi�n por disciplina": "Rescisión por disciplina",

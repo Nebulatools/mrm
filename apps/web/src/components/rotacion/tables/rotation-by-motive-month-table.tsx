@@ -14,15 +14,18 @@ import type { PlantillaRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/shared/visualization-container";
-import { prettyMotivo } from "@/lib/normalizers";
+import { prettyMotivo, isMotivoClave } from "@/lib/normalizers";
 import { getYearParenthetical } from "@/lib/filters/year-display";
 import { isFutureMonth } from "@/lib/date-utils";
+
+export type MotivoFilterType = "all" | "voluntaria" | "involuntaria";
 
 interface RotationByMotiveMonthTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
   selectedYears?: number[];
   refreshEnabled?: boolean;
+  motivoFilter?: MotivoFilterType;
 }
 
 interface MotiveMonthData {
@@ -51,18 +54,32 @@ export function RotationByMotiveMonthTable({
   motivosBaja,
   selectedYears = [],
   refreshEnabled = false,
+  motivoFilter = "all",
 }: RotationByMotiveMonthTableProps) {
 
   const { data, grandTotal } = useMemo(() => {
     // Filter motivos_baja by the same years as the bajas being analyzed
     // This ensures we only use motivos from the matching year period
-    const filteredMotivosBaja = selectedYears.length > 0
+    let filteredMotivosBaja = selectedYears.length > 0
       ? motivosBaja.filter(baja => {
           if (!baja.fecha_baja) return false;
           const bajaYear = new Date(baja.fecha_baja).getFullYear();
           return selectedYears.includes(bajaYear);
         })
       : motivosBaja;
+
+    // Apply motivo filter (voluntaria/involuntaria)
+    if (motivoFilter !== "all") {
+      filteredMotivosBaja = filteredMotivosBaja.filter(baja => {
+        const esInvoluntaria = isMotivoClave(baja.motivo);
+        return motivoFilter === "involuntaria" ? esInvoluntaria : !esInvoluntaria;
+      });
+    }
+
+    // Create set of employee numbers that match the motivo filter
+    const filteredEmployeeNumbers = new Set(
+      filteredMotivosBaja.map(baja => baja.numero_empleado)
+    );
 
     // Create lookup map: numero_empleado -> motivo from filtered motivos_baja table
     const motivosMap = new Map<number, string>();
@@ -78,7 +95,12 @@ export function RotationByMotiveMonthTable({
       // Apply same year filter as motivosBaja for data integrity
       if (selectedYears.length > 0) {
         const bajaYear = new Date(emp.fecha_baja).getFullYear();
-        return selectedYears.includes(bajaYear);
+        if (!selectedYears.includes(bajaYear)) return false;
+      }
+
+      // Apply motivo filter - only include employees whose motivo matches
+      if (motivoFilter !== "all" && emp.numero_empleado) {
+        return filteredEmployeeNumbers.has(emp.numero_empleado);
       }
 
       return true;
@@ -141,7 +163,7 @@ export function RotationByMotiveMonthTable({
     const grandTotal = bajasYear.length;
 
     return { data, grandTotal };
-  }, [plantilla, motivosBaja, selectedYears]);
+  }, [plantilla, motivosBaja, selectedYears, motivoFilter]);
 
   // Calculate monthly totals
   const monthlyTotals = useMemo(() => {

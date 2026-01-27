@@ -20,11 +20,14 @@ import { endOfMonth, startOfMonth } from "date-fns";
 import { isFutureMonth } from "@/lib/date-utils";
 import { getYearParenthetical } from "@/lib/filters/year-display";
 
+export type MotivoFilterType = "all" | "voluntaria" | "involuntaria";
+
 interface RotationCombinedTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
   selectedYears?: number[];
   refreshEnabled?: boolean;
+  motivoFilter?: MotivoFilterType;
 }
 
 interface MetricData {
@@ -62,10 +65,23 @@ export function RotationCombinedTable({
   motivosBaja,
   selectedYears = [],
   refreshEnabled = false,
+  motivoFilter = "all",
 }: RotationCombinedTableProps) {
 
   // Use first selected year for monthly calculations, or current year if none selected
   const currentYear = selectedYears.length > 0 ? selectedYears[0] : new Date().getFullYear();
+
+  // Filter which metrics to show based on motivoFilter
+  const filteredMetricas = useMemo(() => {
+    if (motivoFilter === "all") {
+      return METRICAS;
+    } else if (motivoFilter === "voluntaria") {
+      return METRICAS.filter(m => m.key !== "involuntarias");
+    } else {
+      // involuntaria
+      return METRICAS.filter(m => m.key !== "voluntarias");
+    }
+  }, [motivoFilter]);
 
   const data = useMemo(() => {
     // Filter motivos_baja by the same years as the bajas being analyzed
@@ -354,13 +370,14 @@ export function RotationCombinedTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {METRICAS.map((metrica) => (
+                  {filteredMetricas.map((metrica) => (
                     <>
                       {data
                         .filter((row) => row.metrica === metrica.label)
                         .map((row, idx) => {
                           const isFirstLocation = idx === 0;
                           const isPercentageRow = row.metrica === '% Rotación';
+                          const rowsPerMetric = UBICACIONES.length + 1; // +1 for total row
 
                           return (
                             <TableRow
@@ -368,7 +385,7 @@ export function RotationCombinedTable({
                             >
                               {isFirstLocation && (
                                 <TableCell
-                                  rowSpan={4}
+                                  rowSpan={rowsPerMetric}
                                   className="font-bold text-xs align-middle bg-gray-100 dark:bg-slate-800"
                                 >
                                   {row.metrica}

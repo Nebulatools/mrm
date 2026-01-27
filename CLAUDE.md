@@ -14,6 +14,43 @@ Before making any changes to this codebase, follow these rules:
 6. Maintain a documentation file that describes how the architecture of the app works inside and out.
 7. Never speculate about code you have not opened. If the user references a specific file, you MUST read the file before answering. Make sure to investigate and read relevant files BEFORE answering questions about the codebase. Never make any claims about code before investigating unless you are certain of the correct answer - give grounded and hallucination-free answers.
 
+### 🔄 CRITICAL: Rebuild Workflow (SIEMPRE después de cambios en lógica core)
+
+**CUÁNDO hacer rebuild completo:**
+- Cambios en `src/hooks/*` (especialmente `use-plantilla-filters.ts`, `use-retention-kpis.ts`)
+- Cambios en `src/lib/utils/kpi-helpers.ts` (fórmulas de cálculo)
+- Cambios en `src/lib/filters/*` (motor de filtrado)
+- Cambios en `src/lib/normalizers.ts` (clasificación de datos)
+- Modificaciones en lógica de negocio que no se reflejan inmediatamente en el navegador
+
+**Proceso de Rebuild:**
+```bash
+# 1. Detener servidor (si está corriendo)
+pkill -f "next dev"
+
+# 2. Limpiar caché de Next.js (CRÍTICO)
+rm -rf apps/web/.next
+
+# 3. Rebuild completo
+npm run build
+
+# 4. Reiniciar servidor de desarrollo
+npm run dev
+
+# 5. Forzar refresh en navegador (Cmd+Shift+R o Ctrl+Shift+R)
+```
+
+**SÍNTOMAS de necesitar rebuild:**
+- Valores en UI diferentes a queries de Supabase
+- Componentes muestran datos desactualizados
+- Cambios en hooks/filtros no se reflejan
+- Console.logs no aparecen o muestran valores antiguos
+
+**NO es necesario rebuild para:**
+- Cambios puramente visuales (CSS, estilos)
+- Modificaciones en texto/copy de componentes
+- Ajustes de layout sin lógica
+
 ### Supabase MCP Commands (usar frecuentemente)
 ```bash
 # Project ID: ufdlwhdrrvktthcxwpzt

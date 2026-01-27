@@ -14,14 +14,17 @@ import type { PlantillaRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/shared/visualization-container";
-import { prettyMotivo } from "@/lib/normalizers";
+import { prettyMotivo, isMotivoClave } from "@/lib/normalizers";
 import { differenceInMonths } from "date-fns";
+
+export type MotivoFilterType = "all" | "voluntaria" | "involuntaria";
 
 interface RotationByMotiveSeniorityTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
   selectedYears?: number[];
   refreshEnabled?: boolean;
+  motivoFilter?: MotivoFilterType;
 }
 
 interface MotiveSeniorityData {
@@ -46,16 +49,30 @@ export function RotationByMotiveSeniorityTable({
   motivosBaja,
   selectedYears,
   refreshEnabled = false,
+  motivoFilter = "all",
 }: RotationByMotiveSeniorityTableProps) {
 
   const { data, grandTotal } = useMemo(() => {
     // Filter motivosBaja by selected years
-    const motivosFiltered = selectedYears && selectedYears.length > 0
+    let motivosFiltered = selectedYears && selectedYears.length > 0
       ? motivosBaja.filter(baja => {
           const year = new Date(baja.fecha_baja).getFullYear();
           return selectedYears.includes(year);
         })
       : motivosBaja;
+
+    // Apply motivo filter (voluntaria/involuntaria)
+    if (motivoFilter !== "all") {
+      motivosFiltered = motivosFiltered.filter(baja => {
+        const esInvoluntaria = isMotivoClave(baja.motivo);
+        return motivoFilter === "involuntaria" ? esInvoluntaria : !esInvoluntaria;
+      });
+    }
+
+    // Create set of employee numbers that match the motivo filter
+    const filteredEmployeeNumbers = new Set(
+      motivosFiltered.map(baja => baja.numero_empleado)
+    );
 
     // Create lookup map: numero_empleado -> motivo from filtered motivos_baja
     const motivosMap = new Map<number, string>();
@@ -68,7 +85,11 @@ export function RotationByMotiveSeniorityTable({
       if (!emp.fecha_baja || !emp.fecha_ingreso) return false;
       if (selectedYears && selectedYears.length > 0) {
         const year = new Date(emp.fecha_baja).getFullYear();
-        return selectedYears.includes(year);
+        if (!selectedYears.includes(year)) return false;
+      }
+      // Apply motivo filter - only include employees whose motivo matches
+      if (motivoFilter !== "all" && emp.numero_empleado) {
+        return filteredEmployeeNumbers.has(emp.numero_empleado);
       }
       return true;
     });
@@ -119,7 +140,7 @@ export function RotationByMotiveSeniorityTable({
     const grandTotal = bajasAll.length;
 
     return { data, grandTotal };
-  }, [plantilla, motivosBaja, selectedYears]);
+  }, [plantilla, motivosBaja, selectedYears, motivoFilter]);
 
   // Calculate column totals
   const columnTotals = useMemo(() => {

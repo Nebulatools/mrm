@@ -426,16 +426,15 @@ export function DashboardPage() {
 
         const plantilla = await db.getEmpleadosSFTP(supabase);
 
-        // ✅ CRITICAL FIX: Para el heatmap, NO aplicar filtros de departamento/puesto/etc.
-        // Solo aplicar año e includeInactive para obtener TODAS las bajas del año
-        // Los filtros de departamento/puesto se deben aplicar DENTRO del heatmap si es necesario
+        // ✅ CORREGIDO: Aplicar TODOS los filtros estructurales (departamentos, puestos, etc.)
+        // Solo excluir el filtro de mes (year-only scope para rotación)
         const plantillaFiltrada = applyFiltersWithScope(
           plantilla,
           {
-            years: [currentYear],
-            months: [], // Required by RetentionFilterOptions
-            includeInactive: true, // ✅ MUST include bajas for accurate heatmap
-            // NO incluir otros filtros (departamentos, puestos, etc.)
+            ...retentionFilters, // Incluir TODOS los filtros estructurales
+            years: [currentYear], // Forzar año actual
+            months: [], // Sin filtro de mes (year-only scope)
+            includeInactive: true, // Incluir bajas para heatmap preciso
           },
           "year-only"
         );
@@ -793,6 +792,7 @@ export function DashboardPage() {
               <RotacionTab
                 plantillaFiltered={plantillaFiltered}
                 plantillaRotacionYearScope={plantillaRotacionYearScope}
+                plantillaForCharts={plantillaFilteredGeneral}
                 plantillaDismissalDetail={plantillaDismissalDetail}
                 bajasData={bajasData}
                 bajasPorMotivoData={bajasPorMotivoData}

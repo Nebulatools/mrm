@@ -59,16 +59,15 @@ plantillaFilteredYearScope = applyFiltersWithScope(plantilla, {
 ### 3. **Year-Only Scope** - Tab Rotación
 ```typescript
 plantillaRotacionYearScope = applyFiltersWithScope(plantilla, {
-  years: [2024],
-  months: [],
+  ...retentionFilters,    // ✅ Incluye TODOS los filtros estructurales
+  months: [],             // ✅ Pero sin mes (year-only)
   includeInactive: true
-  // NO incluir: departamentos, puestos, etc.
 }, "year-only");
 ```
 
-**Aplica:** SOLO año + includeInactive (sin filtros estructurales)
+**Aplica:** Año + Estructura organizacional + includeInactive (SIN filtro de mes)
 **Uso:** Tab Rotación (heatmap, tablas de rotación por motivo)
-**Rationale:** Las tablas de rotación necesitan TODAS las bajas del año para calcular conteos precisos por área/motivo
+**Rationale:** Las tablas de rotación respetan los filtros seleccionados (departamento, área, ubicación) pero muestran datos del año completo (no solo un mes)
 
 ---
 
@@ -94,7 +93,7 @@ plantillaFilteredGeneral = applyFiltersWithScope(plantilla, {
 | Resumen | Specific | `"specific"` | ✅ | ✅ | ✅ | Comparación de KPIs mensuales |
 | Personal | Specific | `"specific"` | ✅ | ✅ | ✅ | Análisis demográfico mensual |
 | Incidencias | Year | `"year"` | ✅ | ❌ | ✅ | Análisis anual de incidencias |
-| Rotación | Year-Only | `"year-only"` | ✅ | ❌ | ❌ | Todas las bajas del año |
+| Rotación | Year-Only | `"year-only"` | ✅ | ❌ | ✅ | Bajas del año con filtros aplicados |
 | Históricos | General | `"general"` | ❌ | ❌ | ✅ | Análisis sin temporalidad |
 
 ## Funciones Principales
@@ -155,21 +154,21 @@ interface RetentionFilterOptions {
 
 ## Casos Especiales
 
-### Rotación: ¿Por qué NO filtrar por estructura?
+### Rotación: Respeta filtros estructurales pero NO filtra por mes
 
-Las tablas de rotación (Tab 3) necesitan **TODAS las bajas del año** porque:
+Las tablas de rotación (Tab 3) aplican **filtros estructurales pero muestran datos anuales**:
 
-1. **Conteos precisos**: Para calcular rotación por área, necesitas TODAS las bajas del año
-2. **Análisis comparativo**: Comparar áreas requiere datos completos, no filtrados
-3. **Heatmap de motivos**: El heatmap muestra distribución por mes + motivo a nivel empresa
+1. **Filtros estructurales aplicados**: Si seleccionas departamento="Ventas", solo verás bajas de Ventas
+2. **Sin filtro de mes**: Muestra todas las bajas del año completo (no solo el mes seleccionado)
+3. **Análisis coherente**: Los filtros de área/departamento permiten enfocar el análisis
 
 **Ejemplo:**
 ```
-❌ INCORRECTO: Filtrar bajas por departamento="Ventas" →
-   Solo vería bajas de Ventas, no podría comparar con otras áreas
+✅ Filtrar por departamento="Ventas" + año=2025 →
+   Tablas muestran SOLO bajas de Ventas en 2025 (todos los meses)
 
-✅ CORRECTO: Todas las bajas del año →
-   Tablas muestran desglose por área/departamento completo
+✅ Sin filtros estructurales + año=2025 →
+   Tablas muestran TODAS las bajas de 2025 (todas las áreas, todos los meses)
 ```
 
 ### Incidencias: ¿Por qué no filtrar por mes?
@@ -205,10 +204,10 @@ function MyComponent() {
     areas: ['Comercial']
   }, "specific");
 
-  // Tab Rotación: Solo año, sin filtros estructurales
+  // Tab Rotación: Año + estructura, sin mes
   const plantillaRotacion = applyFiltersWithScope(plantilla, {
-    years: [2024],
-    months: [],
+    ...retentionFilters,  // Incluye filtros estructurales
+    months: [],           // Pero sin mes
     includeInactive: true
   }, "year-only");
 

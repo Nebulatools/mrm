@@ -176,7 +176,9 @@ export const db = {
 
       // ✅ SINCRONIZACIÓN: Usar motivos_baja como fuente primaria
       const fechaBajaMotivos = ultimoMotivo?.fecha_baja || null;
-      const motivoMotivos = ultimoMotivo ? normalizeMotivo(ultimoMotivo.descripcion || ultimoMotivo.motivo || 'No especificado') : null;
+      // ✅ CRÍTICO: Usar campo 'motivo' (específico) NO 'descripcion' (genérico)
+      // Motivo: "Rescisión por desempeño" vs Descripcion: "Rescisión de contrato"
+      const motivoMotivos = ultimoMotivo ? normalizeMotivo(ultimoMotivo.motivo || 'No especificado') : null;
 
       // Validar activo basado en si tiene fecha_baja en motivos_baja
       const activoFinal = fechaBajaMotivos === null;

@@ -39,6 +39,8 @@ interface BajasPorMotivoData {
 interface RotacionTabProps {
   plantillaFiltered: PlantillaRecord[];
   plantillaRotacionYearScope: PlantillaRecord[];
+  /** Plantilla sin filtro de año - para gráficas que necesitan datos históricos */
+  plantillaForCharts: PlantillaRecord[];
   plantillaDismissalDetail: PlantillaRecord[];
   bajasData: MotivoBajaRecord[];
   bajasPorMotivoData: BajasPorMotivoData[];
@@ -57,6 +59,7 @@ interface RotacionTabProps {
 export function RotacionTab({
   plantillaFiltered,
   plantillaRotacionYearScope,
+  plantillaForCharts,
   plantillaDismissalDetail,
   bajasData,
   bajasPorMotivoData,
@@ -341,6 +344,8 @@ export function RotacionTab({
       </div>
 
       {/* 3 Gráficas Especializadas de Retención */}
+      {/* ✅ Usar plantillaForCharts (sin filtro de año) para que las gráficas tengan
+          acceso a datos históricos necesarios para 12M móviles y comparativas */}
       <RetentionCharts
         currentDate={selectedPeriod}
         currentYear={currentYear}
@@ -355,12 +360,14 @@ export function RotacionTab({
           ubicaciones: retentionFilters.ubicaciones,
         }}
         motivoFilter={motivoFilterType}
+        plantilla={plantillaForCharts}
       />
 
       {/* Mapa de Calor de Bajas por Motivo */}
       <BajasPorMotivoHeatmap
         data={bajasPorMotivoData}
         selectedYears={retentionFilters.years}
+        motivoFilter={motivoFilterType}
       />
 
       <AbandonosOtrosSummary referenceDate={selectedPeriod} />
@@ -372,18 +379,21 @@ export function RotacionTab({
           motivosBaja={bajasData}
           selectedYears={retentionFilters.years}
           refreshEnabled={refreshEnabled}
+          motivoFilter={motivoFilterType}
         />
         <RotationByMotiveSeniorityTable
           plantilla={plantillaRotacionYearScope}
           motivosBaja={bajasData}
           selectedYears={retentionFilters.years}
           refreshEnabled={refreshEnabled}
+          motivoFilter={motivoFilterType}
         />
         <RotationByMotiveMonthTable
           plantilla={plantillaRotacionYearScope}
           motivosBaja={bajasData}
           selectedYears={retentionFilters.years}
           refreshEnabled={refreshEnabled}
+          motivoFilter={motivoFilterType}
         />
       </div>
 
@@ -394,6 +404,7 @@ export function RotacionTab({
           motivosBaja={bajasData}
           selectedYears={retentionFilters.years}
           refreshEnabled={refreshEnabled}
+          motivoFilter={motivoFilterType}
         />
       </div>
 

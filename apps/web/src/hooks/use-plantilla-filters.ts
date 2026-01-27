@@ -99,35 +99,35 @@ export function usePlantillaFilters({
   }, [plantilla, retentionFilters]);
 
   // Variante 4: Filtrado por año (con inactivos) - para tablas de rotación
-  // ✅ CRITICAL FIX: NO aplicar filtros de departamento/puesto/área/ubicación
-  // Las tablas de rotación deben contar TODAS las bajas del año para ser precisas
-  // Las tablas pueden hacer su propio análisis por área/ubicación sin filtrar los datos de entrada
+  // ✅ FIX: Aplicar TODOS los filtros estructurales (departamento, área, ubicación, etc.)
+  // Las tablas de rotación deben respetar los filtros seleccionados por el usuario
   const plantillaRotacionYearScope = useMemo(() => {
     if (!plantilla || plantilla.length === 0) return [];
     const scoped = applyFiltersWithScope(
       plantilla,
       {
-        years: retentionFilters.years, // Solo filtrar por año
-        months: [], // Required by RetentionFilterOptions
+        ...retentionFilters, // ✅ Incluir TODOS los filtros (año, estructura, etc.)
+        months: [], // ✅ Pero sin mes (year-only scope)
         includeInactive: true, // Incluir empleados con baja para tablas de rotación
-        // NO incluir: departamentos, puestos, clasificaciones, empresas, areas, ubicaciones
       },
       "year-only"
     );
     console.log("🔄 Plantilla (año, con bajas) para rotación:", scoped.length);
     return scoped;
-  }, [plantilla, retentionFilters.years]);
+  }, [plantilla, retentionFilters]);
 
   // Detalle de bajas del mes seleccionado
+  // ✅ FIX: Usar plantillaRotacionYearScope (incluye inactivos/bajas) en lugar de
+  // plantillaFilteredYearScope (solo activos) para poder mostrar las bajas
   const plantillaDismissalDetail = useMemo(() => {
-    if (!plantillaFilteredYearScope || plantillaFilteredYearScope.length === 0) {
+    if (!plantillaRotacionYearScope || plantillaRotacionYearScope.length === 0) {
       return [];
     }
     const targetYear = selectedPeriod.getFullYear();
     const targetMonth = selectedPeriod.getMonth() + 1;
     const targetKey = `${targetYear}-${String(targetMonth).padStart(2, "0")}`;
 
-    return plantillaFilteredYearScope.filter((emp) => {
+    return plantillaRotacionYearScope.filter((emp) => {
       if (!emp.fecha_baja) return false;
       const fecha =
         typeof emp.fecha_baja === "string"
@@ -135,7 +135,7 @@ export function usePlantillaFilters({
           : new Date(emp.fecha_baja).toISOString().slice(0, 7);
       return fecha === targetKey;
     });
-  }, [plantillaFilteredYearScope, selectedPeriod]);
+  }, [plantillaRotacionYearScope, selectedPeriod]);
 
   // Bajas filtradas por empleados en plantillaFiltered
   const empleadosFiltradosIds = useMemo(

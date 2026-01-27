@@ -419,6 +419,104 @@ TOTALES:
 PICO MÁS ALTO: Mayo 2025 con 29 bajas
 
 --------------------------------------------------------------------------------
+4.1.1 DESGLOSE VOLUNTARIA VS INVOLUNTARIA (POR AÑO)
+--------------------------------------------------------------------------------
+
+CLASIFICACIÓN:
+- INVOLUNTARIA [I]: Rescisión por desempeño, Rescisión por disciplina, Término del contrato
+- VOLUNTARIA [V]: Todos los demás motivos
+
+Año  | Involuntarias | % | Voluntarias | % | Total
+-----|---------------|---|-------------|---|------
+2026 | 9             | 45.0% | 11      | 55.0% | 20
+2025 | 77            | 32.6% | 159     | 67.4% | 236
+2024 | 71            | 29.6% | 169     | 70.4% | 240
+2023 | 57            | 31.5% | 124     | 68.5% | 181
+
+TOTALES HISTÓRICOS (2023-2026):
+- Involuntarias: 214 (31.6%)
+- Voluntarias: 463 (68.4%)
+- Total: 677 bajas
+
+DESGLOSE INVOLUNTARIAS POR MOTIVO (2023-2026):
+┌────────────────────────────┬───────┬────────┐
+│ Motivo                     │ Total │ % Invol│
+├────────────────────────────┼───────┼────────┤
+│ Término del contrato       │ 139   │ 65.0%  │
+│ Rescisión por desempeño    │ 42    │ 19.6%  │
+│ Rescisión por disciplina   │ 33    │ 15.4%  │
+└────────────────────────────┴───────┴────────┘
+
+--------------------------------------------------------------------------------
+4.1.2 DESGLOSE VOLUNTARIA VS INVOLUNTARIA (POR AÑO/MES)
+--------------------------------------------------------------------------------
+
+2026
+----
+Mes | Invol | % | Volun | % | Total
+----|-------|---|-------|---|------
+Ene | 9     | 45.0% | 11 | 55.0% | 20
+
+2025
+----
+Mes | Invol | % | Volun | % | Total
+----|-------|---|-------|---|------
+Dic | 7     | 41.2% | 10 | 58.8% | 17
+Nov | 7     | 58.3% | 5  | 41.7% | 12
+Oct | 3     | 18.8% | 13 | 81.3% | 16
+Sep | 9     | 50.0% | 9  | 50.0% | 18
+Ago | 4     | 21.1% | 15 | 78.9% | 19
+Jul | 12    | 44.4% | 15 | 55.6% | 27
+Jun | 5     | 23.8% | 16 | 76.2% | 21
+May | 10    | 34.5% | 19 | 65.5% | 29
+Abr | 3     | 21.4% | 11 | 78.6% | 14
+Mar | 7     | 29.2% | 17 | 70.8% | 24
+Feb | 7     | 31.8% | 15 | 68.2% | 22
+Ene | 3     | 17.6% | 14 | 82.4% | 17
+
+2024
+----
+Mes | Invol | % | Volun | % | Total
+----|-------|---|-------|---|------
+Dic | 5     | 21.7% | 18 | 78.3% | 23
+Nov | 4     | 26.7% | 11 | 73.3% | 15
+Oct | 5     | 20.0% | 20 | 80.0% | 25
+Sep | 6     | 27.3% | 16 | 72.7% | 22
+Ago | 10    | 55.6% | 8  | 44.4% | 18
+Jul | 9     | 56.3% | 7  | 43.8% | 16
+Jun | 4     | 19.0% | 17 | 81.0% | 21
+May | 9     | 34.6% | 17 | 65.4% | 26
+Abr | 5     | 25.0% | 15 | 75.0% | 20
+Mar | 2     | 25.0% | 6  | 75.0% | 8
+Feb | 7     | 29.2% | 17 | 70.8% | 24
+Ene | 5     | 22.7% | 17 | 77.3% | 22
+
+2023
+----
+Mes | Invol | % | Volun | % | Total
+----|-------|---|-------|---|------
+Dic | 1     | 14.3% | 6  | 85.7% | 7
+Nov | 0     | 0.0%  | 7  | 100%  | 7
+Oct | 4     | 25.0% | 12 | 75.0% | 16
+Sep | 5     | 27.8% | 13 | 72.2% | 18
+Ago | 12    | 60.0% | 8  | 40.0% | 20
+Jul | 8     | 30.8% | 18 | 69.2% | 26
+Jun | 7     | 33.3% | 14 | 66.7% | 21
+May | 0     | 0.0%  | 11 | 100%  | 11
+Abr | 2     | 20.0% | 8  | 80.0% | 10
+Mar | 7     | 38.9% | 11 | 61.1% | 18
+Feb | 6     | 46.2% | 7  | 53.8% | 13
+Ene | 5     | 35.7% | 9  | 64.3% | 14
+
+INSIGHTS - VOLUNTARIA VS INVOLUNTARIA:
+- Consistencia histórica: 68-70% voluntarias en todos los años
+- Picos involuntarios: Agosto 2023 (60%), Noviembre 2025 (58.3%), Jul-Ago 2024 (55-56%)
+- Picos voluntarios: Noviembre 2023 (100%), Mayo 2023 (100%), Octubre 2025 (81.3%)
+- Tendencia 2026: Incremento de involuntarias (45% vs histórico 31.6%)
+- Término de contrato domina involuntarias (65% de todas las rescisiones)
+- Noviembre 2023: único mes 100% voluntario
+
+--------------------------------------------------------------------------------
 4.2 REGISTROS DESGLOSADOS POR MOTIVO DE BAJA (AÑO/MES/MOTIVO)
 --------------------------------------------------------------------------------
 
@@ -629,12 +727,82 @@ RESUMEN ANUAL 2025 POR MOTIVO:
 └────────────────────────────────────┴───────┴────────┴──────┘
 
 INSIGHTS - MOTIVOS_BAJA:
-- Rotación voluntaria (70.8%) supera 2.4x a involuntaria (29.2%)
+- Rotación HISTÓRICA (2023-2026): 68.4% voluntaria, 31.6% involuntaria
+- Rotación 2025: 67.4% voluntaria, 32.6% involuntaria (consistente con histórico)
+- Rotación 2024: 70.4% voluntaria, 29.6% involuntaria
+- Rotación 2023: 68.5% voluntaria, 31.5% involuntaria
+- ⚠️ Tendencia 2026: 45% involuntaria (↑13.4% vs histórico) - monitorear
 - Top 2 motivos ("Otra razón" + "Abandono") = 56.4% de todas las bajas
 - Picos: Mayo 2025 (29), Julio 2025 (27), Octubre 2024 (25)
-- Término de contrato más frecuente en Sep-Nov 2024 y Ene 2026
-- Rescisión por desempeño concentrada en Feb-Nov 2025 (1-6 casos/mes)
+- Picos involuntarios: Agosto 2023 (60%), Noviembre 2025 (58.3%)
+- Término de contrato domina involuntarias (65% de todas las rescisiones)
+- Rescisión por desempeño: 19.6% de involuntarias (42 casos históricos)
+- Rescisión por disciplina: 15.4% de involuntarias (33 casos históricos)
+- Meses 100% voluntarios: Noviembre 2023, Mayo 2023
 - Tendencia estable 2024-2025: ~20 bajas/mes
+
+--------------------------------------------------------------------------------
+4.3 ANÁLISIS DETALLADO DE MOTIVOS INVOLUNTARIOS (POR AÑO)
+--------------------------------------------------------------------------------
+
+Distribución de los 3 motivos involuntarios por año:
+
+2026 (Ene)
+----------
+Motivo                      | Cantidad | % de Invol | % del Año
+Término del contrato        | 6        | 66.7%      | 30.0%
+Rescisión por disciplina    | 3        | 33.3%      | 15.0%
+Rescisión por desempeño     | 0        | 0.0%       | 0.0%
+--------------------------- | -------- | ---------- | ---------
+TOTAL INVOLUNTARIAS         | 9        | 100%       | 45.0%
+
+2025
+----
+Motivo                      | Cantidad | % de Invol | % del Año
+Término del contrato        | 45       | 58.4%      | 19.1%
+Rescisión por desempeño     | 22       | 28.6%      | 9.3%
+Rescisión por disciplina    | 10       | 13.0%      | 4.2%
+--------------------------- | -------- | ---------- | ---------
+TOTAL INVOLUNTARIAS         | 77       | 100%       | 32.6%
+
+2024
+----
+Motivo                      | Cantidad | % de Invol | % del Año
+Término del contrato        | 45       | 63.4%      | 18.8%
+Rescisión por disciplina    | 15       | 21.1%      | 6.3%
+Rescisión por desempeño     | 11       | 15.5%      | 4.6%
+--------------------------- | -------- | ---------- | ---------
+TOTAL INVOLUNTARIAS         | 71       | 100%       | 29.6%
+
+2023
+----
+Motivo                      | Cantidad | % de Invol | % del Año
+Término del contrato        | 43       | 75.4%      | 23.8%
+Rescisión por disciplina    | 7        | 12.3%      | 3.9%
+Rescisión por desempeño     | 7        | 12.3%      | 3.9%
+--------------------------- | -------- | ---------- | ---------
+TOTAL INVOLUNTARIAS         | 57       | 100%       | 31.5%
+
+EVOLUCIÓN HISTÓRICA (2023-2026):
+┌────────────────────────────┬──────┬──────┬──────┬──────┬───────┐
+│ Motivo                     │ 2023 │ 2024 │ 2025 │ 2026 │ Total │
+├────────────────────────────┼──────┼──────┼──────┼──────┼───────┤
+│ Término del contrato       │ 43   │ 45   │ 45   │ 6    │ 139   │
+│ Rescisión por desempeño    │ 7    │ 11   │ 22   │ 0    │ 42    │
+│ Rescisión por disciplina   │ 7    │ 15   │ 10   │ 3    │ 33    │
+├────────────────────────────┼──────┼──────┼──────┼──────┼───────┤
+│ TOTAL                      │ 57   │ 71   │ 77   │ 9    │ 214   │
+└────────────────────────────┴──────┴──────┴──────┴──────┴───────┘
+
+TENDENCIAS OBSERVADAS:
+- Término de contrato: estable en ~45 casos/año (2023-2025)
+- Rescisión por desempeño: tendencia creciente (7→11→22 casos)
+  • ⚠️ Incremento de 214% entre 2023-2025
+  • 2026: 0 casos en enero (puede indicar cambio de política)
+- Rescisión por disciplina: volatilidad alta (7→15→10 casos)
+  • Pico en 2024 (15 casos)
+  • Normalización en 2025 (10 casos)
+- 2026 alerta: ausencia total de rescisiones por desempeño
 
 
 ================================================================================
@@ -694,6 +862,18 @@ CORRELACIÓN INCIDENCIAS-BAJAS 2025:
 - Ratio incidencias/baja:............ 37.6 incidencias por cada baja
 - Promedio incidencias/empleado/año:. 40.5 incidencias (8,880 / 218 activos)
 
+DESGLOSE DE ROTACIÓN (2023-2026):
+- Total bajas históricas:............ 677 registros
+- Rotación VOLUNTARIA:............... 463 bajas (68.4%)
+  • Top motivos voluntarios:......... Otra razón (28.4%), Abandono (28.0%)
+  • Promedio voluntarias/año:........ 154 bajas/año
+- Rotación INVOLUNTARIA:............. 214 bajas (31.6%)
+  • Término del contrato:............ 139 bajas (65% de involuntarias)
+  • Rescisión por desempeño:......... 42 bajas (19.6% de involuntarias)
+  • Rescisión por disciplina:........ 33 bajas (15.4% de involuntarias)
+  • Promedio involuntarias/año:...... 71 bajas/año
+- Ratio voluntaria/involuntaria:..... 2.16 (por cada baja involuntaria hay 2.2 voluntarias)
+
 
 ================================================================================
 7. OBSERVACIONES Y RECOMENDACIONES
@@ -719,10 +899,21 @@ RECOMENDACIONES PARA ANÁLISIS:
 - Usar motivos_baja como fuente única de verdad para rotación
 - Complementar incidencias con prenomina_horizontal para horas trabajadas
 - Analizar tendencias de VAC para predecir ausentismo estacional
-- Investigar causas de alta rotación voluntaria (70.8%)
-- Monitorear rescisiones por desempeño/disciplina (8.5% + 5.5%)
+- ⚠️ PRIORITARIO: Investigar incremento de bajas involuntarias en 2026 (45% vs 31.6% histórico)
+- Investigar causas de rotación voluntaria (68.4% histórica):
+  • "Otra razón" + "Abandono" = 56.4% de bajas - requiere desglose más específico
+  • Implementar entrevistas de salida estructuradas
+  • Analizar correlación con tiempo de permanencia
+- Monitorear rescisiones involuntarias (31.6%):
+  • Término de contrato (65%): analizar tasa de renovación
+  • Rescisión por desempeño (19.6%): revisar procesos de evaluación
+  • Rescisión por disciplina (15.4%): fortalecer políticas preventivas
+- Analizar picos involuntarios anómalos:
+  • Agosto 2023 (60%), Noviembre 2025 (58.3%), Jul-Ago 2024 (55-56%)
+  • Identificar eventos organizacionales correlacionados
 - Correlacionar picos de FI con eventos organizacionales
 - Estudiar impacto de MAT1/MAT3 en productividad
+- Implementar sistema de alertas para cuando rotación involuntaria >40%
 
 ÁREAS DE MEJORA:
 1. Completar datos de prenomina_horizontal para todo 2025

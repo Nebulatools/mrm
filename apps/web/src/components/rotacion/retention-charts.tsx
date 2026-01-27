@@ -43,6 +43,7 @@ interface RetentionChartsProps {
   currentYear?: number;
   filters?: RetentionFilters;
   motivoFilter?: 'involuntaria' | 'voluntaria' | 'all';
+  plantilla?: PlantillaRecord[]; // ✅ Recibir plantilla pre-filtrada para consistencia con KPIs
 }
 
 const LEGEND_WRAPPER_STYLE: CSSProperties = { paddingTop: 6 };
@@ -113,7 +114,7 @@ const createBarLabelPercentRenderer = (fillColor: string) => (props: any) => {
   );
 };
 
-export function RetentionCharts({ currentDate = new Date(), currentYear, filters, motivoFilter = 'all' }: RetentionChartsProps) {
+export function RetentionCharts({ currentDate = new Date(), currentYear, filters, motivoFilter = 'all', plantilla: plantillaProp }: RetentionChartsProps) {
   // Create authenticated Supabase client for RLS filtering
   const supabase = createBrowserClient();
 
@@ -156,7 +157,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
   useEffect(() => {
     loadMonthlyRetentionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, currentYear, supabase, filters]);
+  }, [currentDate, currentYear, supabase, filters, plantillaProp]);
 
   useEffect(() => {
     // Cambiar datasets en memoria sin recalcular cuando se cambia el toggle
@@ -180,48 +181,62 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
 
       console.log('🔄 RetentionCharts: Loading monthly retention data...');
 
-      // Cargar empleados y motivos de baja en paralelo (optimización)
-      const [plantillaRaw, motivosRaw] = await Promise.all([
-        db.getEmpleadosSFTP(supabase),
-        db.getMotivosBaja(undefined, undefined, supabase)
-      ]);
+      let plantilla: PlantillaRecord[];
+      let motivos: MotivoBajaRecord[];
 
-      let plantilla = (plantillaRaw || []) as PlantillaRecord[];
-      const motivos = (motivosRaw || []) as MotivoBajaRecord[];
+      // ✅ CRÍTICO: Usar plantilla pre-filtrada si está disponible (garantiza consistencia con KPIs)
+      if (plantillaProp && plantillaProp.length > 0) {
+        plantilla = plantillaProp;
+        console.log('✅ RetentionCharts: Usando plantilla PRE-FILTRADA (consistente con KPIs):', plantilla.length, 'records');
 
-      console.log('👥 Empleados SFTP loaded:', plantilla?.length, 'records');
-      console.log('📄 Motivos de baja loaded:', motivos.length, 'records');
+        // Solo cargar motivos
+        const motivosRaw = await db.getMotivosBaja(undefined, undefined, supabase);
+        motivos = (motivosRaw || []) as MotivoBajaRecord[];
+      } else {
+        // Fallback: cargar datos directamente (NO RECOMENDADO - puede causar inconsistencias)
+        console.log('⚠️ RetentionCharts: Cargando datos directamente (sin plantilla pre-filtrada)');
+        const [plantillaRaw, motivosRaw] = await Promise.all([
+          db.getEmpleadosSFTP(supabase),
+          db.getMotivosBaja(undefined, undefined, supabase)
+        ]);
 
-      if (!plantilla || plantilla.length === 0) {
-        throw new Error('No plantilla data found');
-      }
+        plantilla = (plantillaRaw || []) as PlantillaRecord[];
+        motivos = (motivosRaw || []) as MotivoBajaRecord[];
 
-      // ✅ Aplicar filtros generales (sin año/mes) usando helper centralizado
-      if (filters) {
-        const scopedFilters = {
-          years: filters.years || [],
-          months: filters.months || [],
-          departamentos: filters.departamentos,
-          puestos: filters.puestos,
-          clasificaciones: filters.clasificaciones,
-          empresas: filters.empresas,
-          areas: filters.areas,
-          ubicaciones: filters.ubicaciones,
-          includeInactive: true
-        };
+        console.log('👥 Empleados SFTP loaded:', plantilla?.length, 'records');
+        console.log('📄 Motivos de baja loaded:', motivos.length, 'records');
 
-        const filteredByScope = applyFiltersWithScope(plantilla, scopedFilters, 'general');
+        if (!plantilla || plantilla.length === 0) {
+          throw new Error('No plantilla data found');
+        }
 
-        console.log('🔍 Filtros aplicados a RetentionCharts (GENERAL):', {
-          original: plantilla.length,
-          filtrado: filteredByScope.length,
-          departamentos: filters.departamentos?.length || 0,
-          puestos: filters.puestos?.length || 0,
-          empresas: filters.empresas?.length || 0,
-          areas: filters.areas?.length || 0
-        });
+        // Aplicar filtros solo en fallback
+        if (filters) {
+          const scopedFilters = {
+            years: filters.years || [],
+            months: filters.months || [],
+            departamentos: filters.departamentos,
+            puestos: filters.puestos,
+            clasificaciones: filters.clasificaciones,
+            empresas: filters.empresas,
+            areas: filters.areas,
+            ubicaciones: filters.ubicaciones,
+            includeInactive: true
+          };
 
-        plantilla = filteredByScope;
+          const filteredByScope = applyFiltersWithScope(plantilla, scopedFilters, 'year-only');
+
+          console.log('🔍 Filtros aplicados a RetentionCharts (YEAR-ONLY):', {
+            original: plantilla.length,
+            filtrado: filteredByScope.length,
+            departamentos: filters.departamentos?.length || 0,
+            puestos: filters.puestos?.length || 0,
+            empresas: filters.empresas?.length || 0,
+            areas: filters.areas?.length || 0
+          });
+
+          plantilla = filteredByScope;
+        }
       }
 
       // Enriquecer registros con valores ya parseados para evitar reprocesar en cada mes
@@ -253,7 +268,9 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         })
         .map(evento => {
           const numero = Number(evento.numero_empleado);
-          const motivoNormalizado = normalizeMotivo(evento.descripcion || evento.motivo || '');
+          // ✅ CRITICAL FIX: Usar 'motivo' primero (específico), no 'descripcion' (genérico)
+          // Esto garantiza clasificación correcta vol/inv
+          const motivoNormalizado = normalizeMotivo(evento.motivo || evento.descripcion || '');
           return {
             numero_empleado: numero,
             fecha_baja: evento.fecha_baja,
