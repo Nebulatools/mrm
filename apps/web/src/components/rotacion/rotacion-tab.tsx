@@ -378,6 +378,7 @@ export function RotacionTab({
           plantilla={plantillaRotacionYearScope}
           motivosBaja={bajasData}
           selectedYears={retentionFilters.years}
+          selectedMonths={retentionFilters.months}
           refreshEnabled={refreshEnabled}
           motivoFilter={motivoFilterType}
         />
@@ -385,6 +386,7 @@ export function RotacionTab({
           plantilla={plantillaRotacionYearScope}
           motivosBaja={bajasData}
           selectedYears={retentionFilters.years}
+          selectedMonths={retentionFilters.months}
           refreshEnabled={refreshEnabled}
           motivoFilter={motivoFilterType}
         />

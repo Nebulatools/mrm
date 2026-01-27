@@ -23,6 +23,7 @@ interface RotationByMotiveSeniorityTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
   selectedYears?: number[];
+  selectedMonths?: number[];
   refreshEnabled?: boolean;
   motivoFilter?: MotivoFilterType;
 }
@@ -48,18 +49,31 @@ export function RotationByMotiveSeniorityTable({
   plantilla,
   motivosBaja,
   selectedYears,
+  selectedMonths = [],
   refreshEnabled = false,
   motivoFilter = "all",
 }: RotationByMotiveSeniorityTableProps) {
 
   const { data, grandTotal } = useMemo(() => {
-    // Filter motivosBaja by selected years
-    let motivosFiltered = selectedYears && selectedYears.length > 0
-      ? motivosBaja.filter(baja => {
-          const year = new Date(baja.fecha_baja).getFullYear();
-          return selectedYears.includes(year);
-        })
-      : motivosBaja;
+    // Filter motivosBaja by selected years AND months
+    let motivosFiltered = motivosBaja.filter(baja => {
+      if (!baja.fecha_baja) return false;
+      // ✅ FIX TIMEZONE: Parsear fecha como string
+      const fechaStr = String(baja.fecha_baja);
+      const [yearStr, monthStr] = fechaStr.split('-');
+      const bajaYear = parseInt(yearStr, 10);
+      const bajaMonth = parseInt(monthStr, 10);
+
+      // Apply year filter if selected
+      if (selectedYears && selectedYears.length > 0 && !selectedYears.includes(bajaYear)) {
+        return false;
+      }
+      // Apply month filter if selected
+      if (selectedMonths.length > 0 && !selectedMonths.includes(bajaMonth)) {
+        return false;
+      }
+      return true;
+    });
 
     // Apply motivo filter (voluntaria/involuntaria)
     if (motivoFilter !== "all") {
@@ -80,12 +94,23 @@ export function RotationByMotiveSeniorityTable({
       motivosMap.set(baja.numero_empleado, baja.motivo);
     });
 
-    // SOURCE: empleados_sftp (plantilla) - filter by fecha_baja and selected years
+    // SOURCE: empleados_sftp (plantilla) - filter by fecha_baja and selected years/months
     const bajasAll = plantilla.filter(emp => {
       if (!emp.fecha_baja || !emp.fecha_ingreso) return false;
-      if (selectedYears && selectedYears.length > 0) {
-        const year = new Date(emp.fecha_baja).getFullYear();
-        if (!selectedYears.includes(year)) return false;
+
+      // ✅ FIX TIMEZONE: Parsear fecha como string
+      const fechaStr = String(emp.fecha_baja);
+      const [yearStr, monthStr] = fechaStr.split('-');
+      const bajaYear = parseInt(yearStr, 10);
+      const bajaMonth = parseInt(monthStr, 10);
+
+      // Apply year filter
+      if (selectedYears && selectedYears.length > 0 && !selectedYears.includes(bajaYear)) {
+        return false;
+      }
+      // Apply month filter
+      if (selectedMonths.length > 0 && !selectedMonths.includes(bajaMonth)) {
+        return false;
       }
       // Apply motivo filter - only include employees whose motivo matches
       if (motivoFilter !== "all" && emp.numero_empleado) {
@@ -140,7 +165,7 @@ export function RotationByMotiveSeniorityTable({
     const grandTotal = bajasAll.length;
 
     return { data, grandTotal };
-  }, [plantilla, motivosBaja, selectedYears, motivoFilter]);
+  }, [plantilla, motivosBaja, selectedYears, selectedMonths, motivoFilter]);
 
   // Calculate column totals
   const columnTotals = useMemo(() => {

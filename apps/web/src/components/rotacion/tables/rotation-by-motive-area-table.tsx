@@ -22,6 +22,7 @@ interface RotationByMotiveAreaTableProps {
   plantilla: PlantillaRecord[];
   motivosBaja: MotivoBajaRecord[];
   selectedYears?: number[];
+  selectedMonths?: number[];
   refreshEnabled?: boolean;
   motivoFilter?: MotivoFilterType;
 }
@@ -36,19 +37,31 @@ export function RotationByMotiveAreaTable({
   plantilla,
   motivosBaja,
   selectedYears = [],
+  selectedMonths = [],
   refreshEnabled = false,
   motivoFilter = "all",
 }: RotationByMotiveAreaTableProps) {
 
   const { data, topMotivos, grandTotal } = useMemo(() => {
-    // Filter motivos_baja by selected years for data integrity
-    let filteredMotivosBaja = selectedYears.length > 0
-      ? motivosBaja.filter(baja => {
-          if (!baja.fecha_baja) return false;
-          const bajaYear = new Date(baja.fecha_baja).getFullYear();
-          return selectedYears.includes(bajaYear);
-        })
-      : motivosBaja;
+    // Filter motivos_baja by selected years AND months for data integrity
+    let filteredMotivosBaja = motivosBaja.filter(baja => {
+      if (!baja.fecha_baja) return false;
+      // ✅ FIX TIMEZONE: Parsear fecha como string
+      const fechaStr = String(baja.fecha_baja);
+      const [yearStr, monthStr] = fechaStr.split('-');
+      const bajaYear = parseInt(yearStr, 10);
+      const bajaMonth = parseInt(monthStr, 10);
+
+      // Apply year filter if selected
+      if (selectedYears.length > 0 && !selectedYears.includes(bajaYear)) {
+        return false;
+      }
+      // Apply month filter if selected
+      if (selectedMonths.length > 0 && !selectedMonths.includes(bajaMonth)) {
+        return false;
+      }
+      return true;
+    });
 
     // Apply motivo filter (voluntaria/involuntaria)
     if (motivoFilter !== "all") {
@@ -83,15 +96,24 @@ export function RotationByMotiveAreaTable({
       filteredMotivosBaja.map(baja => baja.numero_empleado)
     );
 
-    // SOURCE: empleados_sftp (plantilla) - filter employees with fecha_baja AND by selected years
-    // CRITICAL: Must filter by same years as filteredMotivosBaja to ensure data consistency
+    // SOURCE: empleados_sftp (plantilla) - filter employees with fecha_baja AND by selected years/months
+    // CRITICAL: Must filter by same years/months as filteredMotivosBaja to ensure data consistency
     const bajasAll = plantilla.filter(emp => {
       if (!emp.fecha_baja) return false;
 
-      // Apply same year filter as motivosBaja for data integrity
-      if (selectedYears.length > 0) {
-        const bajaYear = new Date(emp.fecha_baja).getFullYear();
-        if (!selectedYears.includes(bajaYear)) return false;
+      // ✅ FIX TIMEZONE: Parsear fecha como string
+      const fechaStr = String(emp.fecha_baja);
+      const [yearStr, monthStr] = fechaStr.split('-');
+      const bajaYear = parseInt(yearStr, 10);
+      const bajaMonth = parseInt(monthStr, 10);
+
+      // Apply year filter
+      if (selectedYears.length > 0 && !selectedYears.includes(bajaYear)) {
+        return false;
+      }
+      // Apply month filter
+      if (selectedMonths.length > 0 && !selectedMonths.includes(bajaMonth)) {
+        return false;
       }
 
       // Apply motivo filter - only include employees whose motivo matches the filter
@@ -159,7 +181,7 @@ export function RotationByMotiveAreaTable({
     const grandTotal = bajasAll.length;
 
     return { data, topMotivos, grandTotal };
-  }, [plantilla, motivosBaja, selectedYears, motivoFilter]);
+  }, [plantilla, motivosBaja, selectedYears, selectedMonths, motivoFilter]);
 
   // Calculate percentage for each motivo
   const motivoTotals = useMemo(() => {
