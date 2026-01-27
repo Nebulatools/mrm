@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PlantillaRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
@@ -32,7 +32,7 @@ export function RotationByMotiveAreaTable({
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const { areaData, topMotivos, grandTotal, maxValue } = useMemo(() => {
+  const { areaData, allMotivos, grandTotal, maxValue } = useMemo(() => {
     // Filter motivos_baja by selected years AND months
     let filteredMotivosBaja = motivosBaja.filter(baja => {
       if (!baja.fecha_baja) return false;
@@ -111,10 +111,9 @@ export function RotationByMotiveAreaTable({
       motivoCounts.set(motivo, (motivoCounts.get(motivo) || 0) + 1);
     });
 
-    // Get top 5 motivos by frequency
-    const topMotivos = Array.from(motivoCounts.entries())
+    // ✅ Get ALL motivos sorted by frequency (no limit)
+    const allMotivos = Array.from(motivoCounts.entries())
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
       .map(([motivo]) => motivo);
 
     // Build area data array
@@ -132,13 +131,13 @@ export function RotationByMotiveAreaTable({
     // Calculate max value for heatmap intensity
     let maxVal = 1;
     areaData.forEach(row => {
-      topMotivos.forEach(motivo => {
+      allMotivos.forEach(motivo => {
         const val = row.motivos[motivo] || 0;
         if (val > maxVal) maxVal = val;
       });
     });
 
-    return { areaData, topMotivos, grandTotal, maxValue: maxVal };
+    return { areaData, allMotivos, grandTotal, maxValue: maxVal };
   }, [plantilla, motivosBaja, selectedYears, selectedMonths, motivoFilter]);
 
   // Intensity palette (same as bajas-por-motivo-heatmap)
@@ -179,9 +178,9 @@ export function RotationByMotiveAreaTable({
     };
   };
 
-  // Calculate column totals
+  // Calculate column totals for ALL motivos
   const motivoTotals: Record<string, number> = {};
-  topMotivos.forEach(motivo => {
+  allMotivos.forEach(motivo => {
     motivoTotals[motivo] = areaData.reduce((sum, row) => sum + (row.motivos[motivo] || 0), 0);
   });
 
@@ -210,16 +209,16 @@ export function RotationByMotiveAreaTable({
                     <th className="min-w-[140px] p-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-brand-ink/70">
                       Área
                     </th>
-                    {topMotivos.map((motivo, index) => (
+                    {allMotivos.map((motivo, index) => (
                       <th
                         key={index}
-                        className="min-w-[90px] max-w-[120px] p-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-brand-ink/60"
+                        className="min-w-[80px] max-w-[110px] p-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-brand-ink/60"
                         title={motivo}
                       >
-                        {motivo.length > 15 ? motivo.substring(0, 15) + '...' : motivo}
+                        {motivo.length > 12 ? motivo.substring(0, 12) + '...' : motivo}
                       </th>
                     ))}
-                    <th className="min-w-[70px] p-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-brand-ink/70">
+                    <th className="min-w-[60px] p-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-brand-ink/70">
                       Total
                     </th>
                   </tr>
@@ -227,7 +226,7 @@ export function RotationByMotiveAreaTable({
                 <tbody>
                   {areaData.length === 0 ? (
                     <tr>
-                      <td colSpan={topMotivos.length + 2} className="p-4 text-center text-sm text-muted-foreground">
+                      <td colSpan={allMotivos.length + 2} className="p-4 text-center text-sm text-muted-foreground">
                         No hay bajas registradas para el periodo seleccionado.
                       </td>
                     </tr>
@@ -241,13 +240,13 @@ export function RotationByMotiveAreaTable({
                           <td className={cn('p-3 font-medium', isDark ? 'text-brand-ink' : 'text-slate-900')}>
                             {row.area}
                           </td>
-                          {topMotivos.map((motivo, mesIndex) => {
+                          {allMotivos.map((motivo, colIndex) => {
                             const value = row.motivos[motivo] || 0;
                             const cellStyle = getCellStyle(value);
                             return (
                               <td
-                                key={mesIndex}
-                                className="mx-1 rounded-lg p-2 text-center text-sm font-semibold transition-colors"
+                                key={colIndex}
+                                className="mx-0.5 rounded-lg p-1.5 text-center text-sm font-semibold transition-colors"
                                 style={cellStyle}
                                 title={`${row.area} - ${motivo}: ${value} bajas`}
                               >
@@ -268,7 +267,7 @@ export function RotationByMotiveAreaTable({
                         <td className={cn('p-3 font-bold', isDark ? 'text-brand-ink' : 'text-slate-900')}>
                           TOTAL
                         </td>
-                        {topMotivos.map((motivo, index) => (
+                        {allMotivos.map((motivo, index) => (
                           <td key={index} className={cn('p-2 text-center font-bold', isDark ? 'text-brand-ink' : 'text-slate-900')}>
                             {motivoTotals[motivo] || 0}
                           </td>

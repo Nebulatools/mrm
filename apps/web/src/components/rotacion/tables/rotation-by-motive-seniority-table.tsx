@@ -32,6 +32,7 @@ interface MotiveSeniorityData {
   motivo: string;
   seniorityBuckets: Record<string, number>;
   total: number;
+  esInvoluntaria: boolean;
 }
 
 // Seniority buckets based on plan
@@ -141,25 +142,38 @@ export function RotationByMotiveSeniorityTable({
       motivoData[bucket.key] = (motivoData[bucket.key] || 0) + 1;
     });
 
-    // Get top motivos by frequency
+    // Get ALL motivos with their raw values for classification
+    const motivoRawMap = new Map<string, string>(); // prettyMotivo -> rawMotivo
     const motivoCounts = new Map<string, number>();
     bajasAll.forEach(emp => {
-      // JOIN: Get motivo from motivos_baja lookup by numero_empleado
       const rawMotivo = emp.numero_empleado ? motivosMap.get(emp.numero_empleado) : undefined;
       const motivo = prettyMotivo(rawMotivo) || 'No especificado';
       motivoCounts.set(motivo, (motivoCounts.get(motivo) || 0) + 1);
+      if (rawMotivo && !motivoRawMap.has(motivo)) {
+        motivoRawMap.set(motivo, rawMotivo);
+      }
     });
 
-    const topMotivos = Array.from(motivoCounts.entries())
+    // ✅ Get ALL motivos (no limit) sorted by frequency
+    const allMotivos = Array.from(motivoCounts.entries())
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
       .map(([motivo]) => motivo);
 
-    // Build data array for top motivos only
-    const data: MotiveSeniorityData[] = topMotivos.map(motivo => {
+    // Build data array for ALL motivos with type classification
+    const data: MotiveSeniorityData[] = allMotivos.map(motivo => {
       const seniorityBuckets = motivoSeniorityMap.get(motivo) || {};
       const total = Object.values(seniorityBuckets).reduce((sum, count) => sum + count, 0);
-      return { motivo, seniorityBuckets, total };
+      const rawMotivo = motivoRawMap.get(motivo) || motivo;
+      const esInvoluntaria = isMotivoClave(rawMotivo);
+      return { motivo, seniorityBuckets, total, esInvoluntaria };
+    });
+
+    // Sort: Involuntaria first, then Voluntaria, each sorted by total descending
+    data.sort((a, b) => {
+      if (a.esInvoluntaria !== b.esInvoluntaria) {
+        return a.esInvoluntaria ? -1 : 1; // Involuntaria first
+      }
+      return b.total - a.total; // Then by total descending
     });
 
     const grandTotal = bajasAll.length;
@@ -167,16 +181,43 @@ export function RotationByMotiveSeniorityTable({
     return { data, grandTotal };
   }, [plantilla, motivosBaja, selectedYears, selectedMonths, motivoFilter]);
 
-  // Calculate column totals
-  const columnTotals = useMemo(() => {
+  // Calculate column totals (all, involuntaria, voluntaria)
+  const { columnTotals, involuntariaTotals, voluntariaTotals, involuntariaTotal, voluntariaTotal } = useMemo(() => {
     const totals: Record<string, number> = {};
+    const invTotals: Record<string, number> = {};
+    const volTotals: Record<string, number> = {};
+    let invTotal = 0;
+    let volTotal = 0;
+
     data.forEach(row => {
       SENIORITY_BUCKETS.forEach(bucket => {
-        totals[bucket.key] = (totals[bucket.key] || 0) + (row.seniorityBuckets[bucket.key] || 0);
+        const val = row.seniorityBuckets[bucket.key] || 0;
+        totals[bucket.key] = (totals[bucket.key] || 0) + val;
+        if (row.esInvoluntaria) {
+          invTotals[bucket.key] = (invTotals[bucket.key] || 0) + val;
+        } else {
+          volTotals[bucket.key] = (volTotals[bucket.key] || 0) + val;
+        }
       });
+      if (row.esInvoluntaria) {
+        invTotal += row.total;
+      } else {
+        volTotal += row.total;
+      }
     });
-    return totals;
+
+    return {
+      columnTotals: totals,
+      involuntariaTotals: invTotals,
+      voluntariaTotals: volTotals,
+      involuntariaTotal: invTotal,
+      voluntariaTotal: volTotal
+    };
   }, [data]);
+
+  // Separate data by type
+  const involuntariaData = data.filter(d => d.esInvoluntaria);
+  const voluntariaData = data.filter(d => !d.esInvoluntaria);
 
   return (
     <Card
@@ -233,22 +274,77 @@ export function RotationByMotiveSeniorityTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.map((row) => (
-                    <TableRow key={row.motivo}>
-                      <TableCell className="font-medium whitespace-nowrap">
-                        {row.motivo.length > 25 ? row.motivo.substring(0, 25) + '...' : row.motivo}
-                      </TableCell>
-                      {SENIORITY_BUCKETS.map(bucket => (
-                        <TableCell key={bucket.key} className="text-right">
-                          {row.seniorityBuckets[bucket.key] || ''}
+                  {/* === SECCIÓN INVOLUNTARIA === */}
+                  {involuntariaData.length > 0 && (
+                    <>
+                      <TableRow className="bg-red-50 dark:bg-red-950/30">
+                        <TableCell colSpan={SENIORITY_BUCKETS.length + 2} className="font-bold text-red-700 dark:text-red-400 py-2">
+                          🔴 Rotación Involuntaria
                         </TableCell>
+                      </TableRow>
+                      {involuntariaData.map((row) => (
+                        <TableRow key={row.motivo}>
+                          <TableCell className="font-medium whitespace-nowrap pl-6">
+                            {row.motivo.length > 30 ? row.motivo.substring(0, 30) + '...' : row.motivo}
+                          </TableCell>
+                          {SENIORITY_BUCKETS.map(bucket => (
+                            <TableCell key={bucket.key} className="text-right">
+                              {row.seniorityBuckets[bucket.key] || ''}
+                            </TableCell>
+                          ))}
+                          <TableCell className="text-right font-semibold">{row.total}</TableCell>
+                        </TableRow>
                       ))}
-                      <TableCell className="text-right font-semibold">{row.total}</TableCell>
-                    </TableRow>
-                  ))}
-                  {/* Totals row */}
+                      {/* Subtotal Involuntaria */}
+                      <TableRow className="bg-red-100 dark:bg-red-950/50 font-semibold">
+                        <TableCell className="font-semibold text-red-700 dark:text-red-400">Subtotal Involuntaria</TableCell>
+                        {SENIORITY_BUCKETS.map(bucket => (
+                          <TableCell key={bucket.key} className="text-right font-semibold">
+                            {involuntariaTotals[bucket.key] || 0}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right font-bold">{involuntariaTotal}</TableCell>
+                      </TableRow>
+                    </>
+                  )}
+
+                  {/* === SECCIÓN VOLUNTARIA === */}
+                  {voluntariaData.length > 0 && (
+                    <>
+                      <TableRow className="bg-blue-50 dark:bg-blue-950/30">
+                        <TableCell colSpan={SENIORITY_BUCKETS.length + 2} className="font-bold text-blue-700 dark:text-blue-400 py-2">
+                          🔵 Rotación Voluntaria
+                        </TableCell>
+                      </TableRow>
+                      {voluntariaData.map((row) => (
+                        <TableRow key={row.motivo}>
+                          <TableCell className="font-medium whitespace-nowrap pl-6">
+                            {row.motivo.length > 30 ? row.motivo.substring(0, 30) + '...' : row.motivo}
+                          </TableCell>
+                          {SENIORITY_BUCKETS.map(bucket => (
+                            <TableCell key={bucket.key} className="text-right">
+                              {row.seniorityBuckets[bucket.key] || ''}
+                            </TableCell>
+                          ))}
+                          <TableCell className="text-right font-semibold">{row.total}</TableCell>
+                        </TableRow>
+                      ))}
+                      {/* Subtotal Voluntaria */}
+                      <TableRow className="bg-blue-100 dark:bg-blue-950/50 font-semibold">
+                        <TableCell className="font-semibold text-blue-700 dark:text-blue-400">Subtotal Voluntaria</TableCell>
+                        {SENIORITY_BUCKETS.map(bucket => (
+                          <TableCell key={bucket.key} className="text-right font-semibold">
+                            {voluntariaTotals[bucket.key] || 0}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right font-bold">{voluntariaTotal}</TableCell>
+                      </TableRow>
+                    </>
+                  )}
+
+                  {/* === TOTAL GENERAL === */}
                   <TableRow className="bg-gray-200 dark:bg-slate-700 font-bold border-t-2 border-corporate-red/60 dark:border-orange-500/60">
-                    <TableCell className="font-bold">Total</TableCell>
+                    <TableCell className="font-bold">TOTAL GENERAL</TableCell>
                     {SENIORITY_BUCKETS.map(bucket => (
                       <TableCell key={bucket.key} className="text-right font-bold">
                         {columnTotals[bucket.key] || 0}
