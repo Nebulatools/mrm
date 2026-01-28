@@ -38,25 +38,21 @@ export function AbsenteeismTable({
 }: AbsenteeismTableProps) {
   const [metricType, setMetricType] = useState<"count" | "percent">("percent");
 
-  // Filtrar incidencias según año y empleados de la plantilla filtrada
+  // ✅ CORRECCIÓN: Filtrar incidencias SOLO por año, NO por empleados
+  // Esto asegura que coincida con los datos reales de Supabase
+  // Las incidencias de empleados que ya no están activos también deben contarse
   const filteredIncidencias = useMemo(() => {
-    const plantillaFiltered = filters
-      ? applyFiltersWithScope(plantilla, filters, 'general')
-      : plantilla;
-
-    const empleadosEnPlantilla = new Set(
-      plantillaFiltered.map(e => (e as any).numero_empleado || e.id)
-    );
-
     return incidencias.filter((inc) => {
       if (currentYear !== undefined) {
         if (!inc.fecha) return false;
-        const fecha = new Date(inc.fecha);
-        if (fecha.getFullYear() !== currentYear) return false;
+        // ✅ Parsear fecha como string para evitar bug de timezone
+        const fechaStr = String(inc.fecha);
+        const year = parseInt(fechaStr.substring(0, 4), 10);
+        if (year !== currentYear) return false;
       }
-      return empleadosEnPlantilla.has(inc.emp);
+      return true; // No filtrar por empleados - mostrar TODOS los del año
     });
-  }, [incidencias, plantilla, currentYear, filters]);
+  }, [incidencias, currentYear]);
 
   // ✅ Función para calcular días activos de un empleado (igual que incidents-tab.tsx)
   const calcularDiasActivo = (emp: PlantillaRecord, start: Date, end: Date): number => {
@@ -97,8 +93,9 @@ export function AbsenteeismTable({
 
     filteredIncidencias.forEach(inc => {
       if (!inc.fecha) return;
-      const fecha = new Date(inc.fecha);
-      const month = fecha.getMonth(); // 0-11
+      // ✅ Parsear fecha como string para evitar bug de timezone
+      const fechaStr = String(inc.fecha);
+      const month = parseInt(fechaStr.substring(5, 7), 10) - 1; // 0-11 (parsear mes directamente)
       const code = normalizeIncidenciaCode(inc.inci);
 
       if (VACACIONES_CODES.has(code)) {
@@ -129,7 +126,7 @@ export function AbsenteeismTable({
       finalData[motivo] = dataByMotivo[motivo].map((count, idx) => {
         if (metricType === "percent") {
           const dias = diasLaboradosPorMes[idx];
-          return dias > 0 ? ((count / dias) * 100).toFixed(0) + '%' : '0%';
+          return dias > 0 ? ((count / dias) * 100).toFixed(2) + '%' : '0.00%';
         }
         return count;
       });

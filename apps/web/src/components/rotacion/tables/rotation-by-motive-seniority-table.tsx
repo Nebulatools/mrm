@@ -278,8 +278,16 @@ export function RotationByMotiveSeniorityTable({
                   {involuntariaData.length > 0 && (
                     <>
                       <TableRow className="bg-red-50 dark:bg-red-950/30">
-                        <TableCell colSpan={SENIORITY_BUCKETS.length + 2} className="font-bold text-red-700 dark:text-red-400 py-2">
-                          🔴 Rotación Involuntaria
+                        <TableCell className="font-bold text-red-700 dark:text-red-400 py-2">
+                          Rotación Involuntaria
+                        </TableCell>
+                        {SENIORITY_BUCKETS.map(bucket => (
+                          <TableCell key={bucket.key} className="text-right font-bold text-red-700 dark:text-red-400 py-2">
+                            {involuntariaTotals[bucket.key] || ''}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right font-bold text-red-700 dark:text-red-400 py-2">
+                          {involuntariaTotal}
                         </TableCell>
                       </TableRow>
                       {involuntariaData.map((row) => (
@@ -295,16 +303,7 @@ export function RotationByMotiveSeniorityTable({
                           <TableCell className="text-right font-semibold">{row.total}</TableCell>
                         </TableRow>
                       ))}
-                      {/* Subtotal Involuntaria */}
-                      <TableRow className="bg-red-100 dark:bg-red-950/50 font-semibold">
-                        <TableCell className="font-semibold text-red-700 dark:text-red-400">Subtotal Involuntaria</TableCell>
-                        {SENIORITY_BUCKETS.map(bucket => (
-                          <TableCell key={bucket.key} className="text-right font-semibold">
-                            {involuntariaTotals[bucket.key] || 0}
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-right font-bold">{involuntariaTotal}</TableCell>
-                      </TableRow>
+                      {/* Subtotal Involuntaria - ya se muestra en la cabecera */}
                     </>
                   )}
 
@@ -312,8 +311,16 @@ export function RotationByMotiveSeniorityTable({
                   {voluntariaData.length > 0 && (
                     <>
                       <TableRow className="bg-blue-50 dark:bg-blue-950/30">
-                        <TableCell colSpan={SENIORITY_BUCKETS.length + 2} className="font-bold text-blue-700 dark:text-blue-400 py-2">
-                          🔵 Rotación Voluntaria
+                        <TableCell className="font-bold text-blue-700 dark:text-blue-400 py-2">
+                          Rotación Voluntaria
+                        </TableCell>
+                        {SENIORITY_BUCKETS.map(bucket => (
+                          <TableCell key={bucket.key} className="text-right font-bold text-blue-700 dark:text-blue-400 py-2">
+                            {voluntariaTotals[bucket.key] || ''}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right font-bold text-blue-700 dark:text-blue-400 py-2">
+                          {voluntariaTotal}
                         </TableCell>
                       </TableRow>
                       {voluntariaData.map((row) => (
@@ -329,16 +336,7 @@ export function RotationByMotiveSeniorityTable({
                           <TableCell className="text-right font-semibold">{row.total}</TableCell>
                         </TableRow>
                       ))}
-                      {/* Subtotal Voluntaria */}
-                      <TableRow className="bg-blue-100 dark:bg-blue-950/50 font-semibold">
-                        <TableCell className="font-semibold text-blue-700 dark:text-blue-400">Subtotal Voluntaria</TableCell>
-                        {SENIORITY_BUCKETS.map(bucket => (
-                          <TableCell key={bucket.key} className="text-right font-semibold">
-                            {voluntariaTotals[bucket.key] || 0}
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-right font-bold">{voluntariaTotal}</TableCell>
-                      </TableRow>
+                      {/* Subtotal Voluntaria - ya se muestra en la cabecera */}
                     </>
                   )}
 

@@ -664,7 +664,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
               </span>
               <span className="ml-auto">
                 {entry.dataKey?.toLowerCase().includes('rotacion') || entry.name.toLowerCase().includes('rotación')
-                  ? `${Number(entry.value ?? 0).toFixed(1)}%`
+                  ? `${Number(entry.value ?? 0).toFixed(2)}%`
                   : Number(entry.value ?? 0).toLocaleString('es-MX')}
               </span>
             </div>
@@ -742,7 +742,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
         }}
       >
         {value > 0 ? '+' : ''}
-        {value.toFixed(1)}%
+        {value.toFixed(2)}%
       </span>
     );
   };
@@ -1224,7 +1224,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       >
                         <td className="px-3 py-2 text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">{row.mes}</td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
-                          {rotacion1 !== null ? `${rotacion1.toFixed(1)}%` : '-'}
+                          {rotacion1 !== null ? `${rotacion1.toFixed(2)}%` : '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
                           {stats1.bajas12m || '-'}
@@ -1233,7 +1233,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                           {stats1.activosProm12m ?? '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
-                          {rotacion2 !== null ? `${rotacion2.toFixed(1)}%` : '-'}
+                          {rotacion2 !== null ? `${rotacion2.toFixed(2)}%` : '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
                           {stats2.bajas12m || '-'}
@@ -1306,7 +1306,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                       >
                         <td className="px-3 py-2 text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">{monthName}</td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
-                          {monthYear1?.rotacionPorcentaje ? `${monthYear1.rotacionPorcentaje.toFixed(1)}%` : '-'}
+                          {monthYear1?.rotacionPorcentaje ? `${monthYear1.rotacionPorcentaje.toFixed(2)}%` : '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
                           {monthYear1?.bajas ?? '-'}
@@ -1315,7 +1315,7 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
                           {monthYear1?.activos ?? '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
-                          {monthYear2?.rotacionPorcentaje ? `${monthYear2.rotacionPorcentaje.toFixed(1)}%` : '-'}
+                          {monthYear2?.rotacionPorcentaje ? `${monthYear2.rotacionPorcentaje.toFixed(2)}%` : '-'}
                         </td>
                         <td className="px-3 py-2 text-center text-xs font-semibold text-brand-ink dark:text-slate-100 md:text-sm">
                           {monthYear2?.bajas ?? '-'}

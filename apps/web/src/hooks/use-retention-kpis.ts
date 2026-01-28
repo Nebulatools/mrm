@@ -229,31 +229,31 @@ export function useRetentionKPIs({
     );
 
     // Formatear valores de rotación mensual
-    const rotMensualInv = Number(rotacionMensualActual.involuntaria.toFixed(1));
-    const rotMensualVol = Number(rotacionMensualActual.voluntaria.toFixed(1));
-    const rotMensualTotal = Number(rotacionMensualActual.total.toFixed(1));
-    const rotMensualInvPrev = Number(rotacionMensualPrevio.involuntaria.toFixed(1));
-    const rotMensualVolPrev = Number(rotacionMensualPrevio.voluntaria.toFixed(1));
-    const rotMensualTotalPrev = Number(rotacionMensualPrevio.total.toFixed(1));
+    const rotMensualInv = Number(rotacionMensualActual.involuntaria.toFixed(2));
+    const rotMensualVol = Number(rotacionMensualActual.voluntaria.toFixed(2));
+    const rotMensualTotal = Number(rotacionMensualActual.total.toFixed(2));
+    const rotMensualInvPrev = Number(rotacionMensualPrevio.involuntaria.toFixed(2));
+    const rotMensualVolPrev = Number(rotacionMensualPrevio.voluntaria.toFixed(2));
+    const rotMensualTotalPrev = Number(rotacionMensualPrevio.total.toFixed(2));
     const rotMensualTotalSameMonthPrevYear = Number(
-      rotacionMensualSameMonthPrevYear.total.toFixed(1)
+      rotacionMensualSameMonthPrevYear.total.toFixed(2)
     );
 
     // Formatear valores de rotación acumulada
-    const rotAcumuladaInv = Number(rotacionAcumuladaActual.involuntaria.toFixed(1));
-    const rotAcumuladaVol = Number(rotacionAcumuladaActual.voluntaria.toFixed(1));
-    const rotAcumuladaTotal = Number(rotacionAcumuladaActual.total.toFixed(1));
-    const rotAcumuladaInvPrev = Number(rotacionAcumuladaPrevio.involuntaria.toFixed(1));
-    const rotAcumuladaVolPrev = Number(rotacionAcumuladaPrevio.voluntaria.toFixed(1));
-    const rotAcumuladaTotalPrev = Number(rotacionAcumuladaPrevio.total.toFixed(1));
+    const rotAcumuladaInv = Number(rotacionAcumuladaActual.involuntaria.toFixed(2));
+    const rotAcumuladaVol = Number(rotacionAcumuladaActual.voluntaria.toFixed(2));
+    const rotAcumuladaTotal = Number(rotacionAcumuladaActual.total.toFixed(2));
+    const rotAcumuladaInvPrev = Number(rotacionAcumuladaPrevio.involuntaria.toFixed(2));
+    const rotAcumuladaVolPrev = Number(rotacionAcumuladaPrevio.voluntaria.toFixed(2));
+    const rotAcumuladaTotalPrev = Number(rotacionAcumuladaPrevio.total.toFixed(2));
 
     // Formatear valores de rotación YTD
-    const rotYTDInv = Number(rotacionYTDActual.involuntaria.toFixed(1));
-    const rotYTDVol = Number(rotacionYTDActual.voluntaria.toFixed(1));
-    const rotYTDTotal = Number(rotacionYTDActual.total.toFixed(1));
-    const rotYTDInvPrev = Number(rotacionYTDPrevio.involuntaria.toFixed(1));
-    const rotYTDVolPrev = Number(rotacionYTDPrevio.voluntaria.toFixed(1));
-    const rotYTDTotalPrev = Number(rotacionYTDPrevio.total.toFixed(1));
+    const rotYTDInv = Number(rotacionYTDActual.involuntaria.toFixed(2));
+    const rotYTDVol = Number(rotacionYTDActual.voluntaria.toFixed(2));
+    const rotYTDTotal = Number(rotacionYTDActual.total.toFixed(2));
+    const rotYTDInvPrev = Number(rotacionYTDPrevio.involuntaria.toFixed(2));
+    const rotYTDVolPrev = Number(rotacionYTDPrevio.voluntaria.toFixed(2));
+    const rotYTDTotalPrev = Number(rotacionYTDPrevio.total.toFixed(2));
 
     // Bajas del mes
     const bajasVoluntariasMes = rotacionMensualActual.bajasVoluntarias;

@@ -792,7 +792,7 @@ export function DashboardPage() {
               <RotacionTab
                 plantillaFiltered={plantillaFiltered}
                 plantillaRotacionYearScope={plantillaRotacionYearScope}
-                plantillaForCharts={plantillaFilteredGeneral}
+                plantillaForCharts={plantillaRotacionYearScope}
                 plantillaDismissalDetail={plantillaDismissalDetail}
                 bajasData={bajasData}
                 bajasPorMotivoData={bajasPorMotivoData}

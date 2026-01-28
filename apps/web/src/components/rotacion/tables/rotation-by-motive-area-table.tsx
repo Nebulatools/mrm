@@ -212,10 +212,10 @@ export function RotationByMotiveAreaTable({
                     {allMotivos.map((motivo, index) => (
                       <th
                         key={index}
-                        className="min-w-[80px] max-w-[110px] p-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-brand-ink/60"
+                        className="min-w-[60px] max-w-[130px] p-2 text-center text-[10px] font-semibold leading-snug text-muted-foreground dark:text-brand-ink/60"
                         title={motivo}
                       >
-                        {motivo.length > 12 ? motivo.substring(0, 12) + '...' : motivo}
+                        {motivo}
                       </th>
                     ))}
                     <th className="min-w-[60px] p-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-brand-ink/70">

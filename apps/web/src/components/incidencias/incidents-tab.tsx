@@ -324,8 +324,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
     const scopedByYear = scopedByEmployee.filter(inc => {
       if (currentYear === undefined) return true;
       if (!inc.fecha) return false;
-      const fecha = new Date(inc.fecha);
-      return fecha.getFullYear() === currentYear;
+      const yearStr = String(inc.fecha).slice(0, 4);
+      return parseInt(yearStr, 10) === currentYear;
     });
 
     const monthsFilter = (selectedMonths || []).filter(m => Number.isFinite(m)) as number[];
@@ -366,8 +366,9 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
         scopedByEmployee
           .map((inc) => {
             if (!inc.fecha) return null;
-            const date = new Date(inc.fecha);
-            return Number.isNaN(date.getTime()) ? null : date.getFullYear();
+            const yearStr = String(inc.fecha).slice(0, 4);
+            const year = parseInt(yearStr, 10);
+            return Number.isNaN(year) ? null : year;
           })
           .filter((year): year is number => year !== null)
       )
@@ -388,17 +389,21 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
     );
     const previousPairs = dedupePairs(shiftPairsBackOneMonth(currentPairs));
 
-    const matchesPairs = (date: Date, pairs: { year: number; month: number }[]) =>
-      pairs.some(({ year, month }) => date.getFullYear() === year && date.getMonth() + 1 === month);
+    const matchesPairs = (fechaStr: string, pairs: { year: number; month: number }[]) => {
+      const [y, m] = fechaStr.split('-');
+      const year = parseInt(y, 10);
+      const month = parseInt(m, 10);
+      return pairs.some((p) => p.year === year && p.month === month);
+    };
 
     const scopedByPeriod = scopedByYear.filter(inc => {
       if (!inc.fecha) return false;
-      return matchesPairs(new Date(inc.fecha), currentPairs);
+      return matchesPairs(String(inc.fecha), currentPairs);
     });
 
     const scopedByPrevious = scopedByEmployee.filter(inc => {
       if (!inc.fecha) return false;
-      return matchesPairs(new Date(inc.fecha), previousPairs);
+      return matchesPairs(String(inc.fecha), previousPairs);
     });
 
     const toEnriched = (collection: IncidenciaCSVRecord[]): EnrichedIncidencia[] =>
@@ -415,7 +420,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
           departamento: rawDepto ? normalizeDepartamento(rawDepto) : null,
           area: rawArea ? normalizeArea(rawArea) : null,
           puesto: rawPuesto ? normalizePuesto(rawPuesto) : null,
-          unidad: emp?.cc ?? null,  // Centro de costo
+          unidad: (emp as any)?.ubicacion2 ?? null,  // Ubicación organizacional (CAD, CORPORATIVO, FILIALES)
           ubicacion: emp?.ubicacion ?? null,
           fecha_ingreso: emp?.fecha_ingreso ?? null,
         };
@@ -708,8 +713,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
         kpi: {
           name: isPercent ? 'Empleados con incidencias (%)' : 'Empleados con incidencias (#)',
           category: 'incidents' as const,
-          value: isPercent ? Number(empleadosConIncidenciasPct.toFixed(1)) : empleadosConIncidencias,
-          previous_value: isPercent ? Number(empleadosConIncidenciasAnteriorPct.toFixed(1)) : empleadosConIncidenciasAnterior,
+          value: isPercent ? Number(empleadosConIncidenciasPct.toFixed(2)) : empleadosConIncidencias,
+          previous_value: isPercent ? Number(empleadosConIncidenciasAnteriorPct.toFixed(2)) : empleadosConIncidenciasAnterior,
           variance_percentage: isPercent
             ? calculateVariancePercentage(empleadosConIncidenciasPct, empleadosConIncidenciasAnteriorPct)
             : calculateVariancePercentage(empleadosConIncidencias, empleadosConIncidenciasAnterior),
@@ -725,8 +730,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
         kpi: {
           name: isPercent ? 'Incidencias (%)' : 'Incidencias (#)',
           category: 'incidents' as const,
-          value: isPercent ? Number(incidenciasPct.toFixed(1)) : totalIncidencias,
-          previous_value: isPercent ? Number(incidenciasPctAnterior.toFixed(1)) : totalIncidenciasAnterior,
+          value: isPercent ? Number(incidenciasPct.toFixed(2)) : totalIncidencias,
+          previous_value: isPercent ? Number(incidenciasPctAnterior.toFixed(2)) : totalIncidenciasAnterior,
           variance_percentage: isPercent
             ? calculateVariancePercentage(incidenciasPct, incidenciasPctAnterior)
             : calculateVariancePercentage(totalIncidencias, totalIncidenciasAnterior),
@@ -742,8 +747,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
         kpi: {
           name: isPercent ? 'Permisos (%)' : 'Permisos (#)',
           category: 'headcount' as const,
-          value: isPercent ? Number(permisosPct.toFixed(1)) : totalPermisos,
-          previous_value: isPercent ? Number(permisosPctAnterior.toFixed(1)) : totalPermisosAnteriores,
+          value: isPercent ? Number(permisosPct.toFixed(2)) : totalPermisos,
+          previous_value: isPercent ? Number(permisosPctAnterior.toFixed(2)) : totalPermisosAnteriores,
           variance_percentage: isPercent
             ? calculateVariancePercentage(permisosPct, permisosPctAnterior)
             : calculateVariancePercentage(totalPermisos, totalPermisosAnteriores),
@@ -897,7 +902,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
 
     enrichedPeriodo.forEach(inc => {
       if (!inc.fecha) return;
-      const fecha = new Date(inc.fecha);
+      const [y, m, d] = String(inc.fecha).split('-').map(Number);
+      const fecha = new Date(y, m - 1, d, 12, 0, 0); // noon local to avoid timezone shift
       if (Number.isNaN(fecha.getTime())) return;
       const weekday = fecha.getDay();
       const bucketIndex = indexMap.get(weekday);
@@ -1032,12 +1038,15 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
 
       const monthData = enrichedAnual.filter(inc => {
         if (!inc.fecha) return false;
-        const date = new Date(inc.fecha);
-        if (Number.isNaN(date.getTime())) return false;
-        if (selectedYear !== null && date.getFullYear() !== selectedYear) {
+        const fechaStr = String(inc.fecha);
+        const [y, m] = fechaStr.split('-');
+        const incYear = parseInt(y, 10);
+        const incMonth = parseInt(m, 10);
+        if (Number.isNaN(incYear) || Number.isNaN(incMonth)) return false;
+        if (selectedYear !== null && incYear !== selectedYear) {
           return false;
         }
-        return date.getMonth() === index;
+        return incMonth === index + 1;
       });
 
       let faltasCount = 0;
@@ -1736,7 +1745,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           <LabelList
                             dataKey="actual"
                             position="top"
-                            formatter={(value: number) => value !== null && value > 0 ? `${Number(value).toFixed(0)}%` : ''}
+                            formatter={(value: number) => value !== null && value > 0 ? (metricType === "percent" ? `${Number(value).toFixed(2)}%` : `${Number(value).toLocaleString('es-MX')}`) : ''}
                             style={{ fontSize: 10, fill: axisSecondaryColor, fontWeight: 600 }}
                           />
                         </Bar>
@@ -1825,7 +1834,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           <LabelList
                             dataKey="actual"
                             position="top"
-                            formatter={(value: number) => value !== null && value > 0 ? `${Number(value).toFixed(0)}%` : ''}
+                            formatter={(value: number) => value !== null && value > 0 ? (metricType === "percent" ? `${Number(value).toFixed(2)}%` : `${Number(value).toLocaleString('es-MX')}`) : ''}
                             style={{ fontSize: 10, fill: axisSecondaryColor, fontWeight: 600 }}
                           />
                         </Bar>

@@ -93,10 +93,10 @@ export function IncidentsPermitsKPIs({
 
   // ✅ Valores según el tipo de métrica
   const isPercent = metricType === 'percent';
-  const faltasValue = isPercent ? Number(faltasPct.toFixed(1)) : totalFaltas;
-  const faltasAnteriorValue = isPercent ? Number(faltasPctAnterior.toFixed(1)) : totalFaltasAnterior;
-  const saludValue = isPercent ? Number(saludPct.toFixed(1)) : totalSalud;
-  const saludAnteriorValue = isPercent ? Number(saludPctAnterior.toFixed(1)) : totalSaludAnterior;
+  const faltasValue = isPercent ? Number(faltasPct.toFixed(2)) : totalFaltas;
+  const faltasAnteriorValue = isPercent ? Number(faltasPctAnterior.toFixed(2)) : totalFaltasAnterior;
+  const saludValue = isPercent ? Number(saludPct.toFixed(2)) : totalSalud;
+  const saludAnteriorValue = isPercent ? Number(saludPctAnterior.toFixed(2)) : totalSaludAnterior;
 
   return (
     <>

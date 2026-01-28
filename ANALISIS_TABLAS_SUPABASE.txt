@@ -99,234 +99,533 @@ INSIGHTS - EMPLEADOS_SFTP:
 ================================================================================
 
 DESCRIPCIÓN:
-Registro detallado de incidencias de empleados con fechas, turnos, horarios,
-tipos de incidencia (VAC, FI, ENFE, etc.), horas trabajadas y ubicación.
+Registro detallado de EVENTOS DE AUSENTISMO de empleados con fechas, turnos,
+horarios, tipos de incidencia, horas trabajadas y ubicación.
 Solo contiene datos de 2025-2026.
+
+⚠️ NOTA IMPORTANTE: Esta tabla registra EVENTOS DE AUSENTISMO, no "incidencias"
+en el sentido negativo. El total incluye vacaciones (VAC) que representan ~55%
+del total. Para análisis de AUSENTISMO REAL, excluir vacaciones del conteo.
 
 --------------------------------------------------------------------------------
 3.1 REGISTROS POR AÑO/MES (RESUMEN GENERAL)
 --------------------------------------------------------------------------------
 
-Año  | Mes | Total Incidencias
------|-----|------------------
-2026 | 01  | 93
-2025 | 12  | 902
-2025 | 11  | 602
-2025 | 10  | 598
-2025 | 09  | 645
-2025 | 08  | 814
-2025 | 07  | 775
-2025 | 06  | 844
-2025 | 05  | 838
-2025 | 04  | 790
-2025 | 03  | 669
-2025 | 02  | 600
-2025 | 01  | 803
+Año  | Mes | Total Registros | Sin VAC (Ausentismo Real)
+-----|-----|-----------------|-------------------------
+2026 | 01  | 93              | 32
+2025 | 12  | 902             | 265
+2025 | 11  | 602             | 288
+2025 | 10  | 598             | 255
+2025 | 09  | 645             | 244
+2025 | 08  | 814             | 243
+2025 | 07  | 775             | 291
+2025 | 06  | 844             | 415
+2025 | 05  | 838             | 459
+2025 | 04  | 790             | 364
+2025 | 03  | 669             | 379
+2025 | 02  | 600             | 361
+2025 | 01  | 803             | 391
 
 TOTALES:
-- 2025: 8,880 incidencias
-- 2026 (parcial): 93 incidencias
-- PROMEDIO MENSUAL 2025: 740 incidencias/mes
+- 2025: 8,880 registros totales (4,925 vacaciones + 3,955 ausentismo real)
+- 2026 (parcial): 93 registros totales (61 vacaciones + 32 ausentismo real)
+- PROMEDIO MENSUAL 2025 (ausentismo real, sin VAC): 330 eventos/mes
 
 --------------------------------------------------------------------------------
-3.2 REGISTROS DESGLOSADOS POR TIPO DE INCIDENCIA (AÑO/MES/TIPO)
+3.2 CÓDIGOS ÚNICOS DE INCIDENCIA (13 códigos en total)
 --------------------------------------------------------------------------------
 
-CÓDIGOS DE INCIDENCIA:
-VAC = Vacaciones              | FI = Falta Injustificada
-ENFE = Enfermedad             | PSIN = Permiso Sin Goce
-PCON = Permiso Con Goce       | SUSP = Suspensión
-MAT1 = Maternidad Tipo 1      | MAT3 = Maternidad Tipo 3
-FEST = Día Festivo            | ACCI = Accidente
-PATER = Paternidad            | JUST = Justificación
-INCA = Incapacidad
+┌──────────┬──────────────────────────┬──────────┬──────────┐
+│ Código   │ Descripción              │ Total    │ % Total  │
+├──────────┼──────────────────────────┼──────────┼──────────┤
+│ VAC      │ Vacaciones               │ 4,986    │ 55.6%    │
+│ FI       │ Falta Injustificada      │ 1,059    │ 11.8%    │
+│ ENFE     │ Enfermedad General       │ 855      │ 9.5%     │
+│ PSIN     │ Permiso Sin Goce         │ 762      │ 8.5%     │
+│ MAT3     │ Maternidad (Postnatal)   │ 433      │ 4.8%     │
+│ PCON     │ Permiso Con Goce         │ 407      │ 4.5%     │
+│ SUSP     │ Suspensión               │ 201      │ 2.2%     │
+│ FEST     │ Día Festivo              │ 116      │ 1.3%     │
+│ MAT1     │ Maternidad (Prenatal)    │ 84       │ 0.9%     │
+│ ACCI     │ Accidente de Trabajo     │ 54       │ 0.6%     │
+│ PATER    │ Permiso Paternidad       │ 10       │ 0.1%     │
+│ JUST     │ Justificación            │ 5        │ 0.1%     │
+│ INCA     │ Incapacidad Genérica     │ 1        │ 0.0%     │
+├──────────┼──────────────────────────┼──────────┼──────────┤
+│ TOTAL    │                          │ 8,973    │ 100.0%   │
+└──────────┴──────────────────────────┴──────────┴──────────┘
+
+--------------------------------------------------------------------------------
+3.3 AGRUPACIÓN POR CATEGORÍAS DE AUSENTISMO (Sistema Interno)
+--------------------------------------------------------------------------------
+
+DEFINICIÓN DE CATEGORÍAS:
+┌─────────────┬────────────────────┬───────────────────────────────────────────┐
+│ Categoría   │ Códigos            │ Descripción                               │
+├─────────────┼────────────────────┼───────────────────────────────────────────┤
+│ Vacaciones  │ VAC                │ Vacaciones (separado del ausentismo)      │
+│ Faltas      │ FI, SUSP           │ Falta Injustificada, Suspensión           │
+│ Salud       │ ENFE, MAT1, MAT3,  │ Enfermedad, Maternidad, Accidente,        │
+│             │ ACCI, INCA         │ Incapacidad                               │
+│ Permisos    │ PSIN, PCON, FEST,  │ Permisos varios (sin incluir VAC)         │
+│             │ PATER, JUST        │                                           │
+└─────────────┴────────────────────┴───────────────────────────────────────────┘
+
+RESUMEN ANUAL 2025 POR CATEGORÍA INTERNA:
+┌─────────────┬──────────┬──────────┬─────────────────────────────────────────┐
+│ Categoría   │ Total    │ % Total  │ Códigos incluidos                       │
+├─────────────┼──────────┼──────────┼─────────────────────────────────────────┤
+│ Vacaciones  │ 4,925    │ 55.4%    │ VAC (4,925)                             │
+│ Faltas      │ 1,257    │ 14.2%    │ FI (1,056) + SUSP (201)                 │
+│ Salud       │ 1,398    │ 15.7%    │ ENFE (833) + MAT1/3 (510) + ACCI (54)   │
+│             │          │          │ + INCA (1)                              │
+│ Permisos    │ 1,300    │ 14.6%    │ PSIN (762) + PCON (407) + FEST (116)    │
+│             │          │          │ + PATER (10) + JUST (5)                 │
+├─────────────┼──────────┼──────────┼─────────────────────────────────────────┤
+│ TOTAL       │ 8,880    │ 100.0%   │                                         │
+│ SIN VAC     │ 3,955    │ 44.6%    │ ← AUSENTISMO REAL                       │
+└─────────────┴──────────┴──────────┴─────────────────────────────────────────┘
+
+⚠️ AUSENTISMO = Faltas + Salud = 2,655 eventos (29.9% del total)
+   (Excluye permisos autorizados)
+
+--------------------------------------------------------------------------------
+3.4 MAPEO A CATEGORÍAS DE REPORTE NÓMINA (Imagen de referencia)
+--------------------------------------------------------------------------------
+
+Las categorías del reporte de nómina se mapean así a los códigos de la BD:
+
+┌─────────────────────────┬────────────────┬─────────────────────────────────┐
+│ Categoría Reporte       │ Código(s) BD   │ Descripción/Notas               │
+├─────────────────────────┼────────────────┼─────────────────────────────────┤
+│ FALTAS                  │ FI             │ Falta Injustificada             │
+│ PERMISOS CON GOCE       │ PCON           │ Permiso Con Goce de Sueldo      │
+│ PERMISOS SIN GOCE       │ PSIN           │ Permiso Sin Goce de Sueldo      │
+│ SUSPENSIONES            │ SUSP           │ Suspensión disciplinaria        │
+│ PERMISO COVID-19        │ (NO EXISTE)    │ ⚠️ Sin código en BD actual      │
+│ INCAPACIDADES EG        │ ENFE           │ Enfermedad General (IMSS)       │
+│ INCAPACIDADES MT        │ MAT1, MAT3     │ Maternidad Pre/Postnatal        │
+│ INCAPACIDADES RT        │ ACCI, INCA     │ Riesgo de Trabajo/Accidente     │
+└─────────────────────────┴────────────────┴─────────────────────────────────┘
+
+Códigos adicionales en BD NO incluidos en reporte nómina:
+- VAC (Vacaciones) - Se reporta por separado
+- FEST (Día Festivo) - Permiso institucional
+- PATER (Paternidad) - Permiso legal
+- JUST (Justificación) - Falta justificada
+
+--------------------------------------------------------------------------------
+3.5 DESGLOSE MENSUAL POR CATEGORÍAS DE REPORTE (2025)
+--------------------------------------------------------------------------------
+
+┌─────┬────────┬─────────┬─────────┬───────┬──────────┬──────────┬──────────┬─────────┐
+│ Mes │ FALTAS │ PERM CG │ PERM SG │ SUSP  │ INCAP EG │ INCAP MT │ INCAP RT │ TOTAL*  │
+│     │ (FI)   │ (PCON)  │ (PSIN)  │       │ (ENFE)   │(MAT1+3)  │(ACCI+INC)│         │
+├─────┼────────┼─────────┼─────────┼───────┼──────────┼──────────┼──────────┼─────────┤
+│ Ene │ 114    │ 56      │ 77      │ 12    │ 92       │ 6        │ 4        │ 361     │
+│ Feb │ 110    │ 52      │ 71      │ 5     │ 99       │ 0        │ 9        │ 346     │
+│ Mar │ 117    │ 45      │ 66      │ 11    │ 106      │ 22       │ 0        │ 367     │
+│ Abr │ 77     │ 66      │ 58      │ 14    │ 54       │ 88       │ 7        │ 364     │
+│ May │ 101    │ 18      │ 80      │ 26    │ 113      │ 120      │ 0        │ 458     │
+│ Jun │ 124    │ 36      │ 77      │ 17    │ 69       │ 92       │ 0        │ 415     │
+│ Jul │ 88     │ 12      │ 70      │ 20    │ 42       │ 58       │ 0        │ 290     │
+│ Ago │ 66     │ 18      │ 56      │ 20    │ 31       │ 52       │ 0        │ 243     │
+│ Sep │ 44     │ 22      │ 58      │ 15    │ 40       │ 39       │ 0        │ 218     │
+│ Oct │ 81     │ 21      │ 50      │ 16    │ 53       │ 31       │ 2        │ 254     │
+│ Nov │ 50     │ 25      │ 45      │ 22    │ 96       │ 2        │ 30       │ 270     │
+│ Dic │ 84     │ 36      │ 54      │ 23    │ 38       │ 0        │ 3        │ 238     │
+├─────┼────────┼─────────┼─────────┼───────┼──────────┼──────────┼──────────┼─────────┤
+│TOTAL│ 1,056  │ 407     │ 762     │ 201   │ 833      │ 510      │ 55       │ 3,824   │
+│ %   │ 27.6%  │ 10.6%   │ 19.9%   │ 5.3%  │ 21.8%    │ 13.3%    │ 1.4%     │ 100%    │
+└─────┴────────┴─────────┴─────────┴───────┴──────────┴──────────┴──────────┴─────────┘
+
+*TOTAL excluye: VAC (4,925), FEST (116), PATER (10), JUST (5) = 5,056 eventos
+ Total en tabla = 3,824 eventos (categorías del reporte nómina únicamente)
+
+RESUMEN ANUAL 2025 - CATEGORÍAS REPORTE NÓMINA:
+┌─────────────────────────┬──────────┬──────────┐
+│ Categoría               │ Total    │ % del    │
+│                         │ 2025     │ Total    │
+├─────────────────────────┼──────────┼──────────┤
+│ FALTAS (FI)             │ 1,056    │ 27.6%    │
+│ INCAPACIDADES EG (ENFE) │ 833      │ 21.8%    │
+│ PERMISOS SIN GOCE       │ 762      │ 19.9%    │
+│ INCAPACIDADES MT        │ 510      │ 13.3%    │
+│ PERMISOS CON GOCE       │ 407      │ 10.6%    │
+│ SUSPENSIONES            │ 201      │ 5.3%     │
+│ INCAPACIDADES RT        │ 55       │ 1.4%     │
+│ PERMISO COVID-19        │ 0        │ 0.0%     │
+├─────────────────────────┼──────────┼──────────┤
+│ TOTAL (sin VAC/otros)   │ 3,824    │ 100.0%   │
+└─────────────────────────┴──────────┴──────────┘
+
+INSIGHTS - CATEGORÍAS DE REPORTE:
+- FALTAS domina con 27.6% del ausentismo reportable
+- INCAPACIDADES (EG+MT+RT) = 36.5% combinado (1,398 eventos)
+- PERMISOS (CG+SG) = 30.5% combinado (1,169 eventos)
+- Pico de INCAP MT en Abril-Junio (88-120 eventos/mes) - temporada de maternidades
+- Pico de FALTAS en Junio (124) y Marzo (117)
+- Pico de INCAP RT en Noviembre (30) - investigar accidentes laborales
+- PERMISO COVID-19 sin registros - código no implementado o no usado en 2025
+
+--------------------------------------------------------------------------------
+3.6 DESGLOSE POR MES Y CÓDIGO DETALLADO (2025)
+--------------------------------------------------------------------------------
+
+2025 - ENERO (803 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 412      | 51.3%     | Vacaciones
+FI          | 114      | 14.2%     | Faltas
+ENFE        | 92       | 11.5%     | Salud
+PSIN        | 77       | 9.6%      | Permisos
+PCON        | 56       | 7.0%      | Permisos
+FEST        | 30       | 3.7%      | Permisos
+SUSP        | 12       | 1.5%      | Faltas
+MAT3        | 6        | 0.7%      | Salud
+ACCI        | 4        | 0.5%      | Salud
+
+2025 - FEBRERO (600 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 239      | 39.8%     | Vacaciones
+FI          | 110      | 18.3%     | Faltas
+ENFE        | 99       | 16.5%     | Salud
+PSIN        | 71       | 11.8%     | Permisos
+PCON        | 52       | 8.7%      | Permisos
+FEST        | 15       | 2.5%      | Permisos
+ACCI        | 9        | 1.5%      | Salud
+SUSP        | 5        | 0.8%      | Faltas
+
+2025 - MARZO (669 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 290      | 43.3%     | Vacaciones
+FI          | 117      | 17.5%     | Faltas
+ENFE        | 106      | 15.8%     | Salud
+PSIN        | 66       | 9.9%      | Permisos
+PCON        | 45       | 6.7%      | Permisos
+MAT3        | 22       | 3.3%      | Salud
+SUSP        | 11       | 1.6%      | Faltas
+FEST        | 8        | 1.2%      | Permisos
+PATER       | 4        | 0.6%      | Permisos
+
+2025 - ABRIL (790 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 426      | 53.9%     | Vacaciones
+MAT3        | 88       | 11.1%     | Salud
+FI          | 77       | 9.7%      | Faltas
+PCON        | 66       | 8.4%      | Permisos
+PSIN        | 58       | 7.3%      | Permisos
+ENFE        | 54       | 6.8%      | Salud
+SUSP        | 14       | 1.8%      | Faltas
+ACCI        | 7        | 0.9%      | Salud
+
+2025 - MAYO (838 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 379      | 45.2%     | Vacaciones
+MAT3        | 120      | 14.3%     | Salud
+ENFE        | 113      | 13.5%     | Salud
+FI          | 101      | 12.1%     | Faltas
+PSIN        | 80       | 9.5%      | Permisos
+SUSP        | 26       | 3.1%      | Faltas
+PCON        | 18       | 2.1%      | Permisos
+FEST        | 1        | 0.1%      | Permisos
+
+2025 - JUNIO (844 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 429      | 50.8%     | Vacaciones
+FI          | 124      | 14.7%     | Faltas
+MAT3        | 92       | 10.9%     | Salud
+PSIN        | 77       | 9.1%      | Permisos
+ENFE        | 69       | 8.2%      | Salud
+PCON        | 36       | 4.3%      | Permisos
+SUSP        | 17       | 2.0%      | Faltas
+
+2025 - JULIO (775 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 484      | 62.5%     | Vacaciones
+FI          | 88       | 11.4%     | Faltas
+PSIN        | 70       | 9.0%      | Permisos
+MAT3        | 58       | 7.5%      | Salud
+ENFE        | 42       | 5.4%      | Salud
+SUSP        | 20       | 2.6%      | Faltas
+PCON        | 12       | 1.5%      | Permisos
+JUST        | 1        | 0.1%      | Permisos
+
+2025 - AGOSTO (814 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 571      | 70.1%     | Vacaciones
+FI          | 66       | 8.1%      | Faltas
+PSIN        | 56       | 6.9%      | Permisos
+MAT3        | 31       | 3.8%      | Salud
+ENFE        | 31       | 3.8%      | Salud
+MAT1        | 21       | 2.6%      | Salud
+SUSP        | 20       | 2.5%      | Faltas
+PCON        | 18       | 2.2%      | Permisos
+
+2025 - SEPTIEMBRE (645 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 401      | 62.2%     | Vacaciones
+PSIN        | 58       | 9.0%      | Permisos
+FI          | 44       | 6.8%      | Faltas
+ENFE        | 40       | 6.2%      | Salud
+MAT1        | 30       | 4.7%      | Salud
+PCON        | 22       | 3.4%      | Permisos
+FEST        | 20       | 3.1%      | Permisos
+SUSP        | 15       | 2.3%      | Faltas
+MAT3        | 9        | 1.4%      | Salud
+PATER       | 6        | 0.9%      | Permisos
+
+2025 - OCTUBRE (598 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 343      | 57.4%     | Vacaciones
+FI          | 81       | 13.5%     | Faltas
+ENFE        | 53       | 8.9%      | Salud
+PSIN        | 50       | 8.4%      | Permisos
+MAT1        | 31       | 5.2%      | Salud
+PCON        | 21       | 3.5%      | Permisos
+SUSP        | 16       | 2.7%      | Faltas
+JUST        | 1        | 0.2%      | Permisos
+INCA        | 1        | 0.2%      | Salud
+ACCI        | 1        | 0.2%      | Salud
+
+2025 - NOVIEMBRE (602 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 314      | 52.2%     | Vacaciones
+ENFE        | 96       | 15.9%     | Salud
+FI          | 50       | 8.3%      | Faltas
+PSIN        | 45       | 7.5%      | Permisos
+ACCI        | 30       | 5.0%      | Salud ⚠️
+PCON        | 25       | 4.2%      | Permisos
+SUSP        | 22       | 3.7%      | Faltas
+FEST        | 15       | 2.5%      | Permisos
+JUST        | 3        | 0.5%      | Permisos
+MAT1        | 2        | 0.3%      | Salud
+
+2025 - DICIEMBRE (902 registros totales)
+───────────────────────────────────────────────────────────────
+Tipo        | Cantidad | % del Mes | Categoría
+VAC         | 637      | 70.6%     | Vacaciones
+FI          | 84       | 9.3%      | Faltas
+PSIN        | 54       | 6.0%      | Permisos
+ENFE        | 38       | 4.2%      | Salud
+PCON        | 36       | 4.0%      | Permisos
+FEST        | 27       | 3.0%      | Permisos
+SUSP        | 23       | 2.5%      | Faltas
+ACCI        | 3        | 0.3%      | Salud
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-2026 - ENERO (93 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 61       | 65.6%
-ENFE        | 22       | 23.7%
-MAT3        | 7        | 7.5%
-FI          | 3        | 3.2%
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-2025 - DICIEMBRE (902 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 637      | 70.6%
-FI          | 84       | 9.3%
-PSIN        | 54       | 6.0%
-ENFE        | 38       | 4.2%
-PCON        | 36       | 4.0%
-FEST        | 27       | 3.0%
-SUSP        | 23       | 2.5%
-ACCI        | 3        | 0.3%
-
-2025 - NOVIEMBRE (602 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 314      | 52.2%
-ENFE        | 96       | 15.9%
-FI          | 50       | 8.3%
-PSIN        | 45       | 7.5%
-ACCI        | 30       | 5.0%
-PCON        | 25       | 4.2%
-SUSP        | 22       | 3.7%
-FEST        | 15       | 2.5%
-JUST        | 3        | 0.5%
-MAT1        | 2        | 0.3%
-
-2025 - OCTUBRE (598 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 343      | 57.4%
-FI          | 81       | 13.5%
-ENFE        | 53       | 8.9%
-PSIN        | 50       | 8.4%
-MAT1        | 31       | 5.2%
-PCON        | 21       | 3.5%
-SUSP        | 16       | 2.7%
-JUST        | 1        | 0.2%
-INCA        | 1        | 0.2%
-ACCI        | 1        | 0.2%
-
-2025 - SEPTIEMBRE (645 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 401      | 62.2%
-PSIN        | 58       | 9.0%
-FI          | 44       | 6.8%
-ENFE        | 40       | 6.2%
-MAT1        | 30       | 4.7%
-PCON        | 22       | 3.4%
-FEST        | 20       | 3.1%
-SUSP        | 15       | 2.3%
-MAT3        | 9        | 1.4%
-PATER       | 6        | 0.9%
-
-2025 - AGOSTO (814 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 571      | 70.1%
-FI          | 66       | 8.1%
-PSIN        | 56       | 6.9%
-ENFE        | 31       | 3.8%
-MAT3        | 31       | 3.8%
-MAT1        | 21       | 2.6%
-SUSP        | 20       | 2.5%
-PCON        | 18       | 2.2%
-
-2025 - JULIO (775 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 484      | 62.5%
-FI          | 88       | 11.4%
-PSIN        | 70       | 9.0%
-MAT3        | 58       | 7.5%
-ENFE        | 42       | 5.4%
-SUSP        | 20       | 2.6%
-PCON        | 12       | 1.5%
-JUST        | 1        | 0.1%
-
-2025 - JUNIO (844 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 429      | 50.8%
-FI          | 124      | 14.7%
-MAT3        | 92       | 10.9%
-PSIN        | 77       | 9.1%
-ENFE        | 69       | 8.2%
-PCON        | 36       | 4.3%
-SUSP        | 17       | 2.0%
-
-2025 - MAYO (838 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 379      | 45.2%
-MAT3        | 120      | 14.3%
-ENFE        | 113      | 13.5%
-FI          | 101      | 12.1%
-PSIN        | 80       | 9.5%
-SUSP        | 26       | 3.1%
-PCON        | 18       | 2.1%
-FEST        | 1        | 0.1%
-
-2025 - ABRIL (790 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 426      | 53.9%
-MAT3        | 88       | 11.1%
-FI          | 77       | 9.7%
-PCON        | 66       | 8.4%
-PSIN        | 58       | 7.3%
-ENFE        | 54       | 6.8%
-SUSP        | 14       | 1.8%
-ACCI        | 7        | 0.9%
-
-2025 - MARZO (669 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 290      | 43.3%
-FI          | 117      | 17.5%
-ENFE        | 106      | 15.8%
-PSIN        | 66       | 9.9%
-PCON        | 45       | 6.7%
-MAT3        | 22       | 3.3%
-SUSP        | 11       | 1.6%
-FEST        | 8        | 1.2%
-PATER       | 4        | 0.6%
-
-2025 - FEBRERO (600 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 239      | 39.8%
-FI          | 110      | 18.3%
-ENFE        | 99       | 16.5%
-PSIN        | 71       | 11.8%
-PCON        | 52       | 8.7%
-FEST        | 15       | 2.5%
-ACCI        | 9        | 1.5%
-SUSP        | 5        | 0.8%
-
-2025 - ENERO (803 incidencias)
-───────────────────────────────────────────────────────────────
-Tipo        | Cantidad | % del Mes
-VAC         | 412      | 51.3%
-FI          | 114      | 14.2%
-ENFE        | 92       | 11.5%
-PSIN        | 77       | 9.6%
-PCON        | 56       | 7.0%
-FEST        | 30       | 3.7%
-SUSP        | 12       | 1.5%
-MAT3        | 6        | 0.7%
-ACCI        | 4        | 0.5%
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-RESUMEN ANUAL 2025 POR TIPO DE INCIDENCIA:
-┌──────────┬──────────┬──────────┐
-│ Tipo     │ Total    │ % Anual  │
-├──────────┼──────────┼──────────┤
-│ VAC      │ ~4,525   │ 50.9%    │
-│ FI       │ ~856     │ 9.6%     │
-│ PSIN     │ ~612     │ 6.9%     │
-│ ENFE     │ ~598     │ 6.7%     │
-│ MAT3     │ ~426     │ 4.8%     │
-│ PCON     │ ~340     │ 3.8%     │
-│ SUSP     │ ~148     │ 1.7%     │
-│ FEST     │ ~74      │ 0.8%     │
-│ MAT1     │ ~84      │ 0.9%     │
-│ ACCI     │ ~44      │ 0.5%     │
-│ PATER    │ ~10      │ 0.1%     │
-│ JUST     │ ~5       │ 0.1%     │
-│ INCA     │ ~1       │ 0.0%     │
-└──────────┴──────────┴──────────┘
+RESUMEN ANUAL 2025 POR CÓDIGO:
+┌──────────┬──────────┬──────────┬─────────────┐
+│ Código   │ Total    │ % Anual  │ Categoría   │
+├──────────┼──────────┼──────────┼─────────────┤
+│ VAC      │ 4,925    │ 55.5%    │ Vacaciones  │
+│ FI       │ 1,056    │ 11.9%    │ Faltas      │
+│ ENFE     │ 833      │ 9.4%     │ Salud       │
+│ PSIN     │ 762      │ 8.6%     │ Permisos    │
+│ MAT3     │ 426      │ 4.8%     │ Salud       │
+│ PCON     │ 407      │ 4.6%     │ Permisos    │
+│ SUSP     │ 201      │ 2.3%     │ Faltas      │
+│ FEST     │ 116      │ 1.3%     │ Permisos    │
+│ MAT1     │ 84       │ 0.9%     │ Salud       │
+│ ACCI     │ 54       │ 0.6%     │ Salud       │
+│ PATER    │ 10       │ 0.1%     │ Permisos    │
+│ JUST     │ 5        │ 0.1%     │ Permisos    │
+│ INCA     │ 1        │ 0.0%     │ Salud       │
+├──────────┼──────────┼──────────┼─────────────┤
+│ TOTAL    │ 8,880    │ 100%     │             │
+└──────────┴──────────┴──────────┴─────────────┘
 
 --------------------------------------------------------------------------------
-3.3 ANÁLISIS DE EMPLEADOS (ACTIVOS VS NO ACTIVOS)
+3.8 TABLA COMPLETA: AÑO | MES | GRUPO | CÓDIGO | CANTIDAD
+--------------------------------------------------------------------------------
+
+GRUPOS DEFINIDOS:
+- VACACIONES: VAC
+- FALTAS: FI, SUSP
+- SALUD: ENFE, MAT1, MAT3, ACCI, INCA
+- PERMISOS: PSIN, PCON, FEST, PATER, JUST
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026 (Parcial - Enero)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Año  | Mes | Grupo      | Código | Cantidad
+-----|-----|------------|--------|----------
+2026 | 01  | VACACIONES | VAC    | 61
+2026 | 01  | FALTAS     | FI     | 3
+2026 | 01  | SALUD      | ENFE   | 22
+2026 | 01  | SALUD      | MAT3   | 7
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2025 - COMPLETO (8,880 registros)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Año  | Mes | Grupo      | Código | Cantidad
+-----|-----|------------|--------|----------
+2025 | 01  | VACACIONES | VAC    | 412
+2025 | 01  | FALTAS     | FI     | 114
+2025 | 01  | FALTAS     | SUSP   | 12
+2025 | 01  | SALUD      | ENFE   | 92
+2025 | 01  | SALUD      | MAT3   | 6
+2025 | 01  | SALUD      | ACCI   | 4
+2025 | 01  | PERMISOS   | PSIN   | 77
+2025 | 01  | PERMISOS   | PCON   | 56
+2025 | 01  | PERMISOS   | FEST   | 30
+-----|-----|------------|--------|----------
+2025 | 02  | VACACIONES | VAC    | 239
+2025 | 02  | FALTAS     | FI     | 110
+2025 | 02  | FALTAS     | SUSP   | 5
+2025 | 02  | SALUD      | ENFE   | 99
+2025 | 02  | SALUD      | ACCI   | 9
+2025 | 02  | PERMISOS   | PSIN   | 71
+2025 | 02  | PERMISOS   | PCON   | 52
+2025 | 02  | PERMISOS   | FEST   | 15
+-----|-----|------------|--------|----------
+2025 | 03  | VACACIONES | VAC    | 290
+2025 | 03  | FALTAS     | FI     | 117
+2025 | 03  | FALTAS     | SUSP   | 11
+2025 | 03  | SALUD      | ENFE   | 106
+2025 | 03  | SALUD      | MAT3   | 22
+2025 | 03  | PERMISOS   | PSIN   | 66
+2025 | 03  | PERMISOS   | PCON   | 45
+2025 | 03  | PERMISOS   | FEST   | 8
+2025 | 03  | PERMISOS   | PATER  | 4
+-----|-----|------------|--------|----------
+2025 | 04  | VACACIONES | VAC    | 426
+2025 | 04  | FALTAS     | FI     | 77
+2025 | 04  | FALTAS     | SUSP   | 14
+2025 | 04  | SALUD      | MAT3   | 88
+2025 | 04  | SALUD      | ENFE   | 54
+2025 | 04  | SALUD      | ACCI   | 7
+2025 | 04  | PERMISOS   | PCON   | 66
+2025 | 04  | PERMISOS   | PSIN   | 58
+-----|-----|------------|--------|----------
+2025 | 05  | VACACIONES | VAC    | 379
+2025 | 05  | FALTAS     | FI     | 101
+2025 | 05  | FALTAS     | SUSP   | 26
+2025 | 05  | SALUD      | MAT3   | 120
+2025 | 05  | SALUD      | ENFE   | 113
+2025 | 05  | PERMISOS   | PSIN   | 80
+2025 | 05  | PERMISOS   | PCON   | 18
+2025 | 05  | PERMISOS   | FEST   | 1
+-----|-----|------------|--------|----------
+2025 | 06  | VACACIONES | VAC    | 429
+2025 | 06  | FALTAS     | FI     | 124
+2025 | 06  | FALTAS     | SUSP   | 17
+2025 | 06  | SALUD      | MAT3   | 92
+2025 | 06  | SALUD      | ENFE   | 69
+2025 | 06  | PERMISOS   | PSIN   | 77
+2025 | 06  | PERMISOS   | PCON   | 36
+-----|-----|------------|--------|----------
+2025 | 07  | VACACIONES | VAC    | 484
+2025 | 07  | FALTAS     | FI     | 88
+2025 | 07  | FALTAS     | SUSP   | 20
+2025 | 07  | SALUD      | MAT3   | 58
+2025 | 07  | SALUD      | ENFE   | 42
+2025 | 07  | PERMISOS   | PSIN   | 70
+2025 | 07  | PERMISOS   | PCON   | 12
+2025 | 07  | PERMISOS   | JUST   | 1
+-----|-----|------------|--------|----------
+2025 | 08  | VACACIONES | VAC    | 571
+2025 | 08  | FALTAS     | FI     | 66
+2025 | 08  | FALTAS     | SUSP   | 20
+2025 | 08  | SALUD      | MAT3   | 31
+2025 | 08  | SALUD      | ENFE   | 31
+2025 | 08  | SALUD      | MAT1   | 21
+2025 | 08  | PERMISOS   | PSIN   | 56
+2025 | 08  | PERMISOS   | PCON   | 18
+-----|-----|------------|--------|----------
+2025 | 09  | VACACIONES | VAC    | 401
+2025 | 09  | FALTAS     | FI     | 44
+2025 | 09  | FALTAS     | SUSP   | 15
+2025 | 09  | SALUD      | ENFE   | 40
+2025 | 09  | SALUD      | MAT1   | 30
+2025 | 09  | SALUD      | MAT3   | 9
+2025 | 09  | PERMISOS   | PSIN   | 58
+2025 | 09  | PERMISOS   | PCON   | 22
+2025 | 09  | PERMISOS   | FEST   | 20
+2025 | 09  | PERMISOS   | PATER  | 6
+-----|-----|------------|--------|----------
+2025 | 10  | VACACIONES | VAC    | 343
+2025 | 10  | FALTAS     | FI     | 81
+2025 | 10  | FALTAS     | SUSP   | 16
+2025 | 10  | SALUD      | ENFE   | 53
+2025 | 10  | SALUD      | MAT1   | 31
+2025 | 10  | SALUD      | ACCI   | 1
+2025 | 10  | SALUD      | INCA   | 1
+2025 | 10  | PERMISOS   | PSIN   | 50
+2025 | 10  | PERMISOS   | PCON   | 21
+2025 | 10  | PERMISOS   | JUST   | 1
+-----|-----|------------|--------|----------
+2025 | 11  | VACACIONES | VAC    | 314
+2025 | 11  | FALTAS     | FI     | 50
+2025 | 11  | FALTAS     | SUSP   | 22
+2025 | 11  | SALUD      | ENFE   | 96
+2025 | 11  | SALUD      | ACCI   | 30       ⚠️ PICO ACCIDENTES
+2025 | 11  | SALUD      | MAT1   | 2
+2025 | 11  | PERMISOS   | PSIN   | 45
+2025 | 11  | PERMISOS   | PCON   | 25
+2025 | 11  | PERMISOS   | FEST   | 15
+2025 | 11  | PERMISOS   | JUST   | 3
+-----|-----|------------|--------|----------
+2025 | 12  | VACACIONES | VAC    | 637
+2025 | 12  | FALTAS     | FI     | 84
+2025 | 12  | FALTAS     | SUSP   | 23
+2025 | 12  | SALUD      | ENFE   | 38
+2025 | 12  | SALUD      | ACCI   | 3
+2025 | 12  | PERMISOS   | PSIN   | 54
+2025 | 12  | PERMISOS   | PCON   | 36
+2025 | 12  | PERMISOS   | FEST   | 27
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESUMEN POR GRUPO - 2025
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌─────┬────────────┬────────┬───────┬──────────┬─────────┐
+│ Mes │ VACACIONES │ FALTAS │ SALUD │ PERMISOS │ TOTAL   │
+├─────┼────────────┼────────┼───────┼──────────┼─────────┤
+│ 01  │ 412        │ 126    │ 102   │ 163      │ 803     │
+│ 02  │ 239        │ 115    │ 108   │ 138      │ 600     │
+│ 03  │ 290        │ 128    │ 128   │ 123      │ 669     │
+│ 04  │ 426        │ 91     │ 149   │ 124      │ 790     │
+│ 05  │ 379        │ 127    │ 233   │ 99       │ 838     │
+│ 06  │ 429        │ 141    │ 161   │ 113      │ 844     │
+│ 07  │ 484        │ 108    │ 100   │ 83       │ 775     │
+│ 08  │ 571        │ 86     │ 83    │ 74       │ 814     │
+│ 09  │ 401        │ 59     │ 79    │ 106      │ 645     │
+│ 10  │ 343        │ 97     │ 86    │ 72       │ 598     │
+│ 11  │ 314        │ 72     │ 128   │ 88       │ 602     │
+│ 12  │ 637        │ 107    │ 41    │ 117      │ 902     │
+├─────┼────────────┼────────┼───────┼──────────┼─────────┤
+│TOTAL│ 4,925      │ 1,257  │ 1,398 │ 1,300    │ 8,880   │
+│ %   │ 55.5%      │ 14.2%  │ 15.7% │ 14.6%    │ 100%    │
+└─────┴────────────┴────────┴───────┴──────────┴─────────┘
+
+INSIGHTS POR GRUPO:
+- VACACIONES: Picos en Dic (637), Ago (571), Jul (484) - temporadas vacacionales
+- FALTAS: Pico en Jun (141) y Mar (128) - investigar causas
+- SALUD: Pico en May (233) por maternidades (MAT3=120, ENFE=113)
+- PERMISOS: Relativamente estable, pico en Ene (163) por FEST año nuevo
+
+⚠️ ALERTA NOVIEMBRE 2025:
+   - ACCI = 30 eventos (vs promedio 5/mes)
+   - Incremento 500% en accidentes laborales
+   - Requiere investigación inmediata
+
+--------------------------------------------------------------------------------
+3.7 ANÁLISIS DE EMPLEADOS (ACTIVOS VS NO ACTIVOS)
 --------------------------------------------------------------------------------
 
 Año  | Mes | Empleados con | Empleados  | Empleados    | % Activos
@@ -346,13 +645,27 @@ Año  | Mes | Empleados con | Empleados  | Empleados    | % Activos
 2025 | 02  | 171           | 106        | 65           | 62.0%
 2025 | 01  | 207           | 137        | 70           | 66.2%
 
-INSIGHTS - INCIDENCIAS:
-- Promedio de empleados activos con incidencias en 2025: 148 empleados/mes
-- Diciembre 2025 registra el mayor número de empleados (239 únicos)
-- Las vacaciones (VAC) dominan con 50.9% de todas las incidencias del año
-- Incremento significativo de empleados activos hacia final de año
-- Mayor % de incidencias FI en Febrero-Marzo (15-18%)
-- Mayor % de incidencias ENFE en Febrero-Mayo (11-17%)
+INSIGHTS - TABLA INCIDENCIAS:
+- Total registros: 8,973 (8,880 en 2025 + 93 parcial 2026)
+- 13 códigos únicos de ausentismo identificados
+- Vacaciones (VAC) = 55.5% del total (4,925 de 8,880 en 2025)
+- AUSENTISMO REAL (sin VAC) = 3,955 eventos (44.5%)
+- Promedio mensual ausentismo real: 330 eventos/mes
+
+INSIGHTS - CATEGORÍAS REPORTE NÓMINA (sin VAC):
+- FALTAS (FI): 27.6% del ausentismo reportable (1,056 eventos)
+- INCAPACIDADES EG (ENFE): 21.8% (833 eventos)
+- PERMISOS SIN GOCE: 19.9% (762 eventos)
+- INCAPACIDADES MT (MAT1+MAT3): 13.3% (510 eventos)
+- PERMISOS CON GOCE: 10.6% (407 eventos)
+- SUSPENSIONES: 5.3% (201 eventos)
+- INCAPACIDADES RT: 1.4% (55 eventos)
+- PERMISO COVID-19: 0% (sin código en BD)
+
+ALERTAS:
+⚠️ Pico INCAP RT en Noviembre (30 eventos vs promedio 5/mes) - investigar
+⚠️ Pico FALTAS en Junio (124) y Marzo (117) - analizar causas
+⚠️ Temporada alta MAT (Abril-Junio): 88-120 eventos/mes de INCAP MT
 
 
 ================================================================================
@@ -368,21 +681,7 @@ Datos desde 2023 hasta 2026.
 4.1 REGISTROS POR AÑO/MES (RESUMEN GENERAL)
 --------------------------------------------------------------------------------
 
-Año  | Mes | Total Bajas
------|-----|------------
-2026 | 01  | 20
-2025 | 12  | 17
-2025 | 11  | 12
-2025 | 10  | 16
-2025 | 09  | 18
-2025 | 08  | 19
-2025 | 07  | 27
-2025 | 06  | 21
-2025 | 05  | 29
-2025 | 04  | 14
-2025 | 03  | 24
-2025 | 02  | 22
-2025 | 01  | 17
+
 -----|-----|------------
 2024 | 12  | 23
 2024 | 11  | 15

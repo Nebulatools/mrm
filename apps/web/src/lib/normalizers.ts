@@ -426,6 +426,8 @@ export function normalizeIncidenciaCode(raw?: string | null): string {
 
   // Mapeo directo de códigos reales del CSV
   if (c === 'VAC') return 'VAC';
+  if (c === 'ENFE') return 'ENFE';
+  if (c === 'PSIN') return 'PSIN';
   if (c === 'PCON') return 'PCON';
   if (c === 'SUSP') return 'SUSP';
   if (c === 'MAT3') return 'MAT3';
@@ -434,7 +436,8 @@ export function normalizeIncidenciaCode(raw?: string | null): string {
   if (c === 'FEST') return 'FEST';
   if (c === 'ACCI') return 'ACCI';
   if (c === 'INCA') return 'INCA';
-  if (c === 'PAT') return 'PAT';
+  if (c === 'PATER') return 'PATER';
+  if (c === 'PAT') return 'PATER';
   if (c === 'FI') return 'FI';
   if (c === '1') return '1';
   if (c === '0') return '0';
@@ -447,7 +450,7 @@ export function normalizeIncidenciaCode(raw?: string | null): string {
   if (c === 'SUS' || c === 'SUSP') return 'SUSP';
   if (c === 'ACC' || c === 'ACCI.') return 'ACCI';
   if (c === 'INC') return 'INCA'; // INC -> INCA (incapacidad)
-  if (c === 'PATER' || c.replace(/\s+/g, '') === 'PATERNO') return 'PAT';
+  if (c.replace(/\s+/g, '') === 'PATERNO') return 'PATER';
   if (c.replace(/\s+/g, '') === 'MAT3') return 'MAT3';
   if (c.replace(/\s+/g, '') === 'MAT1') return 'MAT1';
   if (c.replace(/\s+/g, '') === 'JUST') return 'JUST';

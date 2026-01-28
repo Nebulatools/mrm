@@ -110,7 +110,7 @@ export function DismissalReasonsTable({
     .map(emp => ({
       numero_empleado: emp.numero_empleado || 0,
       puesto: sanitizeText(normalizePuesto(emp.puesto)) || 'Sin puesto',
-      unidad: sanitizeText(emp.cc || '') || 'Sin unidad',
+      unidad: sanitizeText((emp as any).ubicacion2 || '') || 'Sin unidad',
       empresa: sanitizeText(emp.empresa || '') || 'Sin empresa',
       ubicacion: sanitizeText(emp.ubicacion || '') || 'Sin ubicación',
       departamento: sanitizeText(normalizeDepartamento(emp.departamento)) || 'Sin departamento',

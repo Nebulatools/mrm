@@ -229,7 +229,7 @@ export function RotationCombinedTable({
         metricsByUbicacion[ubicacion].involuntarias.values.push(involuntarias);
 
         const rotacion = avgHeadcount > 0 ? (bajasMes.length / avgHeadcount) * 100 : 0;
-        const rotacionStr = rotacion > 0 ? rotacion.toFixed(1) + '%' : '';
+        const rotacionStr = rotacion > 0 ? rotacion.toFixed(2) + '%' : '';
         metricsByUbicacion[ubicacion].porcentaje.months[month.key] = rotacionStr;
         if (rotacion > 0) {
           metricsByUbicacion[ubicacion].porcentaje.values.push(rotacion);
@@ -248,7 +248,7 @@ export function RotationCombinedTable({
         if (metrica.key === 'porcentaje') {
           // Para porcentaje, suma todos los valores mensuales
           total = metricData.values.length > 0
-            ? metricData.values.reduce((sum: number, v: number) => sum + v, 0).toFixed(1) + '%'
+            ? metricData.values.reduce((sum: number, v: number) => sum + v, 0).toFixed(2) + '%'
             : '';
         } else {
           // Para conteos (activos, voluntarias, involuntarias), suma todos los meses
@@ -277,47 +277,47 @@ export function RotationCombinedTable({
       totals[metrica.key] = {};
 
       MONTHS.forEach(month => {
-        const values: number[] = [];
-
-        data.forEach(row => {
-          if (row.metrica === metrica.label) {
-            const val = row.months[month.key];
-            if (typeof val === 'number') {
-              values.push(val);
-            } else if (typeof val === 'string' && val) {
-              const num = parseFloat(val.replace('%', ''));
-              if (!isNaN(num)) values.push(num);
-            }
-          }
-        });
-
         if (metrica.key === 'porcentaje') {
-          totals[metrica.key][month.key] = values.length > 0
-            ? (values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(1) + '%'
-            : '';
+          // ✅ FIX: Calcular % real = total_bajas / total_activos * 100
+          // NO promediar porcentajes (eso da resultado incorrecto con denominadores diferentes)
+          const totalActivos = typeof totals['activos']?.[month.key] === 'number' ? totals['activos'][month.key] as number : 0;
+          const totalVol = typeof totals['voluntarias']?.[month.key] === 'number' ? totals['voluntarias'][month.key] as number : 0;
+          const totalInv = typeof totals['involuntarias']?.[month.key] === 'number' ? totals['involuntarias'][month.key] as number : 0;
+          const totalBajas = totalVol + totalInv;
+          const rotacion = totalActivos > 0 ? (totalBajas / totalActivos) * 100 : 0;
+          totals[metrica.key][month.key] = rotacion > 0 ? rotacion.toFixed(2) + '%' : '';
         } else {
+          const values: number[] = [];
+          data.forEach(row => {
+            if (row.metrica === metrica.label) {
+              const val = row.months[month.key];
+              if (typeof val === 'number') {
+                values.push(val);
+              }
+            }
+          });
           totals[metrica.key][month.key] = values.length > 0
             ? values.reduce((sum, v) => sum + v, 0)
             : 0;
         }
       });
 
-      // Calculate total (sum)
-      const totalValues: number[] = [];
-      Object.values(totals[metrica.key]).forEach(val => {
-        if (typeof val === 'number') {
-          totalValues.push(val);
-        } else if (typeof val === 'string' && val) {
-          const num = parseFloat(val.replace('%', ''));
-          if (!isNaN(num)) totalValues.push(num);
-        }
-      });
-
+      // Calculate annual total
       if (metrica.key === 'porcentaje') {
-        totals[metrica.key].total = totalValues.length > 0
-          ? totalValues.reduce((sum, v) => sum + v, 0).toFixed(1) + '%'
-          : '';
+        // ✅ FIX: % anual = total_bajas_año / total_activos_año * 100
+        const totalActivosAnual = typeof totals['activos']?.total === 'number' ? totals['activos'].total as number : 0;
+        const totalVolAnual = typeof totals['voluntarias']?.total === 'number' ? totals['voluntarias'].total as number : 0;
+        const totalInvAnual = typeof totals['involuntarias']?.total === 'number' ? totals['involuntarias'].total as number : 0;
+        const totalBajasAnual = totalVolAnual + totalInvAnual;
+        const rotacionAnual = totalActivosAnual > 0 ? (totalBajasAnual / totalActivosAnual) * 100 : 0;
+        totals[metrica.key].total = rotacionAnual > 0 ? rotacionAnual.toFixed(2) + '%' : '';
       } else {
+        const totalValues: number[] = [];
+        Object.values(totals[metrica.key]).forEach(val => {
+          if (typeof val === 'number') {
+            totalValues.push(val);
+          }
+        });
         totals[metrica.key].total = totalValues.length > 0
           ? totalValues.reduce((sum, v) => sum + v, 0)
           : 0;

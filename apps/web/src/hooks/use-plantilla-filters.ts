@@ -75,11 +75,11 @@ export function usePlantillaFilters({
       plantilla,
       {
         ...retentionFilters,
-        includeInactive: false, // Solo empleados activos para tab de incidencias
+        includeInactive: true, // Incluir todos los empleados para tab de incidencias
       },
       "year-only"
     );
-    console.log("📊 Plantilla (año, solo activos) para incidencias:", scoped.length);
+    console.log("📊 Plantilla (año, todos) para incidencias:", scoped.length);
     return scoped;
   }, [plantilla, retentionFilters]);
 
@@ -140,8 +140,8 @@ export function usePlantillaFilters({
   // Bajas filtradas por empleados en plantillaFiltered
   const empleadosFiltradosIds = useMemo(
     () =>
-      new Set(plantillaFiltered.map((e) => e.numero_empleado || Number(e.emp_id))),
-    [plantillaFiltered]
+      new Set(plantillaFilteredYearScope.map((e) => e.numero_empleado || Number(e.emp_id))),
+    [plantillaFilteredYearScope]
   );
 
   const bajasFiltered = useMemo(

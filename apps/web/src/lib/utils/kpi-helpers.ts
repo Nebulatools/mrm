@@ -15,11 +15,11 @@ import { isMotivoClave } from '../normalizers';
 export function calculateVariancePercentage(actual: number, previous: number): number {
   if (!Number.isFinite(previous) || Math.abs(previous) < 1e-6) {
     return Number(
-      (Number.isFinite(actual) && Math.abs(actual) > 1e-6 ? 100 : 0).toFixed(1)
+      (Number.isFinite(actual) && Math.abs(actual) > 1e-6 ? 100 : 0).toFixed(2)
     );
   }
 
-  return Number((((actual - previous) / Math.abs(previous)) * 100).toFixed(1));
+  return Number((((actual - previous) / Math.abs(previous)) * 100).toFixed(2));
 }
 
 // ============================================================================
@@ -155,7 +155,7 @@ export function calculateRotacion(
     periodo: `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`,
     bajas,
     activosPromedio,
-    rotacion: `${rotacion.toFixed(1)}%`
+    rotacion: `${rotacion.toFixed(2)}%`
   });
 
   return rotacion;
@@ -174,7 +174,7 @@ export function calculateRotacion(
  *
  * @example
  * const rotacion = calcularRotacionMensual(plantilla, new Date());
- * console.log(`Rotación mensual: ${rotacion.toFixed(1)}%`);
+ * console.log(`Rotación mensual: ${rotacion.toFixed(2)}%`);
  */
 export function calcularRotacionMensual(
   plantilla: PlantillaRecord[],
@@ -198,7 +198,7 @@ export function calcularRotacionMensual(
  *
  * @example
  * const rotacion12m = calcularRotacionAcumulada12m(plantilla, new Date());
- * console.log(`Rotación 12 meses: ${rotacion12m.toFixed(1)}%`);
+ * console.log(`Rotación 12 meses: ${rotacion12m.toFixed(2)}%`);
  */
 export function calcularRotacionAcumulada12m(
   plantilla: PlantillaRecord[],
@@ -223,7 +223,7 @@ export function calcularRotacionAcumulada12m(
  *
  * @example
  * const rotacionYTD = calcularRotacionYTD(plantilla, new Date());
- * console.log(`Rotación año actual: ${rotacionYTD.toFixed(1)}%`);
+ * console.log(`Rotación año actual: ${rotacionYTD.toFixed(2)}%`);
  */
 export function calcularRotacionYTD(
   plantilla: PlantillaRecord[],
@@ -505,7 +505,7 @@ export function calcularRotacionConDesglose(
 
   console.log('🔢 Rotación con desglose por motivo:', {
     periodo: `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`,
-    activosPromedio: activosPromedio.toFixed(1),
+    activosPromedio: activosPromedio.toFixed(2),
     bajas: {
       total: todasLasBajas.length,
       involuntarias: bajasInvoluntarias.length,
@@ -513,10 +513,10 @@ export function calcularRotacionConDesglose(
       suma: bajasInvoluntarias.length + bajasVoluntarias.length
     },
     rotacion: {
-      total: `${rotacionTotal.toFixed(1)}%`,
-      involuntaria: `${rotacionInvoluntaria.toFixed(1)}%`,
-      voluntaria: `${rotacionVoluntaria.toFixed(1)}%`,
-      suma: `${(rotacionInvoluntaria + rotacionVoluntaria).toFixed(1)}%`
+      total: `${rotacionTotal.toFixed(2)}%`,
+      involuntaria: `${rotacionInvoluntaria.toFixed(2)}%`,
+      voluntaria: `${rotacionVoluntaria.toFixed(2)}%`,
+      suma: `${(rotacionInvoluntaria + rotacionVoluntaria).toFixed(2)}%`
     },
     verificacion: Math.abs(rotacionTotal - (rotacionInvoluntaria + rotacionVoluntaria)) < 0.1 ? '✅' : '❌'
   });

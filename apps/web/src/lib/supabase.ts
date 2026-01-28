@@ -69,6 +69,7 @@ export const db = {
         .from('incidencias')
         .select('*')
         .order('fecha', { ascending: false })
+        .order('id', { ascending: false })
         .range(from, from + pageSize - 1);
 
       if (startDate) {
@@ -174,14 +175,15 @@ export const db = {
       motivosEmpleado.sort((a: any, b: any) => new Date(b.fecha_baja).getTime() - new Date(a.fecha_baja).getTime());
       const ultimoMotivo = motivosEmpleado.length > 0 ? motivosEmpleado[0] : null;
 
-      // ✅ SINCRONIZACIÓN: Usar motivos_baja como fuente primaria
+      // tabla = snapshot actual SFTP, motivos = histórico de bajas
+      const fechaBajaTabla = emp.fecha_baja || null;
       const fechaBajaMotivos = ultimoMotivo?.fecha_baja || null;
-      // ✅ CRÍTICO: Usar campo 'motivo' (específico) NO 'descripcion' (genérico)
-      // Motivo: "Rescisión por desempeño" vs Descripcion: "Rescisión de contrato"
-      const motivoMotivos = ultimoMotivo ? normalizeMotivo(ultimoMotivo.motivo || 'No especificado') : null;
+      // tabla (SFTP snapshot) wins: if NULL = employee is active (possibly rehired)
+      const activoFinal = fechaBajaTabla === null;
+      // If active (rehired), don't carry old motivos baja date — it confuses temporal filters
+      const fechaBajaFinal = activoFinal ? null : (fechaBajaTabla ?? fechaBajaMotivos);
 
-      // Validar activo basado en si tiene fecha_baja en motivos_baja
-      const activoFinal = fechaBajaMotivos === null;
+      const motivoMotivos = ultimoMotivo ? normalizeMotivo(ultimoMotivo.motivo || 'No especificado') : null;
 
       return {
         id: emp.id,
@@ -191,7 +193,7 @@ export const db = {
         departamento: normalizeDepartamento(emp.departamento) || 'Sin Departamento',
         activo: activoFinal, // ✅ Auto-calculado desde motivos_baja
         fecha_ingreso: emp.fecha_ingreso || emp.fecha_antiguedad || emp.fecha_creacion || new Date().toISOString(),
-        fecha_baja: fechaBajaMotivos, // ✅ FUENTE: motivos_baja
+        fecha_baja: fechaBajaFinal, // tabla wins over motivos (rehired employees)
         puesto: emp.puesto || 'Sin Puesto',
         motivo_baja: motivoMotivos, // ✅ FUENTE: motivos_baja
         area: normalizeArea(emp.area) || 'Sin Área',

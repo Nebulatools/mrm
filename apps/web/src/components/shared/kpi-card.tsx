@@ -46,10 +46,10 @@ export function KPICard({
       return `$${value.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`;
     }
     if (kpi.name.includes('%') || kpi.name.includes('Rotación') || kpi.category === 'retention') {
-      return `${value.toFixed(1)}%`;
+      return `${value.toFixed(2)}%`;
     }
     if (kpi.name.includes('Prom') && value < 10) {
-      return value.toFixed(1);
+      return value.toFixed(2);
     }
     return Math.round(value).toLocaleString('es-MX');
   };
@@ -114,7 +114,7 @@ export function KPICard({
       : [];
 
   const formatSecondaryValue = (value: number, isPercent?: boolean) =>
-    isPercent ? `${value.toFixed(1)}%` : value.toLocaleString("es-MX");
+    isPercent ? `${value.toFixed(2)}%` : value.toLocaleString("es-MX");
 
   return (
     <Card
@@ -147,7 +147,7 @@ export function KPICard({
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
-        <div className={cn("flex items-center justify-between", refreshEnabled && "mt-2")}>
+        <div className={cn("flex items-center gap-2 flex-wrap", refreshEnabled && "mt-2")}>
           <div
             className={cn(
               "text-2xl font-bold",
@@ -159,14 +159,14 @@ export function KPICard({
           {changeValue !== null && (
             <span
               className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold",
+                "rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap",
                 trendBadgeClass,
                 refreshEnabled && "border border-transparent"
               )}
             >
               {showAbsoluteVariance
                 ? formatAbsoluteVariance(changeValue)
-                : `${changeValue > 0 ? '+' : ''}${changeValue.toFixed(1)}%`}
+                : `${changeValue > 0 ? '+' : ''}${changeValue.toFixed(2)}%`}
             </span>
           )}
         </div>

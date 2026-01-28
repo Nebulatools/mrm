@@ -176,10 +176,10 @@ The system implements HR-specific formulas with accurate calculations:
 
 **SFTP Tables Architecture:**
 - empleados_sftp: Master employee data (1,051 records) - 33 columnas completas
-- motivos_baja: **FUENTE DE VERDAD** para bajas - Termination records (676 records) with dates and reasons
-  - **ARQUITECTURA CRÍTICA**: `motivos_baja` es la fuente primaria para calcular bajas
-  - `getEmpleadosSFTP()` sincroniza automáticamente `fecha_baja` desde `motivos_baja` durante el load
-  - Garantiza coincidencia 100% con archivo SFTP original (236 bajas en 2025)
+- motivos_baja: Historial de bajas (676 records) - fechas, motivos y tipos de terminación
+  - `getEmpleadosSFTP()` usa motivos_baja para obtener `motivo_baja` del empleado
+  - **PRIORIDAD fecha_baja**: `empleados_sftp.fecha_baja` (snapshot SFTP) > `motivos_baja.fecha_baja` (histórico)
+  - Si `empleados_sftp.fecha_baja = NULL` → empleado activo (rehire), se ignora baja histórica
 - incidencias: Detailed incident records (8,880 records) with codes, timestamps, locations
 - prenomina_horizontal: Weekly payroll data (374 records) with hours breakdown per day
 
@@ -490,14 +490,15 @@ Los datos de asistencia ahora se obtienen de `incidencias` y `prenomina_horizont
 SFTP Files → Base de Datos Supabase
     ↓
 empleados_sftp (1,051 registros)
-motivos_baja (676 registros) ← FUENTE DE VERDAD para bajas
+motivos_baja (676 registros) ← historial de bajas (motivo + fecha)
 incidencias (8,880 registros)
 prenomina_horizontal (374 registros)
     ↓
 getEmpleadosSFTP() sincroniza automáticamente:
-  - Carga motivos_baja PRIMERO
-  - Sincroniza fecha_baja → PlantillaRecord[]
-  - Garantiza coincidencia 100% (236 bajas en 2025)
+  - Carga motivos_baja como referencia histórica
+  - **PRIORIDAD**: empleados_sftp.fecha_baja (snapshot SFTP) > motivos_baja.fecha_baja (histórico)
+  - Si empleados_sftp.fecha_baja = NULL → empleado ACTIVO (incluso si tiene bajas anteriores)
+  - Esto maneja correctamente **recontrataciones** (11 empleados recontratados detectados Ene 2026)
     ↓
 Sistema de Filtros (4 variantes) → Datos filtrados por tab
     ↓
@@ -763,6 +764,56 @@ npm run type-check # TypeScript check (apps/web)
 ---
 
 ## Historial de Cambios y Mejoras
+
+### Enero 2026 - Fix: Incidencias faltantes (paginación + rehires)
+
+**Dos bugs causaban que la tabla de incidencias mostrara menos registros que Supabase.**
+
+**Bug 1 — Paginación no determinista** (`supabase.ts:getIncidenciasCSV`):
+- `.order('fecha')` tenía empates (muchas incidencias en la misma fecha)
+- Supabase `range()` saltaba registros entre páginas cuando el orden no es estable
+- Fix: agregado `.order('id', { ascending: false })` como desempate → recuperó 135 registros (8838→8973)
+
+**Bug 2 — Rehires excluidos del filtro temporal** (`supabase.ts:getEmpleadosSFTP`):
+- 16 empleados recontratados: `empleados_sftp.fecha_baja = NULL` (activos) pero con bajas históricas en `motivos_baja`
+- El código asignaba la fecha de baja vieja (ej. 2023) al empleado activo
+- `employeeActiveInWindow()` los excluía del scope 2025 (baja 2023 < inicio 2025)
+- `use-plantilla-filters.ts` construye `empleadosFiltradosIds` con ese scope → descartaba las incidencias de esos empleados
+- Fix: si `empleados_sftp.fecha_baja = NULL` → `fechaBajaFinal = null` (ignorar historial) → recuperó 21 incidencias en Dic 2025
+
+**⚠️ IMPORTANTE — Por qué `motivos_baja` afecta a incidencias:**
+```
+incidencias (8,973 registros crudos)
+    ↓ filtrado por empleadosFiltradosIds (use-plantilla-filters.ts)
+    ↓ ese set viene de plantillaFilteredYearScope
+    ↓ que filtra empleados por employeeActiveInWindow()
+    ↓ que usa fecha_baja del empleado
+    ↓ que getEmpleadosSFTP() calcula usando motivos_baja
+    = si fecha_baja es incorrecta → empleado excluido → sus incidencias descartadas
+```
+
+**Empleados recontratados (16 detectados Ene 2026):**
+| # Empleado | Baja histórica (motivos_baja) | Estado actual (empleados_sftp) |
+|------------|-------------------------------|-------------------------------|
+| 18 | 2025-04-15 | Activo (fecha_baja=NULL) |
+| 413 | 2024-08-01 | Activo |
+| 931 | 2023-10-27 | Activo |
+| 1765 | 2023-05-15 | Activo |
+| 1850 | 2025-08-23 | Activo |
+| 1952 | 2024-05-29 | Activo |
+| 1964 | 2024-01-19 | Activo |
+| 2023 | 2023-02-03 | Activo |
+| 2040 | 2024-02-29 | Activo |
+| 2113 | 2024-09-25 | Activo |
+| 2115 | 2024-09-15 | Activo |
+| 2181 | 2024-10-31 | Activo |
+| 2198 | 2025-08-06 | Activo |
+| 2471 | 2025-06-23 | Activo |
+| 2725 | 2026-01-18 | Activo |
+
+**Regla:** `empleados_sftp.fecha_baja` (snapshot SFTP) > `motivos_baja.fecha_baja` (histórico). Si la tabla dice NULL = empleado activo, sin importar historial de bajas.
+
+---
 
 ### Enero 2026 - Integración de columna `ubicacion2` en empleados_sftp
 
