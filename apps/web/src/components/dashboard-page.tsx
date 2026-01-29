@@ -113,6 +113,7 @@ export function DashboardPage() {
     plantillaFilteredYearScope: plantillaRotacionYearScope,
     retentionFilters,
     selectedPeriod,
+    bajasData,
   });
 
   // ==================== COMPUTED VALUES ====================

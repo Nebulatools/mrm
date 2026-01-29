@@ -5,7 +5,7 @@
  * Todas las funciones son puras (sin efectos secundarios) y fáciles de testear.
  */
 
-import type { PlantillaRecord } from '../types/records';
+import type { PlantillaRecord, MotivoBajaRecord } from '../types/records';
 import { isMotivoClave } from '../normalizers';
 
 /**
@@ -446,7 +446,8 @@ export function countActivosEnFecha(
 export function calcularRotacionConDesglose(
   plantilla: PlantillaRecord[],
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  bajasData?: MotivoBajaRecord[]
 ): {
   total: number;
   involuntaria: number;
@@ -481,36 +482,51 @@ export function calcularRotacionConDesglose(
   const startKey = formatDateKey(startDate);
   const endKey = formatDateKey(endDate);
 
-  // Obtener todas las bajas del período (comparación sin sesgo de zona horaria)
-  const todasLasBajas = plantilla.filter(emp => {
-    if (!emp.fecha_baja) return false;
-    const raw = typeof emp.fecha_baja === 'string'
-      ? emp.fecha_baja.slice(0, 10)
-      : formatDateKey(new Date(emp.fecha_baja));
-    return raw >= startKey && raw <= endKey;
-  });
+  let totalBajas: number;
+  let countInvoluntarias: number;
+  let countVoluntarias: number;
 
-  // Separar bajas por motivo
-  const bajasInvoluntarias = todasLasBajas.filter(emp =>
-    isMotivoClave((emp as any).motivo_baja)
-  );
-  const bajasVoluntarias = todasLasBajas.filter(emp =>
-    !isMotivoClave((emp as any).motivo_baja)
-  );
+  if (bajasData && bajasData.length > 0) {
+    // Usar motivos_baja como fuente canónica de bajas
+    const bajasEnPeriodo = bajasData.filter(b => {
+      const raw = typeof b.fecha_baja === 'string'
+        ? b.fecha_baja.slice(0, 10)
+        : formatDateKey(new Date(b.fecha_baja));
+      return raw >= startKey && raw <= endKey;
+    });
+    totalBajas = bajasEnPeriodo.length;
+    countInvoluntarias = bajasEnPeriodo.filter(b => isMotivoClave(b.motivo)).length;
+    countVoluntarias = totalBajas - countInvoluntarias;
+  } else {
+    // Fallback: usar empleados_sftp.fecha_baja (comportamiento original)
+    const todasLasBajas = plantilla.filter(emp => {
+      if (!emp.fecha_baja) return false;
+      const raw = typeof emp.fecha_baja === 'string'
+        ? emp.fecha_baja.slice(0, 10)
+        : formatDateKey(new Date(emp.fecha_baja));
+      return raw >= startKey && raw <= endKey;
+    });
+    totalBajas = todasLasBajas.length;
+    countInvoluntarias = todasLasBajas.filter(emp =>
+      isMotivoClave((emp as any).motivo_baja)
+    ).length;
+    countVoluntarias = totalBajas - countInvoluntarias;
+  }
 
   // Calcular rotaciones usando el MISMO denominador
-  const rotacionTotal = activosPromedio > 0 ? (todasLasBajas.length / activosPromedio) * 100 : 0;
-  const rotacionInvoluntaria = activosPromedio > 0 ? (bajasInvoluntarias.length / activosPromedio) * 100 : 0;
-  const rotacionVoluntaria = activosPromedio > 0 ? (bajasVoluntarias.length / activosPromedio) * 100 : 0;
+  const rotacionTotal = activosPromedio > 0 ? (totalBajas / activosPromedio) * 100 : 0;
+  const rotacionInvoluntaria = activosPromedio > 0 ? (countInvoluntarias / activosPromedio) * 100 : 0;
+  const rotacionVoluntaria = activosPromedio > 0 ? (countVoluntarias / activosPromedio) * 100 : 0;
 
   console.log('🔢 Rotación con desglose por motivo:', {
     periodo: `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`,
+    fuente: bajasData ? 'motivos_baja' : 'empleados_sftp',
     activosPromedio: activosPromedio.toFixed(2),
     bajas: {
-      total: todasLasBajas.length,
-      involuntarias: bajasInvoluntarias.length,
-      voluntarias: bajasVoluntarias.length,
-      suma: bajasInvoluntarias.length + bajasVoluntarias.length
+      total: totalBajas,
+      involuntarias: countInvoluntarias,
+      voluntarias: countVoluntarias,
+      suma: countInvoluntarias + countVoluntarias
     },
     rotacion: {
       total: `${rotacionTotal.toFixed(2)}%`,
@@ -525,9 +541,9 @@ export function calcularRotacionConDesglose(
     total: rotacionTotal,
     involuntaria: rotacionInvoluntaria,
     voluntaria: rotacionVoluntaria,
-    bajas: todasLasBajas.length,
-    bajasInvoluntarias: bajasInvoluntarias.length,
-    bajasVoluntarias: bajasVoluntarias.length,
+    bajas: totalBajas,
+    bajasInvoluntarias: countInvoluntarias,
+    bajasVoluntarias: countVoluntarias,
     activosPromedio
   };
 }
@@ -541,7 +557,8 @@ export function calcularRotacionConDesglose(
  */
 export function calcularRotacionAcumulada12mConDesglose(
   plantilla: PlantillaRecord[],
-  fecha: Date
+  fecha: Date,
+  bajasData?: MotivoBajaRecord[]
 ): {
   total: number;
   involuntaria: number;
@@ -554,7 +571,7 @@ export function calcularRotacionAcumulada12mConDesglose(
   const startDate = new Date(year, month - 11, 1);
   const endDate = new Date(year, month + 1, 0);
 
-  const resultado = calcularRotacionConDesglose(plantilla, startDate, endDate);
+  const resultado = calcularRotacionConDesglose(plantilla, startDate, endDate, bajasData);
 
   return {
     total: resultado.total,
@@ -572,7 +589,8 @@ export function calcularRotacionAcumulada12mConDesglose(
  */
 export function calcularRotacionYTDConDesglose(
   plantilla: PlantillaRecord[],
-  fecha: Date
+  fecha: Date,
+  bajasData?: MotivoBajaRecord[]
 ): {
   total: number;
   involuntaria: number;
@@ -585,7 +603,7 @@ export function calcularRotacionYTDConDesglose(
   const startDate = new Date(year, 0, 1);
   const endDate = new Date(year, month + 1, 0);
 
-  const resultado = calcularRotacionConDesglose(plantilla, startDate, endDate);
+  const resultado = calcularRotacionConDesglose(plantilla, startDate, endDate, bajasData);
 
   return {
     total: resultado.total,

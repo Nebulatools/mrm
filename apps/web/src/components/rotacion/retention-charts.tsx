@@ -598,7 +598,8 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
     }
   };
 
-  // Helper para tablas: usa monthlyData (filtrado/toggle) para recalcular bajas 12M, promedio de activos 12M y rotación coherente
+  // Helper para tablas: usa rotacionAcumulada12m pre-calculada por calculateRolling12MonthRotation
+  // Esto garantiza que tabla y gráfica muestren exactamente el mismo valor
   const compute12mStats = (targetYear: number, targetMonth: number) => {
     // No mostrar datos para meses futuros que aún no han ocurrido
     const now = new Date();
@@ -607,6 +608,16 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       return { bajas12m: null, activosProm12m: null, rotacion12m: null };
     }
 
+    // Buscar el entry del mes objetivo que ya tiene rotacionAcumulada12m pre-calculada
+    const targetEntry = monthlyData.find(
+      (m) => m.year === targetYear && m.month === targetMonth
+    );
+
+    if (!targetEntry) {
+      return { bajas12m: null, activosProm12m: null, rotacion12m: null };
+    }
+
+    // Sumar bajas de los 12 meses de la ventana (para mostrar en columna # Bajas 12M)
     const windowEntries: MonthlyRetentionData[] = [];
     for (let i = 0; i < 12; i++) {
       const d = new Date(targetYear, targetMonth - 1 - i, 1);
@@ -616,13 +627,18 @@ export function RetentionCharts({ currentDate = new Date(), currentYear, filters
       if (entry) windowEntries.push(entry);
     }
     const bajas12m = windowEntries.reduce((acc, m) => acc + (m.bajas || 0), 0);
-    const activosProm12m = windowEntries.length
-      ? windowEntries.reduce((acc, m) => acc + (m.activos || 0), 0) / windowEntries.length
-      : 0;
-    const rotacion12m = activosProm12m > 0 ? (bajas12m / activosProm12m) * 100 : null;
+
+    // Usar rotacionAcumulada12m pre-calculada (misma fuente que la gráfica)
+    const rotacion12m = targetEntry.rotacionAcumulada12m || null;
+
+    // Calcular activos promedio inverso desde rotación y bajas (para mostrar en columna)
+    const activosProm12m = rotacion12m && rotacion12m > 0
+      ? Math.round((bajas12m / rotacion12m) * 100)
+      : null;
+
     return {
       bajas12m,
-      activosProm12m: activosProm12m > 0 ? Math.round(activosProm12m) : null,
+      activosProm12m,
       rotacion12m,
     };
   };

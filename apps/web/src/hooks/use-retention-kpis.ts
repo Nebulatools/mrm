@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters";
 import type { PlantillaRecord } from "@/lib/supabase";
+import type { MotivoBajaRecord } from "@/lib/types/records";
 import {
   calculateActivosPromedio,
   calculateBajasTempranas,
@@ -67,6 +68,7 @@ interface UseRetentionKPIsOptions {
   plantillaFilteredYearScope: PlantillaRecord[];
   retentionFilters: RetentionFilterOptions;
   selectedPeriod: Date;
+  bajasData?: MotivoBajaRecord[];
 }
 
 const EMPTY_KPIS: RetentionKPIs = {
@@ -119,6 +121,7 @@ export function useRetentionKPIs({
   plantillaFilteredYearScope,
   retentionFilters,
   selectedPeriod,
+  bajasData,
 }: UseRetentionKPIsOptions): RetentionKPIs {
   return useMemo(() => {
     // Solo calcular si tenemos datos de plantilla cargados
@@ -193,12 +196,14 @@ export function useRetentionKPIs({
     const rotacionMensualActual = calcularRotacionConDesglose(
       longTermPlantilla,
       inicioMes,
-      finMes
+      finMes,
+      bajasData
     );
     const rotacionMensualPrevio = calcularRotacionConDesglose(
       longTermPlantilla,
       inicioMesAnterior,
-      finMesAnterior
+      finMesAnterior,
+      bajasData
     );
 
     // Rotación del mismo mes año anterior (para comparación year-over-year)
@@ -207,25 +212,30 @@ export function useRetentionKPIs({
     const rotacionMensualSameMonthPrevYear = calcularRotacionConDesglose(
       plantillaForComparison, // Usar plantilla sin filtro de año
       inicioMesSameMonthPrevYear,
-      finMesSameMonthPrevYear
+      finMesSameMonthPrevYear,
+      bajasData
     );
 
     // Rotación acumulada y YTD con sus comparativos
     const rotacionAcumuladaActual = calcularRotacionAcumulada12mConDesglose(
       plantillaForComparison,
-      selectedPeriod
+      selectedPeriod,
+      bajasData
     );
     const rotacionAcumuladaPrevio = calcularRotacionAcumulada12mConDesglose(
       plantillaForComparison,
-      previousYearReference
+      previousYearReference,
+      bajasData
     );
     const rotacionYTDActual = calcularRotacionYTDConDesglose(
       plantillaForComparison,
-      selectedPeriod
+      selectedPeriod,
+      bajasData
     );
     const rotacionYTDPrevio = calcularRotacionYTDConDesglose(
       plantillaForComparison,
-      previousYearReference
+      previousYearReference,
+      bajasData
     );
 
     // Formatear valores de rotación mensual
@@ -344,5 +354,5 @@ export function useRetentionKPIs({
         rotYTDVolPrev
       ),
     };
-  }, [plantilla, plantillaFilteredYearScope, retentionFilters, selectedPeriod]);
+  }, [plantilla, plantillaFilteredYearScope, retentionFilters, selectedPeriod, bajasData]);
 }
