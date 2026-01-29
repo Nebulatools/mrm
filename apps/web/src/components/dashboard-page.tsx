@@ -421,21 +421,19 @@ export function DashboardPage() {
 
   // Load bajas por motivo for heatmap
   useEffect(() => {
+    if (!data.plantilla || data.plantilla.length === 0) return;
+
     const loadBajasPorMotivo = async () => {
       try {
         console.log("🔥 Loading bajas por motivo for year:", currentYear);
 
-        const plantilla = await db.getEmpleadosSFTP(supabase);
-
-        // ✅ CORREGIDO: Aplicar TODOS los filtros estructurales (departamentos, puestos, etc.)
-        // Solo excluir el filtro de mes (year-only scope para rotación)
         const plantillaFiltrada = applyFiltersWithScope(
-          plantilla,
+          data.plantilla,
           {
-            ...retentionFilters, // Incluir TODOS los filtros estructurales
-            years: [currentYear], // Forzar año actual
-            months: [], // Sin filtro de mes (year-only scope)
-            includeInactive: true, // Incluir bajas para heatmap preciso
+            ...retentionFilters,
+            years: [currentYear],
+            months: [],
+            includeInactive: true,
           },
           "year-only"
         );
@@ -448,7 +446,7 @@ export function DashboardPage() {
         setBajasPorMotivoData(heatmapData);
 
         console.log("🗺️ Mapa de Calor filtrado:", {
-          original: plantilla.length,
+          original: data.plantilla.length,
           filtrado: plantillaFiltrada.length,
           año: currentYear,
         });
@@ -458,7 +456,7 @@ export function DashboardPage() {
     };
 
     loadBajasPorMotivo();
-  }, [currentYear, supabase, retentionFilters]);
+  }, [currentYear, supabase, retentionFilters, data.plantilla]);
 
   // ==================== DISPLAY VALUES ====================
   const periodLabel = format(selectedPeriod, "MMMM yyyy", { locale: es });

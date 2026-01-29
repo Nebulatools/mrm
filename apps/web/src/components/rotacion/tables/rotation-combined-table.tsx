@@ -149,10 +149,10 @@ export function RotationCombinedTable({
 
     UBICACIONES.forEach(ubicacion => {
       metricsByUbicacion[ubicacion] = {
-        activos: { months: {}, values: [] },
-        voluntarias: { months: {}, values: [] },
-        involuntarias: { months: {}, values: [] },
-        porcentaje: { months: {}, values: [] },
+        activos: { months: {}, values: [], rawValues: [] },
+        voluntarias: { months: {}, values: [], rawValues: [] },
+        involuntarias: { months: {}, values: [], rawValues: [] },
+        porcentaje: { months: {}, values: [], rawValues: [] },
       };
 
       MONTHS.forEach(month => {
@@ -195,6 +195,7 @@ export function RotationCombinedTable({
         const roundedHeadcount = Math.round(avgHeadcount);
         metricsByUbicacion[ubicacion].activos.months[month.key] = roundedHeadcount;
         metricsByUbicacion[ubicacion].activos.values.push(roundedHeadcount);
+        metricsByUbicacion[ubicacion].activos.rawValues.push(avgHeadcount);
 
         // Count bajas for this location and month
         const bajasMes = bajasYear.filter(emp => {
@@ -263,8 +264,11 @@ export function RotationCombinedTable({
       });
     });
 
-    return result;
+    return { rows: result, metricsByUbicacion };
   }, [plantilla, motivosBaja, currentYear, selectedYears]);
+
+  const dataRows = data.rows;
+  const metricsByUbicacion = data.metricsByUbicacion;
 
   // Calculate monthly totals/averages
   const monthlyTotals = useMemo(() => {
@@ -283,9 +287,19 @@ export function RotationCombinedTable({
           const totalBajas = totalVol + totalInv;
           const rotacion = totalActivos > 0 ? (totalBajas / totalActivos) * 100 : 0;
           totals[metrica.key][month.key] = rotacion > 0 ? rotacion.toFixed(2) + '%' : '';
+        } else if (metrica.key === 'activos') {
+          // Sumar valores RAW (sin redondear) y redondear el total
+          // Evita discrepancia por redondeo individual por ubicación
+          const monthIdx = MONTHS.findIndex(m => m.key === month.key);
+          let rawSum = 0;
+          UBICACIONES.forEach(ub => {
+            const raw = metricsByUbicacion[ub]?.activos?.rawValues?.[monthIdx];
+            if (typeof raw === 'number') rawSum += raw;
+          });
+          totals[metrica.key][month.key] = Math.round(rawSum);
         } else {
           const values: number[] = [];
-          data.forEach(row => {
+          dataRows.forEach(row => {
             if (row.metrica === metrica.label) {
               const val = row.months[month.key];
               if (typeof val === 'number') {
@@ -322,7 +336,7 @@ export function RotationCombinedTable({
     });
 
     return totals;
-  }, [data]);
+  }, [dataRows, metricsByUbicacion]);
 
   return (
     <Card
@@ -382,7 +396,7 @@ export function RotationCombinedTable({
                 <TableBody>
                   {filteredMetricas.map((metrica) => (
                     <>
-                      {data
+                      {dataRows
                         .filter((row) => row.metrica === metrica.label)
                         .map((row, idx) => {
                           const isFirstLocation = idx === 0;
