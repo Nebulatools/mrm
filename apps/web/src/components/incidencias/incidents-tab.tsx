@@ -783,14 +783,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
     const dataPoints = Array.from(bins.entries()).sort((a,b)=>a[0]-b[0]).map(([incidencias, empleados]) => ({
       incidencias,
       empleados: metricType === "percent" && activosCount > 0
-        ? Number(((empleados / activosCount) * 100).toFixed(1))
+        ? Number(((empleados / activosCount) * 100).toFixed(2))
         : empleados
     }));
 
     const maxEmpleados = dataPoints.reduce((max, point) => Math.max(max, typeof point.empleados === 'number' ? point.empleados : 0), 0);
     const domainMax = metricType === "percent"
       ? Math.min(100, Math.max(10, Math.ceil(maxEmpleados * 1.2)))
-      : null;
+      : Math.max(10, Math.ceil(maxEmpleados * 1.2)); // ✅ También calcular dominio para modo número
 
     return { data: dataPoints, domainMax };
   }, [enrichedPeriodo, metricType, activosCount]);
@@ -1496,13 +1496,13 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                           contentStyle={LINE_TOOLTIP_STYLE}
                           labelStyle={LINE_TOOLTIP_LABEL_STYLE}
-                          formatter={(value: number) => metricType === "percent" ? `${value}%` : value}
+                          formatter={(value: number) => metricType === "percent" ? `${value.toFixed(2)}%` : value}
                         />
                         <Bar dataKey="empleados" fill={getModernColor(0)}>
                           <LabelList
                             dataKey="empleados"
                             position="top"
-                            formatter={(value: number) => metricType === "percent" ? `${Math.round(value)}%` : value}
+                            formatter={(value: number) => metricType === "percent" ? `${value.toFixed(2)}%` : value}
                             style={{ fill: axisMutedColor, fontWeight: 600, fontSize: 11 }}
                           />
                         </Bar>
