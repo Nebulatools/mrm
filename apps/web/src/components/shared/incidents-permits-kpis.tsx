@@ -8,9 +8,9 @@ import { normalizeIncidenciaCode } from "@/lib/normalizers";
 import { format } from "date-fns";
 
 // ✅ CATEGORIZACIÓN según especificación del usuario (Enero 2026):
-// - Faltas: FI (Falta Injustificada), SUSP (Suspensión)
+// - Faltas: FI (Falta Injustificada), SUSP (Suspensión), PSIN (Permiso Sin Goce)
 // - Salud: ENFE (Enfermedad), MAT1/MAT3 (Maternidad), ACCI (Accidente), INCA (Incapacidad)
-const FALTAS_CODES = new Set(["FI", "SUSP"]);
+const FALTAS_CODES = new Set(["FI", "SUSP", "PSIN"]);
 const SALUD_CODES = new Set(["ENFE", "MAT1", "MAT3", "ACCI", "INCA"]);
 
 interface IncidenciaRecord {

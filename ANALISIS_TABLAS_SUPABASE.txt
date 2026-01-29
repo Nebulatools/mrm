@@ -165,10 +165,11 @@ DEFINICIÓN DE CATEGORÍAS:
 │ Categoría   │ Códigos            │ Descripción                               │
 ├─────────────┼────────────────────┼───────────────────────────────────────────┤
 │ Vacaciones  │ VAC                │ Vacaciones (separado del ausentismo)      │
-│ Faltas      │ FI, SUSP           │ Falta Injustificada, Suspensión           │
+│ Faltas      │ FI, SUSP, PSIN     │ Falta Injustificada, Suspensión,          │
+│             │                    │ Permiso Sin Goce                          │
 │ Salud       │ ENFE, MAT1, MAT3,  │ Enfermedad, Maternidad, Accidente,        │
 │             │ ACCI, INCA         │ Incapacidad                               │
-│ Permisos    │ PSIN, PCON, FEST,  │ Permisos varios (sin incluir VAC)         │
+│ Permisos    │ PCON, FEST,        │ Permisos varios (sin PSIN, sin VAC)       │
 │             │ PATER, JUST        │                                           │
 └─────────────┴────────────────────┴───────────────────────────────────────────┘
 
@@ -176,18 +177,18 @@ RESUMEN ANUAL 2025 POR CATEGORÍA INTERNA:
 ┌─────────────┬──────────┬──────────┬─────────────────────────────────────────┐
 │ Categoría   │ Total    │ % Total  │ Códigos incluidos                       │
 ├─────────────┼──────────┼──────────┼─────────────────────────────────────────┤
-│ Vacaciones  │ 4,925    │ 55.4%    │ VAC (4,925)                             │
-│ Faltas      │ 1,257    │ 14.2%    │ FI (1,056) + SUSP (201)                 │
-│ Salud       │ 1,398    │ 15.7%    │ ENFE (833) + MAT1/3 (510) + ACCI (54)   │
+│ Vacaciones  │ 4,986    │ 55.6%    │ VAC (4,986)                             │
+│ Faltas      │ 2,022    │ 22.5%    │ FI (1,059) + PSIN (762) + SUSP (201)    │
+│ Salud       │ 1,427    │ 15.9%    │ ENFE (855) + MAT1/3 (517) + ACCI (54)   │
 │             │          │          │ + INCA (1)                              │
-│ Permisos    │ 1,300    │ 14.6%    │ PSIN (762) + PCON (407) + FEST (116)    │
-│             │          │          │ + PATER (10) + JUST (5)                 │
+│ Permisos    │ 538      │ 6.0%     │ PCON (407) + FEST (116) + PATER (10)    │
+│             │          │          │ + JUST (5)                              │
 ├─────────────┼──────────┼──────────┼─────────────────────────────────────────┤
-│ TOTAL       │ 8,880    │ 100.0%   │                                         │
-│ SIN VAC     │ 3,955    │ 44.6%    │ ← AUSENTISMO REAL                       │
+│ TOTAL       │ 8,973    │ 100.0%   │                                         │
+│ SIN VAC     │ 3,987    │ 44.4%    │ ← AUSENTISMO REAL                       │
 └─────────────┴──────────┴──────────┴─────────────────────────────────────────┘
 
-⚠️ AUSENTISMO = Faltas + Salud = 2,655 eventos (29.9% del total)
+⚠️ AUSENTISMO = Faltas + Salud = 3,449 eventos (38.4% del total)
    (Excluye permisos autorizados)
 
 --------------------------------------------------------------------------------
@@ -453,9 +454,9 @@ RESUMEN ANUAL 2025 POR CÓDIGO:
 
 GRUPOS DEFINIDOS:
 - VACACIONES: VAC
-- FALTAS: FI, SUSP
+- FALTAS: FI, SUSP, PSIN (Permiso Sin Goce)
 - SALUD: ENFE, MAT1, MAT3, ACCI, INCA
-- PERMISOS: PSIN, PCON, FEST, PATER, JUST
+- PERMISOS: PCON, FEST, PATER, JUST (sin PSIN)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 2026 (Parcial - Enero)
@@ -480,7 +481,7 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 01  | SALUD      | ENFE   | 92
 2025 | 01  | SALUD      | MAT3   | 6
 2025 | 01  | SALUD      | ACCI   | 4
-2025 | 01  | PERMISOS   | PSIN   | 77
+2025 | 01  | FALTAS     | PSIN   | 77
 2025 | 01  | PERMISOS   | PCON   | 56
 2025 | 01  | PERMISOS   | FEST   | 30
 -----|-----|------------|--------|----------
@@ -489,7 +490,7 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 02  | FALTAS     | SUSP   | 5
 2025 | 02  | SALUD      | ENFE   | 99
 2025 | 02  | SALUD      | ACCI   | 9
-2025 | 02  | PERMISOS   | PSIN   | 71
+2025 | 02  | FALTAS     | PSIN   | 71
 2025 | 02  | PERMISOS   | PCON   | 52
 2025 | 02  | PERMISOS   | FEST   | 15
 -----|-----|------------|--------|----------
@@ -498,7 +499,7 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 03  | FALTAS     | SUSP   | 11
 2025 | 03  | SALUD      | ENFE   | 106
 2025 | 03  | SALUD      | MAT3   | 22
-2025 | 03  | PERMISOS   | PSIN   | 66
+2025 | 03  | FALTAS     | PSIN   | 66
 2025 | 03  | PERMISOS   | PCON   | 45
 2025 | 03  | PERMISOS   | FEST   | 8
 2025 | 03  | PERMISOS   | PATER  | 4
@@ -510,14 +511,14 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 04  | SALUD      | ENFE   | 54
 2025 | 04  | SALUD      | ACCI   | 7
 2025 | 04  | PERMISOS   | PCON   | 66
-2025 | 04  | PERMISOS   | PSIN   | 58
+2025 | 04  | FALTAS     | PSIN   | 58
 -----|-----|------------|--------|----------
 2025 | 05  | VACACIONES | VAC    | 379
 2025 | 05  | FALTAS     | FI     | 101
 2025 | 05  | FALTAS     | SUSP   | 26
 2025 | 05  | SALUD      | MAT3   | 120
 2025 | 05  | SALUD      | ENFE   | 113
-2025 | 05  | PERMISOS   | PSIN   | 80
+2025 | 05  | FALTAS     | PSIN   | 80
 2025 | 05  | PERMISOS   | PCON   | 18
 2025 | 05  | PERMISOS   | FEST   | 1
 -----|-----|------------|--------|----------
@@ -526,7 +527,7 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 06  | FALTAS     | SUSP   | 17
 2025 | 06  | SALUD      | MAT3   | 92
 2025 | 06  | SALUD      | ENFE   | 69
-2025 | 06  | PERMISOS   | PSIN   | 77
+2025 | 06  | FALTAS     | PSIN   | 77
 2025 | 06  | PERMISOS   | PCON   | 36
 -----|-----|------------|--------|----------
 2025 | 07  | VACACIONES | VAC    | 484
@@ -534,7 +535,7 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 07  | FALTAS     | SUSP   | 20
 2025 | 07  | SALUD      | MAT3   | 58
 2025 | 07  | SALUD      | ENFE   | 42
-2025 | 07  | PERMISOS   | PSIN   | 70
+2025 | 07  | FALTAS     | PSIN   | 70
 2025 | 07  | PERMISOS   | PCON   | 12
 2025 | 07  | PERMISOS   | JUST   | 1
 -----|-----|------------|--------|----------
@@ -544,7 +545,7 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 08  | SALUD      | MAT3   | 31
 2025 | 08  | SALUD      | ENFE   | 31
 2025 | 08  | SALUD      | MAT1   | 21
-2025 | 08  | PERMISOS   | PSIN   | 56
+2025 | 08  | FALTAS     | PSIN   | 56
 2025 | 08  | PERMISOS   | PCON   | 18
 -----|-----|------------|--------|----------
 2025 | 09  | VACACIONES | VAC    | 401
@@ -553,7 +554,7 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 09  | SALUD      | ENFE   | 40
 2025 | 09  | SALUD      | MAT1   | 30
 2025 | 09  | SALUD      | MAT3   | 9
-2025 | 09  | PERMISOS   | PSIN   | 58
+2025 | 09  | FALTAS     | PSIN   | 58
 2025 | 09  | PERMISOS   | PCON   | 22
 2025 | 09  | PERMISOS   | FEST   | 20
 2025 | 09  | PERMISOS   | PATER  | 6
@@ -565,7 +566,7 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 10  | SALUD      | MAT1   | 31
 2025 | 10  | SALUD      | ACCI   | 1
 2025 | 10  | SALUD      | INCA   | 1
-2025 | 10  | PERMISOS   | PSIN   | 50
+2025 | 10  | FALTAS     | PSIN   | 50
 2025 | 10  | PERMISOS   | PCON   | 21
 2025 | 10  | PERMISOS   | JUST   | 1
 -----|-----|------------|--------|----------
@@ -575,7 +576,7 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 11  | SALUD      | ENFE   | 96
 2025 | 11  | SALUD      | ACCI   | 30       ⚠️ PICO ACCIDENTES
 2025 | 11  | SALUD      | MAT1   | 2
-2025 | 11  | PERMISOS   | PSIN   | 45
+2025 | 11  | FALTAS     | PSIN   | 45
 2025 | 11  | PERMISOS   | PCON   | 25
 2025 | 11  | PERMISOS   | FEST   | 15
 2025 | 11  | PERMISOS   | JUST   | 3
@@ -585,7 +586,7 @@ Año  | Mes | Grupo      | Código | Cantidad
 2025 | 12  | FALTAS     | SUSP   | 23
 2025 | 12  | SALUD      | ENFE   | 38
 2025 | 12  | SALUD      | ACCI   | 3
-2025 | 12  | PERMISOS   | PSIN   | 54
+2025 | 12  | FALTAS     | PSIN   | 54
 2025 | 12  | PERMISOS   | PCON   | 36
 2025 | 12  | PERMISOS   | FEST   | 27
 
@@ -596,28 +597,28 @@ RESUMEN POR GRUPO - 2025
 ┌─────┬────────────┬────────┬───────┬──────────┬─────────┐
 │ Mes │ VACACIONES │ FALTAS │ SALUD │ PERMISOS │ TOTAL   │
 ├─────┼────────────┼────────┼───────┼──────────┼─────────┤
-│ 01  │ 412        │ 126    │ 102   │ 163      │ 803     │
-│ 02  │ 239        │ 115    │ 108   │ 138      │ 600     │
-│ 03  │ 290        │ 128    │ 128   │ 123      │ 669     │
-│ 04  │ 426        │ 91     │ 149   │ 124      │ 790     │
-│ 05  │ 379        │ 127    │ 233   │ 99       │ 838     │
-│ 06  │ 429        │ 141    │ 161   │ 113      │ 844     │
-│ 07  │ 484        │ 108    │ 100   │ 83       │ 775     │
-│ 08  │ 571        │ 86     │ 83    │ 74       │ 814     │
-│ 09  │ 401        │ 59     │ 79    │ 106      │ 645     │
-│ 10  │ 343        │ 97     │ 86    │ 72       │ 598     │
-│ 11  │ 314        │ 72     │ 128   │ 88       │ 602     │
-│ 12  │ 637        │ 107    │ 41    │ 117      │ 902     │
+│ 01  │ 412        │ 203    │ 102   │ 86       │ 803     │
+│ 02  │ 239        │ 186    │ 108   │ 67       │ 600     │
+│ 03  │ 290        │ 194    │ 128   │ 57       │ 669     │
+│ 04  │ 426        │ 149    │ 149   │ 66       │ 790     │
+│ 05  │ 379        │ 207    │ 233   │ 19       │ 838     │
+│ 06  │ 429        │ 218    │ 161   │ 36       │ 844     │
+│ 07  │ 484        │ 178    │ 100   │ 13       │ 775     │
+│ 08  │ 571        │ 142    │ 83    │ 18       │ 814     │
+│ 09  │ 401        │ 117    │ 79    │ 48       │ 645     │
+│ 10  │ 343        │ 147    │ 86    │ 22       │ 598     │
+│ 11  │ 314        │ 117    │ 128   │ 43       │ 602     │
+│ 12  │ 637        │ 161    │ 41    │ 63       │ 902     │
 ├─────┼────────────┼────────┼───────┼──────────┼─────────┤
-│TOTAL│ 4,925      │ 1,257  │ 1,398 │ 1,300    │ 8,880   │
-│ %   │ 55.5%      │ 14.2%  │ 15.7% │ 14.6%    │ 100%    │
+│TOTAL│ 4,925      │ 2,019  │ 1,398 │ 538      │ 8,880   │
+│ %   │ 55.5%      │ 22.7%  │ 15.7% │ 6.1%     │ 100%    │
 └─────┴────────────┴────────┴───────┴──────────┴─────────┘
 
 INSIGHTS POR GRUPO:
 - VACACIONES: Picos en Dic (637), Ago (571), Jul (484) - temporadas vacacionales
-- FALTAS: Pico en Jun (141) y Mar (128) - investigar causas
+- FALTAS: Pico en Jun (218) y May (207) - incluye FI, SUSP y PSIN (Permiso Sin Goce)
 - SALUD: Pico en May (233) por maternidades (MAT3=120, ENFE=113)
-- PERMISOS: Relativamente estable, pico en Ene (163) por FEST año nuevo
+- PERMISOS: Bajo volumen tras reclasificar PSIN a Faltas, pico en Ene (86) por FEST año nuevo
 
 ⚠️ ALERTA NOVIEMBRE 2025:
    - ACCI = 30 eventos (vs promedio 5/mes)
@@ -1229,3 +1230,149 @@ FIN DEL ANÁLISIS
 Archivo generado: ANALISIS_TABLAS_SUPABASE.txt
 Ubicación: /Users/jaco/Desktop/proyectos/mrm_simple/
 Fecha: Enero 2026
+
+================================================================================
+X. FÓRMULA DE CÁLCULO: JORNADAS LABORADAS (Tabla Ausentismos)
+================================================================================
+
+FUENTE DE DATOS:
+- Tabla: empleados_sftp (columnas: fecha_ingreso, fecha_baja, turno)
+- Tabla: incidencias (columnas: emp, fecha, inci)
+
+--------------------------------------------------------------------------------
+PASO 1 - DÍAS ACTIVOS POR MES (calendarios, los 7 días de la semana)
+--------------------------------------------------------------------------------
+
+Para CADA DÍA del mes (incluyendo sábados y domingos), se cuenta cuántos
+empleados estaban activos ese día:
+  fecha_ingreso <= día AND (fecha_baja IS NULL OR fecha_baja >= día)
+
+Se suman los conteos de TODOS los días del mes = días_activos[mes]
+
+Ejemplo Enero 2025 (31 días):
+  Día 1 ene → 326 empleados activos
+  Día 2 ene → 326 empleados activos
+  ...
+  Día 31 ene → 326 empleados activos
+  TOTAL = 10,108 días-empleado
+
+SQL real ejecutado en Supabase (Enero 2026):
+
+  WITH meses AS (
+    SELECT m,
+      DATE_TRUNC('month', MAKE_DATE(2025, m, 1))::date AS inicio,
+      (DATE_TRUNC('month', MAKE_DATE(2025, m, 1)) + INTERVAL '1 month' - INTERVAL '1 day')::date AS fin
+    FROM generate_series(1,12) AS m
+  )
+  SELECT meses.m,
+    d.dia::date,
+    COUNT(e.numero_empleado) AS empleados_activos_ese_dia
+  FROM meses
+  CROSS JOIN LATERAL generate_series(meses.inicio, meses.fin, '1 day'::interval) AS d(dia)
+  JOIN empleados_sftp e
+    ON e.fecha_ingreso <= d.dia::date
+    AND (e.fecha_baja IS NULL OR e.fecha_baja >= d.dia::date)
+  GROUP BY meses.m, d.dia
+  ORDER BY meses.m, d.dia;
+
+  -- Luego se suma por mes: SUM(empleados_activos_ese_dia) = días_activos[mes]
+
+RESULTADOS REALES 2025 (días activos = días-empleado calendario):
+  ENE = 10,108 (31 días)
+  FEB =  9,399 (28 días)
+  MAR = 10,725 (31 días)
+  ABR = 10,522 (30 días)
+  MAY = 10,924 (31 días)
+  JUN = 10,552 (30 días)
+  JUL = 10,759 (31 días)
+  AGO = 11,094 (31 días)
+  SEP = 11,095 (30 días)
+  OCT = 11,326 (31 días)
+  NOV = 10,915 (30 días)
+  DIC = 11,162 (31 días)
+
+--------------------------------------------------------------------------------
+⚠️ NOTA IMPORTANTE: SE CUENTAN LOS 7 DÍAS DE LA SEMANA (NO solo laborables)
+--------------------------------------------------------------------------------
+
+NO existe en la base de datos una tabla de "días laborables" ni un calendario
+laboral. El cálculo cuenta los 7 días de la semana para cada empleado.
+
+¿Por qué se incluyen sábados y domingos?
+
+1. TURNOS: La mayoría NO especifica días de la semana:
+   - "Matutino Cad 0830_1700"       → 184 empleados (NO dice qué días)
+   - "Matutino Corpo 0900_1900"     →  49 empleados (NO dice qué días)
+   - "Matutino Corpo 0900_1900 LV"  →  34 empleados (LV = Lunes-Viernes)
+   - "Matutino Corpo 0800_1800"     →  33 empleados (NO dice qué días)
+   - "Matutino Filiales 0930_1900 F"→  28 empleados (F = ¿fines?)
+   - Otros                          →  34 empleados
+   Solo 34 de 362 activos (9.4%) tienen "LV" explícito.
+
+2. INCIDENCIAS existen los 7 días de la semana (datos reales 2025):
+   - Domingo:  855 incidencias
+   - Lunes:   1,556 incidencias
+   - Martes:  1,323 incidencias
+   - Miércoles: 1,240 incidencias
+   - Jueves:  1,205 incidencias
+   - Viernes: 1,463 incidencias
+   - Sábado:  1,238 incidencias
+
+3. INCIDENCIAS EN DOMINGO (855 registros) son principalmente:
+   - VAC (vacaciones): 642 (75%)
+   - ENFE (enfermedad): 109 (13%)
+   - MAT3 (maternidad): 61
+   - Otros: 43
+   → Las vacaciones y enfermedades se cuentan como días corridos (incluyen
+     fines de semana), por eso hay incidencias en domingo.
+
+4. PRENOMINA tiene horas en sábados y domingos:
+   - 336 de 380 registros (88%) tienen horas ordinarias en sábado
+   - 340 de 380 registros (89%) tienen horas ordinarias en domingo
+   → La mayoría de empleados SÍ trabajan fines de semana
+
+CONCLUSIÓN: Contar los 7 días es CORRECTO para esta empresa porque:
+- La mayoría trabaja 6-7 días/semana (manufactura/CAD)
+- Las incidencias (VAC, enfermedad) cubren días corridos, no solo hábiles
+- No hay calendario laboral en la BD para distinguir días laborables
+- La prenomina confirma que se trabaja sábados y domingos
+
+Si en el futuro se necesitara excluir domingos (o ciertos días), se requeriría:
+- Una tabla de calendario laboral por turno/ubicación
+- O filtrar por día de semana en el cálculo de días activos
+
+--------------------------------------------------------------------------------
+PASO 2 - AUSENTISMOS POR MES
+--------------------------------------------------------------------------------
+
+Se cuentan incidencias con estos códigos:
+  VAC, FI, FJ, SUSP, PSIN, ENFE, MAT1, MAT3, ACCI, INCA, PCON, FEST, PATER, JUST
+
+RESULTADOS REALES 2025:
+  ENE = 803  | FEB = 600  | MAR = 669  | ABR = 790
+  MAY = 838  | JUN = 844  | JUL = 775  | AGO = 814
+  SEP = 645  | OCT = 598  | NOV = 602  | DIC = 902
+
+--------------------------------------------------------------------------------
+PASO 3 - JORNADAS = Días Activos - Ausentismos
+--------------------------------------------------------------------------------
+
+  MES | DÍAS ACTIVOS | AUSENTISMOS | JORNADAS
+  ----|-------------|-------------|----------
+  ENE |  10,108     |     803     |   9,305
+  FEB |   9,399     |     600     |   8,799
+  MAR |  10,725     |     669     |  10,056
+  ABR |  10,522     |     790     |   9,732
+  MAY |  10,924     |     838     |  10,086
+  JUN |  10,552     |     844     |   9,708
+  JUL |  10,759     |     775     |   9,984
+  AGO |  11,094     |     814     |  10,280
+  SEP |  11,095     |     645     |  10,450
+  OCT |  11,326     |     598     |  10,728
+  NOV |  10,915     |     602     |  10,313
+  DIC |  11,162     |     902     |  10,260
+
+IMPLEMENTACIÓN:
+Archivo: apps/web/src/components/incidencias/tables/absenteeism-table.tsx
+Variable: jornadasNetas (línea 121)
+Código: diasLaboradosPorMes.map((dias, idx) => dias - totales[idx])

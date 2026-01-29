@@ -35,9 +35,9 @@ import { useTheme } from '@/components/shared/theme-provider';
 import { IncidentsPermitsKPIs } from '@/components/shared/incidents-permits-kpis';
 
 // ✅ CATEGORIZACIÓN DE INCIDENCIAS: 4 grupos
-const FALTAS_CODES = new Set(["FI", "SUSP"]);
-const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1", "ACCI", "INCA"]); // ✅ +ACCI, +INCA según especificación
-const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]);
+const FALTAS_CODES = new Set(["FI", "SUSP", "PSIN"]); // Faltas + Suspensiones + Permiso Sin Goce
+const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1", "ACCI", "INCA"]);
+const PERMISOS_CODES = new Set(["PCON", "FEST", "PATER", "JUST"]); // Permisos (sin PSIN, sin VAC)
 const VACACIONES_CODES = new Set(["VAC"]);
 
 // ✅ LEGACY: Mantener para compatibilidad

@@ -22,9 +22,9 @@ interface AbsenteeismTableProps {
 }
 
 // ✅ AGRUPACIÓN CORRECTA (igual a incidents-tab.tsx líneas 46-49)
-const FALTAS_CODES = new Set(["FI", "SUSP"]); // Faltas + Suspensiones
+const FALTAS_CODES = new Set(["FI", "SUSP", "PSIN"]); // Faltas + Suspensiones + Permiso Sin Goce
 const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1", "ACCI", "INCA"]); // Enfermedad + Maternales + Accidente + Incapacidad
-const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]); // Todos los permisos (sin VAC)
+const PERMISOS_CODES = new Set(["PCON", "FEST", "PATER", "JUST"]); // Permisos (sin PSIN, sin VAC)
 const VACACIONES_CODES = new Set(["VAC"]); // Vacaciones
 
 const MONTH_LABELS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
@@ -151,7 +151,7 @@ export function AbsenteeismTable({
             {getTitleWithYear('Ausentismos por motivo', selectedYears)}
           </CardTitle>
           <p className="text-sm text-gray-600">
-            Días activos: Suma de días de todos los empleados | Desglose por motivo
+            Jornadas: Días activos menos ausentismos | Desglose por motivo
           </p>
         </div>
         <MetricToggle value={metricType} onChange={setMetricType} size="sm" />
@@ -177,10 +177,10 @@ export function AbsenteeismTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* Fila de DÍAS ACTIVOS */}
+                  {/* Fila de JORNADAS (días activos - ausentismos) */}
                   <TableRow className="bg-blue-100 dark:bg-blue-900/30 font-semibold">
-                    <TableCell className="font-bold">DÍAS ACTIVOS</TableCell>
-                    {tableData.diasLaboradosPorMes.map((dias, idx) => (
+                    <TableCell className="font-bold">JORNADAS</TableCell>
+                    {tableData.jornadasNetas.map((dias, idx) => (
                       <TableCell key={idx} className="text-center">
                         {dias.toLocaleString()}
                       </TableCell>

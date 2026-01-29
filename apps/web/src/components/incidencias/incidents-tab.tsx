@@ -55,9 +55,9 @@ type EnrichedIncidencia = IncidenciaCSVRecord & {
 };
 
 // ✅ NUEVA CATEGORIZACIÓN: 4 grupos (Faltas, Salud, Permisos, Vacaciones)
-const FALTAS_CODES = new Set(["FI", "SUSP"]);
-const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1", "ACCI", "INCA"]); // ✅ Agregados ACCI (54) e INCA (1) - Total 55 registros adicionales
-const PERMISOS_CODES = new Set(["PSIN", "PCON", "FEST", "PATER", "JUST"]);
+const FALTAS_CODES = new Set(["FI", "SUSP", "PSIN"]); // Faltas + Suspensiones + Permiso Sin Goce
+const SALUD_CODES = new Set(["ENFE", "MAT3", "MAT1", "ACCI", "INCA"]);
+const PERMISOS_CODES = new Set(["PCON", "FEST", "PATER", "JUST"]); // Permisos (sin PSIN, sin VAC)
 const VACACIONES_CODES = new Set(["VAC"]);
 
 // ✅ DEFINICIÓN CORRECTA para gráficas de comparación:
@@ -1305,7 +1305,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
             )}
       </div>
       <p className="text-xs text-gray-500">
-        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Incidencias:</strong> Faltas (FI, SUSP) + Salud (ENFE, MAT1, MAT3, ACCI, INCA). <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones).
+        * MA: Mes Anterior. MMAA: Mismo Mes Año Anterior. <strong>Incidencias:</strong> Faltas (FI, SUSP, PSIN) + Salud (ENFE, MAT1, MAT3, ACCI, INCA). <strong>Ausentismos:</strong> TODO (Faltas + Salud + Permisos + Vacaciones).
       </p>
 
       {/* Gráfica de Tendencia Mensual - 4 Categorías */}

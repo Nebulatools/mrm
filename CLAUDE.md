@@ -719,9 +719,9 @@ npm run type-check # TypeScript check (apps/web)
 | Categoría | Códigos | Descripción |
 |-----------|---------|-------------|
 | Vacaciones | VAC | Vacaciones (separado) |
-| Faltas | FI, SUSP | Falta Injustificada, Suspensión |
+| Faltas | FI, SUSP, PSIN | Falta Injustificada, Suspensión, Permiso Sin Goce |
 | Salud | ENFE, MAT1, MAT3, ACCI, INCA | Enfermedad, Maternidad, Accidente, Incapacidad |
-| Permisos | PSIN, PCON, FEST, PATER, JUST, FJ | Permisos varios (sin VAC) |
+| Permisos | PCON, FEST, PATER, JUST | Permisos varios (sin VAC, sin PSIN) |
 
 ## Clasificación de Motivos de Baja (Actualizado Enero 2026)
 
