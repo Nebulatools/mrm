@@ -127,7 +127,7 @@ const renderPieInnerLabel = ({
   const safePercent = Number.isFinite(percent) ? percent * 100 : 0;
   const value = typeof payload?.value === "number" ? payload.value : 0;
   const label = typeof payload?.name === "string" ? payload.name : "";
-  const displayValue = `${value.toLocaleString("es-MX")} · ${safePercent.toFixed(1)}%`;
+  const displayValue = `${value.toLocaleString("es-MX")} · ${safePercent.toFixed(2)}%`;
   const isSmallSlice = safePercent < 8;  // Reducido de 12 a 8 para menos labels externos
   const outerPointRadius = outerRadiusNum + 18;  // Aumentado de 12 a 18 para más espacio
   const accentRadius = outerRadiusNum + 55;  // Aumentado de 38 a 55 para mayor separación
@@ -491,10 +491,14 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
     const start = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
     const end = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0);
 
+    // ✅ Parsear fecha como string y comparar año+mes para evitar bug de timezone
+    const targetYM = refDate.getFullYear() * 12 + refDate.getMonth();
     const monthIncidencias = incidencias.filter((inc) => {
       if (!inc.fecha) return false;
-      const d = new Date(inc.fecha);
-      return d >= start && d <= end;
+      const fechaStr = String(inc.fecha);
+      const y = parseInt(fechaStr.substring(0, 4), 10);
+      const m = parseInt(fechaStr.substring(5, 7), 10) - 1;
+      return (y * 12 + m) === targetYM;
     });
 
     const diasLaborables = plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, start, end), 0);
@@ -817,8 +821,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       const diasCount = arr.length;
 
       if (metricType === "percent") {
-        const diasPct = totalDias > 0 ? (diasCount / totalDias * 100).toFixed(1) + '%' : '0%';
-        const empleadosPct = totalEmpleadosUnicos > 0 ? (empleadosTipo / totalEmpleadosUnicos * 100).toFixed(1) + '%' : '0%';
+        const diasPct = totalDias > 0 ? (diasCount / totalDias * 100).toFixed(2) + '%' : '0.00%';
+        const empleadosPct = totalEmpleadosUnicos > 0 ? (empleadosTipo / totalEmpleadosUnicos * 100).toFixed(2) + '%' : '0.00%';
         out.push({ tipo: t, dias: diasPct, empleados: empleadosPct });
       } else {
         out.push({ tipo: t, dias: diasCount, empleados: empleadosTipo });
@@ -883,8 +887,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       const empleadosTipo = new Set(arr.map(a => a.emp)).size;
 
       if (metricType === "percent") {
-        const diasPct = totalDias > 0 ? (diasCount / totalDias * 100).toFixed(1) + '%' : '0%';
-        const empleadosPct = totalEmpleadosUnicos > 0 ? (empleadosTipo / totalEmpleadosUnicos * 100).toFixed(1) + '%' : '0%';
+        const diasPct = totalDias > 0 ? (diasCount / totalDias * 100).toFixed(2) + '%' : '0.00%';
+        const empleadosPct = totalEmpleadosUnicos > 0 ? (empleadosTipo / totalEmpleadosUnicos * 100).toFixed(2) + '%' : '0.00%';
         return { categoria: cat, dias: diasPct, empleados: empleadosPct };
       }
       return { categoria: cat, dias: diasCount, empleados: empleadosTipo };
@@ -929,8 +933,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       // Calculate % based on total dias laborables in period
       dataPoints = baseCounts.map(day => ({
         dia: day.dia,
-        ausentismos: diasLaborablesActual > 0 ? Number((day.ausentismosCount / diasLaborablesActual * 100).toFixed(1)) : 0,
-        permisos: diasLaborablesActual > 0 ? Number((day.permisosCount / diasLaborablesActual * 100).toFixed(1)) : 0,
+        ausentismos: diasLaborablesActual > 0 ? Number((day.ausentismosCount / diasLaborablesActual * 100).toFixed(2)) : 0,
+        permisos: diasLaborablesActual > 0 ? Number((day.permisosCount / diasLaborablesActual * 100).toFixed(2)) : 0,
       }));
     } else {
       dataPoints = baseCounts.map(day => ({
@@ -1093,10 +1097,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
 
       return {
         mes: monthName,
-        faltas: metricType === "percent" ? Number(faltasPctMonth.toFixed(1)) : faltasCount,
-        salud: metricType === "percent" ? Number(saludPctMonth.toFixed(1)) : saludCount,
-        permisos: metricType === "percent" ? Number(permisosPctMonth.toFixed(1)) : permisosCount,
-        vacaciones: metricType === "percent" ? Number(vacacionesPctMonth.toFixed(1)) : vacacionesCount
+        faltas: metricType === "percent" ? Number(faltasPctMonth.toFixed(2)) : faltasCount,
+        salud: metricType === "percent" ? Number(saludPctMonth.toFixed(2)) : saludCount,
+        permisos: metricType === "percent" ? Number(permisosPctMonth.toFixed(2)) : permisosCount,
+        vacaciones: metricType === "percent" ? Number(vacacionesPctMonth.toFixed(2)) : vacacionesCount
       };
     });
 
@@ -1125,19 +1129,25 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       const previousEnd = new Date(previousYear, index + 1, 0);
 
       // Count ALL ausentismo categories (Faltas, Salud, Permisos, Vacaciones) for current month
+      // ✅ Parsear fecha como string para evitar bug de timezone
       const ausentismosCurrent = incidencias.filter((inc) => {
         if (!inc.fecha) return false;
-        const d = new Date(inc.fecha);
-        if (d < currentStart || d > currentEnd) return false;
+        const fechaStr = String(inc.fecha);
+        const y = parseInt(fechaStr.substring(0, 4), 10);
+        const m = parseInt(fechaStr.substring(5, 7), 10) - 1; // 0-indexed
+        if (y !== targetYear || m !== index) return false;
         const code = normalizeIncidenciaCode(inc.inci);
         return code && (FALTAS_CODES.has(code) || SALUD_CODES.has(code) || PERMISOS_CODES.has(code) || VACACIONES_CODES.has(code));
       }).length;
 
       // Count ALL ausentismo categories for previous year same month
+      // ✅ Parsear fecha como string para evitar bug de timezone
       const ausentismosPrevious = incidencias.filter((inc) => {
         if (!inc.fecha) return false;
-        const d = new Date(inc.fecha);
-        if (d < previousStart || d > previousEnd) return false;
+        const fechaStr = String(inc.fecha);
+        const y = parseInt(fechaStr.substring(0, 4), 10);
+        const m = parseInt(fechaStr.substring(5, 7), 10) - 1; // 0-indexed
+        if (y !== previousYear || m !== index) return false;
         const code = normalizeIncidenciaCode(inc.inci);
         return code && (FALTAS_CODES.has(code) || SALUD_CODES.has(code) || PERMISOS_CODES.has(code) || VACACIONES_CODES.has(code));
       }).length;
@@ -1201,18 +1211,30 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       const previousStart = new Date(previousYear, index - 11, 1);
 
       // Count ALL ausentismo categories in rolling 12 months
+      // ✅ Comparar año*12+mes como enteros para evitar bugs de timezone y hora
+      const currentStartYM = currentStart.getFullYear() * 12 + currentStart.getMonth();
+      const currentEndYM = currentEnd.getFullYear() * 12 + currentEnd.getMonth();
+      const previousStartYM = previousStart.getFullYear() * 12 + previousStart.getMonth();
+      const previousEndYM = previousEnd.getFullYear() * 12 + previousEnd.getMonth();
+
       const ausentismosCurrent = incidencias.filter((inc) => {
         if (!inc.fecha) return false;
-        const d = new Date(inc.fecha);
-        if (d < currentStart || d > currentEnd) return false;
+        const fechaStr = String(inc.fecha);
+        const fy = parseInt(fechaStr.substring(0, 4), 10);
+        const fm = parseInt(fechaStr.substring(5, 7), 10) - 1;
+        const ym = fy * 12 + fm;
+        if (ym < currentStartYM || ym > currentEndYM) return false;
         const code = normalizeIncidenciaCode(inc.inci);
         return code && (FALTAS_CODES.has(code) || SALUD_CODES.has(code) || PERMISOS_CODES.has(code) || VACACIONES_CODES.has(code));
       }).length;
 
       const ausentismosPrevious = incidencias.filter((inc) => {
         if (!inc.fecha) return false;
-        const d = new Date(inc.fecha);
-        if (d < previousStart || d > previousEnd) return false;
+        const fechaStr = String(inc.fecha);
+        const fy = parseInt(fechaStr.substring(0, 4), 10);
+        const fm = parseInt(fechaStr.substring(5, 7), 10) - 1;
+        const ym = fy * 12 + fm;
+        if (ym < previousStartYM || ym > previousEndYM) return false;
         const code = normalizeIncidenciaCode(inc.inci);
         return code && (FALTAS_CODES.has(code) || SALUD_CODES.has(code) || PERMISOS_CODES.has(code) || VACACIONES_CODES.has(code));
       }).length;
@@ -1353,7 +1375,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                             const numericValue = typeof value === 'number' ? value : Number(value ?? 0);
                             const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
                             const formatted = metricType === "percent"
-                              ? `${safeValue.toFixed(1)}%`
+                              ? `${safeValue.toFixed(2)}%`
                               : `${safeValue.toLocaleString('es-MX')} registros`;
                             return [formatted, name];
                           }}
@@ -1372,7 +1394,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                             dataKey="faltas"
                             position="top"
                             offset={8}
-                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
+                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(2)}%` : value.toFixed(0)}
                             style={{ fontSize: 10, fill: '#374151' }}
                           />
                         </Line>
@@ -1389,7 +1411,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                             dataKey="salud"
                             position="top"
                             offset={8}
-                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
+                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(2)}%` : value.toFixed(0)}
                             style={{ fontSize: 10, fill: '#374151' }}
                           />
                         </Line>
@@ -1406,7 +1428,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                             dataKey="permisos"
                             position="top"
                             offset={8}
-                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
+                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(2)}%` : value.toFixed(0)}
                             style={{ fontSize: 10, fill: '#374151' }}
                           />
                         </Line>
@@ -1423,7 +1445,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                             dataKey="vacaciones"
                             position="top"
                             offset={8}
-                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(0)}%` : value.toFixed(0)}
+                            formatter={(value: number) => metricType === 'percent' ? `${value.toFixed(2)}%` : value.toFixed(0)}
                             style={{ fontSize: 10, fill: '#374151' }}
                           />
                         </Line>
@@ -1565,10 +1587,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                             const total = pieData.reduce((acc, item) => acc + item.value, 0);
                             const percentage = total > 0 ? (Number(value) / total) * 100 : 0;
                             if (metricType === "percent") {
-                              return [`${percentage.toFixed(1)}%`, name];
+                              return [`${percentage.toFixed(2)}%`, name];
                             }
                             return [
-                              `${Number(value).toLocaleString('es-MX')} (${percentage.toFixed(1)}%)`,
+                              `${Number(value).toLocaleString('es-MX')} (${percentage.toFixed(2)}%)`,
                               name
                             ];
                           }}
@@ -1635,7 +1657,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           labelStyle={LINE_TOOLTIP_LABEL_STYLE}
                           formatter={(value: number, name: string) => {
                             const formatted = metricType === "percent"
-                              ? `${Number(value || 0).toFixed(1)}%`
+                              ? `${Number(value || 0).toFixed(2)}%`
                               : `${Number(value || 0).toLocaleString('es-MX')} registros`;
                             return [formatted, name];
                           }}
@@ -1645,7 +1667,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           <LabelList
                             dataKey="ausentismos"
                             position="top"
-                            formatter={(value: number) => metricType === "percent" ? `${Math.round(value)}%` : value}
+                            formatter={(value: number) => metricType === "percent" ? `${value.toFixed(2)}%` : value}
                             style={{ fill: axisMutedColor, fontWeight: 600, fontSize: 11 }}
                           />
                         </Bar>
@@ -1653,7 +1675,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           <LabelList
                             dataKey="permisos"
                             position="top"
-                            formatter={(value: number) => metricType === "percent" ? `${Math.round(value)}%` : value}
+                            formatter={(value: number) => metricType === "percent" ? `${value.toFixed(2)}%` : value}
                             style={{ fill: axisMutedColor, fontWeight: 600, fontSize: 11 }}
                           />
                         </Bar>

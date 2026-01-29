@@ -117,7 +117,7 @@ export function AbsenteeismTable({
       });
     });
 
-    // ✅ JORNADAS NETAS = Días activos - Total incidencias
+    // ✅ JORNADAS = Días activos totales MENOS ausentismos
     const jornadasNetas = diasLaboradosPorMes.map((dias, idx) => dias - totales[idx]);
 
     // Convertir a porcentajes si es necesario

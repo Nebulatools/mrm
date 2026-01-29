@@ -357,7 +357,7 @@ export function RotationByMotiveSeniorityTable({
                       const pct = grandTotal > 0 ? ((columnTotals[bucket.key] || 0) / grandTotal * 100) : 0;
                       return (
                         <TableCell key={bucket.key} className="text-right">
-                          {pct > 0 ? pct.toFixed(0) + '%' : ''}
+                          {pct > 0 ? pct.toFixed(2) + '%' : ''}
                         </TableCell>
                       );
                     })}

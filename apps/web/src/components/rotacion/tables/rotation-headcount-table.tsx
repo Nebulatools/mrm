@@ -14,7 +14,6 @@ import type { PlantillaRecord } from "@/lib/supabase";
 import type { RetentionFilterOptions } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/shared/visualization-container";
-import { normalizeCCToUbicacion } from "@/lib/normalizers";
 import { parseSupabaseDate } from "@/lib/retention-calculations";
 import { applyFiltersWithScope } from "@/lib/filters";
 import { endOfMonth } from "date-fns";
@@ -85,8 +84,7 @@ export function RotationHeadcountTable({
 
       UBICACIONES.forEach(ubicacion => {
         const headcount = plantillaFiltered.filter(emp => {
-          const cc = (emp as any).cc || '';
-          const empUbicacion = normalizeCCToUbicacion(cc);
+          const empUbicacion = ((emp as any).ubicacion2 || '').toUpperCase().trim() || 'SIN UBICACIÓN';
           if (empUbicacion !== ubicacion) return false;
 
           const fechaIngreso = parseSupabaseDate(emp.fecha_ingreso);

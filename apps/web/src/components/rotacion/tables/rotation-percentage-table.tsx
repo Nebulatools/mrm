@@ -13,7 +13,6 @@ import {
 import type { PlantillaRecord } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/shared/visualization-container";
-import { normalizeCCToUbicacion } from "@/lib/normalizers";
 import { parseSupabaseDate } from "@/lib/retention-calculations";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { isFutureMonth } from "@/lib/date-utils";
@@ -92,8 +91,7 @@ export function RotationPercentageTable({
       UBICACIONES.forEach(ubicacion => {
         // Count bajas for this location and month
         const bajas = bajasYear.filter(emp => {
-          const cc = (emp as any).cc || '';
-          const empUbicacion = normalizeCCToUbicacion(cc);
+          const empUbicacion = ((emp as any).ubicacion2 || '').toUpperCase().trim() || 'SIN UBICACIÓN';
           if (empUbicacion !== ubicacion) return false;
 
           const fecha = new Date(emp.fecha_baja!);
@@ -103,8 +101,7 @@ export function RotationPercentageTable({
 
         // Calculate headcount at month start and end
         const headcountStart = plantillaFiltered.filter(emp => {
-          const cc = (emp as any).cc || '';
-          const empUbicacion = normalizeCCToUbicacion(cc);
+          const empUbicacion = ((emp as any).ubicacion2 || '').toUpperCase().trim() || 'SIN UBICACIÓN';
           if (empUbicacion !== ubicacion) return false;
 
           const fechaIngreso = parseSupabaseDate(emp.fecha_ingreso);
@@ -115,8 +112,7 @@ export function RotationPercentageTable({
         }).length;
 
         const headcountEnd = plantillaFiltered.filter(emp => {
-          const cc = (emp as any).cc || '';
-          const empUbicacion = normalizeCCToUbicacion(cc);
+          const empUbicacion = ((emp as any).ubicacion2 || '').toUpperCase().trim() || 'SIN UBICACIÓN';
           if (empUbicacion !== ubicacion) return false;
 
           const fechaIngreso = parseSupabaseDate(emp.fecha_ingreso);
@@ -133,7 +129,7 @@ export function RotationPercentageTable({
         const rotacion = avgHeadcount > 0 ? (bajas / avgHeadcount) * 100 : 0;
 
         const locationData = locationMonthMap.get(ubicacion)!;
-        locationData[month.key] = rotacion > 0 ? rotacion.toFixed(1) + '%' : '';
+        locationData[month.key] = rotacion > 0 ? rotacion.toFixed(2) + '%' : '';
       });
     });
 
@@ -150,7 +146,7 @@ export function RotationPercentageTable({
         }
       });
       const total = values.length > 0
-        ? values.reduce((sum, val) => sum + val, 0).toFixed(1) + '%'
+        ? values.reduce((sum, val) => sum + val, 0).toFixed(2) + '%'
         : '';
 
       return { ubicacion, months, total };
@@ -181,7 +177,7 @@ export function RotationPercentageTable({
       });
 
       if (values.length > 0) {
-        const avg = (values.reduce((sum, val) => sum + val, 0) / values.length).toFixed(1) + '%';
+        const avg = (values.reduce((sum, val) => sum + val, 0) / values.length).toFixed(2) + '%';
         averages[month.key] = avg;
       } else {
         averages[month.key] = '';
@@ -201,7 +197,7 @@ export function RotationPercentageTable({
       }
     });
     return values.length > 0
-      ? values.reduce((sum, val) => sum + val, 0).toFixed(1) + '%'
+      ? values.reduce((sum, val) => sum + val, 0).toFixed(2) + '%'
       : '';
   }, [data]);
 

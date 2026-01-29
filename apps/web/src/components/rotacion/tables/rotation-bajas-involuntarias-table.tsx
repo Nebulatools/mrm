@@ -14,7 +14,7 @@ import type { PlantillaRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/shared/visualization-container";
-import { normalizeCCToUbicacion, isMotivoClave, normalizeMotivo } from "@/lib/normalizers";
+import { isMotivoClave, normalizeMotivo } from "@/lib/normalizers";
 import type { RetentionFilterOptions } from "@/lib/filters";
 import { applyFiltersWithScope } from "@/lib/filters";
 import { isFutureMonth } from "@/lib/date-utils";
@@ -101,8 +101,7 @@ export function RotationBajasInvoluntariasTable({
     });
 
     bajasYear.forEach(emp => {
-      const cc = (emp as any).cc || '';
-      const ubicacion = normalizeCCToUbicacion(cc);
+      const ubicacion = ((emp as any).ubicacion2 || '').toUpperCase().trim() || 'SIN UBICACIÓN';
       const fecha = new Date(emp.fecha_baja!);
       const month = fecha.getMonth() + 1; // 1-12
 

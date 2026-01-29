@@ -14,7 +14,7 @@ import type { PlantillaRecord } from "@/lib/supabase";
 import type { MotivoBajaRecord } from "@/lib/types/records";
 import { cn } from "@/lib/utils";
 import { VisualizationContainer } from "@/components/shared/visualization-container";
-import { normalizeCCToUbicacion, normalizeMotivo, isMotivoClave } from "@/lib/normalizers";
+import { normalizeMotivo, isMotivoClave } from "@/lib/normalizers";
 import { parseSupabaseDate } from "@/lib/retention-calculations";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { isFutureMonth } from "@/lib/date-utils";
@@ -170,8 +170,7 @@ export function RotationCombinedTable({
 
         // Calculate headcount
         const headcountStart = plantilla.filter(emp => {
-          const cc = (emp as any).cc || '';
-          const empUbicacion = normalizeCCToUbicacion(cc);
+          const empUbicacion = ((emp as any).ubicacion2 || '').toUpperCase().trim() || 'SIN UBICACIÓN';
           if (empUbicacion !== ubicacion) return false;
 
           const fechaIngreso = parseSupabaseDate(emp.fecha_ingreso);
@@ -182,8 +181,7 @@ export function RotationCombinedTable({
         }).length;
 
         const headcountEnd = plantilla.filter(emp => {
-          const cc = (emp as any).cc || '';
-          const empUbicacion = normalizeCCToUbicacion(cc);
+          const empUbicacion = ((emp as any).ubicacion2 || '').toUpperCase().trim() || 'SIN UBICACIÓN';
           if (empUbicacion !== ubicacion) return false;
 
           const fechaIngreso = parseSupabaseDate(emp.fecha_ingreso);
@@ -200,8 +198,7 @@ export function RotationCombinedTable({
 
         // Count bajas for this location and month
         const bajasMes = bajasYear.filter(emp => {
-          const cc = (emp as any).cc || '';
-          const empUbicacion = normalizeCCToUbicacion(cc);
+          const empUbicacion = ((emp as any).ubicacion2 || '').toUpperCase().trim() || 'SIN UBICACIÓN';
           if (empUbicacion !== ubicacion) return false;
 
           // ✅ FIX TIMEZONE: Parsear fecha como string para evitar que "2025-12-01" UTC

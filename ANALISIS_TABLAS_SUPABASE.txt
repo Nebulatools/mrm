@@ -1225,6 +1225,188 @@ RECOMENDACIONES PARA ANÁLISIS:
 
 
 ================================================================================
+8. ROTACIÓN POR UBICACIÓN (ubicacion2 de empleados_sftp) - AÑO 2025
+================================================================================
+
+FUENTE: Columna ubicacion2 de empleados_sftp (CAD, CORPORATIVO, FILIALES)
+NOTA: Desde Enero 2026, todas las tablas de rotación usan ubicacion2 directamente
+      (antes usaban normalizeCCToUbicacion(cc) que era una heurística sobre centro de costos).
+
+--------------------------------------------------------------------------------
+8.1 ACTIVOS PROMEDIO POR UBICACIÓN Y MES (2025)
+--------------------------------------------------------------------------------
+Fórmula: ROUND((activos_inicio_mes + activos_fin_mes) / 2)
+
+Ubicación    | ENE | FEB | MAR | ABR | MAY | JUN | JUL | AGO | SEP | OCT | NOV | DIC
+-------------|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|----
+CAD          | 179 | 188 | 194 | 200 | 199 | 196 | 194 | 198 | 204 | 199 | 198 | 196
+CORPORATIVO  | 129 | 129 | 130 | 129 | 129 | 129 | 130 | 131 | 131 | 130 | 130 | 132
+FILIALES     |  17 |  18 |  20 |  20 |  20 |  23 |  24 |  28 |  32 |  33 |  35 |  36
+-------------|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|----
+TOTAL        | 325 | 335 | 344 | 349 | 348 | 348 | 348 | 357 | 367 | 362 | 363 | 364
+
+Detalle inicio/fin mes:
+┌──────────────┬─────┬───────────┬──────────┬──────────┐
+│ Ubicación    │ Mes │ Inicio    │ Fin      │ Promedio │
+├──────────────┼─────┼───────────┼──────────┼──────────┤
+│ CAD          │ ENE │ 175       │ 182      │ 179      │
+│ CAD          │ FEB │ 182       │ 194      │ 188      │
+│ CAD          │ MAR │ 194       │ 193      │ 194      │
+│ CAD          │ ABR │ 195       │ 205      │ 200      │
+│ CAD          │ MAY │ 205       │ 193      │ 199      │
+│ CAD          │ JUN │ 193       │ 198      │ 196      │
+│ CAD          │ JUL │ 196       │ 191      │ 194      │
+│ CAD          │ AGO │ 191       │ 204      │ 198      │
+│ CAD          │ SEP │ 207       │ 201      │ 204      │
+│ CAD          │ OCT │ 200       │ 198      │ 199      │
+│ CAD          │ NOV │ 197       │ 198      │ 198      │
+│ CAD          │ DIC │ 197       │ 194      │ 196      │
+├──────────────┼─────┼───────────┼──────────┼──────────┤
+│ CORPORATIVO  │ ENE │ 129       │ 128      │ 129      │
+│ CORPORATIVO  │ FEB │ 128       │ 130      │ 129      │
+│ CORPORATIVO  │ MAR │ 130       │ 129      │ 130      │
+│ CORPORATIVO  │ ABR │ 128       │ 129      │ 129      │
+│ CORPORATIVO  │ MAY │ 129       │ 129      │ 129      │
+│ CORPORATIVO  │ JUN │ 129       │ 129      │ 129      │
+│ CORPORATIVO  │ JUL │ 129       │ 131      │ 130      │
+│ CORPORATIVO  │ AGO │ 131       │ 131      │ 131      │
+│ CORPORATIVO  │ SEP │ 131       │ 130      │ 131      │
+│ CORPORATIVO  │ OCT │ 130       │ 129      │ 130      │
+│ CORPORATIVO  │ NOV │ 129       │ 131      │ 130      │
+│ CORPORATIVO  │ DIC │ 131       │ 132      │ 132      │
+├──────────────┼─────┼───────────┼──────────┼──────────┤
+│ FILIALES     │ ENE │ 17        │ 16       │ 17       │
+│ FILIALES     │ FEB │ 16        │ 20       │ 18       │
+│ FILIALES     │ MAR │ 20        │ 20       │ 20       │
+│ FILIALES     │ ABR │ 20        │ 19       │ 20       │
+│ FILIALES     │ MAY │ 19        │ 21       │ 20       │
+│ FILIALES     │ JUN │ 21        │ 24       │ 23       │
+│ FILIALES     │ JUL │ 24        │ 23       │ 24       │
+│ FILIALES     │ AGO │ 23        │ 32       │ 28       │
+│ FILIALES     │ SEP │ 33        │ 31       │ 32       │
+│ FILIALES     │ OCT │ 32        │ 33       │ 33       │
+│ FILIALES     │ NOV │ 33        │ 37       │ 35       │
+│ FILIALES     │ DIC │ 37        │ 34       │ 36       │
+└──────────────┴─────┴───────────┴──────────┴──────────┘
+
+--------------------------------------------------------------------------------
+8.2 BAJAS POR UBICACIÓN, MES Y TIPO (2025)
+--------------------------------------------------------------------------------
+Clasificación: Involuntaria = rescisión/término | Voluntaria = resto
+
+┌──────────────┬─────┬───────┬─────────────┬─────────────┐
+│ Ubicación    │ Mes │ Total │ Voluntarias │Involuntarias│
+├──────────────┼─────┼───────┼─────────────┼─────────────┤
+│ CAD          │ ENE │ 13    │ 10          │ 3           │
+│ CAD          │ FEB │ 17    │ 12          │ 5           │
+│ CAD          │ MAR │ 19    │ 16          │ 3           │
+│ CAD          │ ABR │  7    │  6          │ 1           │
+│ CAD          │ MAY │ 24    │ 16          │ 8           │
+│ CAD          │ JUN │ 15    │ 11          │ 4           │
+│ CAD          │ JUL │ 23    │ 11          │ 12          │
+│ CAD          │ AGO │ 14    │ 12          │ 2           │
+│ CAD          │ SEP │ 12    │  6          │ 6           │
+│ CAD          │ OCT │ 12    │ 10          │ 2           │
+│ CAD          │ NOV │ 10    │  4          │ 6           │
+│ CAD          │ DIC │ 13    │  7          │ 6           │
+│ CAD TOTAL    │     │ 179   │ 121         │ 58          │
+├──────────────┼─────┼───────┼─────────────┼─────────────┤
+│ CORPORATIVO  │ ENE │  3    │  3          │ 0           │
+│ CORPORATIVO  │ FEB │  3    │  2          │ 1           │
+│ CORPORATIVO  │ MAR │  5    │  1          │ 4           │
+│ CORPORATIVO  │ ABR │  5    │  3          │ 2           │
+│ CORPORATIVO  │ MAY │  3    │  1          │ 2           │
+│ CORPORATIVO  │ JUN │  3    │  2          │ 1           │
+│ CORPORATIVO  │ JUL │  1    │  1          │ 0           │
+│ CORPORATIVO  │ AGO │  2    │  2          │ 0           │
+│ CORPORATIVO  │ SEP │  2    │  1          │ 1           │
+│ CORPORATIVO  │ OCT │  2    │  2          │ 0           │
+│ CORPORATIVO  │ NOV │  1    │  1          │ 0           │
+│ CORPORATIVO  │ DIC │  1    │  1          │ 0           │
+│ CORP TOTAL   │     │ 31    │ 20          │ 11          │
+├──────────────┼─────┼───────┼─────────────┼─────────────┤
+│ FILIALES     │ ENE │  1    │  1          │ 0           │
+│ FILIALES     │ FEB │  2    │  1          │ 1           │
+│ FILIALES     │ MAR │  0    │  0          │ 0           │
+│ FILIALES     │ ABR │  1    │  1          │ 0           │
+│ FILIALES     │ MAY │  2    │  2          │ 0           │
+│ FILIALES     │ JUN │  2    │  2          │ 0           │
+│ FILIALES     │ JUL │  3    │  3          │ 0           │
+│ FILIALES     │ AGO │  1    │  0          │ 1           │
+│ FILIALES     │ SEP │  4    │  2          │ 2           │
+│ FILIALES     │ OCT │  2    │  1          │ 1           │
+│ FILIALES     │ NOV │  1    │  0          │ 1           │
+│ FILIALES     │ DIC │  3    │  2          │ 1           │
+│ FIL TOTAL    │     │ 22    │ 15          │ 7           │
+├──────────────┼─────┼───────┼─────────────┼─────────────┤
+│ GRAN TOTAL   │     │ 232   │ 156         │ 76          │
+└──────────────┴─────┴───────┴─────────────┴─────────────┘
+
+NOTA: El total aquí (232) puede diferir del total general de motivos_baja (236)
+porque este query une empleados_sftp.fecha_baja con motivos_baja.fecha_baja,
+y 4 registros pueden no tener match exacto de fecha entre ambas tablas.
+
+--------------------------------------------------------------------------------
+8.3 COMPARACIÓN CON TABLA DEL DASHBOARD (Tab Rotación 2025)
+--------------------------------------------------------------------------------
+
+ACTIVOS - Coincidencia con dashboard:
+┌──────────────┬─────┬──────────┬───────────┬────────┐
+│ Ubicación    │ Mes │ Supabase │ Dashboard │ Match? │
+├──────────────┼─────┼──────────┼───────────┼────────┤
+│ CAD          │ ENE │ 179      │ 179       │ ✅     │
+│ CORPORATIVO  │ ENE │ 129      │ 129       │ ✅     │
+│ FILIALES     │ ENE │ 17       │ 17        │ ✅     │
+│ TOTAL        │ ENE │ 325      │ 325       │ ✅     │
+│ (todos los meses verificados coinciden exactamente) │
+└──────────────┴─────┴──────────┴───────────┴────────┘
+
+BAJAS VOLUNTARIAS - Coincidencia con dashboard:
+┌──────────────┬─────┬──────────┬───────────┬────────┐
+│ Ubicación    │ Mes │ Supabase │ Dashboard │ Match? │
+├──────────────┼─────┼──────────┼───────────┼────────┤
+│ CAD          │ ENE │ 10       │ 10        │ ✅     │
+│ CORPORATIVO  │ ENE │ 3        │ 3         │ ✅     │
+│ FILIALES     │ ENE │ 1        │ 1         │ ✅     │
+│ TOTAL        │ ENE │ 14       │ 14        │ ✅     │
+│ CAD          │ FEB │ 12       │ 12        │ ✅     │
+│ CORPORATIVO  │ FEB │ 2        │ 2         │ ✅     │
+│ FILIALES     │ FEB │ 1        │ 1         │ ✅     │
+│ TOTAL        │ FEB │ 15       │ 15        │ ✅     │
+└──────────────┴─────┴──────────┴───────────┴────────┘
+
+RESULTADO: Los datos del dashboard coinciden con Supabase usando ubicacion2.
+
+--------------------------------------------------------------------------------
+8.4 RESUMEN ANUAL POR UBICACIÓN (2025)
+--------------------------------------------------------------------------------
+
+┌──────────────┬──────────────┬──────────────┬───────────────┬──────────────┐
+│ Ubicación    │ Activos Prom │ Total Bajas  │ Voluntarias   │Involuntarias │
+│              │ (anual)      │              │               │              │
+├──────────────┼──────────────┼──────────────┼───────────────┼──────────────┤
+│ CAD          │ 195          │ 179          │ 121 (67.6%)   │ 58 (32.4%)   │
+│ CORPORATIVO  │ 130          │  31          │  20 (64.5%)   │ 11 (35.5%)   │
+│ FILIALES     │  25          │  22          │  15 (68.2%)   │  7 (31.8%)   │
+├──────────────┼──────────────┼──────────────┼───────────────┼──────────────┤
+│ TOTAL        │ 350          │ 232          │ 156 (67.2%)   │ 76 (32.8%)   │
+└──────────────┴──────────────┴──────────────┴───────────────┴──────────────┘
+
+TASA DE ROTACIÓN ANUAL POR UBICACIÓN (Total Bajas / Activos Promedio × 100):
+- CAD:          179 / 195 × 100 = 91.8%  ⚠️ Muy alta
+- CORPORATIVO:   31 / 130 × 100 = 23.8%  ✅ Moderada
+- FILIALES:      22 /  25 × 100 = 88.0%  ⚠️ Alta (plantilla pequeña amplifica %)
+- TOTAL:        232 / 350 × 100 = 66.3%
+
+INSIGHTS:
+- CAD concentra 77.2% de todas las bajas (179 de 232)
+- CAD tiene la rotación más alta (91.8%) - requiere atención urgente
+- CORPORATIVO es la ubicación más estable (23.8% rotación)
+- FILIALES tiene alta rotación % (88%) pero bajo volumen absoluto (22 bajas)
+- La proporción voluntaria/involuntaria es consistente en las 3 ubicaciones (~67/33%)
+
+
+================================================================================
 FIN DEL ANÁLISIS
 ================================================================================
 Archivo generado: ANALISIS_TABLAS_SUPABASE.txt
@@ -1236,143 +1418,33 @@ X. FÓRMULA DE CÁLCULO: JORNADAS LABORADAS (Tabla Ausentismos)
 ================================================================================
 
 FUENTE DE DATOS:
-- Tabla: empleados_sftp (columnas: fecha_ingreso, fecha_baja, turno)
+- Tabla: empleados_sftp (columnas: fecha_ingreso, fecha_baja)
 - Tabla: incidencias (columnas: emp, fecha, inci)
 
---------------------------------------------------------------------------------
-PASO 1 - DÍAS ACTIVOS POR MES (calendarios, los 7 días de la semana)
---------------------------------------------------------------------------------
-
-Para CADA DÍA del mes (incluyendo sábados y domingos), se cuenta cuántos
-empleados estaban activos ese día:
+PASO 1 - DÍAS ACTIVOS POR MES:
+Para cada día del mes, contar cuántos empleados cumplían:
   fecha_ingreso <= día AND (fecha_baja IS NULL OR fecha_baja >= día)
+Sumar todos los días del mes = días_activos[mes]
 
-Se suman los conteos de TODOS los días del mes = días_activos[mes]
-
-Ejemplo Enero 2025 (31 días):
-  Día 1 ene → 326 empleados activos
-  Día 2 ene → 326 empleados activos
-  ...
-  Día 31 ene → 326 empleados activos
-  TOTAL = 10,108 días-empleado
-
-SQL real ejecutado en Supabase (Enero 2026):
-
-  WITH meses AS (
-    SELECT m,
-      DATE_TRUNC('month', MAKE_DATE(2025, m, 1))::date AS inicio,
-      (DATE_TRUNC('month', MAKE_DATE(2025, m, 1)) + INTERVAL '1 month' - INTERVAL '1 day')::date AS fin
-    FROM generate_series(1,12) AS m
-  )
-  SELECT meses.m,
-    d.dia::date,
-    COUNT(e.numero_empleado) AS empleados_activos_ese_dia
-  FROM meses
-  CROSS JOIN LATERAL generate_series(meses.inicio, meses.fin, '1 day'::interval) AS d(dia)
+SQL equivalente:
+  SELECT d.day::date, COUNT(*) as activos
+  FROM generate_series(inicio_mes, fin_mes, '1 day') AS d(day)
   JOIN empleados_sftp e
-    ON e.fecha_ingreso <= d.dia::date
-    AND (e.fecha_baja IS NULL OR e.fecha_baja >= d.dia::date)
-  GROUP BY meses.m, d.dia
-  ORDER BY meses.m, d.dia;
+    ON e.fecha_ingreso <= d.day::date
+    AND (e.fecha_baja IS NULL OR e.fecha_baja >= d.day::date)
+  GROUP BY d.day
 
-  -- Luego se suma por mes: SUM(empleados_activos_ese_dia) = días_activos[mes]
+PASO 2 - AUSENTISMOS POR MES:
+Contar incidencias con códigos: VAC, FI, SUSP, PSIN, ENFE, MAT1, MAT3, ACCI, INCA, PCON, FEST, PATER, JUST
+Agrupadas por mes.
 
-RESULTADOS REALES 2025 (días activos = días-empleado calendario):
-  ENE = 10,108 (31 días)
-  FEB =  9,399 (28 días)
-  MAR = 10,725 (31 días)
-  ABR = 10,522 (30 días)
-  MAY = 10,924 (31 días)
-  JUN = 10,552 (30 días)
-  JUL = 10,759 (31 días)
-  AGO = 11,094 (31 días)
-  SEP = 11,095 (30 días)
-  OCT = 11,326 (31 días)
-  NOV = 10,915 (30 días)
-  DIC = 11,162 (31 días)
+PASO 3 - JORNADAS:
+JORNADAS[mes] = días_activos[mes] - ausentismos[mes]
 
---------------------------------------------------------------------------------
-⚠️ NOTA IMPORTANTE: SE CUENTAN LOS 7 DÍAS DE LA SEMANA (NO solo laborables)
---------------------------------------------------------------------------------
-
-NO existe en la base de datos una tabla de "días laborables" ni un calendario
-laboral. El cálculo cuenta los 7 días de la semana para cada empleado.
-
-¿Por qué se incluyen sábados y domingos?
-
-1. TURNOS: La mayoría NO especifica días de la semana:
-   - "Matutino Cad 0830_1700"       → 184 empleados (NO dice qué días)
-   - "Matutino Corpo 0900_1900"     →  49 empleados (NO dice qué días)
-   - "Matutino Corpo 0900_1900 LV"  →  34 empleados (LV = Lunes-Viernes)
-   - "Matutino Corpo 0800_1800"     →  33 empleados (NO dice qué días)
-   - "Matutino Filiales 0930_1900 F"→  28 empleados (F = ¿fines?)
-   - Otros                          →  34 empleados
-   Solo 34 de 362 activos (9.4%) tienen "LV" explícito.
-
-2. INCIDENCIAS existen los 7 días de la semana (datos reales 2025):
-   - Domingo:  855 incidencias
-   - Lunes:   1,556 incidencias
-   - Martes:  1,323 incidencias
-   - Miércoles: 1,240 incidencias
-   - Jueves:  1,205 incidencias
-   - Viernes: 1,463 incidencias
-   - Sábado:  1,238 incidencias
-
-3. INCIDENCIAS EN DOMINGO (855 registros) son principalmente:
-   - VAC (vacaciones): 642 (75%)
-   - ENFE (enfermedad): 109 (13%)
-   - MAT3 (maternidad): 61
-   - Otros: 43
-   → Las vacaciones y enfermedades se cuentan como días corridos (incluyen
-     fines de semana), por eso hay incidencias en domingo.
-
-4. PRENOMINA tiene horas en sábados y domingos:
-   - 336 de 380 registros (88%) tienen horas ordinarias en sábado
-   - 340 de 380 registros (89%) tienen horas ordinarias en domingo
-   → La mayoría de empleados SÍ trabajan fines de semana
-
-CONCLUSIÓN: Contar los 7 días es CORRECTO para esta empresa porque:
-- La mayoría trabaja 6-7 días/semana (manufactura/CAD)
-- Las incidencias (VAC, enfermedad) cubren días corridos, no solo hábiles
-- No hay calendario laboral en la BD para distinguir días laborables
-- La prenomina confirma que se trabaja sábados y domingos
-
-Si en el futuro se necesitara excluir domingos (o ciertos días), se requeriría:
-- Una tabla de calendario laboral por turno/ubicación
-- O filtrar por día de semana en el cálculo de días activos
-
---------------------------------------------------------------------------------
-PASO 2 - AUSENTISMOS POR MES
---------------------------------------------------------------------------------
-
-Se cuentan incidencias con estos códigos:
-  VAC, FI, FJ, SUSP, PSIN, ENFE, MAT1, MAT3, ACCI, INCA, PCON, FEST, PATER, JUST
-
-RESULTADOS REALES 2025:
-  ENE = 803  | FEB = 600  | MAR = 669  | ABR = 790
-  MAY = 838  | JUN = 844  | JUL = 775  | AGO = 814
-  SEP = 645  | OCT = 598  | NOV = 602  | DIC = 902
-
---------------------------------------------------------------------------------
-PASO 3 - JORNADAS = Días Activos - Ausentismos
---------------------------------------------------------------------------------
-
-  MES | DÍAS ACTIVOS | AUSENTISMOS | JORNADAS
-  ----|-------------|-------------|----------
-  ENE |  10,108     |     803     |   9,305
-  FEB |   9,399     |     600     |   8,799
-  MAR |  10,725     |     669     |  10,056
-  ABR |  10,522     |     790     |   9,732
-  MAY |  10,924     |     838     |  10,086
-  JUN |  10,552     |     844     |   9,708
-  JUL |  10,759     |     775     |   9,984
-  AGO |  11,094     |     814     |  10,280
-  SEP |  11,095     |     645     |  10,450
-  OCT |  11,326     |     598     |  10,728
-  NOV |  10,915     |     602     |  10,313
-  DIC |  11,162     |     902     |  10,260
+VALORES 2025 (sin filtros):
+ENE=9,305 | FEB=8,799 | MAR=10,056 | ABR=9,732 | MAY=10,086 | JUN=9,708
+JUL=9,984 | AGO=10,280 | SEP=10,450 | OCT=10,728 | NOV=10,313 | DIC=10,260
 
 IMPLEMENTACIÓN:
 Archivo: apps/web/src/components/incidencias/tables/absenteeism-table.tsx
 Variable: jornadasNetas (línea 121)
-Código: diasLaboradosPorMes.map((dias, idx) => dias - totales[idx])
