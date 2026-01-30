@@ -108,7 +108,7 @@ const createBarLabelPercentRenderer = (fillColor: string) => (props: any) => {
       fontSize={10}
       fontWeight={600}
     >
-      {`${Math.round(value)}%`}
+      {`${Number(value).toFixed(1)}%`}
     </text>
   );
 };

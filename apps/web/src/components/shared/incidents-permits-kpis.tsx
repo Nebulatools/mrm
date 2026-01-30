@@ -28,6 +28,11 @@ interface IncidentsPermitsKPIsProps {
   refreshEnabled?: boolean;
   metricType?: 'percent' | 'count'; // ✅ Soporte para toggle %/#
   showTotal?: boolean; // ✅ Mostrar "Total:" debajo del porcentaje
+  // Override de porcentajes para consistencia exacta entre tabs
+  faltasPctOverride?: number;
+  faltasPctAnteriorOverride?: number;
+  saludPctOverride?: number;
+  saludPctAnteriorOverride?: number;
 }
 
 /**
@@ -42,7 +47,11 @@ export function IncidentsPermitsKPIs({
   currentReferenceDate,
   refreshEnabled = false,
   metricType = 'percent',
-  showTotal = false
+  showTotal = false,
+  faltasPctOverride,
+  faltasPctAnteriorOverride,
+  saludPctOverride,
+  saludPctAnteriorOverride
 }: IncidentsPermitsKPIsProps) {
 
   // ✅ Calcular totales actuales: Faltas + Salud (según nueva especificación)
@@ -83,11 +92,11 @@ export function IncidentsPermitsKPIs({
     return { totalFaltasAnterior: countFaltas, totalSaludAnterior: countSalud };
   }, [incidenciasAnterior]);
 
-  // ✅ Calcular porcentajes
-  const faltasPct = diasLaborablesActual > 0 ? (totalFaltas / diasLaborablesActual) * 100 : 0;
-  const faltasPctAnterior = diasLaborablesPrev > 0 ? (totalFaltasAnterior / diasLaborablesPrev) * 100 : 0;
-  const saludPct = diasLaborablesActual > 0 ? (totalSalud / diasLaborablesActual) * 100 : 0;
-  const saludPctAnterior = diasLaborablesPrev > 0 ? (totalSaludAnterior / diasLaborablesPrev) * 100 : 0;
+  // Usar overrides de Incidencias tab si están disponibles, sino calcular localmente
+  const faltasPct = faltasPctOverride ?? (diasLaborablesActual > 0 ? (totalFaltas / diasLaborablesActual) * 100 : 0);
+  const faltasPctAnterior = faltasPctAnteriorOverride ?? (diasLaborablesPrev > 0 ? (totalFaltasAnterior / diasLaborablesPrev) * 100 : 0);
+  const saludPct = saludPctOverride ?? (diasLaborablesActual > 0 ? (totalSalud / diasLaborablesActual) * 100 : 0);
+  const saludPctAnterior = saludPctAnteriorOverride ?? (diasLaborablesPrev > 0 ? (totalSaludAnterior / diasLaborablesPrev) * 100 : 0);
 
   const toISODate = (date: Date) => format(date, 'yyyy-MM-dd');
 

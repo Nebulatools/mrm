@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, TrendingDown, AlertCircle, TrendingUp, Clipboard } from 'lucide-react';
+import { Users, TrendingDown, AlertCircle, Heart, TrendingUp, Clipboard } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 import type { TooltipProps } from 'recharts';
 import { isMotivoClave, normalizeIncidenciaCode, normalizeCCToUbicacion } from '@/lib/normalizers';
@@ -32,7 +32,7 @@ import { CHART_COLORS, getModernColor, withOpacity } from '@/lib/chart-colors';
 import { differenceInCalendarDays, endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { KPICard } from '@/components/shared/kpi-card';
 import { useTheme } from '@/components/shared/theme-provider';
-import { IncidentsPermitsKPIs } from '@/components/shared/incidents-permits-kpis';
+// Faltas/Salud KPIs se obtienen del snapshot de IncidentsTab (forceMount)
 
 // ✅ CATEGORIZACIÓN DE INCIDENCIAS: 4 grupos
 const FALTAS_CODES = new Set(["FI", "SUSP", "PSIN"]); // Faltas + Suspensiones + Permiso Sin Goce
@@ -106,6 +106,10 @@ interface SummaryComparisonProps {
     incidenciasAnteriorPct: number;
     permisosPct: number;
     permisosAnteriorPct: number;
+    faltasPct: number;
+    faltasPctAnterior: number;
+    saludPct: number;
+    saludPctAnterior: number;
   };
 }
 
@@ -221,7 +225,7 @@ export function SummaryComparison({
   referenceDate: referenceDateProp,
   refreshEnabled = false,
   retentionKPIsOverride,
-  incidentsKPIsOverride
+  incidentsKPIsOverride,
 }: SummaryComparisonProps) {
 
   // ✅ FASE 3: Estado para vista activa (ubicacion, negocio, area, departamento)
@@ -628,10 +632,8 @@ export function SummaryComparison({
       permisos
     });
 
-    // ✅ CORREGIDO: Calcular porcentajes usando días laborados (fórmula del jefe)
-    // Días laborados = Empleados × Días laborables del mes (lunes a sábado)
-    const diasLaborablesMes = contarDiasLaborablesMes(periodoInicio, periodoFin);
-    const diasLaborados = empleadosActivos * diasLaborablesMes;
+    // Días laborados = suma de días activos por empleado (mismo cálculo que Incidencias tab)
+    const diasLaborados = grupo.reduce((acc, emp) => acc + calcularDiasActivo(emp, periodoInicio, periodoFin), 0);
 
     const incidenciasPct = diasLaborados > 0 ? (totalIncidencias / diasLaborados) * 100 : 0;
     const permisosPct = diasLaborados > 0 ? (permisos / diasLaborados) * 100 : 0;
@@ -847,9 +849,11 @@ export function SummaryComparison({
     // ✅ CORREGIDO: Los KPIs de arriba (Incidencias, Permisos) usan TODA la plantilla filtrada
     // No deben reagruparse, ya vienen filtrados desde dashboard-page.tsx
     // Calcular KPIs del mes actual y anterior para comparación usando TODA la plantilla filtrada
-    const kpisActuales = calcularKPIsDelMes(plantilla, plantillaRotacion, referenceDate);
-    const kpisPrevMonth = calcularKPIsDelMes(plantilla, plantillaRotacion, subMonths(referenceDate, 1));
-    const kpisPrevYear = calcularKPIsDelMes(plantilla, plantillaRotacion, subMonths(referenceDate, 12));
+    // Usar plantillaYearScope para incluir empleados dados de baja en el periodo
+    const grupoCompleto = plantillaYearScope || plantilla;
+    const kpisActuales = calcularKPIsDelMes(grupoCompleto, plantillaRotacion, referenceDate);
+    const kpisPrevMonth = calcularKPIsDelMes(grupoCompleto, plantillaRotacion, subMonths(referenceDate, 1));
+    const kpisPrevYear = calcularKPIsDelMes(grupoCompleto, plantillaRotacion, subMonths(referenceDate, 12));
 
     // ✅ Preparar datos para componente compartido IncidentsPermitsKPIs
     const currentMonthStartCalc = startOfMonth(referenceDate);
@@ -857,8 +861,10 @@ export function SummaryComparison({
     const prevMonthStartCalc = startOfMonth(subMonths(referenceDate, 1));
     const prevMonthEndCalc = endOfMonth(subMonths(referenceDate, 1));
 
+    // Usar plantillaYearScope (incluye inactivos del año) para no excluir
+    // incidencias de empleados dados de baja que estaban activos en el periodo
     const empleadosIds = new Set(
-      plantilla.map(e => {
+      (plantillaYearScope || plantilla).map(e => {
         const numero = Number(e.numero_empleado ?? e.emp_id);
         return Number.isNaN(numero) ? null : numero;
       }).filter((v): v is number => v !== null)
@@ -878,12 +884,13 @@ export function SummaryComparison({
       return fechaInc >= prevMonthStartCalc && fechaInc <= prevMonthEndCalc;
     });
 
-    // ✅ MÉTODO PRECISO: Sumar días individuales considerando ingresos/bajas durante el mes
-    const diasLaboradosActual = plantilla.reduce((acc, emp) => {
+    // Usar plantillaYearScope (incluye inactivos del año) para coincidir con Incidencias tab
+    const grupoParaDias = plantillaYearScope || plantilla;
+    const diasLaboradosActual = grupoParaDias.reduce((acc, emp) => {
       return acc + calcularDiasActivo(emp, currentMonthStartCalc, currentMonthEndCalc);
     }, 0);
 
-    const diasLaboradosPrev = plantilla.reduce((acc, emp) => {
+    const diasLaboradosPrev = grupoParaDias.reduce((acc, emp) => {
       return acc + calcularDiasActivo(emp, prevMonthStartCalc, prevMonthEndCalc);
     }, 0);
 
@@ -1188,15 +1195,45 @@ export function SummaryComparison({
                 hidePreviousValue={hidePreviousValue}
               />
             ))}
-          {/* ✅ Componente compartido para Incidencias y Permisos */}
-          <IncidentsPermitsKPIs
-            incidencias={incidenciasCurrentMonth}
-            incidenciasAnterior={incidenciasPrevMonth}
-            diasLaborablesActual={diasLaboradosActual}
-            diasLaborablesPrev={diasLaboradosPrev}
-            currentReferenceDate={referenceDate}
-            refreshEnabled={refreshEnabled}
-          />
+          {/* Faltas y Salud KPIs — valores directos del snapshot de IncidentsTab (forceMount) */}
+          {incidentsKPIsOverride && (
+            <>
+              <KPICard
+                refreshEnabled={refreshEnabled}
+                kpi={{
+                  name: 'Faltas (%)',
+                  category: 'retention',
+                  value: Number(incidentsKPIsOverride.faltasPct.toFixed(2)),
+                  previous_value: Number(incidentsKPIsOverride.faltasPctAnterior.toFixed(2)),
+                  variance_percentage: calculateVariancePercentage(incidentsKPIsOverride.faltasPct, incidentsKPIsOverride.faltasPctAnterior),
+                  period_start: format(referenceDate, 'yyyy-MM-dd'),
+                  period_end: format(referenceDate, 'yyyy-MM-dd')
+                }}
+                icon={<AlertCircle className="h-6 w-6" />}
+                secondaryLabel="vs mes anterior"
+                secondaryValue={Number(incidentsKPIsOverride.faltasPctAnterior.toFixed(2))}
+                secondaryIsPercent={true}
+                hidePreviousValue={true}
+              />
+              <KPICard
+                refreshEnabled={refreshEnabled}
+                kpi={{
+                  name: 'Salud (%)',
+                  category: 'retention',
+                  value: Number(incidentsKPIsOverride.saludPct.toFixed(2)),
+                  previous_value: Number(incidentsKPIsOverride.saludPctAnterior.toFixed(2)),
+                  variance_percentage: calculateVariancePercentage(incidentsKPIsOverride.saludPct, incidentsKPIsOverride.saludPctAnterior),
+                  period_start: format(referenceDate, 'yyyy-MM-dd'),
+                  period_end: format(referenceDate, 'yyyy-MM-dd')
+                }}
+                icon={<Heart className="h-6 w-6" />}
+                secondaryLabel="vs mes anterior"
+                secondaryValue={Number(incidentsKPIsOverride.saludPctAnterior.toFixed(2))}
+                secondaryIsPercent={true}
+                hidePreviousValue={true}
+              />
+            </>
+          )}
         </div>
 
         {/* 1. ACTIVOS POR ANTIGÜEDAD - DISEÑO MEJORADO */}

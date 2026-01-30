@@ -24,7 +24,7 @@ import { RotacionTab } from "./rotacion/rotacion-tab";
 import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters";
 import { kpiCalculator, type KPIResult } from "@/lib/kpi-calculator";
 import { db } from "@/lib/supabase";
-import { format, endOfMonth, startOfDay } from "date-fns";
+import { format, endOfMonth, startOfMonth, subMonths, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/shared/theme-provider";
@@ -73,6 +73,10 @@ export function DashboardPage() {
     incidenciasAnteriorPct: number;
     permisosPct: number;
     permisosAnteriorPct: number;
+    faltasPct: number;
+    faltasPctAnterior: number;
+    saludPct: number;
+    saludPctAnterior: number;
   } | null>(null);
 
   const [retentionFilters, setRetentionFilters] = useState<RetentionFilterOptions>({
@@ -115,6 +119,8 @@ export function DashboardPage() {
     selectedPeriod,
     bajasData,
   });
+
+  // ==================== FALTAS/SALUD KPIs (source of truth para Resumen e Incidencias) ====================
 
   // ==================== COMPUTED VALUES ====================
   const filtersSummary = useMemo(
@@ -767,7 +773,7 @@ export function DashboardPage() {
             </TabsContent>
 
             {/* Incidents Tab */}
-            <TabsContent value="incidents" className="space-y-6">
+            <TabsContent value="incidents" className="space-y-6 data-[state=inactive]:hidden" forceMount>
               <SmartNarrative
                 data={narrativePayload}
                 section="incidents"

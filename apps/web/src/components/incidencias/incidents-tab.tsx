@@ -40,6 +40,10 @@ type Props = {
     incidenciasAnteriorPct: number;
     permisosPct: number;
     permisosAnteriorPct: number;
+    faltasPct: number;
+    faltasPctAnterior: number;
+    saludPct: number;
+    saludPctAnterior: number;
   }) => void;
 };
 
@@ -540,6 +544,26 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
     return plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, start, previousReferenceDate), 0);
   }, [plantillaBaseForActivos, calcularDiasActivo, previousReferenceDate]);
 
+  // ✅ Jornadas laborables del periodo completo (todos los meses en currentPairs)
+  const diasLaborablesPeriodo = useMemo(() => {
+    return currentPairs.reduce((total, pair) => {
+      const start = new Date(pair.year, pair.month - 1, 1);
+      const end = new Date(pair.year, pair.month, 0); // último día del mes
+      return total + plantillaBaseForActivos.reduce((acc, emp) => acc + calcularDiasActivo(emp, start, end), 0);
+    }, 0);
+  }, [plantillaBaseForActivos, calcularDiasActivo, currentPairs]);
+
+  // ✅ Empleados activos en el periodo completo (al menos 1 día activo en algún mes)
+  const empleadosActivosPeriodo = useMemo(() => {
+    return plantillaBaseForActivos.filter(emp => {
+      return currentPairs.some(pair => {
+        const start = new Date(pair.year, pair.month - 1, 1);
+        const end = new Date(pair.year, pair.month, 0);
+        return calcularDiasActivo(emp, start, end) > 0;
+      });
+    }).length;
+  }, [plantillaBaseForActivos, calcularDiasActivo, currentPairs]);
+
   const diasLaborablesPorArea = useMemo(() => {
     const start = new Date(currentReferenceDate.getFullYear(), currentReferenceDate.getMonth(), 1);
     const map = new Map<string, number>();
@@ -657,7 +681,13 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
   const permisosPct = diasLaborablesActual > 0 ? (totalPermisos / diasLaborablesActual) * 100 : 0;
   const permisosPctAnterior = diasLaborablesPrev > 0 ? (totalPermisosAnteriores / diasLaborablesPrev) * 100 : 0;
 
-  // ✅ useEffect DESPUÉS de declarar las variables que usa
+  // Percentages segmentados por tipo
+  const faltasPct = diasLaborablesActual > 0 ? (totalFaltas / diasLaborablesActual) * 100 : 0;
+  const faltasPctAnterior = diasLaborablesPrev > 0 ? (totalFaltasAnterior / diasLaborablesPrev) * 100 : 0;
+  const saludPct = diasLaborablesActual > 0 ? (totalSalud / diasLaborablesActual) * 100 : 0;
+  const saludPctAnterior = diasLaborablesPrev > 0 ? (totalSaludAnterior / diasLaborablesPrev) * 100 : 0;
+
+  // ✅ useEffect DESPUÉS de declarar todas las variables que usa
   useEffect(() => {
     if (!onKPIsUpdate) return;
     onKPIsUpdate({
@@ -668,15 +698,13 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       incidenciasPct,
       incidenciasAnteriorPct: incidenciasPctAnterior,
       permisosPct,
-      permisosAnteriorPct: permisosPctAnterior
+      permisosAnteriorPct: permisosPctAnterior,
+      faltasPct,
+      faltasPctAnterior,
+      saludPct,
+      saludPctAnterior
     });
-  }, [onKPIsUpdate, totalIncidencias, totalIncidenciasAnterior, totalPermisos, totalPermisosAnteriores, incidenciasPct, incidenciasPctAnterior, permisosPct, permisosPctAnterior]);
-
-  // Percentages segmentados por tipo
-  const faltasPct = diasLaborablesActual > 0 ? (totalFaltas / diasLaborablesActual) * 100 : 0;
-  const faltasPctAnterior = diasLaborablesPrev > 0 ? (totalFaltasAnterior / diasLaborablesPrev) * 100 : 0;
-  const saludPct = diasLaborablesActual > 0 ? (totalSalud / diasLaborablesActual) * 100 : 0;
-  const saludPctAnterior = diasLaborablesPrev > 0 ? (totalSaludAnterior / diasLaborablesPrev) * 100 : 0;
+  }, [onKPIsUpdate, totalIncidencias, totalIncidenciasAnterior, totalPermisos, totalPermisosAnteriores, incidenciasPct, incidenciasPctAnterior, permisosPct, permisosPctAnterior, faltasPct, faltasPctAnterior, saludPct, saludPctAnterior]);
 
   const maMonth = {
     empleadosPct: prevMonthStats.activos > 0 ? (prevMonthStats.empleadosConIncidencias / (prevMonthStats.activos || 1)) * 100 : 0,
@@ -877,23 +905,21 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       }
     });
 
-    // Calcular totales para porcentajes
-    const totalDias = enrichedPeriodo.length;
-    const totalEmpleadosUnicos = new Set(enrichedPeriodo.map(i => i.emp)).size;
-
     return categorias.map(cat => {
       const arr = byCategoria.get(cat) || [];
       const diasCount = arr.length;
       const empleadosTipo = new Set(arr.map(a => a.emp)).size;
 
       if (metricType === "percent") {
-        const diasPct = totalDias > 0 ? (diasCount / totalDias * 100).toFixed(2) + '%' : '0.00%';
-        const empleadosPct = totalEmpleadosUnicos > 0 ? (empleadosTipo / totalEmpleadosUnicos * 100).toFixed(2) + '%' : '0.00%';
+        // ✅ % días = incidencias de categoría / jornadas laborables del periodo
+        const diasPct = diasLaborablesPeriodo > 0 ? (diasCount / diasLaborablesPeriodo * 100).toFixed(2) + '%' : '0.00%';
+        // ✅ % emp = empleados con esta categoría / total empleados activos del periodo
+        const empleadosPct = empleadosActivosPeriodo > 0 ? (empleadosTipo / empleadosActivosPeriodo * 100).toFixed(2) + '%' : '0.00%';
         return { categoria: cat, dias: diasPct, empleados: empleadosPct };
       }
       return { categoria: cat, dias: diasCount, empleados: empleadosTipo };
     });
-  }, [enrichedPeriodo, metricType]);
+  }, [enrichedPeriodo, metricType, diasLaborablesPeriodo, empleadosActivosPeriodo]);
 
   const incidenciasPorDia = useMemo(() => {
     const baseCounts = WEEKDAY_ORDER.map(day => ({
@@ -1535,10 +1561,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                         <TableRow>
                           <TableHead className="w-1/2">Motivo</TableHead>
                           <TableHead className="w-1/4 text-center">
-                            {metricType === "percent" ? "% días" : "# días"}
+                            {metricType === "percent" ? "% jornadas" : "# días"}
                           </TableHead>
                           <TableHead className="w-1/4 text-center">
-                            {metricType === "percent" ? "% emp" : "# emp"}
+                            {metricType === "percent" ? "% activos" : "# emp"}
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1577,7 +1603,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                 {(fullscreen) => (
                   <div style={{ height: fullscreen ? 420 : 320 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart margin={{ top: 30, right: 80, bottom: 30, left: 80 }}>
                         <Tooltip
                           wrapperStyle={TOOLTIP_WRAPPER_STYLE}
                           cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
@@ -1599,8 +1625,8 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
                           data={pieData}
                           dataKey="value"
                           nameKey="name"
-                          innerRadius={fullscreen ? 60 : 50}
-                          outerRadius={fullscreen ? 150 : 110}
+                          innerRadius={fullscreen ? 55 : 40}
+                          outerRadius={fullscreen ? 130 : 90}
                           paddingAngle={2}
                           labelLine={false}
                           label={renderPieInnerLabel}
