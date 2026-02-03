@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
   }
 
   const email: string | undefined = payload?.email;
+  const name: string | null = payload?.name?.trim() || null;
   const password: string | undefined = payload?.password;
   const role: "admin" | "user" = payload?.role === "admin" ? "admin" : "user";
   const empresas: string[] = Array.isArray(payload?.empresas)
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
       {
         id: userId,
         email: email.trim(),
+        name,
         role,
         empresa: primaryEmpresa ?? null,
       },

@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 export interface UserProfile {
   id: string;
   email: string;
+  name: string | null;
   empresa: string | null;
   role: 'admin' | 'user';
   created_at: string;
@@ -148,10 +149,24 @@ export function useAuth() {
     };
   }, [resolveProfile, router, supabase]);
 
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
-  }, [router, supabase]);
+  const signOut = useCallback(() => {
+    console.log('🚪 [useAuth] Signing out...');
+
+    // Limpiar estado inmediatamente
+    setUser(null);
+    setProfile(null);
+
+    // Iniciar signOut en Supabase (no esperar)
+    supabase.auth.signOut().then(() => {
+      console.log('✅ [useAuth] Supabase sign out complete');
+    }).catch((error) => {
+      console.error('❌ [useAuth] Error in Supabase signOut:', error);
+    });
+
+    // Redirigir inmediatamente usando window.location (más confiable)
+    console.log('🔄 [useAuth] Redirecting to /login...');
+    window.location.href = '/login';
+  }, [supabase]);
 
   const isAdmin = profile?.role === 'admin';
 

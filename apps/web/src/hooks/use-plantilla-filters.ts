@@ -60,7 +60,7 @@ export function usePlantillaFilters({
       plantilla,
       {
         ...retentionFilters,
-        includeInactive: false, // Solo empleados activos
+        includeInactive: true, // Incluir todos los empleados del periodo (el filtro temporal ya los acota)
       },
       "specific"
     );

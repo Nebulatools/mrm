@@ -1,0 +1,77 @@
+================================================================================
+CREDENCIALES TEMPORALES - EQUIPO DE RH
+Creado: 2026-02-03
+Sistema: HR KPI Dashboard
+================================================================================
+
+USUARIO 1: Alejandro Solorio
+Email:    asolorio@mrm.com.mx
+Password: !*8xQkfMk7a&qEu@
+Rol:      Usuario
+Empresas: ✓ MOTO REPUESTOS MONTERREY (principal)
+          ✓ MOTO TOTAL
+          ✓ REPUESTOS Y MOTOCICLETAS DEL NORTE
+
+────────────────────────────────────────────────────────────────────────────────
+
+USUARIO 2: Joe Ignacio Rdz
+Email:    gerenciarh@mrm.com.mx
+Password: ggLGk8UxjyjSSYpA
+Rol:      Usuario
+Empresas: ✓ MOTO REPUESTOS MONTERREY (principal)
+          ✓ MOTO TOTAL
+          ✓ REPUESTOS Y MOTOCICLETAS DEL NORTE
+
+────────────────────────────────────────────────────────────────────────────────
+
+USUARIO 3: Juan Carlos Cedillo
+Email:    coordinador.nominas@mrm.com.mx
+Password: d%$EgmQG&BccCbF&
+Rol:      Usuario
+Empresas: ✓ MOTO REPUESTOS MONTERREY (principal)
+          ✓ MOTO TOTAL
+          ✓ REPUESTOS Y MOTOCICLETAS DEL NORTE
+
+────────────────────────────────────────────────────────────────────────────────
+
+USUARIO 4: Arturo Ortiz
+Email:    coordinador.rh@mrm.com.mx
+Password: !uR9D2KUbShe67yn
+Rol:      Usuario
+Empresas: ✓ MOTO REPUESTOS MONTERREY (principal)
+          ✓ MOTO TOTAL
+          ✓ REPUESTOS Y MOTOCICLETAS DEL NORTE
+
+────────────────────────────────────────────────────────────────────────────────
+
+USUARIO 5: Juan Beltran
+Email:    jbr@mrm.com.mx
+Password: a@4j%qU6QLyn!?ZA
+Rol:      Usuario
+Empresas: ✓ MOTO REPUESTOS MONTERREY (principal)
+          ✓ MOTO TOTAL
+          ✓ REPUESTOS Y MOTOCICLETAS DEL NORTE
+
+================================================================================
+
+⚠️  INSTRUCCIONES IMPORTANTES:
+
+1. Envía las credenciales de forma segura (email cifrado, 1Password, etc.)
+2. Cada usuario debe cambiar su contraseña en el primer login
+3. Las contraseñas cumplen con estándares de seguridad (16 caracteres, mayúsculas,
+   minúsculas, números y símbolos)
+4. Todos los usuarios tienen acceso a las 3 empresas
+5. Empresa principal: MOTO REPUESTOS MONTERREY
+
+📍 URL del sistema: http://localhost:3003 (desarrollo)
+                    https://[tu-dominio-produccion].com (producción)
+
+================================================================================
+
+NOTAS DE SEGURIDAD:
+- ⚠️ Este archivo contiene información sensible
+- 🔒 Elimina este archivo después de compartir las credenciales
+- 📧 No envíes todas las credenciales en el mismo email
+- 🔐 Usa un gestor de contraseñas para compartir (1Password, LastPass, etc.)
+
+================================================================================

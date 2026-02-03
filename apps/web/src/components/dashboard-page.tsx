@@ -486,12 +486,32 @@ export function DashboardPage() {
     [retentionFilters, filtersSummary, filtersDetailedLines, filtersCount, periodLabel, lastUpdatedDisplay]
   );
 
+  // Período de comparación (mes anterior)
+  const periodoComparacion = useMemo(() => {
+    const prevMonth = subMonths(selectedPeriod, 1);
+    return format(prevMonth, "MMMM yyyy", { locale: es });
+  }, [selectedPeriod]);
+
   const narrativePayload = useMemo(
     () => ({
       periodLabel,
+      periodoComparacion,
       filtersSummary,
       filtersCount,
       section: "retention",
+      // Contexto de filtros activos para que la IA entienda qué segmento está viendo
+      filtrosActivos: {
+        periodo: periodLabel,
+        periodoComparacion,
+        empresas: retentionFilters.empresas ?? [],
+        areas: retentionFilters.areas ?? [],
+        departamentos: retentionFilters.departamentos ?? [],
+        puestos: retentionFilters.puestos ?? [],
+        clasificaciones: retentionFilters.clasificaciones ?? [],
+        ubicaciones: retentionFilters.ubicaciones ?? [],
+        poblacionFiltrada: plantillaFiltered.length,
+        poblacionTotal: data.plantilla.length,
+      },
       kpis: {
         ...filteredRetentionKPIs,
         bajasTotalesMes,
@@ -505,26 +525,15 @@ export function DashboardPage() {
         antigPromMesesActual,
         antigPromMesesPrev,
       },
-      dataSources: {
-        empleados_sftp: {
-          rows: data.plantilla.length,
-          fields: ["departamento", "area", "turno", "fecha_ingreso", "fecha_baja", "clasificacion"],
-          comment: "Maestro de empleados usado para headcount y cohortes",
-        },
-        motivos_baja: {
-          rows: bajasData.length,
-          fields: ["tipo", "motivo", "descripcion", "fecha_baja"],
-        },
-        incidencias: {
-          rows: incidenciasData.length,
-          fields: ["inci", "turno", "fecha", "horario", "status"],
-        },
-      },
     }),
     [
       periodLabel,
+      periodoComparacion,
       filtersSummary,
       filtersCount,
+      retentionFilters,
+      plantillaFiltered.length,
+      data.plantilla.length,
       filteredRetentionKPIs,
       bajasTotalesMes,
       bajasTotalesMesAnterior,
@@ -534,9 +543,6 @@ export function DashboardPage() {
       ingresosMesPrev,
       antigPromMesesActual,
       antigPromMesesPrev,
-      data.plantilla.length,
-      bajasData.length,
-      incidenciasData.length,
     ]
   );
 

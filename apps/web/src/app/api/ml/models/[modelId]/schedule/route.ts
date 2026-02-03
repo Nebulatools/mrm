@@ -3,7 +3,10 @@ import { requireAdmin } from '@/lib/server-auth';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL;
 
-export async function POST(request: NextRequest, context: { params: { modelId: string } }) {
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ modelId: string }> }
+) {
   const auth = await requireAdmin(request);
   if ('error' in auth) {
     return auth.error;
@@ -23,7 +26,8 @@ export async function POST(request: NextRequest, context: { params: { modelId: s
     return NextResponse.json({ success: false, error: 'JSON inválido' }, { status: 400 });
   }
 
-  const response = await fetch(`${ML_SERVICE_URL}/models/${context.params.modelId}/schedule`, {
+  const params = await context.params;
+  const response = await fetch(`${ML_SERVICE_URL}/models/${params.modelId}/schedule`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

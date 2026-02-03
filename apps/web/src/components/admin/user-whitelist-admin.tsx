@@ -15,6 +15,7 @@ import { Loader2, Plus, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
 type WhitelistUser = {
   id: string;
   email: string;
+  name: string | null;
   role: 'admin' | 'user';
   empresa: string | null;
   primaryEmpresa: string | null;
@@ -37,6 +38,7 @@ export function UserWhitelistAdmin() {
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
   const [newEmail, setNewEmail] = useState('');
+  const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'user'>('user');
   const [selectedEmpresas, setSelectedEmpresas] = useState<string[]>([]);
   const [creatingUser, setCreatingUser] = useState(false);
@@ -98,6 +100,7 @@ export function UserWhitelistAdmin() {
       return;
     }
 
+    const cleanName = newName.trim();
     const password = generatePassword();
     const empresasPayload = selectedEmpresas
       .map((e) => e.trim())
@@ -112,6 +115,7 @@ export function UserWhitelistAdmin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: cleanEmail,
+          name: cleanName || null,
           password,
           role: newRole,
           empresas: empresasPayload,
@@ -128,6 +132,7 @@ export function UserWhitelistAdmin() {
       }
 
       setNewEmail('');
+      setNewName('');
       setSelectedEmpresas([]);
       setNewRole('user');
       await loadData();
@@ -286,7 +291,17 @@ export function UserWhitelistAdmin() {
               </div>
               <Badge variant="outline">Contraseña autogenerada</Badge>
             </div>
-            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="new-name">Nombre</Label>
+                <Input
+                  id="new-name"
+                  type="text"
+                  value={newName}
+                  placeholder="Juan Pérez"
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="new-email">Correo</Label>
                 <Input
@@ -348,7 +363,7 @@ export function UserWhitelistAdmin() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
+                  <TableHead>Usuario</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead>Empresas permitidas</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -358,7 +373,10 @@ export function UserWhitelistAdmin() {
                 {users.map(user => (
                   <TableRow key={user.id}>
                     <TableCell className="align-top">
-                      <div className="font-medium">{user.email}</div>
+                      {user.name && (
+                        <div className="font-semibold text-sm">{user.name}</div>
+                      )}
+                      <div className={user.name ? 'text-xs text-muted-foreground' : 'font-medium'}>{user.email}</div>
                       <div className="text-[11px] text-muted-foreground">
                         ID: {user.id}
                       </div>

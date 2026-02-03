@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/server-auth";
 type WhitelistUser = {
   id: string;
   email: string;
+  name: string | null;
   role: "admin" | "user";
   empresa: string | null;
 };
@@ -29,8 +30,8 @@ export async function GET(request: NextRequest) {
 
   const { data: profiles, error: profilesError } = await supabaseAdmin
     .from("user_profiles")
-    .select("id, email, role, empresa")
-    .order("email", { ascending: true })
+    .select("id, email, name, role, empresa")
+    .order("name", { ascending: true, nullsFirst: false })
     .returns<WhitelistUser[]>();
 
   if (profilesError) {
@@ -75,10 +76,12 @@ export async function GET(request: NextRequest) {
   const empresasSet = new Set<string>();
 
   // 1) Desde empleados_sftp (plantilla real)
+  // ✅ OPTIMIZADO: Usa RPC function que retorna solo valores DISTINCT
+  // Antes: 1,051 filas → límite 1000 → perdía la 3ra empresa (REPUESTOS Y MOTOCICLETAS DEL NORTE)
+  // Ahora: 3 filas únicas → sin límites → todas las empresas
   {
     const { data: empresasRows, error: empresasError } = await supabaseAdmin
-      .from("empleados_sftp")
-      .select("empresa");
+      .rpc("get_unique_empresas");
 
     if (empresasError) {
       return NextResponse.json(
@@ -87,8 +90,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Las empresas ya vienen únicas y normalizadas de la función RPC
     for (const row of empresasRows ?? []) {
-      const empresa = normalizeEmpresa((row as any).empresa ?? null);
+      const empresa = (row as any).empresa;
       if (empresa) {
         empresasSet.add(empresa);
       }

@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Building2, Shield, Loader2, LayoutDashboard } from 'lucide-react';
+import { User, LogOut, Building2, Shield, Loader2, LayoutDashboard, KeyRound } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 
 export function UserMenu() {
@@ -51,12 +51,19 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <User className="h-4 w-4" />
-          <span className="hidden md:inline">{profile.email}</span>
+          <span className="hidden md:inline">{profile.name || profile.email}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
         <DropdownMenuSeparator />
+
+        {profile.name && (
+          <DropdownMenuItem disabled>
+            <User className="mr-2 h-4 w-4" />
+            <span className="font-semibold">{profile.name}</span>
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuItem disabled>
           <User className="mr-2 h-4 w-4" />
@@ -90,8 +97,19 @@ export function UserMenu() {
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
-          onClick={signOut}
-          className="text-red-600 focus:text-red-600 focus:bg-red-50"
+          onClick={() => router.push('/perfil/cambiar-contrasena')}
+          className="cursor-pointer"
+        >
+          <KeyRound className="mr-2 h-4 w-4" />
+          <span>Cambiar Contraseña</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={() => {
+            console.log('🚪 Cerrando sesión...');
+            signOut();
+          }}
+          className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
         >
           <LogOut className="mr-2 h-4 w-4" />
           <span className="font-medium">Cerrar Sesión</span>
