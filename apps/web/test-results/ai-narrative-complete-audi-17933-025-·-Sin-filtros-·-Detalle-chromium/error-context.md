@@ -1,0 +1,587 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: Panel de Talento
+        - generic [ref=e8]:
+          - generic [ref=e9]:
+            - generic [ref=e10]:
+              - heading "Dashboard MRM · KPIs de RRHH" [level=1] [ref=e11]
+              - generic [ref=e12]: Datos al día
+            - generic [ref=e13]:
+              - generic [ref=e14]: "Período: enero 2026"
+              - generic [ref=e15]: "Actualizado: 03/02/2026 11:55"
+              - generic [ref=e16]: 16 KPIs
+          - generic [ref=e17]:
+            - button "Cambiar tema" [ref=e18] [cursor=pointer]:
+              - img
+            - button "Alejandro Solorio" [ref=e19] [cursor=pointer]:
+              - img
+              - generic [ref=e20]: Alejandro Solorio
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - button "Filtros 3" [ref=e26] [cursor=pointer]:
+            - img
+            - generic [ref=e27]: Filtros
+            - generic [ref=e28]: "3"
+            - img
+          - button "Limpiar filtros" [ref=e29] [cursor=pointer]:
+            - img
+            - text: Limpiar filtros
+        - generic "2 años · 1 mes" [ref=e31]
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - text: Año
+          - button "2025, 2026" [ref=e36] [cursor=pointer]:
+            - generic [ref=e37]: 2025, 2026
+            - img
+        - generic [ref=e38]:
+          - text: Mes
+          - button "Enero" [ref=e40] [cursor=pointer]:
+            - generic [ref=e41]: Enero
+            - img
+        - generic [ref=e42]:
+          - text: Negocio
+          - button "Seleccionar negocio" [ref=e44] [cursor=pointer]:
+            - generic [ref=e45]: Seleccionar negocio
+            - img
+        - generic [ref=e46]:
+          - text: Área
+          - button "Seleccionar área" [ref=e48] [cursor=pointer]:
+            - generic [ref=e49]: Seleccionar área
+            - img
+        - generic [ref=e50]:
+          - text: Departamento
+          - button "Seleccionar departamento" [ref=e52] [cursor=pointer]:
+            - generic [ref=e53]: Seleccionar departamento
+            - img
+        - generic [ref=e54]:
+          - text: Puesto
+          - button "Seleccionar puesto" [ref=e56] [cursor=pointer]:
+            - generic [ref=e57]: Seleccionar puesto
+            - img
+        - generic [ref=e58]:
+          - text: Clasificación
+          - button "Seleccionar clasificación" [ref=e60] [cursor=pointer]:
+            - generic [ref=e61]: Seleccionar clasificación
+            - img
+        - generic [ref=e62]:
+          - text: Ubicación
+          - button "Seleccionar ubicación" [ref=e64] [cursor=pointer]:
+            - generic [ref=e65]: Seleccionar ubicación
+            - img
+    - main [ref=e66]:
+      - generic [ref=e67]:
+        - tablist [ref=e68]:
+          - tab "Resumen" [selected] [ref=e69] [cursor=pointer]
+          - tab "Personal" [ref=e70] [cursor=pointer]
+          - tab "Incidencias" [ref=e71] [cursor=pointer]
+          - tab "Rotación" [ref=e72] [cursor=pointer]
+        - tabpanel "Resumen" [ref=e73]:
+          - generic [ref=e75]:
+            - generic [ref=e77]: Narrativa IA · Resumen
+            - generic [ref=e78]:
+              - tablist [ref=e80]:
+                - tab "Ejecutivo" [selected] [ref=e81] [cursor=pointer]
+                - tab "Detalle" [ref=e82] [cursor=pointer]
+              - button "Generar" [ref=e83] [cursor=pointer]:
+                - img [ref=e84]
+                - text: Generar
+          - generic [ref=e87]:
+            - heading "📊 Resumen Comparativo" [level=2] [ref=e89]
+            - generic [ref=e90]:
+              - tablist [ref=e91]:
+                - tab "Ubicación" [selected] [ref=e92] [cursor=pointer]
+                - tab "Negocio" [ref=e93] [cursor=pointer]
+                - tab "Área" [ref=e94] [cursor=pointer]
+                - tab "Departamento" [ref=e95] [cursor=pointer]
+              - tabpanel "Ubicación" [ref=e96]:
+                - generic [ref=e97]:
+                  - generic [ref=e98]:
+                    - generic [ref=e99]:
+                      - generic [ref=e101]:
+                        - generic [ref=e102]:
+                          - img [ref=e104]
+                          - generic [ref=e109]: Empleados Activos
+                        - img [ref=e110]
+                      - generic [ref=e113]:
+                        - generic [ref=e114]:
+                          - generic [ref=e115]: "362"
+                          - generic [ref=e116]: "+2"
+                        - generic [ref=e118]:
+                          - generic [ref=e119]: "vs mes anterior:"
+                          - generic [ref=e120]: "360"
+                    - generic [ref=e122]:
+                      - generic [ref=e124]:
+                        - generic [ref=e125]:
+                          - img [ref=e127]
+                          - generic [ref=e130]: Rotación Mensual Voluntaria
+                        - img [ref=e131]
+                      - generic [ref=e134]:
+                        - generic [ref=e135]:
+                          - generic [ref=e136]: 3.05%
+                          - generic [ref=e137]: +10.51%
+                        - generic [ref=e139]:
+                          - generic [ref=e140]: "vs mismo mes año anterior:"
+                          - generic [ref=e141]: "2.76"
+                    - generic [ref=e143]:
+                      - generic [ref=e145]:
+                        - generic [ref=e146]:
+                          - img [ref=e148]
+                          - generic [ref=e151]: Rotación Acumulada Voluntaria
+                        - img [ref=e152]
+                      - generic [ref=e155]:
+                        - generic [ref=e156]:
+                          - generic [ref=e157]: 45.35%
+                          - generic [ref=e158]: "-14.90%"
+                        - generic [ref=e160]:
+                          - generic [ref=e161]: vs mes año ant.
+                          - generic [ref=e162]: 53.29%
+                    - generic [ref=e164]:
+                      - generic [ref=e166]:
+                        - generic [ref=e167]:
+                          - img [ref=e169]
+                          - generic [ref=e172]: Rotación Año Actual Voluntaria
+                        - img [ref=e173]
+                      - generic [ref=e176]:
+                        - generic [ref=e177]:
+                          - generic [ref=e178]: 3.05%
+                          - generic [ref=e179]: "-29.56%"
+                        - generic [ref=e181]:
+                          - generic [ref=e182]: vs mes año ant.
+                          - generic [ref=e183]: 4.33%
+                    - generic [ref=e185]:
+                      - generic [ref=e187]:
+                        - generic [ref=e188]:
+                          - img [ref=e190]
+                          - generic [ref=e192]: Faltas (%)
+                        - img [ref=e193]
+                      - generic [ref=e196]:
+                        - generic [ref=e197]:
+                          - generic [ref=e198]: 2.01%
+                          - generic [ref=e199]: +100.00%
+                        - generic [ref=e201]:
+                          - generic [ref=e202]: "vs mes anterior:"
+                          - generic [ref=e203]: 0.00%
+                    - generic [ref=e205]:
+                      - generic [ref=e207]:
+                        - generic [ref=e208]:
+                          - img [ref=e210]
+                          - generic [ref=e212]: Salud (%)
+                        - img [ref=e213]
+                      - generic [ref=e216]:
+                        - generic [ref=e217]:
+                          - generic [ref=e218]: 1.01%
+                          - generic [ref=e219]: +100.00%
+                        - generic [ref=e221]:
+                          - generic [ref=e222]: "vs mes anterior:"
+                          - generic [ref=e223]: 0.00%
+                  - generic [ref=e225]:
+                    - generic [ref=e227]:
+                      - img [ref=e228]
+                      - text: Empleados Activos por Antigüedad
+                    - generic [ref=e234]:
+                      - generic [ref=e238]:
+                        - img [ref=e239]:
+                          - generic [ref=e244]:
+                            - generic [ref=e246]: CORPORATIVO
+                            - generic [ref=e248]: FILIALES
+                            - generic [ref=e250]: CAD
+                          - generic [ref=e252]:
+                            - generic [ref=e254]: "0"
+                            - generic [ref=e256]: "45"
+                            - generic [ref=e258]: "90"
+                            - generic [ref=e260]: "135"
+                            - generic [ref=e262]: "180"
+                        - list [ref=e304]:
+                          - listitem [ref=e305]:
+                            - img [ref=e306]
+                            - generic [ref=e308]: 0-3 meses
+                          - listitem [ref=e309]:
+                            - img [ref=e310]
+                            - generic [ref=e312]: 3-6 meses
+                          - listitem [ref=e313]:
+                            - img [ref=e314]
+                            - generic [ref=e316]: 6-12 meses
+                          - listitem [ref=e317]:
+                            - img [ref=e318]
+                            - generic [ref=e320]: 1-3 años
+                          - listitem [ref=e321]:
+                            - img [ref=e322]
+                            - generic [ref=e324]: +3 años
+                      - generic [ref=e325]:
+                        - button "Copiar gráfica como PNG" [ref=e326] [cursor=pointer]:
+                          - img
+                        - button "Descargar gráfica como PNG" [ref=e327] [cursor=pointer]:
+                          - img
+                        - button "Ver en pantalla completa" [ref=e328] [cursor=pointer]:
+                          - img
+                  - generic [ref=e329]:
+                    - generic [ref=e330]: "Filtrar visualizaciones por:"
+                    - generic [ref=e331]:
+                      - button "Rotación Voluntaria" [ref=e332] [cursor=pointer]
+                      - button "Rotación Involuntaria" [ref=e333] [cursor=pointer]
+                      - button "Rotación Total" [ref=e334] [cursor=pointer]
+                  - generic [ref=e335]:
+                    - generic [ref=e336]:
+                      - generic [ref=e338]:
+                        - img [ref=e339]
+                        - text: Rotación Mensual
+                      - generic [ref=e343]:
+                        - generic [ref=e347]:
+                          - img [ref=e348]:
+                            - generic [ref=e355]: ene
+                            - generic [ref=e356]:
+                              - generic [ref=e357]:
+                                - generic [ref=e359]: "0"
+                                - generic [ref=e361]: "2"
+                                - generic [ref=e363]: "4"
+                                - generic [ref=e365]: "6"
+                                - generic [ref=e367]: "8"
+                              - generic [ref=e368]: "%"
+                            - generic [ref=e373]: 5%
+                            - generic [ref=e378]: 0%
+                            - generic [ref=e383]: 3%
+                          - list [ref=e385]:
+                            - listitem [ref=e386]:
+                              - img [ref=e387]
+                              - generic [ref=e389]: CAD
+                            - listitem [ref=e390]:
+                              - img [ref=e391]
+                              - generic [ref=e393]: CORPORATIVO
+                            - listitem [ref=e394]:
+                              - img [ref=e395]
+                              - generic [ref=e397]: FILIALES
+                        - generic [ref=e398]:
+                          - button "Copiar gráfica como PNG" [ref=e399] [cursor=pointer]:
+                            - img
+                          - button "Descargar gráfica como PNG" [ref=e400] [cursor=pointer]:
+                            - img
+                          - button "Ver en pantalla completa" [ref=e401] [cursor=pointer]:
+                            - img
+                    - generic [ref=e402]:
+                      - generic [ref=e404]:
+                        - img [ref=e405]
+                        - text: Rotación - 12 Meses Móviles
+                      - generic [ref=e409]:
+                        - generic [ref=e413]:
+                          - img [ref=e414]:
+                            - generic [ref=e419]:
+                              - generic [ref=e421]: feb
+                              - generic [ref=e423]: abr
+                              - generic [ref=e425]: jun
+                              - generic [ref=e427]: jul
+                              - generic [ref=e429]: sep
+                              - generic [ref=e431]: nov
+                              - generic [ref=e433]: ene
+                            - generic [ref=e434]:
+                              - generic [ref=e435]:
+                                - generic [ref=e437]: "0"
+                                - generic [ref=e439]: "20"
+                                - generic [ref=e441]: "40"
+                                - generic [ref=e443]: "60"
+                                - generic [ref=e445]: "80"
+                              - generic [ref=e446]: "%"
+                            - generic [ref=e462]:
+                              - generic [ref=e463]: 74%
+                              - generic [ref=e464]: 80%
+                              - generic [ref=e465]: 73%
+                              - generic [ref=e466]: 78%
+                              - generic [ref=e467]: 72%
+                              - generic [ref=e468]: 76%
+                              - generic [ref=e469]: 77%
+                              - generic [ref=e470]: 72%
+                              - generic [ref=e471]: 70%
+                              - generic [ref=e472]: 68%
+                              - generic [ref=e473]: 66%
+                              - generic [ref=e474]: 64%
+                            - generic [ref=e490]:
+                              - generic [ref=e491]: 12%
+                              - generic [ref=e492]: 12%
+                              - generic [ref=e493]: 13%
+                              - generic [ref=e494]: 14%
+                              - generic [ref=e495]: 15%
+                              - generic [ref=e496]: 16%
+                              - generic [ref=e497]: 16%
+                              - generic [ref=e498]: 16%
+                              - generic [ref=e499]: 16%
+                              - generic [ref=e500]: 16%
+                              - generic [ref=e501]: 15%
+                              - generic [ref=e502]: 13%
+                            - generic [ref=e518]:
+                              - generic [ref=e519]: 56%
+                              - generic [ref=e520]: 42%
+                              - generic [ref=e521]: 49%
+                              - generic [ref=e522]: 50%
+                              - generic [ref=e523]: 55%
+                              - generic [ref=e524]: 60%
+                              - generic [ref=e525]: 49%
+                              - generic [ref=e526]: 57%
+                              - generic [ref=e527]: 59%
+                              - generic [ref=e528]: 52%
+                              - generic [ref=e529]: 59%
+                              - generic [ref=e530]: 59%
+                          - list [ref=e532]:
+                            - listitem [ref=e533]:
+                              - img [ref=e534]
+                              - generic [ref=e536]: CAD
+                            - listitem [ref=e537]:
+                              - img [ref=e538]
+                              - generic [ref=e540]: CORPORATIVO
+                            - listitem [ref=e541]:
+                              - img [ref=e542]
+                              - generic [ref=e544]: FILIALES
+                        - generic [ref=e545]:
+                          - button "Copiar gráfica como PNG" [ref=e546] [cursor=pointer]:
+                            - img
+                          - button "Descargar gráfica como PNG" [ref=e547] [cursor=pointer]:
+                            - img
+                          - button "Ver en pantalla completa" [ref=e548] [cursor=pointer]:
+                            - img
+                    - generic [ref=e549]:
+                      - generic [ref=e551]:
+                        - img [ref=e552]
+                        - text: Rotación - Lo que va del Año
+                      - generic [ref=e556]:
+                        - generic [ref=e560]:
+                          - img [ref=e561]:
+                            - generic [ref=e568]: ene
+                            - generic [ref=e569]:
+                              - generic [ref=e570]:
+                                - generic [ref=e572]: "0"
+                                - generic [ref=e574]: "2"
+                                - generic [ref=e576]: "4"
+                                - generic [ref=e578]: "6"
+                                - generic [ref=e580]: "8"
+                              - generic [ref=e581]: "%"
+                            - generic [ref=e586]: 5%
+                            - generic [ref=e591]: 0%
+                            - generic [ref=e596]: 3%
+                          - list [ref=e598]:
+                            - listitem [ref=e599]:
+                              - img [ref=e600]
+                              - generic [ref=e602]: CAD
+                            - listitem [ref=e603]:
+                              - img [ref=e604]
+                              - generic [ref=e606]: CORPORATIVO
+                            - listitem [ref=e607]:
+                              - img [ref=e608]
+                              - generic [ref=e610]: FILIALES
+                        - generic [ref=e611]:
+                          - button "Copiar gráfica como PNG" [ref=e612] [cursor=pointer]:
+                            - img
+                          - button "Descargar gráfica como PNG" [ref=e613] [cursor=pointer]:
+                            - img
+                          - button "Ver en pantalla completa" [ref=e614] [cursor=pointer]:
+                            - img
+                  - generic [ref=e615]:
+                    - generic [ref=e616]:
+                      - generic [ref=e618]:
+                        - img [ref=e619]
+                        - text: Incidencias - Últimos 12 meses
+                      - generic [ref=e622]:
+                        - generic [ref=e626]:
+                          - img [ref=e627]:
+                            - generic [ref=e632]:
+                              - generic [ref=e634]: feb
+                              - generic [ref=e636]: mar
+                              - generic [ref=e638]: abr
+                              - generic [ref=e640]: may
+                              - generic [ref=e642]: jun
+                              - generic [ref=e644]: jul
+                              - generic [ref=e646]: ago
+                              - generic [ref=e648]: sep
+                              - generic [ref=e650]: oct
+                              - generic [ref=e652]: nov
+                              - generic [ref=e654]: dic
+                              - generic [ref=e656]: ene
+                            - generic [ref=e657]:
+                              - generic [ref=e658]:
+                                - generic [ref=e660]: 0.0%
+                                - generic [ref=e662]: 15.0%
+                                - generic [ref=e664]: 30.0%
+                                - generic [ref=e666]: 45.0%
+                                - generic [ref=e668]: 60.0%
+                              - generic [ref=e669]: Porcentaje (%)
+                            - generic [ref=e685]:
+                              - generic [ref=e686]: 31%
+                              - generic [ref=e687]: 35%
+                              - generic [ref=e688]: 37%
+                              - generic [ref=e689]: 41%
+                              - generic [ref=e690]: 40%
+                              - generic [ref=e691]: 35%
+                              - generic [ref=e692]: 30%
+                              - generic [ref=e693]: 26%
+                              - generic [ref=e694]: 28%
+                              - generic [ref=e695]: 29%
+                              - generic [ref=e696]: 35%
+                              - generic [ref=e697]: 2%
+                            - generic [ref=e713]:
+                              - generic [ref=e714]: 0%
+                              - generic [ref=e715]: 2%
+                              - generic [ref=e716]: 2%
+                              - generic [ref=e717]: 1%
+                              - generic [ref=e718]: 2%
+                              - generic [ref=e719]: 1%
+                              - generic [ref=e720]: 1%
+                              - generic [ref=e721]: 2%
+                              - generic [ref=e722]: 3%
+                              - generic [ref=e723]: 1%
+                              - generic [ref=e724]: 1%
+                              - generic [ref=e725]: 0%
+                            - generic [ref=e741]:
+                              - generic [ref=e742]: 17%
+                              - generic [ref=e743]: 6%
+                              - generic [ref=e744]: 6%
+                              - generic [ref=e745]: 6%
+                              - generic [ref=e746]: 5%
+                              - generic [ref=e747]: 10%
+                              - generic [ref=e748]: 18%
+                              - generic [ref=e749]: 28%
+                              - generic [ref=e750]: 19%
+                              - generic [ref=e751]: 14%
+                              - generic [ref=e752]: 20%
+                              - generic [ref=e753]: 8%
+                          - list [ref=e755]:
+                            - listitem [ref=e756]:
+                              - img [ref=e757]
+                              - generic [ref=e759]: CAD
+                            - listitem [ref=e760]:
+                              - img [ref=e761]
+                              - generic [ref=e763]: CORPORATIVO
+                            - listitem [ref=e764]:
+                              - img [ref=e765]
+                              - generic [ref=e767]: FILIALES
+                        - generic [ref=e768]:
+                          - button "Copiar gráfica como PNG" [ref=e769] [cursor=pointer]:
+                            - img
+                          - button "Descargar gráfica como PNG" [ref=e770] [cursor=pointer]:
+                            - img
+                          - button "Ver en pantalla completa" [ref=e771] [cursor=pointer]:
+                            - img
+                    - generic [ref=e772]:
+                      - generic [ref=e774]:
+                        - img [ref=e775]
+                        - text: Permisos - Últimos 12 meses
+                      - generic [ref=e779]:
+                        - generic [ref=e783]:
+                          - img [ref=e784]:
+                            - generic [ref=e789]:
+                              - generic [ref=e791]: feb
+                              - generic [ref=e793]: mar
+                              - generic [ref=e795]: abr
+                              - generic [ref=e797]: may
+                              - generic [ref=e799]: jun
+                              - generic [ref=e801]: jul
+                              - generic [ref=e803]: ago
+                              - generic [ref=e805]: sep
+                              - generic [ref=e807]: oct
+                              - generic [ref=e809]: nov
+                              - generic [ref=e811]: dic
+                              - generic [ref=e813]: ene
+                            - generic [ref=e814]:
+                              - generic [ref=e815]:
+                                - generic [ref=e817]: 0.0%
+                                - generic [ref=e819]: 5.0%
+                                - generic [ref=e821]: 10.0%
+                                - generic [ref=e823]: 15.0%
+                                - generic [ref=e825]: 20.0%
+                              - generic [ref=e826]: Porcentaje (%)
+                            - generic [ref=e842]:
+                              - generic [ref=e843]: 18%
+                              - generic [ref=e844]: 10%
+                              - generic [ref=e845]: 7%
+                              - generic [ref=e846]: 3%
+                              - generic [ref=e847]: 8%
+                              - generic [ref=e848]: 4%
+                              - generic [ref=e849]: 5%
+                              - generic [ref=e850]: 12%
+                              - generic [ref=e851]: 4%
+                              - generic [ref=e852]: 7%
+                              - generic [ref=e853]: 10%
+                              - generic [ref=e854]: 0%
+                            - generic [ref=e870]:
+                              - generic [ref=e871]: 8%
+                              - generic [ref=e872]: 10%
+                              - generic [ref=e873]: 8%
+                              - generic [ref=e874]: 3%
+                              - generic [ref=e875]: 7%
+                              - generic [ref=e876]: 2%
+                              - generic [ref=e877]: 3%
+                              - generic [ref=e878]: 8%
+                              - generic [ref=e879]: 3%
+                              - generic [ref=e880]: 7%
+                              - generic [ref=e881]: 16%
+                              - generic [ref=e882]: 0%
+                            - generic [ref=e898]:
+                              - generic [ref=e899]: 0%
+                              - generic [ref=e900]: 6%
+                              - generic [ref=e901]: 0%
+                              - generic [ref=e902]: 6%
+                              - generic [ref=e903]: 11%
+                              - generic [ref=e904]: 5%
+                              - generic [ref=e905]: 7%
+                              - generic [ref=e906]: 7%
+                              - generic [ref=e907]: 6%
+                              - generic [ref=e908]: 8%
+                              - generic [ref=e909]: 6%
+                              - generic [ref=e910]: 0%
+                          - list [ref=e912]:
+                            - listitem [ref=e913]:
+                              - img [ref=e914]
+                              - generic [ref=e916]: CAD
+                            - listitem [ref=e917]:
+                              - img [ref=e918]
+                              - generic [ref=e920]: CORPORATIVO
+                            - listitem [ref=e921]:
+                              - img [ref=e922]
+                              - generic [ref=e924]: FILIALES
+                        - generic [ref=e925]:
+                          - button "Copiar gráfica como PNG" [ref=e926] [cursor=pointer]:
+                            - img
+                          - button "Descargar gráfica como PNG" [ref=e927] [cursor=pointer]:
+                            - img
+                          - button "Ver en pantalla completa" [ref=e928] [cursor=pointer]:
+                            - img
+                  - generic [ref=e929]:
+                    - generic [ref=e931]:
+                      - img [ref=e932]
+                      - text: Ausentismo (Incidencias y Permisos)
+                    - table [ref=e936]:
+                      - rowgroup [ref=e937]:
+                        - row "Nombre Total Faltas Salud Permisos Vacaciones" [ref=e938]:
+                          - columnheader "Nombre" [ref=e939]
+                          - columnheader "Total" [ref=e940]
+                          - columnheader "Faltas" [ref=e941]
+                          - columnheader "Salud" [ref=e942]
+                          - columnheader "Permisos" [ref=e943]
+                          - columnheader "Vacaciones" [ref=e944]
+                      - rowgroup [ref=e945]:
+                        - row "CORPORATIVO 2805 33 161 243 2368" [ref=e946]:
+                          - cell "CORPORATIVO" [ref=e947]
+                          - cell "2805" [ref=e948]
+                          - cell "33" [ref=e949]
+                          - cell "161" [ref=e950]
+                          - cell "243" [ref=e951]
+                          - cell "2368" [ref=e952]
+                        - row "FILIALES 677 122 62 25 468" [ref=e953]:
+                          - cell "FILIALES" [ref=e954]
+                          - cell "677" [ref=e955]
+                          - cell "122" [ref=e956]
+                          - cell "62" [ref=e957]
+                          - cell "25" [ref=e958]
+                          - cell "468" [ref=e959]
+                        - row "CAD 4694 1237 1102 229 2126" [ref=e960]:
+                          - cell "CAD" [ref=e961]
+                          - cell "4694" [ref=e962]
+                          - cell "1237" [ref=e963]
+                          - cell "1102" [ref=e964]
+                          - cell "229" [ref=e965]
+                          - cell "2126" [ref=e966]
+  - generic [ref=e967]: 5.0%
+```

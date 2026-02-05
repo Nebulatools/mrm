@@ -22,6 +22,7 @@ import { getModernColor, withOpacity } from "@/lib/chart-colors";
 import { useTheme } from "@/components/shared/theme-provider";
 import { AbsenteeismTable } from "./tables/absenteeism-table";
 import { getTitleWithYear } from "@/lib/filters/year-display";
+import { isFutureMonth } from "@/lib/date-utils";
 
 type Props = {
   plantilla?: PlantillaRecord[];
@@ -1061,10 +1062,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
 
     const dataPoints = months.map((monthName, index) => {
       const year = selectedYear || now.getFullYear();
-      const monthEnd = new Date(year, index + 1, 0);
 
-      // ✅ Filtrar meses futuros
-      const isFutureMonth = year === now.getFullYear() && monthEnd > now;
+      // ✅ FIX: Verificar si el mes ha COMENZADO (no si ha terminado)
+      // isFutureMonth usa monthStart > now, no monthEnd > now
+      const isMonthFuture = isFutureMonth(year, index + 1);
 
       const monthData = enrichedAnual.filter(inc => {
         if (!inc.fecha) return false;
@@ -1111,7 +1112,7 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
       const vacacionesPctMonth = diasLaborablesMonth > 0 ? (vacacionesCount / diasLaborablesMonth) * 100 : 0;
 
       // ✅ Si es mes futuro, retornar 0 en todos los valores
-      if (isFutureMonth) {
+      if (isMonthFuture) {
         return {
           mes: monthName,
           faltas: 0,
@@ -1146,7 +1147,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
   const monthlyAbsenteeismComparison = useMemo(() => {
     const targetYear = typeof currentYear === 'number' ? currentYear : new Date().getFullYear();
     const previousYear = targetYear - 1;
-    const now = new Date();
 
     const data = MONTH_LABELS_SHORT.map((mes, index) => {
       const currentStart = new Date(targetYear, index, 1);
@@ -1194,9 +1194,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
         previousValue = ausentismosPrevious > 0 ? ausentismosPrevious : null;
       }
 
-      // ✅ CORRECCIÓN: No mostrar meses futuros del año actual
-      const isFutureMonth = targetYear === now.getFullYear() && currentEnd > now;
-      if (isFutureMonth) {
+      // ✅ FIX: Verificar si el mes ha COMENZADO (no si ha terminado)
+      // isFutureMonth usa monthStart > now, no monthEnd > now
+      const isMonthFuture = isFutureMonth(targetYear, index + 1);
+      if (isMonthFuture) {
         currentValue = null; // Forzar a null para meses futuros
       }
 
@@ -1228,7 +1229,6 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
   const rollingAbsenteeismComparison = useMemo(() => {
     const targetYear = typeof currentYear === 'number' ? currentYear : new Date().getFullYear();
     const previousYear = targetYear - 1;
-    const now = new Date();
 
     const data = MONTH_LABELS_SHORT.map((mes, index) => {
       const currentEnd = new Date(targetYear, index + 1, 0);
@@ -1281,9 +1281,10 @@ export function IncidentsTab({ plantilla, plantillaAnual, currentYear, selectedY
         previousValue = ausentismosPrevious > 0 ? ausentismosPrevious : null;
       }
 
-      // ✅ CORRECCIÓN: No mostrar meses futuros del año actual
-      const isFutureMonth = targetYear === now.getFullYear() && currentEnd > now;
-      if (isFutureMonth) {
+      // ✅ FIX: Verificar si el mes ha COMENZADO (no si ha terminado)
+      // isFutureMonth usa monthStart > now, no monthEnd > now
+      const isMonthFuture = isFutureMonth(targetYear, index + 1);
+      if (isMonthFuture) {
         currentValue = null; // Forzar a null para meses futuros
       }
 
