@@ -26,6 +26,7 @@ interface UseDashboardDataOptions {
 interface UseDashboardDataReturn {
   data: DashboardData;
   bajasData: MotivoBajaRecord[];
+  bajasDataLoading: boolean;
   incidenciasData: IncidenciaCSVRecord[];
   supabase: SupabaseClient;
   loadDashboardData: (filter?: TimeFilter, forceRefresh?: boolean) => Promise<void>;
@@ -52,6 +53,7 @@ export function useDashboardData({
   });
 
   const [bajasData, setBajasData] = useState<MotivoBajaRecord[]>([]);
+  const [bajasDataLoading, setBajasDataLoading] = useState(true);
   const [incidenciasData, setIncidenciasData] = useState<IncidenciaCSVRecord[]>([]);
 
   const loadDashboardData = useCallback(
@@ -134,6 +136,7 @@ export function useDashboardData({
   // Load bajas and incidencias for comparative summary
   useEffect(() => {
     const loadBajasIncidencias = async () => {
+      setBajasDataLoading(true);
       try {
         const [bajas, incidencias] = await Promise.all([
           db.getMotivosBaja(undefined, undefined, supabase),
@@ -143,6 +146,8 @@ export function useDashboardData({
         setIncidenciasData(incidencias);
       } catch (error) {
         console.error("Error loading bajas/incidencias:", error);
+      } finally {
+        setBajasDataLoading(false);
       }
     };
 
@@ -156,6 +161,7 @@ export function useDashboardData({
   return {
     data,
     bajasData,
+    bajasDataLoading,
     incidenciasData,
     supabase,
     loadDashboardData,

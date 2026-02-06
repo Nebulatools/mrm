@@ -69,6 +69,7 @@ interface UseRetentionKPIsOptions {
   retentionFilters: RetentionFilterOptions;
   selectedPeriod: Date;
   bajasData?: MotivoBajaRecord[];
+  bajasDataLoading?: boolean;
 }
 
 const EMPTY_KPIS: RetentionKPIs = {
@@ -122,11 +123,18 @@ export function useRetentionKPIs({
   retentionFilters,
   selectedPeriod,
   bajasData,
+  bajasDataLoading,
 }: UseRetentionKPIsOptions): RetentionKPIs {
   return useMemo(() => {
     // Solo calcular si tenemos datos de plantilla cargados
     if (!plantilla || plantilla.length === 0) {
       console.log("🔍 No plantilla data available yet, returning empty KPIs");
+      return EMPTY_KPIS;
+    }
+
+    // Esperar a que bajasData termine de cargar para evitar flash con datos incorrectos
+    if (bajasDataLoading) {
+      console.log("🔍 bajasData still loading, returning empty KPIs to prevent flash");
       return EMPTY_KPIS;
     }
 
@@ -354,5 +362,5 @@ export function useRetentionKPIs({
         rotYTDVolPrev
       ),
     };
-  }, [plantilla, plantillaFilteredYearScope, retentionFilters, selectedPeriod, bajasData]);
+  }, [plantilla, plantillaFilteredYearScope, retentionFilters, selectedPeriod, bajasData, bajasDataLoading]);
 }

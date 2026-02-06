@@ -90,7 +90,7 @@ export function DashboardPage() {
   });
 
   // ==================== HOOKS ====================
-  const { data, bajasData, incidenciasData, supabase } = useDashboardData({
+  const { data, bajasData, bajasDataLoading, incidenciasData, supabase } = useDashboardData({
     timePeriod,
     selectedPeriod,
     retentionFilters,
@@ -118,6 +118,7 @@ export function DashboardPage() {
     retentionFilters,
     selectedPeriod,
     bajasData,
+    bajasDataLoading,
   });
 
   // ==================== FALTAS/SALUD KPIs (source of truth para Resumen e Incidencias) ====================
@@ -813,7 +814,7 @@ export function DashboardPage() {
                 currentYear={currentYear}
                 narrativePayload={narrativePayload}
                 refreshEnabled={refreshEnabled}
-                loading={data.loading}
+                loading={data.loading || bajasDataLoading}
               />
             </TabsContent>
           </Tabs>

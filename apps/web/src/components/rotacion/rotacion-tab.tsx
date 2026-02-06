@@ -102,7 +102,7 @@ export function RotacionTab({
 
       {/* 5 KPIs Principales de Retención con filtros aplicados */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 items-stretch">
-        {refreshEnabled && loading ? (
+        {loading ? (
           Array.from({ length: 5 }).map((_, index) => (
             <KPICardSkeleton key={`retention-skeleton-${index}`} refreshEnabled />
           ))
