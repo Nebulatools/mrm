@@ -1,0 +1,487 @@
+{
+  "artifacts": {
+    "classification_report": {
+      "Abandono / No regresó": {
+        "f1-score": 0.7123287671232876,
+        "precision": 0.7027027027027027,
+        "recall": 0.7222222222222222,
+        "support": 36.0
+      },
+      "Otra razón": {
+        "f1-score": 0.5555555555555556,
+        "precision": 0.47619047619047616,
+        "recall": 0.6666666666666666,
+        "support": 30.0
+      },
+      "Otro trabajo mejor compensado": {
+        "f1-score": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "support": 5.0
+      },
+      "Otros": {
+        "f1-score": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "support": 5.0
+      },
+      "Regreso a la escuela": {
+        "f1-score": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "support": 1.0
+      },
+      "Rescisión por desempeño": {
+        "f1-score": 0.42857142857142855,
+        "precision": 0.5,
+        "recall": 0.375,
+        "support": 8.0
+      },
+      "Rescisión por disciplina": {
+        "f1-score": 0.2857142857142857,
+        "precision": 1.0,
+        "recall": 0.16666666666666666,
+        "support": 6.0
+      },
+      "Término del contrato": {
+        "f1-score": 0.625,
+        "precision": 0.5769230769230769,
+        "recall": 0.6818181818181818,
+        "support": 22.0
+      },
+      "accuracy": 0.5752212389380531,
+      "macro avg": {
+        "f1-score": 0.3258962546205697,
+        "precision": 0.40697703197703194,
+        "recall": 0.3265467171717171,
+        "support": 113.0
+      },
+      "weighted avg": {
+        "f1-score": 0.5416226497872758,
+        "precision": 0.5511090201355688,
+        "recall": 0.5752212389380531,
+        "support": 113.0
+      }
+    },
+    "per_class_shap": {
+      "Abandono / No regresó": [
+        {
+          "feature": "antiguedad_dias",
+          "importance": 1.675654649734497
+        },
+        {
+          "feature": "edad",
+          "importance": 0.39907774329185486
+        },
+        {
+          "feature": "area_Desconocido",
+          "importance": 0.3536517322063446
+        },
+        {
+          "feature": "fi_90d",
+          "importance": 0.28893783688545227
+        },
+        {
+          "feature": "total_365d",
+          "importance": 0.2706157863140106
+        },
+        {
+          "feature": "turno_Matutino Filiales 0930_1900 F",
+          "importance": 0.15995006263256073
+        },
+        {
+          "feature": "clasificacion_Confianza",
+          "importance": 0.14203885197639465
+        },
+        {
+          "feature": "ratio_fi",
+          "importance": 0.12432900816202164
+        },
+        {
+          "feature": "permisos_365d",
+          "importance": 0.12427642196416855
+        },
+        {
+          "feature": "ubicacion2_CORPORATIVO",
+          "importance": 0.11557275056838989
+        }
+      ],
+      "Otra razón": [
+        {
+          "feature": "antiguedad_dias",
+          "importance": 0.5767562389373779
+        },
+        {
+          "feature": "edad",
+          "importance": 0.24800223112106323
+        },
+        {
+          "feature": "clasificacion_Confianza",
+          "importance": 0.19053710997104645
+        },
+        {
+          "feature": "ratio_fi",
+          "importance": 0.11270108819007874
+        },
+        {
+          "feature": "fi_90d",
+          "importance": 0.10091125965118408
+        },
+        {
+          "feature": "total_365d",
+          "importance": 0.07988870143890381
+        },
+        {
+          "feature": "clasificacion_Sindicalizados",
+          "importance": 0.06642118841409683
+        },
+        {
+          "feature": "turno_Matutino Corpo 0900_1900 LV",
+          "importance": 0.05882059410214424
+        },
+        {
+          "feature": "departamento_ADMINISTRACI?N Y FINANZAS",
+          "importance": 0.0526888370513916
+        },
+        {
+          "feature": "generacion_Millennial",
+          "importance": 0.0450422465801239
+        }
+      ],
+      "Otro trabajo mejor compensado": [
+        {
+          "feature": "ubicacion2_CAD",
+          "importance": 0.5450619459152222
+        },
+        {
+          "feature": "antiguedad_dias",
+          "importance": 0.5111983418464661
+        },
+        {
+          "feature": "total_365d",
+          "importance": 0.4071412682533264
+        },
+        {
+          "feature": "edad",
+          "importance": 0.3037276864051819
+        },
+        {
+          "feature": "ubicacion2_CORPORATIVO",
+          "importance": 0.279039204120636
+        },
+        {
+          "feature": "area_Desconocido",
+          "importance": 0.23310476541519165
+        },
+        {
+          "feature": "clasificacion_Confianza",
+          "importance": 0.20093117654323578
+        },
+        {
+          "feature": "turno_Matutino Corpo 0900_1900",
+          "importance": 0.16446080803871155
+        },
+        {
+          "feature": "area_Empaque",
+          "importance": 0.15344123542308807
+        },
+        {
+          "feature": "turno_Matutino Cad 0830_1700",
+          "importance": 0.14805278182029724
+        }
+      ],
+      "Otros": [
+        {
+          "feature": "antiguedad_dias",
+          "importance": 0.665816605091095
+        },
+        {
+          "feature": "area_Desconocido",
+          "importance": 0.5579313039779663
+        },
+        {
+          "feature": "edad",
+          "importance": 0.3948228061199188
+        },
+        {
+          "feature": "ratio_neg_90",
+          "importance": 0.2352447807788849
+        },
+        {
+          "feature": "neg_90d",
+          "importance": 0.2222827523946762
+        },
+        {
+          "feature": "ubicacion2_CAD",
+          "importance": 0.15167823433876038
+        },
+        {
+          "feature": "total_365d",
+          "importance": 0.14361657202243805
+        },
+        {
+          "feature": "ratio_fi",
+          "importance": 0.13997980952262878
+        },
+        {
+          "feature": "genero_Femenino",
+          "importance": 0.13836991786956787
+        },
+        {
+          "feature": "ubicacion2_CORPORATIVO",
+          "importance": 0.13593870401382446
+        }
+      ],
+      "Regreso a la escuela": [
+        {
+          "feature": "antiguedad_dias",
+          "importance": 0.7515392899513245
+        },
+        {
+          "feature": "ratio_neg_180",
+          "importance": 0.34383565187454224
+        },
+        {
+          "feature": "edad",
+          "importance": 0.3385723829269409
+        },
+        {
+          "feature": "total_365d",
+          "importance": 0.13625545799732208
+        },
+        {
+          "feature": "genero_Femenino",
+          "importance": 0.11057588458061218
+        },
+        {
+          "feature": "departamento_OPERACIONES Y LOG?STICA",
+          "importance": 0.06759587675333023
+        },
+        {
+          "feature": "area_Recibo",
+          "importance": 0.05877330154180527
+        },
+        {
+          "feature": "ratio_neg_90",
+          "importance": 0.04437107965350151
+        },
+        {
+          "feature": "genero_Masculino",
+          "importance": 0.04293883591890335
+        },
+        {
+          "feature": "generacion_Millennial",
+          "importance": 0.042030174285173416
+        }
+      ],
+      "Rescisión por desempeño": [
+        {
+          "feature": "antiguedad_dias",
+          "importance": 2.0501229763031006
+        },
+        {
+          "feature": "edad",
+          "importance": 0.44884732365608215
+        },
+        {
+          "feature": "area_Desconocido",
+          "importance": 0.20405347645282745
+        },
+        {
+          "feature": "ratio_neg_180",
+          "importance": 0.1688772290945053
+        },
+        {
+          "feature": "genero_Femenino",
+          "importance": 0.16641110181808472
+        },
+        {
+          "feature": "area_Empaque",
+          "importance": 0.15955419838428497
+        },
+        {
+          "feature": "turno_Matutino Cad 0830_1700",
+          "importance": 0.15751118957996368
+        },
+        {
+          "feature": "total_365d",
+          "importance": 0.1079515740275383
+        },
+        {
+          "feature": "neg_180d",
+          "importance": 0.10587284713983536
+        },
+        {
+          "feature": "ubicacion2_CORPORATIVO",
+          "importance": 0.09164360910654068
+        }
+      ],
+      "Rescisión por disciplina": [
+        {
+          "feature": "antiguedad_dias",
+          "importance": 0.8345122337341309
+        },
+        {
+          "feature": "edad",
+          "importance": 0.5453724265098572
+        },
+        {
+          "feature": "ratio_neg_90",
+          "importance": 0.3604854941368103
+        },
+        {
+          "feature": "departamento_OPERACIONES Y LOG?STICA",
+          "importance": 0.29795873165130615
+        },
+        {
+          "feature": "genero_Femenino",
+          "importance": 0.29266461730003357
+        },
+        {
+          "feature": "area_Desconocido",
+          "importance": 0.16760104894638062
+        },
+        {
+          "feature": "neg_180d",
+          "importance": 0.15721848607063293
+        },
+        {
+          "feature": "fi_90d",
+          "importance": 0.1435433179140091
+        },
+        {
+          "feature": "total_365d",
+          "importance": 0.13611814379692078
+        },
+        {
+          "feature": "ratio_neg_180",
+          "importance": 0.08473112434148788
+        }
+      ],
+      "Término del contrato": [
+        {
+          "feature": "antiguedad_dias",
+          "importance": 1.3651865720748901
+        },
+        {
+          "feature": "total_365d",
+          "importance": 0.2297695130109787
+        },
+        {
+          "feature": "clasificacion_Confianza",
+          "importance": 0.2069026380777359
+        },
+        {
+          "feature": "departamento_OPERACIONES Y LOG?STICA",
+          "importance": 0.18722416460514069
+        },
+        {
+          "feature": "edad",
+          "importance": 0.11771844327449799
+        },
+        {
+          "feature": "ratio_fi",
+          "importance": 0.09688275307416916
+        },
+        {
+          "feature": "area_Desconocido",
+          "importance": 0.09296286851167679
+        },
+        {
+          "feature": "clasificacion_Sindicalizados",
+          "importance": 0.07020621746778488
+        },
+        {
+          "feature": "genero_Femenino",
+          "importance": 0.06120065972208977
+        },
+        {
+          "feature": "fi_90d",
+          "importance": 0.0605618916451931
+        }
+      ]
+    },
+    "shap_top_features": [
+      {
+        "feature": "antiguedad_dias",
+        "importance": 1.0538480281829834
+      },
+      {
+        "feature": "edad",
+        "importance": 0.3495175838470459
+      },
+      {
+        "feature": "area_Desconocido",
+        "importance": 0.20468178391456604
+      },
+      {
+        "feature": "total_365d",
+        "importance": 0.18891966342926025
+      },
+      {
+        "feature": "clasificacion_Confianza",
+        "importance": 0.11901109665632248
+      },
+      {
+        "feature": "ratio_neg_90",
+        "importance": 0.11267319321632385
+      },
+      {
+        "feature": "genero_Femenino",
+        "importance": 0.10997998714447021
+      },
+      {
+        "feature": "ratio_neg_180",
+        "importance": 0.10286200046539307
+      },
+      {
+        "feature": "fi_90d",
+        "importance": 0.10183072835206985
+      },
+      {
+        "feature": "ubicacion2_CAD",
+        "importance": 0.09566913545131683
+      },
+      {
+        "feature": "ratio_fi",
+        "importance": 0.0906231552362442
+      },
+      {
+        "feature": "ubicacion2_CORPORATIVO",
+        "importance": 0.08512691408395767
+      },
+      {
+        "feature": "departamento_OPERACIONES Y LOG?STICA",
+        "importance": 0.0767684355378151
+      },
+      {
+        "feature": "neg_90d",
+        "importance": 0.06947768479585648
+      },
+      {
+        "feature": "neg_180d",
+        "importance": 0.06671254336833954
+      }
+    ]
+  },
+  "metrics": {
+    "classes": {
+      "Abandono / No regresó": 144,
+      "Otra razón": 117,
+      "Otro trabajo mejor compensado": 21,
+      "Otros": 18,
+      "Regreso a la escuela": 5,
+      "Rescisión por desempeño": 32,
+      "Rescisión por disciplina": 25,
+      "Término del contrato": 88
+    },
+    "macro_f1": 0.3258962546205697,
+    "test_size": 113,
+    "train_size": 337,
+    "weighted_f1": 0.5416226497872758
+  },
+  "model_id": "attrition_causes",
+  "model_name": "Causas raíz de bajas",
+  "model_version": "v1",
+  "trained_at": "2026-02-18T21:04:47.651823+00:00"
+}

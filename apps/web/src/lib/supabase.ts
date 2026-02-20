@@ -367,5 +367,55 @@ export const db = {
       totalActiveDays: diasUnicos,
       totalTerminations: bajas.length
     }
+  },
+
+  // ML Predictions from ml_predictions_log
+  async getMLPredictions(options?: {
+    modelName?: string;
+    riskLevel?: string;
+    limit?: number;
+    latestOnly?: boolean;
+  }, client = supabase) {
+    const { modelName, riskLevel, limit = 7000, latestOnly = true } = options || {};
+
+    let query = client
+      .from('ml_predictions_log')
+      .select('*')
+      .order('prediction_date', { ascending: false })
+      .order('predicted_probability', { ascending: false })
+      .limit(limit);
+
+    if (modelName) {
+      query = query.eq('model_name', modelName);
+    }
+    if (riskLevel) {
+      query = query.eq('risk_level', riskLevel);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching ML predictions:', error);
+      return [];
+    }
+
+    if (!data || data.length === 0) return [];
+
+    // If latestOnly, filter to the most recent prediction_date per model
+    if (latestOnly) {
+      const latestDates = new Map<string, string>();
+      for (const row of data) {
+        const key = row.model_name;
+        if (!latestDates.has(key) || row.prediction_date > latestDates.get(key)!) {
+          latestDates.set(key, row.prediction_date);
+        }
+      }
+      return data.filter(
+        (row: Record<string, unknown>) =>
+          (row as { prediction_date: string }).prediction_date === latestDates.get((row as { model_name: string }).model_name)
+      );
+    }
+
+    return data;
   }
 }

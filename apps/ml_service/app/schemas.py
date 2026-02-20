@@ -11,17 +11,14 @@ class ModelType(str, Enum):
     CLASSIFICATION = 'classification'
     REGRESSION = 'regression'
     TIME_SERIES = 'time_series'
-    CLUSTERING = 'clustering'
-    SURVIVAL = 'survival'
-    RECOMMENDER = 'recommender'
 
 
 class ScheduleFrequency(str, Enum):
     MANUAL = 'manual'
     DAILY = 'daily'
     WEEKLY = 'weekly'
+    BIWEEKLY = 'biweekly'
     MONTHLY = 'monthly'
-    QUARTERLY = 'quarterly'
 
 
 class ScheduleConfig(BaseModel):

@@ -3,11 +3,11 @@
     "algorithms_evaluated": [
       {
         "algorithm": "logistic_regression",
-        "average_precision": 0.2541669529518126,
-        "cv_mean": 0.30830151847980247,
-        "f1": 0.12209302325581395,
+        "average_precision": 0.2537794566879983,
+        "cv_mean": 0.3094861004117166,
+        "f1": 0.12244897959183673,
         "is_winner": true,
-        "roc_auc": 0.768923689503715
+        "roc_auc": 0.7683490004515413
       },
       {
         "algorithm": "random_forest",
@@ -35,21 +35,21 @@
       }
     ],
     "feature_importances": {
-      "antiguedad_dias": 1.4808673340187046,
-      "area_Administraci?n y Finanzas": 1.2361449032227072,
-      "area_Contabilidad": 1.5123609157481868,
-      "area_Desconocido": 2.730758409423659,
-      "area_Inventario": 1.4244118417300824,
-      "area_Logistica": 1.1894998415536318,
-      "area_Servicio Generales": 1.494898652144854,
-      "area_Servicio al Cliente": 1.1893664086644633,
-      "area_Telemercadeo": 1.2814678402879607,
-      "area_Tic": 1.4197889484758004,
-      "area_Ventas": 1.3226853323528105,
-      "departamento_DIRECCI?N GENERAL": 1.5994841808132747,
-      "departamento_TECNOLOG?A DE LA INFORMAC": 1.4197889484758004,
-      "departamento_VENTAS": 1.1646241384748799,
-      "generacion_Baby Boomer": 1.5378408276249984
+      "antiguedad_dias": 1.476842241035818,
+      "area_Administraci?n y Finanzas": 1.2444642219053725,
+      "area_Contabilidad": 1.5180360790301164,
+      "area_Desconocido": 2.731613458964242,
+      "area_Inventario": 1.440167265114009,
+      "area_Logistica": 1.1931546983977273,
+      "area_Servicio Generales": 1.506224529792509,
+      "area_Servicio al Cliente": 1.2025782540538532,
+      "area_Telemercadeo": 1.2853828894523542,
+      "area_Tic": 1.4058526051965567,
+      "area_Ventas": 1.3206782083357107,
+      "departamento_DIRECCI?N GENERAL": 1.6007644843205933,
+      "departamento_TECNOLOG?A DE LA INFORMAC": 1.4058526051965514,
+      "departamento_VENTAS": 1.1537287082208114,
+      "generacion_Baby Boomer": 1.5287254172575175
     },
     "per_horizon": {
       "14": {
@@ -57,7 +57,7 @@
           {
             "algorithm": "logistic_regression",
             "average_precision": 0.23972480899216161,
-            "cv_mean": 0.2771332130035547,
+            "cv_mean": 0.27714313809509783,
             "f1": 0.10426540284360189,
             "is_winner": true,
             "roc_auc": 0.7269962664097314
@@ -88,26 +88,26 @@
           }
         ],
         "feature_importances": {
-          "antiguedad_dias": 3.5361185183182124,
-          "area_Administraci?n y Finanzas": 4.2636966295561844,
-          "area_Calidad": 1.5144250355580662,
-          "area_Cr?dito y Cobranza": 2.9220187890948885,
-          "area_Desconocido": 2.331457220276022,
-          "area_Empaque": 1.7111934287563466,
-          "area_Master": 1.6378142702204228,
-          "area_Planeaci?n": 2.035388708459136,
-          "area_Tic": 1.5132512461248995,
-          "area_Ventas": 1.6496913262132546,
-          "departamento_ADMINISTRACI?N Y FINANZAS": 1.9535067068566938,
-          "departamento_DIRECCI?N GENERAL": 3.419139943847449,
-          "departamento_TECNOLOG?A DE LA INFORMAC": 1.5132512461248995,
-          "total_incidencias_90d": 1.7874728018063453,
-          "ubicacion2_CORPORATIVO": 2.00291118143168
+          "antiguedad_dias": 3.53610286032689,
+          "area_Administraci?n y Finanzas": 4.263727123385766,
+          "area_Calidad": 1.5144349085144841,
+          "area_Cr?dito y Cobranza": 2.9220087014531915,
+          "area_Desconocido": 2.3314260145798964,
+          "area_Empaque": 1.7112138115131983,
+          "area_Master": 1.6378241608004784,
+          "area_Planeaci?n": 2.0353015500191374,
+          "area_Tic": 1.5132171544179827,
+          "area_Ventas": 1.649667866474546,
+          "departamento_ADMINISTRACI?N Y FINANZAS": 1.95346205589615,
+          "departamento_DIRECCI?N GENERAL": 3.41913601267198,
+          "departamento_TECNOLOG?A DE LA INFORMAC": 1.5132171544179829,
+          "total_incidencias_90d": 1.7874733494773458,
+          "ubicacion2_CORPORATIVO": 2.0028852225937994
         },
         "metrics": {
           "average_precision": 0.23972480899216161,
-          "cv_mean": 0.2771332130035547,
-          "cv_std": 0.14326729703177932,
+          "cv_mean": 0.27714313809509783,
+          "cv_std": 0.14326979238950785,
           "f1": 0.10426540284360189,
           "precision": 0.05851063829787234,
           "recall": 0.4782608695652174,
@@ -123,11 +123,11 @@
         "comparison": [
           {
             "algorithm": "logistic_regression",
-            "average_precision": 0.2541669529518126,
-            "cv_mean": 0.30830151847980247,
-            "f1": 0.12209302325581395,
+            "average_precision": 0.2537794566879983,
+            "cv_mean": 0.3094861004117166,
+            "f1": 0.12244897959183673,
             "is_winner": true,
-            "roc_auc": 0.768923689503715
+            "roc_auc": 0.7683490004515413
           },
           {
             "algorithm": "random_forest",
@@ -155,30 +155,30 @@
           }
         ],
         "feature_importances": {
-          "antiguedad_dias": 1.4808673340187046,
-          "area_Administraci?n y Finanzas": 1.2361449032227072,
-          "area_Contabilidad": 1.5123609157481868,
-          "area_Desconocido": 2.730758409423659,
-          "area_Inventario": 1.4244118417300824,
-          "area_Logistica": 1.1894998415536318,
-          "area_Servicio Generales": 1.494898652144854,
-          "area_Servicio al Cliente": 1.1893664086644633,
-          "area_Telemercadeo": 1.2814678402879607,
-          "area_Tic": 1.4197889484758004,
-          "area_Ventas": 1.3226853323528105,
-          "departamento_DIRECCI?N GENERAL": 1.5994841808132747,
-          "departamento_TECNOLOG?A DE LA INFORMAC": 1.4197889484758004,
-          "departamento_VENTAS": 1.1646241384748799,
-          "generacion_Baby Boomer": 1.5378408276249984
+          "antiguedad_dias": 1.476842241035818,
+          "area_Administraci?n y Finanzas": 1.2444642219053725,
+          "area_Contabilidad": 1.5180360790301164,
+          "area_Desconocido": 2.731613458964242,
+          "area_Inventario": 1.440167265114009,
+          "area_Logistica": 1.1931546983977273,
+          "area_Servicio Generales": 1.506224529792509,
+          "area_Servicio al Cliente": 1.2025782540538532,
+          "area_Telemercadeo": 1.2853828894523542,
+          "area_Tic": 1.4058526051965567,
+          "area_Ventas": 1.3206782083357107,
+          "departamento_DIRECCI?N GENERAL": 1.6007644843205933,
+          "departamento_TECNOLOG?A DE LA INFORMAC": 1.4058526051965514,
+          "departamento_VENTAS": 1.1537287082208114,
+          "generacion_Baby Boomer": 1.5287254172575175
         },
         "metrics": {
-          "average_precision": 0.2541669529518126,
-          "cv_mean": 0.30830151847980247,
-          "cv_std": 0.10574125695970008,
-          "f1": 0.12209302325581395,
-          "precision": 0.06774193548387097,
+          "average_precision": 0.2537794566879983,
+          "cv_mean": 0.3094861004117166,
+          "cv_std": 0.10614573910905208,
+          "f1": 0.12244897959183673,
+          "precision": 0.06796116504854369,
           "recall": 0.6176470588235294,
-          "roc_auc": 0.768923689503715
+          "roc_auc": 0.7683490004515413
         },
         "positive_rate_test": 0.023176550783912748,
         "positive_rate_train": 0.038752362948960305,
@@ -189,17 +189,17 @@
     }
   },
   "metrics": {
-    "average_precision": 0.2541669529518126,
-    "cv_mean": 0.30830151847980247,
-    "cv_std": 0.10574125695970008,
-    "f1": 0.12209302325581395,
+    "average_precision": 0.2537794566879983,
+    "cv_mean": 0.3094861004117166,
+    "cv_std": 0.10614573910905208,
+    "f1": 0.12244897959183673,
     "per_horizon": {
       "14": {
         "comparison": [
           {
             "algorithm": "logistic_regression",
             "average_precision": 0.23972480899216161,
-            "cv_mean": 0.2771332130035547,
+            "cv_mean": 0.27714313809509783,
             "f1": 0.10426540284360189,
             "is_winner": true,
             "roc_auc": 0.7269962664097314
@@ -230,26 +230,26 @@
           }
         ],
         "feature_importances": {
-          "antiguedad_dias": 3.5361185183182124,
-          "area_Administraci?n y Finanzas": 4.2636966295561844,
-          "area_Calidad": 1.5144250355580662,
-          "area_Cr?dito y Cobranza": 2.9220187890948885,
-          "area_Desconocido": 2.331457220276022,
-          "area_Empaque": 1.7111934287563466,
-          "area_Master": 1.6378142702204228,
-          "area_Planeaci?n": 2.035388708459136,
-          "area_Tic": 1.5132512461248995,
-          "area_Ventas": 1.6496913262132546,
-          "departamento_ADMINISTRACI?N Y FINANZAS": 1.9535067068566938,
-          "departamento_DIRECCI?N GENERAL": 3.419139943847449,
-          "departamento_TECNOLOG?A DE LA INFORMAC": 1.5132512461248995,
-          "total_incidencias_90d": 1.7874728018063453,
-          "ubicacion2_CORPORATIVO": 2.00291118143168
+          "antiguedad_dias": 3.53610286032689,
+          "area_Administraci?n y Finanzas": 4.263727123385766,
+          "area_Calidad": 1.5144349085144841,
+          "area_Cr?dito y Cobranza": 2.9220087014531915,
+          "area_Desconocido": 2.3314260145798964,
+          "area_Empaque": 1.7112138115131983,
+          "area_Master": 1.6378241608004784,
+          "area_Planeaci?n": 2.0353015500191374,
+          "area_Tic": 1.5132171544179827,
+          "area_Ventas": 1.649667866474546,
+          "departamento_ADMINISTRACI?N Y FINANZAS": 1.95346205589615,
+          "departamento_DIRECCI?N GENERAL": 3.41913601267198,
+          "departamento_TECNOLOG?A DE LA INFORMAC": 1.5132171544179829,
+          "total_incidencias_90d": 1.7874733494773458,
+          "ubicacion2_CORPORATIVO": 2.0028852225937994
         },
         "metrics": {
           "average_precision": 0.23972480899216161,
-          "cv_mean": 0.2771332130035547,
-          "cv_std": 0.14326729703177932,
+          "cv_mean": 0.27714313809509783,
+          "cv_std": 0.14326979238950785,
           "f1": 0.10426540284360189,
           "precision": 0.05851063829787234,
           "recall": 0.4782608695652174,
@@ -265,11 +265,11 @@
         "comparison": [
           {
             "algorithm": "logistic_regression",
-            "average_precision": 0.2541669529518126,
-            "cv_mean": 0.30830151847980247,
-            "f1": 0.12209302325581395,
+            "average_precision": 0.2537794566879983,
+            "cv_mean": 0.3094861004117166,
+            "f1": 0.12244897959183673,
             "is_winner": true,
-            "roc_auc": 0.768923689503715
+            "roc_auc": 0.7683490004515413
           },
           {
             "algorithm": "random_forest",
@@ -297,30 +297,30 @@
           }
         ],
         "feature_importances": {
-          "antiguedad_dias": 1.4808673340187046,
-          "area_Administraci?n y Finanzas": 1.2361449032227072,
-          "area_Contabilidad": 1.5123609157481868,
-          "area_Desconocido": 2.730758409423659,
-          "area_Inventario": 1.4244118417300824,
-          "area_Logistica": 1.1894998415536318,
-          "area_Servicio Generales": 1.494898652144854,
-          "area_Servicio al Cliente": 1.1893664086644633,
-          "area_Telemercadeo": 1.2814678402879607,
-          "area_Tic": 1.4197889484758004,
-          "area_Ventas": 1.3226853323528105,
-          "departamento_DIRECCI?N GENERAL": 1.5994841808132747,
-          "departamento_TECNOLOG?A DE LA INFORMAC": 1.4197889484758004,
-          "departamento_VENTAS": 1.1646241384748799,
-          "generacion_Baby Boomer": 1.5378408276249984
+          "antiguedad_dias": 1.476842241035818,
+          "area_Administraci?n y Finanzas": 1.2444642219053725,
+          "area_Contabilidad": 1.5180360790301164,
+          "area_Desconocido": 2.731613458964242,
+          "area_Inventario": 1.440167265114009,
+          "area_Logistica": 1.1931546983977273,
+          "area_Servicio Generales": 1.506224529792509,
+          "area_Servicio al Cliente": 1.2025782540538532,
+          "area_Telemercadeo": 1.2853828894523542,
+          "area_Tic": 1.4058526051965567,
+          "area_Ventas": 1.3206782083357107,
+          "departamento_DIRECCI?N GENERAL": 1.6007644843205933,
+          "departamento_TECNOLOG?A DE LA INFORMAC": 1.4058526051965514,
+          "departamento_VENTAS": 1.1537287082208114,
+          "generacion_Baby Boomer": 1.5287254172575175
         },
         "metrics": {
-          "average_precision": 0.2541669529518126,
-          "cv_mean": 0.30830151847980247,
-          "cv_std": 0.10574125695970008,
-          "f1": 0.12209302325581395,
-          "precision": 0.06774193548387097,
+          "average_precision": 0.2537794566879983,
+          "cv_mean": 0.3094861004117166,
+          "cv_std": 0.10614573910905208,
+          "f1": 0.12244897959183673,
+          "precision": 0.06796116504854369,
           "recall": 0.6176470588235294,
-          "roc_auc": 0.768923689503715
+          "roc_auc": 0.7683490004515413
         },
         "positive_rate_test": 0.023176550783912748,
         "positive_rate_train": 0.038752362948960305,
@@ -329,14 +329,14 @@
         "winner_algorithm": "logistic_regression"
       }
     },
-    "precision": 0.06774193548387097,
+    "precision": 0.06796116504854369,
     "recall": 0.6176470588235294,
-    "roc_auc": 0.768923689503715,
+    "roc_auc": 0.7683490004515413,
     "winner_algorithm_14d": "logistic_regression",
     "winner_algorithm_28d": "logistic_regression"
   },
   "model_id": "rotation",
   "model_name": "Predicción de rotación individual (14d/28d)",
   "model_version": "v1",
-  "trained_at": "2026-02-19T00:18:50.171285+00:00"
+  "trained_at": "2026-02-18T19:13:08.398145+00:00"
 }

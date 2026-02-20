@@ -6,3 +6,4 @@ export { MLAnalysisTab } from './ml-analysis-tab';
 export { ModelTrendsTab } from './model-trends-tab';
 export { CorrelationMatrix } from './correlation-matrix';
 export { AIInsights } from './ai-insights';
+export { MLPredictionsTab } from './ml-predictions-tab';

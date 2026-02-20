@@ -1,10 +1,10 @@
 {
   "absence_forecast": {
-    "cron": "30 2 * * 0",
+    "cron": "30 3 * * 1",
     "next_run": null
   },
   "absenteeism_risk": {
-    "cron": "0 2 * * 1",
+    "cron": "0 3 * * 1",
     "next_run": null
   },
   "attrition_causes": {
@@ -28,7 +28,7 @@
     "next_run": null
   },
   "rotation": {
-    "cron": "0 2 * * 0",
+    "cron": "0 2 * * 1",
     "next_run": null
   },
   "segment_risk": {

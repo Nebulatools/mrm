@@ -21,6 +21,7 @@ import { ThemeToggle } from "./shared/theme-toggle";
 import { SmartNarrative } from "./shared/smart-narrative";
 import { PersonalTab } from "./personal/personal-tab";
 import { RotacionTab } from "./rotacion/rotacion-tab";
+import { MLPredictionsTab } from "./ml/ml-predictions-tab";
 import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters";
 import { kpiCalculator, type KPIResult } from "@/lib/kpi-calculator";
 import { db } from "@/lib/supabase";
@@ -731,6 +732,9 @@ export function DashboardPage() {
               <TabsTrigger value="retention" className={tabTriggerClass}>
                 Rotación
               </TabsTrigger>
+              <TabsTrigger value="predictions" className={tabTriggerClass}>
+                Predicciones
+              </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -816,6 +820,11 @@ export function DashboardPage() {
                 refreshEnabled={refreshEnabled}
                 loading={data.loading || bajasDataLoading}
               />
+            </TabsContent>
+
+            {/* Predictions Tab */}
+            <TabsContent value="predictions" className="space-y-6">
+              <MLPredictionsTab refreshEnabled={refreshEnabled} />
             </TabsContent>
           </Tabs>
         </main>

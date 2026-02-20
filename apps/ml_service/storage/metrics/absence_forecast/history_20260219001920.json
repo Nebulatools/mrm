@@ -1,0 +1,293 @@
+{
+  "artifacts": {
+    "forecasts_by_code": {
+      "ACCI": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 0.01,
+          "predicted_total": 0.1
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 0.01,
+          "predicted_total": 0.2
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 0.02,
+          "predicted_total": 0.5
+        }
+      ],
+      "ENFE": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 0.21,
+          "predicted_total": 1.4
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 0.19,
+          "predicted_total": 2.6
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 0.15,
+          "predicted_total": 4.3
+        }
+      ],
+      "FEST": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 0.36,
+          "predicted_total": 2.5
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 0.36,
+          "predicted_total": 5.1
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 0.37,
+          "predicted_total": 10.5
+        }
+      ],
+      "FI": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 0.05,
+          "predicted_total": 0.3
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 0.0,
+          "predicted_total": 0.0
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 0.0,
+          "predicted_total": 0.0
+        }
+      ],
+      "INC": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 0.0,
+          "predicted_total": 0.0
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 0.0,
+          "predicted_total": 0.0
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 0.0,
+          "predicted_total": 0.0
+        }
+      ],
+      "MAT3": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 1.02,
+          "predicted_total": 7.1
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 1.03,
+          "predicted_total": 14.4
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 1.05,
+          "predicted_total": 29.3
+        }
+      ],
+      "PATER": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 0.01,
+          "predicted_total": 0.1
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 0.01,
+          "predicted_total": 0.1
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 0.01,
+          "predicted_total": 0.4
+        }
+      ],
+      "PCON": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 0.3,
+          "predicted_total": 2.1
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 0.27,
+          "predicted_total": 3.8
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 0.23,
+          "predicted_total": 6.3
+        }
+      ],
+      "PSIN": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 0.09,
+          "predicted_total": 0.6
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 0.02,
+          "predicted_total": 0.3
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 0.0,
+          "predicted_total": 0.0
+        }
+      ],
+      "SUSP": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 0.14,
+          "predicted_total": 1.0
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 0.12,
+          "predicted_total": 1.7
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 0.1,
+          "predicted_total": 2.9
+        }
+      ],
+      "VAC": [
+        {
+          "horizon_days": 7,
+          "predicted_daily_avg": 5.67,
+          "predicted_total": 39.7
+        },
+        {
+          "horizon_days": 14,
+          "predicted_daily_avg": 5.58,
+          "predicted_total": 78.1
+        },
+        {
+          "horizon_days": 28,
+          "predicted_daily_avg": 5.42,
+          "predicted_total": 151.8
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "codes_trained": [
+      "FI",
+      "INC",
+      "VAC",
+      "PCON",
+      "PSIN",
+      "SUSP",
+      "ENFE",
+      "MAT3",
+      "FEST",
+      "PATER",
+      "ACCI"
+    ],
+    "mase_avg": 3.6420772430369,
+    "per_code": {
+      "ACCI": {
+        "mae": 0.03586148492482436,
+        "mase": 2.199504408722561,
+        "rmse": 0.04187108621586203,
+        "train_samples": 369,
+        "validation_samples": 28
+      },
+      "ENFE": {
+        "mae": 1.2091708497104299,
+        "mase": 4.1586436700321325,
+        "rmse": 1.6892376686149408,
+        "train_samples": 369,
+        "validation_samples": 28
+      },
+      "FEST": {
+        "mae": 0.574970674739835,
+        "mase": 1.2301698157224377,
+        "rmse": 0.939723533590838,
+        "train_samples": 369,
+        "validation_samples": 28
+      },
+      "FI": {
+        "mae": 0.8691786717618987,
+        "mase": 0.409025257299717,
+        "rmse": 0.9562056753194407,
+        "train_samples": 369,
+        "validation_samples": 28
+      },
+      "INC": {
+        "mae": 8.554488505792939e-05,
+        "mase": 0.0,
+        "rmse": 9.933119523196657e-05,
+        "train_samples": 369,
+        "validation_samples": 28
+      },
+      "MAT3": {
+        "mae": 0.7459610764583855,
+        "mase": 27.451367613668587,
+        "rmse": 0.8603419657092493,
+        "train_samples": 369,
+        "validation_samples": 28
+      },
+      "PATER": {
+        "mae": 0.011369921454728538,
+        "mase": 1.0460327738350255,
+        "rmse": 0.014508408211974603,
+        "train_samples": 369,
+        "validation_samples": 28
+      },
+      "PCON": {
+        "mae": 0.6075565582822389,
+        "mase": 0.6262767883693666,
+        "rmse": 0.656319294468087,
+        "train_samples": 369,
+        "validation_samples": 28
+      },
+      "PSIN": {
+        "mae": 0.9680745343730256,
+        "mase": 0.625002506402234,
+        "rmse": 1.0315953663383213,
+        "train_samples": 369,
+        "validation_samples": 28
+      },
+      "SUSP": {
+        "mae": 0.49627331276825937,
+        "mase": 0.8655382895673907,
+        "rmse": 0.6164630288295391,
+        "train_samples": 369,
+        "validation_samples": 28
+      },
+      "VAC": {
+        "mae": 6.621504008400672,
+        "mase": 1.4512885497864487,
+        "rmse": 7.919763465598681,
+        "train_samples": 369,
+        "validation_samples": 28
+      }
+    },
+    "rmse_avg": 1.3387389840083785
+  },
+  "model_id": "absence_forecast",
+  "model_name": "Forecast de faltas por código",
+  "model_version": "v1",
+  "trained_at": "2026-02-19T00:19:20.875044+00:00"
+}

@@ -11,12 +11,7 @@ from ..schemas import ModelInfo, ModelSchedule, ModelType, ScheduleFrequency
 from .absenteeism import AbsenteeismRiskTrainer
 from .attrition_causes import AttritionCausesTrainer
 from .forecast_absence import AbsenceForecastTrainer
-from .interventions import PreventiveInterventionsTrainer
-from .lifecycle import EmployeeLifecycleTrainer
-from .patterns import PatternsClusteringTrainer
-from .productivity import ProductivityImpactTrainer
 from .rotation import RotationAttritionTrainer
-from .segment_risk import SegmentRiskTrainer
 from .base import BaseModelTrainer
 
 
@@ -37,19 +32,10 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         id='rotation',
         trainer_cls=RotationAttritionTrainer,
         name='Predicción de rotación individual',
-        description='Probabilidad de baja individual en horizonte de 90 días.',
+        description='Probabilidad de baja individual en horizonte de 14/28 días.',
         model_type=ModelType.CLASSIFICATION,
         default_frequency=ScheduleFrequency.WEEKLY,
-        default_cron='0 2 * * 0',
-    ),
-    'segment_risk': ModelConfig(
-        id='segment_risk',
-        trainer_cls=SegmentRiskTrainer,
-        name='Riesgo de rotación por segmento',
-        description='Clustering de áreas/departamentos basado en probabilidad de baja.',
-        model_type=ModelType.CLUSTERING,
-        default_frequency=ScheduleFrequency.WEEKLY,
-        default_cron='15 2 * * 0',
+        default_cron='0 2 * * 1',  # Lunes 2am, semanas pares (controlado por scheduler)
     ),
     'absenteeism_risk': ModelConfig(
         id='absenteeism_risk',
@@ -58,61 +44,25 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         description='Clasificador que anticipa ausentismo repetitivo a 30 días.',
         model_type=ModelType.CLASSIFICATION,
         default_frequency=ScheduleFrequency.WEEKLY,
-        default_cron='0 2 * * 1',
+        default_cron='0 3 * * 1',  # Lunes 3am
     ),
     'absence_forecast': ModelConfig(
         id='absence_forecast',
         trainer_cls=AbsenceForecastTrainer,
-        name='Forecast de faltas/permisos',
-        description='Proyección diaria SARIMAX de ausentismo y permisos.',
+        name='Forecast de faltas por código',
+        description='Proyección SARIMAX de faltas por código de incidencia.',
         model_type=ModelType.TIME_SERIES,
         default_frequency=ScheduleFrequency.WEEKLY,
-        default_cron='30 2 * * 0',
-    ),
-    'labor_patterns': ModelConfig(
-        id='labor_patterns',
-        trainer_cls=PatternsClusteringTrainer,
-        name='Clustering de patrones laborales',
-        description='Agrupa empleados en patrones de comportamiento de asistencia.',
-        model_type=ModelType.CLUSTERING,
-        default_frequency=ScheduleFrequency.MONTHLY,
-        default_cron='0 3 1 * *',
+        default_cron='30 3 * * 1',  # Lunes 3:30am
     ),
     'attrition_causes': ModelConfig(
         id='attrition_causes',
         trainer_cls=AttritionCausesTrainer,
-        name='Causas raíz de bajas',
-        description='Explainability con SHAP sobre motivos de bajas.',
+        name='Causas raíz de bajas (SHAP)',
+        description='Explainability con SHAP sobre variables de impacto en bajas.',
         model_type=ModelType.CLASSIFICATION,
         default_frequency=ScheduleFrequency.MONTHLY,
         default_cron='30 3 1 * *',
-    ),
-    'productivity_impact': ModelConfig(
-        id='productivity_impact',
-        trainer_cls=ProductivityImpactTrainer,
-        name='Impacto en productividad por ausentismo',
-        description='Estimación monetaria del impacto del ausentismo.',
-        model_type=ModelType.REGRESSION,
-        default_frequency=ScheduleFrequency.MONTHLY,
-        default_cron='0 4 1 * *',
-    ),
-    'preventive_interventions': ModelConfig(
-        id='preventive_interventions',
-        trainer_cls=PreventiveInterventionsTrainer,
-        name='Intervenciones preventivas sugeridas',
-        description='Recomendador basado en árbol de decisión sobre riesgos combinados.',
-        model_type=ModelType.RECOMMENDER,
-        default_frequency=ScheduleFrequency.MONTHLY,
-        default_cron='30 4 1 * *',
-    ),
-    'employee_lifecycle': ModelConfig(
-        id='employee_lifecycle',
-        trainer_cls=EmployeeLifecycleTrainer,
-        name='Ciclo de vida del colaborador',
-        description='Curvas de supervivencia y hazard por segmento laboral.',
-        model_type=ModelType.SURVIVAL,
-        default_frequency=ScheduleFrequency.QUARTERLY,
-        default_cron='0 5 1 1,4,7,10 *',
     ),
 }
 

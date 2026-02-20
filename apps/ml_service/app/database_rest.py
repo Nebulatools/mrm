@@ -14,15 +14,12 @@ import httpx
 import pandas as pd
 
 
-# Mapping from SQL query constants to Supabase view names
+# Mapping from SQL query constants to Supabase view/table names
 SQL_TO_VIEW_MAP = {
-    'ROTATION_FEATURES_SQL': 'ml_rotation_features',
-    'ABSENTEEISM_SQL': 'ml_absenteeism_features',
-    'ATTRITION_SQL': 'ml_attrition_features',
-    'FORECAST_SQL': 'ml_forecast_features',
-    'LIFECYCLE_SQL': 'ml_lifecycle_features',
-    'PATTERNS_SQL': 'ml_patterns_features',
-    'PRODUCTIVITY_SQL': 'ml_productivity_features',
+    'ROTATION_FEATURES_SQL': 'ml_employee_features',
+    'ABSENTEEISM_SQL': 'ml_employee_features',
+    'ATTRITION_SQL': 'mv_empleados_master',
+    'FORECAST_SQL': 'mv_incidencias_enriquecidas',
 }
 
 
@@ -90,6 +87,26 @@ class DatabaseREST:
         client = await self.connect()
         yield client
 
+    async def insert_rows(self, table: str, rows: list[dict]) -> int:
+        """Insert rows into a Supabase table in batches of 500."""
+        if not rows:
+            return 0
+        client = await self.connect()
+        inserted = 0
+        for i in range(0, len(rows), 500):
+            batch = rows[i:i + 500]
+            resp = await client.post(f'/{table}', json=batch)
+            resp.raise_for_status()
+            inserted += len(batch)
+        return inserted
+
+    async def rpc(self, function_name: str, params: dict | None = None) -> Any:
+        """Call a Supabase RPC (database function)."""
+        client = await self.connect()
+        resp = await client.post(f'/rpc/{function_name}', json=params or {})
+        resp.raise_for_status()
+        return resp.json()
+
     async def execute(self, query: str, *args: Any) -> str:
         """
         Execute query (not implemented for REST API).
@@ -132,50 +149,28 @@ class DatabaseREST:
         """
         query_lower = query.lower()
 
+        # Gold layer tables
+        if 'ml_employee_features' in query_lower:
+            return 'ml_employee_features'
+        if 'ml_predictions_log' in query_lower:
+            return 'ml_predictions_log'
+        if 'ml_weekly_snapshots' in query_lower:
+            return 'ml_weekly_snapshots'
+
+        # Silver layer materialized views
+        if 'mv_empleados_master' in query_lower:
+            return 'mv_empleados_master'
+        if 'mv_incidencias_enriquecidas' in query_lower:
+            return 'mv_incidencias_enriquecidas'
+
         # Direct table lookups
-        if (
-            'from empleados_sftp' in query_lower
-            and 'select numero_empleado' in query_lower
-            and 'clasificacion' in query_lower
-            and 'neg_30d' not in query_lower
-        ):
+        if 'from empleados_sftp' in query_lower:
             return 'empleados_sftp'
-
-        # Check for rotation features (most common)
-        if 'target_rotacion' in query_lower or 'motivo_tipo' in query_lower:
-            return 'ml_rotation_features'
-
-        if 'motivos_baja' in query_lower:
+        if 'from motivos_baja' in query_lower or 'motivos_baja' in query_lower:
             return 'motivos_baja'
 
-        # Check for absenteeism features
-        if 'target_ausentismo' in query_lower or 'month_start' in query_lower:
-            if 'neg_prev_28d' in query_lower:
-                return 'ml_absenteeism_features'
-
-        # Check for attrition features
-        if 'motivos_baja' in query_lower and 'fecha_baja' in query_lower:
-            if 'tenure_days' in query_lower:
-                return 'ml_attrition_features'
-
-        # Check for forecast features
-        if 'generate_series' in query_lower and 'day' in query_lower:
-            return 'ml_forecast_features'
-
-        # Check for lifecycle features
-        if 'event_observed' in query_lower:
-            return 'ml_lifecycle_features'
-
-        # Check for patterns features
-        if 'neg_rate_90d' in query_lower or 'dias_presentes_90d' in query_lower:
-            return 'ml_patterns_features'
-
-        # Check for productivity features
-        if 'horas_trabajadas' in query_lower and 'month_start' in query_lower:
-            return 'ml_productivity_features'
-
-        # Default fallback: try rotation features (most common)
-        return 'ml_rotation_features'
+        # Default fallback
+        return 'ml_employee_features'
 
     async def fetch_dataframe(self, query: str, *args: Any) -> pd.DataFrame:
         """
