@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 const ADMIN_EMAIL = "admin@mrm.com";
-const CRON_SECRET = process.env.CRON_SYNC_SECRET;
+const CRON_SECRET = process.env.CRON_SECRET || process.env.CRON_SYNC_SECRET;
 
 type RequireAdminSuccess = {
   userId: string;
