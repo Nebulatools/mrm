@@ -806,7 +806,7 @@ export function DashboardPage() {
                 plantillaRotacionYearScope={plantillaRotacionYearScope}
                 plantillaForCharts={plantillaFilteredGeneral}
                 plantillaDismissalDetail={plantillaDismissalDetail}
-                bajasData={bajasData}
+                bajasData={bajasFiltered}
                 bajasPorMotivoData={bajasPorMotivoData}
                 filteredRetentionKPIs={filteredRetentionKPIs}
                 retentionFilters={retentionFilters}

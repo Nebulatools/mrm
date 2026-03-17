@@ -646,6 +646,7 @@ Este componente:
 | Scope de filtro | `year-only` (año + estructura, sin mes) |
 | Componente principal | `rotacion/rotacion-tab.tsx` |
 | Que muestra | Rotacion de personal: voluntaria vs involuntaria, por motivo, por area, por antiguedad |
+| Datos que usa | `plantillaRotacionYearScope` + `bajasFiltered` (filtrado por empleados en scope) |
 | Componentes clave | |
 
 - `retention-charts.tsx` — Graficas: rotacion mensual (barras) y acumulada 12m (linea)
