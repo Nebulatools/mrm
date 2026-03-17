@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import type { RetentionFilterOptions } from "@/lib/filters";
 import { countActiveFilters, getFilterSummary, sanitizeFilterValue } from "@/lib/filters";
-// normalizeCCToUbicacion removed - now using ubicacion2 directly
+import { normalizeDepartamento, normalizeArea, normalizePuesto } from "@/lib/normalizers";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/shared/theme-provider";
 import { endOfMonth, subMonths } from "date-fns";
@@ -38,7 +38,6 @@ export function RetentionFilterPanel({
     departamentos: [],
     puestos: [],
     clasificaciones: [],
-    ubicaciones: [],
     ubicacionesIncidencias: [],
     empresas: [],  // Negocio/Empresa
     areas: []      // Área
@@ -61,7 +60,6 @@ export function RetentionFilterPanel({
       departamentos: [],
       puestos: [],
       clasificaciones: [],
-      ubicaciones: [],
       ubicacionesIncidencias: [],
       empresas: [],
       areas: []
@@ -77,11 +75,12 @@ export function RetentionFilterPanel({
     departamentos: [] as string[],
     puestos: [] as string[],
     clasificaciones: [] as string[],
-    ubicaciones: [] as string[],
     ubicacionesIncidencias: [] as string[],
     empresas: [] as string[],  // Negocio/Empresa
     areas: [] as string[]      // Área
   });
+  // Meses disponibles por año (para años incompletos como 2026)
+  const [monthsAvailableByYear, setMonthsAvailableByYear] = useState<Map<number, Set<number>>>(new Map());
 
   // Cargar opciones disponibles desde la base de datos
   useEffect(() => {
@@ -95,90 +94,94 @@ export function RetentionFilterPanel({
         .from('empleados_sftp')
         .select('fecha_baja, departamento, puesto, clasificacion, ubicacion, empresa, area, cc, ubicacion2');
 
-      // Extract all dates from fecha_baja
-      const allDates = [];
+      // Get real years from operational data (motivos_baja + incidencias)
+      const yearsSet = new Set<number>();
+      const monthsByYear = new Map<number, Set<number>>();
+
+      const { data: bajasYears } = await supabase
+        .from('motivos_baja')
+        .select('fecha_baja');
+      bajasYears?.forEach(b => {
+        if (b.fecha_baja) {
+          const [y, m] = String(b.fecha_baja).split('-');
+          const year = parseInt(y, 10);
+          const month = parseInt(m, 10);
+          if (year >= 2022) {
+            yearsSet.add(year);
+            if (!monthsByYear.has(year)) monthsByYear.set(year, new Set());
+            monthsByYear.get(year)!.add(month);
+          }
+        }
+      });
+
+      const { data: incYears } = await supabase
+        .from('incidencias')
+        .select('fecha');
+      incYears?.forEach(i => {
+        if (i.fecha) {
+          const [y, m] = String(i.fecha).split('-');
+          const year = parseInt(y, 10);
+          const month = parseInt(m, 10);
+          if (year >= 2022) {
+            yearsSet.add(year);
+            if (!monthsByYear.has(year)) monthsByYear.set(year, new Set());
+            monthsByYear.get(year)!.add(month);
+          }
+        }
+      });
+
       const departamentosSet = new Set<string>();
       const puestosSet = new Set<string>();
     const clasificacionesSet = new Set<string>();
-    const ubicacionesSet = new Set<string>();
     const ubicacionesIncSet = new Set<string>();
     const empresasSet = new Set<string>();
     const areasSet = new Set<string>();
       
       if (empleadosSFTP) {
         empleadosSFTP.forEach(emp => {
-          // DEBUG: Imprimir un empleado para ver la estructura
-          if (departamentosSet.size === 0) {
-            console.log('🔍 EMPLEADO EJEMPLO:', emp);
-            console.log('🔍 Departamento:', emp.departamento);
-            console.log('🔍 Puesto:', emp.puesto);  
-            console.log('🔍 Clasificación:', emp.clasificacion);
-            console.log('🔍 Ubicación:', (emp as any).ubicacion);
-          }
-          
-          // Collect dates
-          if (emp.fecha_baja) {
-            allDates.push(emp.fecha_baja);
-          }
-          
-          // Collect unique departamentos
+          // Collect unique departamentos (normalized to fix encoding)
           if (emp.departamento && emp.departamento !== 'null' && emp.departamento !== '') {
-            departamentosSet.add(emp.departamento);
+            const normalized = normalizeDepartamento(emp.departamento);
+            if (normalized !== 'Sin Departamento') departamentosSet.add(normalized);
           }
-          
-          // Collect unique puestos
+
+          // Collect unique puestos (normalized to fix encoding)
           if (emp.puesto && emp.puesto !== 'null' && emp.puesto !== '') {
-            puestosSet.add(emp.puesto);
+            const normalized = normalizePuesto(emp.puesto);
+            if (normalized !== 'Sin Puesto') puestosSet.add(normalized);
           }
-          
+
           // Collect unique clasificaciones
           if (emp.clasificacion && emp.clasificacion !== 'null' && emp.clasificacion !== '') {
             clasificacionesSet.add(emp.clasificacion);
           }
 
-          // Collect unique ubicaciones
-          // @ts-ignore - runtime property
-          const ub = (emp as any).ubicacion as string | undefined;
-          if (ub && ub !== 'null' && ub !== '') {
-            ubicacionesSet.add(ub);
-          }
-
           // Collect unique empresas (negocio)
-          // @ts-ignore - runtime property
           const empresa = (emp as any).empresa as string | undefined;
           if (empresa && empresa !== 'null' && empresa !== '') {
             empresasSet.add(empresa);
           }
 
-          // Collect unique áreas
-          // @ts-ignore - runtime property
+          // Collect unique áreas (normalized to fix encoding)
           const area = (emp as any).area as string | undefined;
           if (area && area !== 'null' && area !== '') {
-            areasSet.add(area);
+            const normalized = normalizeArea(area);
+            if (normalized !== 'Sin Área') areasSet.add(normalized);
           }
         });
       }
       
-      // Add current year if not present
-      allDates.push(new Date().toISOString());
+      // Years sorted descending (most recent first)
+      const uniqueYears = Array.from(yearsSet).sort((a, b) => b - a);
 
-      // Extract unique years from dates (2022 to current year range)
-      const currentYear = new Date().getFullYear();
-      const uniqueYears = Array.from(new Set(allDates.map(dateStr => {
-        const year = new Date(dateStr).getFullYear();
-        return year >= 2022 && year <= currentYear ? year : null;
-      }).filter(year => year !== null))) as number[];
-      uniqueYears.sort((a, b) => b - a);
-
-      // All months
+      // All months (will be filtered dynamically based on selected year)
       const uniqueMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
       
       // Convert sets to sorted arrays
       const departamentos = Array.from(departamentosSet).sort();
       const puestos = Array.from(puestosSet).sort();
       const clasificaciones = Array.from(clasificacionesSet).sort();
-      const ubicaciones = Array.from(ubicacionesSet).sort();
-      // ✅ CORREGIDO: Usar empleados_sftp.ubicacion2 directamente (datos limpios)
+      // Usar empleados_sftp.ubicacion2 directamente (datos limpios: CAD/CORPORATIVO/FILIALES)
       // Valores posibles: CAD, CORPORATIVO, FILIALES (sin OTROS)
       empleadosSFTP?.forEach(emp => {
         const ubicacion2 = (emp as any).ubicacion2 as string | undefined;
@@ -216,12 +219,8 @@ export function RetentionFilterPanel({
         'EVENTUAL'
       ];
 
-      const finalUbicaciones = ubicaciones.length > 0 ? ubicaciones : [
-        'Planta Norte',
-        'Planta Sur',
-        'Oficinas CDMX',
-        'Remoto'
-      ];
+      // Save months-by-year for dynamic month filtering
+      setMonthsAvailableByYear(monthsByYear);
 
       setAvailableOptions({
         years: uniqueYears,
@@ -229,7 +228,6 @@ export function RetentionFilterPanel({
         departamentos: finalDepartamentos,
         puestos: finalPuestos,
         clasificaciones: finalClasificaciones,
-        ubicaciones: finalUbicaciones,
         ubicacionesIncidencias,
         empresas: empresas.length > 0 ? empresas : ['MOTO REPUESTOS MONTERREY', 'MOTO TOTAL', 'REPUESTOS Y MOTOCICLETAS DEL NORTE'],
         areas: areas.length > 0 ? areas : []
@@ -244,6 +242,17 @@ export function RetentionFilterPanel({
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
+  // Meses disponibles: si hay año seleccionado, solo mostrar meses con datos para ese año
+  const displayedMonths = useMemo(() => {
+    const selectedYear = filters.years.length === 1 ? filters.years[0] : null;
+    if (!selectedYear || monthsAvailableByYear.size === 0) {
+      return availableOptions.months;
+    }
+    const monthsForYear = monthsAvailableByYear.get(selectedYear);
+    if (!monthsForYear) return availableOptions.months;
+    return Array.from(monthsForYear).sort((a, b) => a - b);
+  }, [filters.years, monthsAvailableByYear, availableOptions.months]);
+
   const handleMultiSelectChange = (filterType: keyof RetentionFilterOptions, selectedValues: string[]) => {
     const newFilters = { ...filters };
 
@@ -252,6 +261,13 @@ export function RetentionFilterPanel({
         .map(v => parseInt(v))
         .filter(v => !Number.isNaN(v));
       newFilters.years = Array.from(new Set(parsedYears)).sort((a, b) => a - b);
+      // If the selected month is not available in the new year, clear it
+      if (newFilters.years.length === 1 && monthsAvailableByYear.size > 0) {
+        const monthsForYear = monthsAvailableByYear.get(newFilters.years[0]);
+        if (monthsForYear && newFilters.months.length > 0) {
+          newFilters.months = newFilters.months.filter(m => monthsForYear.has(m));
+        }
+      }
     } else if (filterType === 'months') {
       const parsedMonths = selectedValues
         .map(v => parseInt(v))
@@ -263,8 +279,6 @@ export function RetentionFilterPanel({
       newFilters.puestos = selectedValues;
     } else if (filterType === 'clasificaciones') {
       newFilters.clasificaciones = selectedValues;
-    } else if (filterType === 'ubicaciones') {
-      newFilters.ubicaciones = selectedValues;
     } else if (filterType === 'ubicacionesIncidencias') {
       newFilters.ubicacionesIncidencias = selectedValues;
     } else if (filterType === 'empresas') {
@@ -284,7 +298,6 @@ export function RetentionFilterPanel({
       departamentos: [],
       puestos: [],
       clasificaciones: [],
-      ubicaciones: [],
       ubicacionesIncidencias: [],
       empresas: [],
       areas: []
@@ -607,11 +620,12 @@ export function RetentionFilterPanel({
                 selectedValues={filters.years}
                 onSelectionChange={(values) => handleMultiSelectChange("years", values)}
                 renderOption={(option) => option.toString()}
+                singleSelect={true}
               />
 
               <MultiSelectDropdown
                 label="Mes"
-                options={availableOptions.months}
+                options={displayedMonths}
                 selectedValues={filters.months}
                 onSelectionChange={(values) => handleMultiSelectChange("months", values)}
                 renderOption={(option) => monthNames[parseInt(option.toString()) - 1]}

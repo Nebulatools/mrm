@@ -64,7 +64,6 @@ export function usePlantillaFilters({
       },
       "specific"
     );
-    console.log("🎯 Plantilla filtrada (específico, solo activos):", filtered.length);
     return filtered;
   }, [plantilla, retentionFilters]);
 
@@ -79,7 +78,6 @@ export function usePlantillaFilters({
       },
       "year-only"
     );
-    console.log("📊 Plantilla (año, todos) para incidencias:", scoped.length);
     return scoped;
   }, [plantilla, retentionFilters]);
 
@@ -94,7 +92,6 @@ export function usePlantillaFilters({
       },
       "general"
     );
-    console.log("🌐 Plantilla sin filtros temporales (para acumulados):", scoped.length);
     return scoped;
   }, [plantilla, retentionFilters]);
 
@@ -112,7 +109,6 @@ export function usePlantillaFilters({
       },
       "year-only"
     );
-    console.log("🔄 Plantilla (año, con bajas) para rotación:", scoped.length);
     return scoped;
   }, [plantilla, retentionFilters]);
 

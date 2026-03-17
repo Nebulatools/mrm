@@ -264,10 +264,6 @@ export function applyRetentionFilters(
       return false;
     }
 
-    if (!matchesFilter((emp as any).ubicacion ?? emp.ubicacion, normalizedFilters.ubicaciones)) {
-      return false;
-    }
-
     // Filtro ubicacionesIncidencias: usa ubicacion2 directamente (datos limpios: CAD/CORPORATIVO/FILIALES)
     if (normalizedFilters.ubicacionesIncidencias.size > 0) {
       const ubicacion2 = (emp as any).ubicacion2 || '';
@@ -295,24 +291,6 @@ export function applyRetentionFilters(
   if (filters.includeInactive === false) {
     filtered = filtered.filter((emp) => isEmployeeActiveFlag(emp));
   }
-
-  console.log('🔍 Filtros aplicados:', {
-    original: plantilla.length,
-    filtrado: filtered.length,
-    filtros: {
-      años: filters.years?.length || 0,
-      meses: filters.months?.length || 0,
-      departamentos: filters.departamentos?.length || 0,
-      puestos: filters.puestos?.length || 0,
-      clasificaciones: filters.clasificaciones?.length || 0,
-      ubicaciones: filters.ubicaciones?.length || 0,
-      ubicacionesIncidencias: filters.ubicacionesIncidencias?.length || 0,
-      empresas: filters.empresas?.length || 0,
-      areas: filters.areas?.length || 0,
-      motivoFilter: filters.motivoFilter ?? 'all',
-      includeInactive: filters.includeInactive !== false
-    }
-  });
 
   return filtered;
 }
