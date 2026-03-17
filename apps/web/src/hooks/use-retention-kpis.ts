@@ -128,41 +128,28 @@ export function useRetentionKPIs({
   return useMemo(() => {
     // Solo calcular si tenemos datos de plantilla cargados
     if (!plantilla || plantilla.length === 0) {
-      console.log("🔍 No plantilla data available yet, returning empty KPIs");
       return EMPTY_KPIS;
     }
 
     // Esperar a que bajasData termine de cargar para evitar flash con datos incorrectos
     if (bajasDataLoading) {
-      console.log("🔍 bajasData still loading, returning empty KPIs to prevent flash");
       return EMPTY_KPIS;
     }
 
-    console.log("🎯 Calculando KPIs de retención con filtros ESPECÍFICOS...");
-
-    // Aplicar filtros específicos
-    const filteredPlantilla = applyFiltersWithScope(
-      plantilla,
-      {
-        ...retentionFilters,
-        includeInactive: false,
-      },
-      "specific"
-    );
-
+    // plantilla ya viene filtrada por estructura (dept/area/puesto/etc.)
     // Para cálculos del mes actual usamos datos filtrados por año
     const longTermPlantilla =
       plantillaFilteredYearScope.length > 0
         ? plantillaFilteredYearScope
-        : filteredPlantilla;
+        : plantilla;
 
-    // Para comparativos año anterior necesitamos plantilla SIN filtro de año
-    // pero CON filtros de departamento, puesto, área, empresa, etc.
+    // Para comparativos año anterior: misma plantilla filtrada por estructura
+    // pero SIN filtro de año para permitir comparativos históricos
     const plantillaForComparison = applyFiltersWithScope(
       plantilla,
       {
         ...retentionFilters,
-        years: [], // NO filtrar por año para permitir comparativos históricos
+        years: [],
         includeInactive: true,
       },
       "general"
@@ -278,13 +265,6 @@ export function useRetentionKPIs({
     const bajasVoluntariasMesPrev = rotacionMensualPrevio.bajasVoluntarias;
     const bajasInvoluntariasMes = rotacionMensualActual.bajasInvoluntarias;
     const bajasInvoluntariasMesPrev = rotacionMensualPrevio.bajasInvoluntarias;
-
-    console.log("✅ KPIs calculados con desglose voluntario/involuntario:", {
-      rotacionMensualTotal: `${rotMensualTotal}%`,
-      rotacionMensualInv: `${rotMensualInv}%`,
-      rotacionAcumuladaTotal: `${rotAcumuladaTotal}%`,
-      rotacionYTDTotal: `${rotYTDTotal}%`,
-    });
 
     return {
       activosPromedio: Math.round(activosPromedioActual),

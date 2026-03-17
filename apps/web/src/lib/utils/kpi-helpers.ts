@@ -77,13 +77,6 @@ export function calculateActivosPromedio(
 
   const promedio = (empleadosInicio + empleadosFin) / 2;
 
-  console.log('📊 Activos Promedio:', {
-    periodo: `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`,
-    inicio: empleadosInicio,
-    fin: empleadosFin,
-    promedio: promedio
-  });
-
   return promedio;
 }
 
@@ -115,11 +108,6 @@ export function calculateBajasEnPeriodo(
     return fechaBaja >= startDate && fechaBaja <= endDate;
   }).length;
 
-  console.log('📉 Bajas en período:', {
-    periodo: `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`,
-    cantidad: bajas
-  });
-
   return bajas;
 }
 
@@ -150,13 +138,6 @@ export function calculateRotacion(
   }
 
   const rotacion = (bajas / activosPromedio) * 100;
-
-  console.log('🔄 Rotación calculada:', {
-    periodo: `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`,
-    bajas,
-    activosPromedio,
-    rotacion: `${rotacion.toFixed(2)}%`
-  });
 
   return rotacion;
 }
@@ -284,13 +265,6 @@ export function filterByMotivo(
     return motivoFilter === 'involuntaria' ? esInvoluntaria : !esInvoluntaria;
   });
 
-  console.log(`🔍 Filtro de motivo ${motivoFilter}:`, {
-    original: plantilla.length,
-    filtrado: filtered.length,
-    bajasActivas: plantilla.filter(e => e.fecha_baja).length,
-    bajasFiltradas: filtered.filter(e => e.fecha_baja).length
-  });
-
   return filtered;
 }
 
@@ -326,12 +300,6 @@ export function filterByDateRange(
     return ingreso <= endDate && (!baja || baja >= startDate);
   });
 
-  console.log('📅 Filtro por rango de fechas:', {
-    periodo: `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`,
-    original: plantilla.length,
-    filtrado: filtered.length
-  });
-
   return filtered;
 }
 
@@ -364,8 +332,6 @@ export function calculateBajasTempranas(plantilla: PlantillaRecord[]): number {
 
     return mesesTrabajados < 3;
   }).length;
-
-  console.log('⏱️ Bajas tempranas (<3 meses):', bajasTempranas);
 
   return bajasTempranas;
 }
@@ -517,25 +483,6 @@ export function calcularRotacionConDesglose(
   const rotacionTotal = activosPromedio > 0 ? (totalBajas / activosPromedio) * 100 : 0;
   const rotacionInvoluntaria = activosPromedio > 0 ? (countInvoluntarias / activosPromedio) * 100 : 0;
   const rotacionVoluntaria = activosPromedio > 0 ? (countVoluntarias / activosPromedio) * 100 : 0;
-
-  console.log('🔢 Rotación con desglose por motivo:', {
-    periodo: `${startDate.toISOString().split('T')[0]} - ${endDate.toISOString().split('T')[0]}`,
-    fuente: bajasData ? 'motivos_baja' : 'empleados_sftp',
-    activosPromedio: activosPromedio.toFixed(2),
-    bajas: {
-      total: totalBajas,
-      involuntarias: countInvoluntarias,
-      voluntarias: countVoluntarias,
-      suma: countInvoluntarias + countVoluntarias
-    },
-    rotacion: {
-      total: `${rotacionTotal.toFixed(2)}%`,
-      involuntaria: `${rotacionInvoluntaria.toFixed(2)}%`,
-      voluntaria: `${rotacionVoluntaria.toFixed(2)}%`,
-      suma: `${(rotacionInvoluntaria + rotacionVoluntaria).toFixed(2)}%`
-    },
-    verificacion: Math.abs(rotacionTotal - (rotacionInvoluntaria + rotacionVoluntaria)) < 0.1 ? '✅' : '❌'
-  });
 
   return {
     total: rotacionTotal,

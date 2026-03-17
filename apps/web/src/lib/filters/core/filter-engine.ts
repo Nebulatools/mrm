@@ -54,6 +54,7 @@ function normalizeValue(value: Nullable<string | number>): string | null {
   const strValue = String(value).trim();
   if (!strValue) return null;
   return strValue
+    .replace(/\?/g, '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();

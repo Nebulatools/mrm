@@ -113,11 +113,11 @@ export function DashboardPage() {
   });
 
   const filteredRetentionKPIs = useRetentionKPIs({
-    plantilla: data.plantilla,
+    plantilla: plantillaRotacionYearScope,
     plantillaFilteredYearScope: plantillaRotacionYearScope,
     retentionFilters,
     selectedPeriod,
-    bajasData,
+    bajasData: bajasFiltered,
     bajasDataLoading,
   });
 
