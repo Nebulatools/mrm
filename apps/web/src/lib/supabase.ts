@@ -349,6 +349,45 @@ export const db = {
     return this.getIncidenciasCSV(startDate, endDate, client);
   },
 
+  // Predictive connections CRUD
+  async getPredictiveConnections(client = supabase) {
+    const { data, error } = await client
+      .from('predictive_connections')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async addPredictiveConnection(name: string, base_url: string, model_id: string, client = supabase) {
+    const { data, error } = await client
+      .from('predictive_connections')
+      .insert({ name, base_url, model_id })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async deletePredictiveConnection(id: string, client = supabase) {
+    const { error } = await client
+      .from('predictive_connections')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  async togglePredictiveConnection(id: string, is_active: boolean, client = supabase) {
+    const { data, error } = await client
+      .from('predictive_connections')
+      .update({ is_active, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
   // Stats operations
   async getKPIStats(client = supabase) {
     const [empleados, incidencias, bajas] = await Promise.all([

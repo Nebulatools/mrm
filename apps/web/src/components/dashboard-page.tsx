@@ -21,6 +21,7 @@ import { ThemeToggle } from "./shared/theme-toggle";
 import { SmartNarrative } from "./shared/smart-narrative";
 import { PersonalTab } from "./personal/personal-tab";
 import { RotacionTab } from "./rotacion/rotacion-tab";
+import { PredictivoTab } from "./predictivo/predictivo-tab";
 import { applyFiltersWithScope, type RetentionFilterOptions } from "@/lib/filters";
 import { kpiCalculator, type KPIResult } from "@/lib/kpi-calculator";
 import { db } from "@/lib/supabase";
@@ -731,6 +732,9 @@ export function DashboardPage() {
               <TabsTrigger value="retention" className={tabTriggerClass}>
                 Rotación
               </TabsTrigger>
+              <TabsTrigger value="predictive" className={tabTriggerClass}>
+                Predictivo
+              </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -816,6 +820,11 @@ export function DashboardPage() {
                 refreshEnabled={refreshEnabled}
                 loading={data.loading || bajasDataLoading}
               />
+            </TabsContent>
+
+            {/* Predictive Tab */}
+            <TabsContent value="predictive" className="space-y-6">
+              <PredictivoTab />
             </TabsContent>
           </Tabs>
         </main>
