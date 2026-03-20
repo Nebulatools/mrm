@@ -359,10 +359,10 @@ export const db = {
     return data || [];
   },
 
-  async addPredictiveConnection(name: string, base_url: string, model_id: string, client = supabase) {
+  async addPredictiveConnection(name: string, base_url: string, model_id: string, risk_label = 'irse', client = supabase) {
     const { data, error } = await client
       .from('predictive_connections')
-      .insert({ name, base_url, model_id })
+      .insert({ name, base_url, model_id, risk_label })
       .select()
       .single();
     if (error) throw error;

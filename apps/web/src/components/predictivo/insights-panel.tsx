@@ -40,6 +40,23 @@ interface InsightsPanelProps {
   predictions: PredictivePrediction[];
   trainingJob: PredictiveTrainingJob | null | undefined;
   model: PredictiveModel;
+  riskLabel?: string; // "irse" | "faltar" — defines the context of the prediction
+}
+
+// Maps risk_label to contextual text used throughout the panel
+function getRiskText(riskLabel: string) {
+  if (riskLabel === 'faltar') {
+    return {
+      action: 'faltar',             // "probabilidad alta de faltar"
+      noun: 'ausentismo',           // "riesgo de ausentismo"
+      event: 'ausencia',            // "probabilidad de ausencia"
+    };
+  }
+  return {
+    action: 'irse',                 // "probabilidad alta de irse"
+    noun: 'rotacion',               // "riesgo de rotacion"
+    event: 'baja',                  // "probabilidad de baja"
+  };
 }
 
 type Row = Record<string, unknown>;
@@ -362,7 +379,8 @@ function FindingIcon({ icon }: { icon: Finding["icon"] }) {
 
 type DrillView = "area" | "puesto" | "region" | "antiguedad" | null;
 
-export function InsightsPanel({ predictions, trainingJob, model }: InsightsPanelProps) {
+export function InsightsPanel({ predictions, trainingJob, model, riskLabel = 'irse' }: InsightsPanelProps) {
+  const riskText = getRiskText(riskLabel);
   const [drillView, setDrillView] = useState<DrillView>(null);
 
   if (!predictions.length || !trainingJob) return null;
@@ -380,7 +398,10 @@ export function InsightsPanel({ predictions, trainingJob, model }: InsightsPanel
   const dateEnd = model.date_range_end;
   const formatDateStr = (d: string) => {
     try {
-      return new Date(d).toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+      // Parse string directly to avoid timezone bug (UTC midnight → día anterior en MX)
+      const [year, month] = d.split("-").map(Number);
+      const fecha = new Date(year, month - 1, 15, 12, 0, 0); // mediodía local
+      return fecha.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
     } catch {
       return d;
     }
@@ -402,10 +423,10 @@ export function InsightsPanel({ predictions, trainingJob, model }: InsightsPanel
     .slice(0, 10);
 
   const drillConfig: Record<string, { title: string; subtitle: string; data: GroupStat[] }> = {
-    area: { title: "Riesgo por Area", subtitle: "Tasa de riesgo de rotacion en cada area operativa", data: areaStats },
-    puesto: { title: "Riesgo por Puesto", subtitle: "Puestos con mayor probabilidad de baja", data: puestoStats },
+    area: { title: "Riesgo por Area", subtitle: `Tasa de riesgo de ${riskText.noun} en cada area operativa`, data: areaStats },
+    puesto: { title: "Riesgo por Puesto", subtitle: `Puestos con mayor probabilidad de ${riskText.event}`, data: puestoStats },
     region: { title: "Riesgo por Region", subtitle: "Distribucion geografica del riesgo", data: regionStats },
-    antiguedad: { title: "Riesgo por Antiguedad", subtitle: "Tiempo en la empresa vs probabilidad de irse", data: tenureStats },
+    antiguedad: { title: "Riesgo por Antiguedad", subtitle: `Tiempo en la empresa vs probabilidad de ${riskText.action}`, data: tenureStats },
   };
 
   const activeDrill = drillView ? drillConfig[drillView] : null;
@@ -458,7 +479,7 @@ export function InsightsPanel({ predictions, trainingJob, model }: InsightsPanel
                     {atRisk.length}
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    probabilidad alta de irse
+                    probabilidad alta de {riskText.action}
                   </p>
                 </div>
                 <div>
@@ -610,7 +631,7 @@ export function InsightsPanel({ predictions, trainingJob, model }: InsightsPanel
           <div className="px-6 pt-5 pb-1">
             <h3 className="text-sm font-semibold">Empleados con mayor riesgo</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Top {topRisk.length} por probabilidad de baja — con factores de riesgo detectados
+              Top {topRisk.length} por probabilidad de {riskText.event} — con factores de riesgo detectados
             </p>
           </div>
           <CardContent className="pt-3">
