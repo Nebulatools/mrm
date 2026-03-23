@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/sync-sftp",
-      "schedule": "40 22 * * *"
+      "schedule": "40 4 * * *"
     }
   ]
 }
