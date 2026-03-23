@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
 
   const sftpBaseUrl = buildSftpBaseUrl(request);
   sftpClient.setBaseUrl(sftpBaseUrl);
-  const cronSecret = process.env.CRON_SYNC_SECRET;
+  const cronSecret = process.env.CRON_SYNC_SECRET || process.env.CRON_SECRET;
   const cookieHeader = request.headers.get('cookie') ?? undefined;
   if (cronSecret) {
     sftpClient.setDefaultFetchOptions({ headers: { 'x-cron-secret': cronSecret } });
