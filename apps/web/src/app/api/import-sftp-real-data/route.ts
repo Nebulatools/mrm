@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sftpClient } from '@/lib/sftp-client';
 import { requireAdmin } from '@/lib/server-auth';
+
+export const maxDuration = 60;
 import { computeNextRun, normalizeDayOfWeek, normalizeFrequency, normalizeRunTime } from '@/lib/utils/sync-schedule';
 import {
   compareFileStructure,
