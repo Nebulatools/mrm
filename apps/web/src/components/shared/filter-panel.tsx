@@ -87,21 +87,56 @@ export function RetentionFilterPanel({
     loadAvailableOptions();
   }, []);
 
+  // Paginador genérico para esquivar el cap implícito de 1,000 filas de Supabase.
+  // Vital para incidencias (>9k filas) y empleados_sftp (>1k filas) — si no paginamos,
+  // años recientes desaparecen del dropdown porque sus filas quedan fuera del cap.
+  const fetchAllPaginated = async <T,>(
+    tableName: 'empleados_sftp' | 'motivos_baja' | 'incidencias',
+    columns: string,
+    pageSize = 1000
+  ): Promise<T[]> => {
+    const all: T[] = [];
+    let from = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select(columns)
+        .order('id', { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      all.push(...(data as unknown as T[]));
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  };
+
   const loadAvailableOptions = async () => {
     try {
-      // Get empleados_sftp data
-      const { data: empleadosSFTP } = await supabase
-        .from('empleados_sftp')
-        .select('fecha_baja, departamento, puesto, clasificacion, ubicacion, empresa, area, cc, ubicacion2');
+      // Get empleados_sftp data (paginado — la tabla supera 1,000 filas)
+      const empleadosSFTP = await fetchAllPaginated<{
+        fecha_baja: string | null;
+        departamento: string | null;
+        puesto: string | null;
+        clasificacion: string | null;
+        ubicacion: string | null;
+        empresa: string | null;
+        area: string | null;
+        cc: string | null;
+        ubicacion2: string | null;
+      }>('empleados_sftp', 'fecha_baja, departamento, puesto, clasificacion, ubicacion, empresa, area, cc, ubicacion2');
 
       // Get real years from operational data (motivos_baja + incidencias)
       const yearsSet = new Set<number>();
       const monthsByYear = new Map<number, Set<number>>();
 
-      const { data: bajasYears } = await supabase
-        .from('motivos_baja')
-        .select('fecha_baja');
-      bajasYears?.forEach(b => {
+      const bajasYears = await fetchAllPaginated<{ fecha_baja: string | null }>(
+        'motivos_baja',
+        'id, fecha_baja'
+      );
+      bajasYears.forEach(b => {
         if (b.fecha_baja) {
           const [y, m] = String(b.fecha_baja).split('-');
           const year = parseInt(y, 10);
@@ -114,10 +149,11 @@ export function RetentionFilterPanel({
         }
       });
 
-      const { data: incYears } = await supabase
-        .from('incidencias')
-        .select('fecha');
-      incYears?.forEach(i => {
+      const incYears = await fetchAllPaginated<{ fecha: string | null }>(
+        'incidencias',
+        'id, fecha'
+      );
+      incYears.forEach(i => {
         if (i.fecha) {
           const [y, m] = String(i.fecha).split('-');
           const year = parseInt(y, 10);
