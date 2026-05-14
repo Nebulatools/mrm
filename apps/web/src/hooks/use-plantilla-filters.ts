@@ -145,14 +145,31 @@ export function usePlantillaFilters({
     [bajasData, empleadosFiltradosIds]
   );
 
+  // Set normalizado de ubicaciones seleccionadas (CAD/CORPORATIVO/FILIALES en uppercase)
+  const ubicacionesSelected = useMemo(() => {
+    const set = new Set<string>();
+    (retentionFilters.ubicacionesIncidencias ?? []).forEach((v) => {
+      if (v && typeof v === "string") set.add(v.toUpperCase().trim());
+    });
+    return set;
+  }, [retentionFilters.ubicacionesIncidencias]);
+
   // Incidencias filtradas y normalizadas
+  // 1) Filtro por empleado (numero_empleado en universo filtrado)
+  // 2) Filtro por incidencias.ubicacion2 cuando el usuario eligio una ubicacion en el filtro
+  //    (incidencias.ubicacion2 esta 100% poblada en 2026, fuente directa del SFTP).
+  //    Si el registro tiene ubicacion2 NULL (datos 2025) y el filtro esta activo, se excluye.
   const incidenciasFiltered = useMemo(
     () =>
       incidenciasData
         .filter((i) => {
-          // Incluir incidencias con emp negativo (sintético) o sin match para no perder datos
           if (i.emp === undefined || i.emp === null || i.emp < 0) return true;
           return empleadosFiltradosIds.size === 0 || empleadosFiltradosIds.has(i.emp);
+        })
+        .filter((i) => {
+          if (ubicacionesSelected.size === 0) return true;
+          const ub = String(i.ubicacion2 || "").toUpperCase().trim();
+          return ubicacionesSelected.has(ub);
         })
         .map((i) => ({
           id: i.id,
@@ -162,7 +179,7 @@ export function usePlantillaFilters({
           incidencia: i.incidencia ?? null,
           ubicacion2: i.ubicacion2 ?? null,
         })),
-    [incidenciasData, empleadosFiltradosIds]
+    [incidenciasData, empleadosFiltradosIds, ubicacionesSelected]
   );
 
   return {
