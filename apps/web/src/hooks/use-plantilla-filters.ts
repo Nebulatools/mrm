@@ -145,17 +145,34 @@ export function usePlantillaFilters({
     [bajasData, empleadosFiltradosIds]
   );
 
+  // Set normalizado de ubicaciones seleccionadas (CAD/CORPORATIVO/FILIALES en uppercase)
+  const ubicacionesSelected = useMemo(() => {
+    const set = new Set<string>();
+    (retentionFilters.ubicacionesIncidencias ?? []).forEach((v) => {
+      if (v && typeof v === "string") set.add(v.toUpperCase().trim());
+    });
+    return set;
+  }, [retentionFilters.ubicacionesIncidencias]);
+
   // Incidencias filtradas y normalizadas
-  // Cruce por numero_empleado contra el universo filtrado de empleados (que ya aplica
-  // el filtro de Ubicacion via cc+empresa). Las incidencias heredan la ubicacion de su
-  // empleado, asi que basta con este cruce.
+  // 1) Cruce por numero_empleado contra el universo filtrado de empleados (cc+empresa).
+  // 2) Si hay ubicacion seleccionada Y la incidencia tiene ubicacion2 poblada (2026),
+  //    usar esa columna directo. Si la incidencia tiene ubicacion2 NULL (datos 2025),
+  //    se confia en el cruce por empleado del paso 1 — asi no perdemos historico.
   const incidenciasFiltered = useMemo(
     () =>
       incidenciasData
         .filter((i) => {
-          // Incluir incidencias con emp negativo (sintético) o sin match para no perder datos
           if (i.emp === undefined || i.emp === null || i.emp < 0) return true;
           return empleadosFiltradosIds.size === 0 || empleadosFiltradosIds.has(i.emp);
+        })
+        .filter((i) => {
+          if (ubicacionesSelected.size === 0) return true;
+          const ub = String(i.ubicacion2 || "").toUpperCase().trim();
+          // Si la incidencia tiene ubicacion2 lleno (datos 2026), debe matchear.
+          // Si esta NULL (datos 2025), confiar en el filtro por empleado.
+          if (ub) return ubicacionesSelected.has(ub);
+          return true;
         })
         .map((i) => ({
           id: i.id,
@@ -165,7 +182,7 @@ export function usePlantillaFilters({
           incidencia: i.incidencia ?? null,
           ubicacion2: i.ubicacion2 ?? null,
         })),
-    [incidenciasData, empleadosFiltradosIds]
+    [incidenciasData, empleadosFiltradosIds, ubicacionesSelected]
   );
 
   return {
