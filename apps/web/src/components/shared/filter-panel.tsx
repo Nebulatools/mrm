@@ -217,12 +217,17 @@ export function RetentionFilterPanel({
       const departamentos = Array.from(departamentosSet).sort();
       const puestos = Array.from(puestosSet).sort();
       const clasificaciones = Array.from(clasificacionesSet).sort();
-      // Usar empleados_sftp.ubicacion2 directamente (datos limpios: CAD/CORPORATIVO/FILIALES)
-      // Valores posibles: CAD, CORPORATIVO, FILIALES (sin OTROS)
+      // Derivar Ubicación desde cc + empresa (empleados_sftp.ubicacion2 esta NULL en 89%)
+      // Regla: cc='CAD' -> CAD | empresa filial -> FILIALES | resto MRM -> CORPORATIVO
       empleadosSFTP?.forEach(emp => {
-        const ubicacion2 = (emp as any).ubicacion2 as string | undefined;
-        if (ubicacion2 && ubicacion2.trim() !== '') {
-          ubicacionesIncSet.add(ubicacion2.toUpperCase());
+        const cc = String((emp as any).cc || '').trim().toUpperCase();
+        const empresa = String((emp as any).empresa || '').trim().toUpperCase();
+        if (cc === 'CAD') {
+          ubicacionesIncSet.add('CAD');
+        } else if (empresa === 'MOTO TOTAL' || empresa === 'REPUESTOS Y MOTOCICLETAS DEL NORTE') {
+          ubicacionesIncSet.add('FILIALES');
+        } else if (empresa === 'MOTO REPUESTOS MONTERREY') {
+          ubicacionesIncSet.add('CORPORATIVO');
         }
       });
       const ubicacionesIncidencias = Array.from(ubicacionesIncSet).sort();

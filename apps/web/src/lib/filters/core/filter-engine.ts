@@ -265,10 +265,24 @@ export function applyRetentionFilters(
       return false;
     }
 
-    // Filtro ubicacionesIncidencias: usa ubicacion2 directamente (datos limpios: CAD/CORPORATIVO/FILIALES)
+    // Filtro ubicacionesIncidencias: derivar de cc + empresa porque empleados_sftp.ubicacion2
+    // está NULL en ~89% de los activos. La lógica deduce CAD/CORPORATIVO/FILIALES desde
+    // columnas SIEMPRE pobladas (cc y empresa).
     if (normalizedFilters.ubicacionesIncidencias.size > 0) {
-      const ubicacion2 = (emp as any).ubicacion2 || '';
-      if (!matchesFilter(ubicacion2.toUpperCase(), normalizedFilters.ubicacionesIncidencias)) {
+      const cc = String((emp as any).cc || '').trim().toUpperCase();
+      const empresa = String((emp as any).empresa || '').trim().toUpperCase();
+      let derivedUbicacion = '';
+      if (cc === 'CAD') {
+        derivedUbicacion = 'CAD';
+      } else if (
+        empresa === 'MOTO TOTAL' ||
+        empresa === 'REPUESTOS Y MOTOCICLETAS DEL NORTE'
+      ) {
+        derivedUbicacion = 'FILIALES';
+      } else if (empresa === 'MOTO REPUESTOS MONTERREY') {
+        derivedUbicacion = 'CORPORATIVO';
+      }
+      if (!matchesFilter(derivedUbicacion, normalizedFilters.ubicacionesIncidencias)) {
         return false;
       }
     }
