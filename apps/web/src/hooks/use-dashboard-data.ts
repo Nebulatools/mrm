@@ -105,14 +105,27 @@ export function useDashboardData({
     [timePeriod, selectedPeriod, supabase, retentionFilters]
   );
 
-  // Load KPIs on mount and when period changes
+  // Load KPIs on mount and when period changes.
+  // CRÍTICO: esperar a que la sesión auth este lista antes de disparar fetch,
+  // sino RLS bloquea todas las queries y devuelve plantilla=[] (0 activos / 0%).
   useEffect(() => {
+    let cancelled = false;
     const loadData = async () => {
       try {
+        // Asegurar sesión auth antes de queries (evita race condition con RLS)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (!session) {
+          console.warn("⚠️ [useDashboardData] No session yet, skipping KPIs load");
+          setData((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+
         const response = await fetch(
           `/api/kpis?period=${timePeriod}&date=${selectedPeriod.toISOString()}`
         );
         const result = await response.json();
+        if (cancelled) return;
 
         if (result.success) {
           setData({
@@ -125,33 +138,47 @@ export function useDashboardData({
           throw new Error(result.error || "API failed");
         }
       } catch (error) {
+        if (cancelled) return;
         console.error("Error loading dashboard data:", error);
         setData((prev) => ({ ...prev, loading: false }));
       }
     };
 
     loadData();
-  }, [timePeriod, selectedPeriod]);
+    return () => { cancelled = true; };
+  }, [timePeriod, selectedPeriod, supabase]);
 
-  // Load bajas and incidencias for comparative summary
+  // Load bajas and incidencias for comparative summary.
+  // Mismo guard de sesión.
   useEffect(() => {
+    let cancelled = false;
     const loadBajasIncidencias = async () => {
       setBajasDataLoading(true);
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (!session) {
+          console.warn("⚠️ [useDashboardData] No session yet, skipping bajas/incidencias load");
+          return;
+        }
+
         const [bajas, incidencias] = await Promise.all([
           db.getMotivosBaja(undefined, undefined, supabase),
           db.getIncidenciasCSV(undefined, undefined, supabase),
         ]);
+        if (cancelled) return;
         setBajasData(bajas);
         setIncidenciasData(incidencias);
       } catch (error) {
+        if (cancelled) return;
         console.error("Error loading bajas/incidencias:", error);
       } finally {
-        setBajasDataLoading(false);
+        if (!cancelled) setBajasDataLoading(false);
       }
     };
 
     loadBajasIncidencias();
+    return () => { cancelled = true; };
   }, [supabase]);
 
   const refresh = useCallback(async () => {

@@ -134,7 +134,9 @@ export const db = {
     if (isFullLoad) {
       inflightIncidenciasFull = fetchAll()
         .then((data) => {
-          cachedIncidenciasFull = data;
+          // Solo cachear si la query trajo datos. Un array vacio probablemente
+          // significa RLS bloqueando por auth no listo todavia (race condition).
+          if (data.length > 0) cachedIncidenciasFull = data;
           return data;
         })
         .finally(() => {
@@ -161,7 +163,8 @@ export const db = {
       }
       inflightEmpleadosSFTP = (this as typeof db)._getEmpleadosSFTPImpl(client)
         .then((data) => {
-          cachedEmpleadosSFTP = data;
+          // No cachear si vacio (race condition con auth)
+          if (data.length > 0) cachedEmpleadosSFTP = data;
           return data;
         })
         .finally(() => {
@@ -352,7 +355,8 @@ export const db = {
     if (isFullLoad) {
       inflightMotivosBajaFull = fetchAll()
         .then((data) => {
-          cachedMotivosBajaFull = data;
+          // No cachear si vacio (race condition con auth)
+          if (data.length > 0) cachedMotivosBajaFull = data;
           return data;
         })
         .finally(() => {
