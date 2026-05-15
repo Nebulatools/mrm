@@ -36,6 +36,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // Database types based on your actual Supabase schema
 // Type definitions moved to ./types/records to avoid circular imports.
 
+// In-flight dedup + cache para las 3 cargas pesadas (sin date range).
+// Sin esto, multiple componentes/useEffects disparan el mismo fetch paginado
+// (11 páginas × 8 callers = 88 requests). Con esto: 1 fetch compartido.
+let inflightIncidenciasFull: Promise<IncidenciaCSVRecord[]> | null = null;
+let cachedIncidenciasFull: IncidenciaCSVRecord[] | null = null;
+let inflightEmpleadosSFTP: Promise<PlantillaRecord[]> | null = null;
+let cachedEmpleadosSFTP: PlantillaRecord[] | null = null;
+let inflightMotivosBajaFull: Promise<MotivoBajaRecord[]> | null = null;
+let cachedMotivosBajaFull: MotivoBajaRecord[] | null = null;
+
+/** Resetea caches in-memory. Llamar después de mutaciones (imports SFTP, etc.). */
+export function clearDbDataCaches() {
+  cachedIncidenciasFull = null;
+  inflightIncidenciasFull = null;
+  cachedEmpleadosSFTP = null;
+  inflightEmpleadosSFTP = null;
+  cachedMotivosBajaFull = null;
+  inflightMotivosBajaFull = null;
+}
+
 // Database operations
 export const db = {
   // PLANTILLA operations (legacy - keeping for compatibility)
@@ -56,57 +76,103 @@ export const db = {
   },
 
   // INCIDENCIAS (CSV) operations - CON PAGINACIÓN para cargar TODOS los registros
+  // Dedup + cache: si no hay filtro de fechas (carga completa típica), comparte
+  // el mismo Promise entre callers concurrentes y cachea el resultado.
   async getIncidenciasCSV(startDate?: string, endDate?: string, client = supabase) {
-    console.log('🗄️ Fetching incidencias (CSV table) con paginación...', { startDate, endDate });
+    const isFullLoad = !startDate && !endDate;
 
-    let allData: IncidenciaCSVRecord[] = [];
-    let from = 0;
-    const pageSize = 1000; // Máximo de Supabase por página
-    let hasMore = true;
-
-    while (hasMore) {
-      let query = client
-        .from('incidencias')
-        .select('*')
-        .order('fecha', { ascending: false })
-        .order('id', { ascending: false })
-        .range(from, from + pageSize - 1);
-
-      if (startDate) {
-        query = query.gte('fecha', startDate);
+    if (isFullLoad) {
+      if (cachedIncidenciasFull) {
+        console.log('♻️ incidencias (full) HIT cache:', cachedIncidenciasFull.length);
+        return cachedIncidenciasFull;
       }
-      if (endDate) {
-        query = query.lte('fecha', endDate);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('❌ Error fetching incidencias página', from / pageSize + 1, ':', error);
-        throw error;
-      }
-
-      if (!data || data.length === 0) {
-        hasMore = false;
-      } else {
-        allData = allData.concat(data);
-        console.log(`📄 Página ${Math.floor(from / pageSize) + 1}: ${data.length} registros (total acumulado: ${allData.length})`);
-        from += pageSize;
-
-        // Si recibimos menos registros que el tamaño de página, ya no hay más
-        if (data.length < pageSize) {
-          hasMore = false;
-        }
+      if (inflightIncidenciasFull) {
+        console.log('⏳ incidencias (full) reusing in-flight promise');
+        return inflightIncidenciasFull;
       }
     }
 
-    console.log('✅ incidencias (CSV) loaded:', allData.length, 'records (todas las páginas cargadas)');
-    return allData as IncidenciaCSVRecord[];
+    const fetchAll = async (): Promise<IncidenciaCSVRecord[]> => {
+      console.log('🗄️ Fetching incidencias (CSV table) con paginación...', { startDate, endDate });
+      let allData: IncidenciaCSVRecord[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        let query = client
+          .from('incidencias')
+          .select('*')
+          .order('fecha', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (startDate) query = query.gte('fecha', startDate);
+        if (endDate) query = query.lte('fecha', endDate);
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error('❌ Error fetching incidencias página', from / pageSize + 1, ':', error);
+          throw error;
+        }
+
+        if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allData = allData.concat(data);
+          console.log(`📄 Página ${Math.floor(from / pageSize) + 1}: ${data.length} registros (total acumulado: ${allData.length})`);
+          from += pageSize;
+          if (data.length < pageSize) hasMore = false;
+        }
+      }
+
+      console.log('✅ incidencias (CSV) loaded:', allData.length, 'records');
+      return allData as IncidenciaCSVRecord[];
+    };
+
+    if (isFullLoad) {
+      inflightIncidenciasFull = fetchAll()
+        .then((data) => {
+          cachedIncidenciasFull = data;
+          return data;
+        })
+        .finally(() => {
+          inflightIncidenciasFull = null;
+        });
+      return inflightIncidenciasFull;
+    }
+
+    return fetchAll();
   },
 
   // EMPLEADOS_SFTP operations (new main employee table)
   // ✅ FASE 5: Usar motivos_baja como fuente de verdad para bajas
+  // Dedup + cache: solo cuando se llama con el cliente default (caso típico).
   async getEmpleadosSFTP(client = supabase) {
+    if (client === supabase) {
+      if (cachedEmpleadosSFTP) {
+        console.log('♻️ empleados_sftp HIT cache:', cachedEmpleadosSFTP.length);
+        return cachedEmpleadosSFTP;
+      }
+      if (inflightEmpleadosSFTP) {
+        console.log('⏳ empleados_sftp reusing in-flight promise');
+        return inflightEmpleadosSFTP;
+      }
+      inflightEmpleadosSFTP = (this as typeof db)._getEmpleadosSFTPImpl(client)
+        .then((data) => {
+          cachedEmpleadosSFTP = data;
+          return data;
+        })
+        .finally(() => {
+          inflightEmpleadosSFTP = null;
+        });
+      return inflightEmpleadosSFTP;
+    }
+    return (this as typeof db)._getEmpleadosSFTPImpl(client);
+  },
+
+  async _getEmpleadosSFTPImpl(client = supabase) {
     console.log('🗄️ Fetching empleados_sftp data...');
     console.log('🔍 DEBUGGING: getEmpleadosSFTP called at', new Date().toISOString());
 
@@ -250,27 +316,52 @@ export const db = {
     return transformed as PlantillaRecord[];
   },
 
+  // Dedup + cache para carga completa sin rangos de fecha.
   async getMotivosBaja(startDate?: string, endDate?: string, client = supabase) {
-    console.log('🗄️ Fetching motivos_baja data desde vista deduplicada...', { startDate, endDate });
-    let query = client
-      .from('v_motivos_baja_unicos')
-      .select('*')
-      .order('fecha_baja', { ascending: false });
+    const isFullLoad = !startDate && !endDate;
 
-    if (startDate) {
-      query = query.gte('fecha_baja', startDate);
-    }
-    if (endDate) {
-      query = query.lte('fecha_baja', endDate);
+    if (isFullLoad) {
+      if (cachedMotivosBajaFull) {
+        console.log('♻️ motivos_baja (full) HIT cache:', cachedMotivosBajaFull.length);
+        return cachedMotivosBajaFull;
+      }
+      if (inflightMotivosBajaFull) {
+        console.log('⏳ motivos_baja (full) reusing in-flight promise');
+        return inflightMotivosBajaFull;
+      }
     }
 
-    const { data, error } = await query;
-    if (error) {
-      console.error('❌ Error fetching v_motivos_baja_unicos:', error);
-      throw error;
+    const fetchAll = async (): Promise<MotivoBajaRecord[]> => {
+      console.log('🗄️ Fetching motivos_baja data desde vista deduplicada...', { startDate, endDate });
+      let query = client
+        .from('v_motivos_baja_unicos')
+        .select('*')
+        .order('fecha_baja', { ascending: false });
+      if (startDate) query = query.gte('fecha_baja', startDate);
+      if (endDate) query = query.lte('fecha_baja', endDate);
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('❌ Error fetching v_motivos_baja_unicos:', error);
+        throw error;
+      }
+      console.log('✅ motivos_baja data loaded:', data?.length, 'records');
+      return (data || []) as MotivoBajaRecord[];
+    };
+
+    if (isFullLoad) {
+      inflightMotivosBajaFull = fetchAll()
+        .then((data) => {
+          cachedMotivosBajaFull = data;
+          return data;
+        })
+        .finally(() => {
+          inflightMotivosBajaFull = null;
+        });
+      return inflightMotivosBajaFull;
     }
-    console.log('✅ motivos_baja data loaded desde vista v_motivos_baja_unicos:', data?.length, 'records');
-    return (data || []) as MotivoBajaRecord[];
+
+    return fetchAll();
   },
 
   // DEPRECATED: asistencia_diaria table doesn't exist - use getIncidenciasCSV instead
